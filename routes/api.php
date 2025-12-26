@@ -11,6 +11,7 @@ use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\InvoiceItemController;
 use App\Http\Controllers\XeroContactController;
+use App\Http\Controllers\GlobalExternal\CurrencyController;
 use App\Http\Controllers\InvoiceItem2Controller;
 use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\BankController;
@@ -93,3 +94,9 @@ Route::get('/get-all-bank', [BankController::class, 'getAllBank']);
 //local contact-cron-job payment history
 Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory']);
 Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);
+
+//currency
+Route::get('/convert/idr-to-sar', [CurrencyController::class, 'idrToSar']);
+Route::get('/convert/sar-to-idr', [CurrencyController::class, 'sarToIdr']);
+Route::get('/convert/idr-to-usd', [CurrencyController::class, 'idrToUsd']);
+Route::get('/convert/usd-to-idr', [CurrencyController::class, 'usdToIdr']);

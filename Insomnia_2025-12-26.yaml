@@ -666,12 +666,12 @@ collection:
             send: true
             store: true
           rebuildPath: true
-      - url: "{{ _.local_url }}get-data"
+      - url: "{{ _.prod_url }}get-data"
         name: get-all-contact
         meta:
           id: req_c7e9570078d548dfba4cb29cfa8b2793
           created: 1763965694122
-          modified: 1766716006946
+          modified: 1766721991517
           isPrivate: false
           description: ""
           sortKey: -1764323595345
@@ -1748,12 +1748,12 @@ collection:
           sortKey: -1764733275226
           description: ""
         children:
-          - url: "{{ _.local_url }}get-contact-local"
+          - url: "{{ _.prod_url }}get-contact-local"
             name: (cron-job)-ambil 50 data update xero false
             meta:
               id: req_176c036c875f4179be60059624e08dc3
               created: 1765436392667
-              modified: 1766716969755
+              modified: 1766722146884
               isPrivate: false
               description: ""
               sortKey: -1765436399408
@@ -1858,6 +1858,162 @@ collection:
                 value: application/json
               - name: User-Agent
                 value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+      - name: currency
+        meta:
+          id: fld_1cd12beb5d9245f5a157165f77170268
+          created: 1766742983807
+          modified: 1766743027032
+          sortKey: -1766121563537
+          description: ""
+        children:
+          - url: https://api.currencyfreaks.com/v2.0/rates/latest?apikey={{
+              _.key_currencyfreaks }}
+            name: list-currency
+            meta:
+              id: req_7d9dd4fde7794871a4bfd9a9af3c9344
+              created: 1766737782290
+              modified: 1766743022487
+              isPrivate: false
+              description: ""
+              sortKey: -1766743009008.5
+            method: GET
+            headers:
+              - name: User-Agent
+                value: insomnia/12.2.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}convert/idr-to-sar"
+            name: convert-idr-to-sar
+            meta:
+              id: req_bc6d2c54ba164ec2a3a1bb3ec8cc11ce
+              created: 1766738371176
+              modified: 1766743019223
+              isPrivate: false
+              description: ""
+              sortKey: -1766743009021
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"amount" :18000
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.2.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}convert/sar-to-idr"
+            name: convert-sar-to-idr
+            meta:
+              id: req_f6b88b62e57e4ac28c96d9deff5c9a1f
+              created: 1766739810954
+              modified: 1766743012455
+              isPrivate: false
+              description: ""
+              sortKey: -1766743009046
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"amount" :1
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.2.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}convert/idr-to-usd"
+            name: convert-idr-to-usd
+            meta:
+              id: req_16b8556b7a9840fbae53c76a503a3643
+              created: 1766740795294
+              modified: 1766743015849
+              isPrivate: false
+              description: ""
+              sortKey: -1766743008996
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"amount" :18000
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.2.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}convert/usd-to-idr"
+            name: convert-usd-to-idr
+            meta:
+              id: req_0a5ff5f878e44e5ab9da659655e827ce
+              created: 1766741621393
+              modified: 1766743008997
+              isPrivate: false
+              description: ""
+              sortKey: -1766743008946
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"amount" :7
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.2.0
                 description: ""
                 disabled: false
             settings:
@@ -3076,12 +3232,12 @@ collection:
             send: true
             store: true
           rebuildPath: true
-      - url: "{{ _.local_url }}xero/callback"
+      - url: "{{ _.prod_url }}xero/callback"
         name: 2. calback
         meta:
           id: req_841d079e20764d4b86bfe4ab4b3290c6
           created: 1765524099733
-          modified: 1766568870004
+          modified: 1766721399577
           isPrivate: false
           description: ""
           sortKey: -1765480047715.5
@@ -3090,7 +3246,7 @@ collection:
           mimeType: application/json
           text: |-
             {
-            	"code":"uWoyBR2wGxBgM8eOVgZDAyPn9sha82uKAkXYToTAles"
+            	"code":"2hz1Iddh5uZF-JC1GHDPgGXoHrQyjjU_PeGKEtn7seA"
             }
         headers:
           - name: Content-Type
@@ -3235,7 +3391,7 @@ environments:
   meta:
     id: env_c2ae793db59041d39578e135076b40ae
     created: 1763783221516
-    modified: 1766041049506
+    modified: 1766737849214
     isPrivate: false
   data:
     barer_token: eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3NjU1MzA0MTUsImV4cCI6MTc2NTUzMjIxNSwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6Imh0dHBzOi8vaWRlbnRpdHkueGVyby5jb20vcmVzb3VyY2VzIiwiY2xpZW50X2lkIjoiMzZGMDg3MUQyMjMzNERERTg4RDIzRUZFNDBBQjU2MjgiLCJzdWIiOiI4YzY4ZGYyYWMzOGU1ZjU3YjBkN2M0MzgwOGYzZTI1OSIsImF1dGhfdGltZSI6MTc2NTUzMDM5MSwieGVyb191c2VyaWQiOiJkM2RjMjc4YS0wZWUyLTQxMzEtOTA2Yy1iOWUyNjkyZWE4ODQiLCJnbG9iYWxfc2Vzc2lvbl9pZCI6IjVlODUzY2Y3NGNhZTQ2OTlhODVkZjgyYjNkMzNkNWFiIiwic2lkIjoiNWU4NTNjZjc0Y2FlNDY5OWE4NWRmODJiM2QzM2Q1YWIiLCJhdXRoZW50aWNhdGlvbl9ldmVudF9pZCI6IjQ4ZWEyYzY5LTMwOWEtNGYyZS1hZGM3LWI0MjNhY2I1ZTc4MiIsImp0aSI6IjM4OENENDFDNjk0QUVDMEI3NDAwOTQ1NTdGMTc4NkRGIiwic2NvcGUiOlsiYWNjb3VudGluZy5jb250YWN0cyIsImFjY291bnRpbmcuY29udGFjdHMucmVhZCIsImFjY291bnRpbmcuc2V0dGluZ3MiLCJhY2NvdW50aW5nLnNldHRpbmdzLnJlYWQiLCJhY2NvdW50aW5nLnRyYW5zYWN0aW9ucyIsImFjY291bnRpbmcudHJhbnNhY3Rpb25zLnJlYWQiLCJvZmZsaW5lX2FjY2VzcyJdLCJhbXIiOlsibGVnYWN5Il19.da_DzE_KaqtxOk_UyZn1iJwLEZh1wGMwR-qLN_604SRHzmbJuRi6AngxXi6CacWhZ2QX0AtmXd4zEjgR_ToWQ7tyl2sGb2xLcClWBuSxaAtJElwMpxq-0qWNm3Y7O1IShsWTmjJ0bCjyEIVVtiZxyuTKo4w1WeMoxw8ghWbfOu7fAgsfpJx_AxPn4oaEFe-0PZ4r_Tnmd2RED5PvzzsIwAcney2gR6uvxpsWI96KgJam2JMbdCKDsq7PRTb0d-vWfecKhSGDr0tLfO6FYK_LRFKVWDAgYSjEOsWKht2QOron_smpdBezhdprL2PAStCmtuFRQSKqytNh2FPGXnNw9A
@@ -3245,3 +3401,5 @@ environments:
     line_item_id: 5fff6c88-7cbd-4bd8-ac1f-d5700c64f76d
     payment_id: b044ad76-ce98-4f78-a747-1676d8a7a36d
     refresh_token: lsEDu1XDingtEx3U5xUq38IyiFgEoAy_ekAM65jjGPA
+    prod_url: https://laravel8-xero.alhidayah.id/api/
+    key_currencyfreaks: f759b7cefeb24896bc934f6a01c498a1
