@@ -27,8 +27,156 @@ class ContactController extends Controller
         return view('contact');
     }
 
+    public function getContactLocal()//26122025 , durasi update / create 5 detik untuk 50 data,
+    {
+        // 1. Setup Resource Limit
+        set_time_limit(120); // 2 Menit cukup untuk 50 data
+        ini_set('memory_limit', '256M');
 
-    public function getContactLocal()
+        try {
+            // 2. Ambil Data Lokal (Limit 50 agar URL query Xero tidak kepanjangan)
+            $dataLocal = DataJamaah::select(
+                "id_jamaah", "no_ktp", "title", "tempat_lahir", "estimasi_berangkat",
+                "leader", "id_status", "nama_jamaah", "alamat_jamaah",
+                "hp_jamaah", "no_tlp", "created_at", "is_updated_to_xero",
+                DB::raw("TRIM(SUBSTRING_INDEX(hp_jamaah, '/', 1)) as hp_jamaah_bersih")
+            )
+            ->where("is_updated_to_xero", false)
+            ->limit(50) // JANGAN diubah jadi besar, karena limit URL character
+            ->get();
+
+            if ($dataLocal->isEmpty()) {
+                return response()->json(['message' => 'Data jamaah sudah sinkron semua'], 200);
+            }
+
+            // 3. Validasi Token
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json(['message' => 'Token kosong/invalid.'], 401);
+            }
+
+            $tenantId = env('XERO_TENANT_ID'); // Gunakan Config, bukan env()
+            $accessToken = $tokenData['access_token'];
+
+            // 4. --- OPTIMASI: SMART DUPLICATE CHECK ---
+            // Alih-alih ambil semua data, kita buat query spesifik untuk 50 nama ini.
+            // Format Xero Where: Name=="Ali" OR Name=="Budi" OR Name=="Citra"
+
+            $localNames = $dataLocal->pluck('nama_jamaah')
+                ->map(function($name) {
+                    // Escape karakter kutip dua agar query tidak error
+                    return 'Name=="' . str_replace('"', '\"', $name) . '"';
+                })
+                ->toArray();
+
+            // Gabungkan dengan OR
+            $whereClause = implode(' OR ', $localNames);
+
+            // Request ke Xero (Cuma minta ID dan Name saja biar ringan)
+            $existingContacts = [];
+            if (!empty($whereClause)) {//cek nama jamaah apakah ada di xero
+                $responseCheck = Http::withHeaders([
+                    'Authorization'  => 'Bearer ' . $accessToken,
+                    'Xero-Tenant-Id' => $tenantId,
+                    'Accept'         => 'application/json',
+                ])->get('https://api.xero.com/api.xro/2.0/Contacts', [
+                    'where' => $whereClause,
+                    'summaryOnly' => 'true' // PENTING: Response lebih kecil & cepat
+                ]);
+
+                if ($responseCheck->successful()) {
+                    $xeroData = $responseCheck->json()['Contacts'] ?? [];
+                    // Mapping Nama => ContactID
+                    foreach ($xeroData as $xContact) {
+                        $existingContacts[strtolower($xContact['Name'])] = $xContact['ContactID'];
+                    }
+                }
+            }
+
+            // 5. Siapkan Payload (Mixed: Create & Update)
+            $payloadContacts = [];
+            $ids_processed = [];
+
+            foreach ($dataLocal as $jamaah) {
+                $cleanName = trim($jamaah->nama_jamaah);
+                $lowerName = strtolower($cleanName);
+
+                $contactData = [
+                    "Name" => $cleanName,
+                    "DefaultCurrency" => "IDR",
+                    "Addresses" => [
+                        [
+                            "AddressType" => "STREET",
+                            "AddressLine1" => $jamaah->alamat_jamaah ?? "-"
+                        ]
+                    ],
+                    "Phones" => [
+                        [
+                            "PhoneType" => "MOBILE",
+                            "PhoneNumber" => $jamaah->hp_jamaah_bersih ?? ""
+                        ]
+                    ]
+                ];
+
+                // LOGIKA PENTING:
+                // Jika nama sudah ada di Xero -> Masukkan ContactID (Xero akan melakukan UPDATE)
+                // Jika belum ada -> Jangan masukkan ContactID (Xero akan melakukan CREATE)
+                if (isset($existingContacts[$lowerName])) {
+                    $contactData['ContactID'] = $existingContacts[$lowerName];
+                }
+
+                $payloadContacts[] = $contactData;
+                $ids_processed[] = $jamaah->id_jamaah;
+            }
+
+            // 6. Kirim ke Xero (Batch POST)
+            if (!empty($payloadContacts)) {
+                $responsePost = Http::withHeaders([
+                    'Authorization'  => 'Bearer ' . $accessToken,
+                    'Xero-Tenant-Id' => $tenantId,
+                    'Content-Type'   => 'application/json',
+                ])->post('https://api.xero.com/api.xro/2.0/Contacts', [
+                    'Contacts' => $payloadContacts
+                ]);
+
+                // 7. Cek Hasil dan Update DB Lokal
+                if ($responsePost->successful()) {
+                    // Update status di database lokal
+                    // Kita asumsikan jika batch request sukses (200 OK), semua data di dalamnya aman
+                    // Atau Xero mengembalikan warning tapi tetap 200.
+
+                    DataJamaah::whereIn('id_jamaah', $ids_processed)
+                        ->update(['is_updated_to_xero' => true]);
+
+                    Log::info("Cron Job Contact: Sukses sync " . count($ids_processed) . " data. list ".json_encode($ids_processed));
+
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Sync kontak berhasil',
+                        'total_processed' => count($ids_processed),
+                        'type' => 'Mixed (Create & Update)'
+                    ]);
+
+                } else {
+                    // Handle Error
+                    Log::error("Cron Job Contact Gagal: " . $responsePost->body());
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Gagal POST ke Xero',
+                        'details' => $responsePost->json()
+                    ], 400);
+                }
+            }
+
+            return response()->json(['message' => 'Tidak ada payload yang terbentuk.'], 200);
+
+        } catch (Exception $e) {
+            Log::error("Cron Job Contact Fatal Error: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getContactLocalv2()
     {
         // 1. Ambil Data Lokal yang belum sync
         $dataLocal = DataJamaah::select(
@@ -309,9 +457,13 @@ class ContactController extends Controller
         try {
             // $accessToken = $this->configXero->getValidAccessToken();
             // Panggilan dilakukan dari SISI SERVER, BUKAN BROWSER
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json(['message' => 'Token kosong/invalid.'], 401);
+            }
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('BARER_TOKEN'),
-                'Xero-Tenant-Id' => '90a3a97b-3d70-41d3-aa77-586bb1524beb',
+                'Authorization' => 'Bearer ' . $tokenData["access_token"],
+                'Xero-Tenant-Id' => env('XERO_TENANT_ID'),
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ])->get('https://api.xero.com/api.xro/2.0/Contacts');

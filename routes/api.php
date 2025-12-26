@@ -24,7 +24,7 @@ Route::get('/user', function (Request $request) {
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
-//local contact
+//local contact-cron-job contact
 Route::get('/get-contact-local', [ContactController::class, 'getContactLocal']);//used
 
 Route::get('getCodeBeforeToken', [ConfigController::class, 'getAuthUrl']);
@@ -90,6 +90,6 @@ Route::get('/get-bank/{paymentId}', [InvoiceItem2Controller::class, 'getBankAcco
 Route::post('/bank-overpayment', [BankController::class, 'postBankOverpayment']);
 Route::get('/get-all-bank', [BankController::class, 'getAllBank']);
 
-//tes cron
+//local contact-cron-job payment history
 Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory']);
 Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);
