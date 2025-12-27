@@ -181,7 +181,7 @@
 
     function   getAllitemsNotSame(){
         $.ajax({
-            url: `${BASE_URL}/api/get-product-withoutsame`,
+            url: `${BASE_URL}/api/xero-integrasi/get-product-withoutsame`,
             type: 'GET',
             dataType: 'json',
             data: {
@@ -197,7 +197,7 @@
 
     function getAllitems(){
          $.ajax({
-            url: `${BASE_URL}/api/get-data-no-limit`,
+            url: `${BASE_URL}/api/xero-integrasi/get-data-no-limit`,
             type: 'GET',
             dataType: 'json',
             data: {
@@ -213,7 +213,7 @@
 
     function getAllTaxRate(){
          $.ajax({
-            url: `${BASE_URL}/api/tax_rate`,
+            url: `${BASE_URL}/api/xero-integrasi/tax_rate`,
             type: 'GET',
             dataType: 'json',
             success: function (response) {
@@ -224,7 +224,7 @@
 
     function getDevisi(){
          $.ajax({
-            url: `${BASE_URL}/api/get_divisi`,
+            url: `${BASE_URL}/api/xero-integrasi/get_divisi`,
             type: 'GET',
             dataType: 'json',
             success: function (response) {
@@ -235,7 +235,7 @@
 
     function getAgent(){
          $.ajax({
-            url: `${BASE_URL}/api/get_agent`,
+            url: `${BASE_URL}/api/xero-integrasi/get_agent`,
             type: 'GET',
             dataType: 'json',
             success: function (response) {
@@ -247,7 +247,7 @@
 
     function getDataAccount(){
          $.ajax({
-            url: `${BASE_URL}/api/getAllAccount`,
+            url: `${BASE_URL}/api/xero-integrasi/getAllAccount`,
             type: 'GET',
             dataType: 'json',
             success: function (response) {
@@ -432,7 +432,7 @@
 
     function fetchDataDummy() {
        // $('#fullPageLoader').removeClass('d-none');
-        let urlTarget = `${BASE_URL}/api/getDetailInvoice/${code_invoice}`;
+        let urlTarget = `${BASE_URL}/api/xero-integrasi/getDetailInvoice/${code_invoice}`;
           $.ajax({
                 url: urlTarget,
                 type: 'GET',
@@ -492,7 +492,7 @@
 
     function loadHistoryPaymentLocal(){
           let val_invoice = $("#invoiceCodeParent").val();
-          let url_history_pay = `${BASE_URL}/api/get-history-invoice/${val_invoice}`;
+          let url_history_pay = `${BASE_URL}/api/xero-integrasi/get-history-invoice/${val_invoice}`;
             $.ajax({
                 url: url_history_pay,
                 type: 'GET',
@@ -622,7 +622,7 @@
 
         if (!itemCode) return;
 
-        let urlProduct = `${BASE_URL}/api/get-by-id/${itemCode}`;
+        let urlProduct = `${BASE_URL}/api/xero-integrasi/get-by-id/${itemCode}`;
         $.ajax({
             url: urlProduct,
             type: 'GET',
@@ -740,7 +740,7 @@
 
         // AJAX CALL KE CONTROLLER DELETE
         $.ajax({
-            url: `${BASE_URL}/api/invoice/item/${lineItemId}`,
+            url: `${BASE_URL}/api/xero-integrasi/invoice/item/${lineItemId}`,
             type: "DELETE",
             data: { invoice_id: code_invoice }, // Kirim Invoice ID juga (diperlukan controller)
             success: function (response) {

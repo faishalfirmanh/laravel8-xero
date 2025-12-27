@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Xero;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 class AccountController extends Controller
 {
-   
-  
+
+
    public function getAllAccount()
     {
         $payload = [
-            "Status" => $status, 
+            "Status" => $status,
         ];
 
         $inv = [];
@@ -46,6 +46,6 @@ class AccountController extends Controller
           return response()->json($response_detail->json(), $response_detail->status());
     }
 
-   
+
 
 }

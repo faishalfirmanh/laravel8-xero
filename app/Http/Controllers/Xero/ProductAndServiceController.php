@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Xero;
 
 use App\ConfigRefreshXero;
 use Illuminate\Http\Request;

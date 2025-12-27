@@ -1,9 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ContactController;
-use App\Http\Controllers\InvoicesController;
-use App\Http\Controllers\ProductAndServiceController;
+use App\Http\Controllers\Xero\ContactController;
+use App\Http\Controllers\Xero\InvoicesController;
+use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
 
 /*

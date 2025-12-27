@@ -1,8 +1,8 @@
-const LIST_URL = 'api/get-data-product';
-const CREATE_URL = 'api/save-data-product';
-const URL_INVOICE = 'api/getInvoiceByIdPaket/'
-const URL_INVOICE_PAGING = 'api/getInvoiceByIdPaketPaging/'
-const URL_DETAIL_Item = 'api/get-by-id/'
+const LIST_URL = 'api/xero-integrasi/get-data-product';
+const CREATE_URL = 'api/xero-integrasi/save-data-product';
+const URL_INVOICE = 'api/xero-integrasi/getInvoiceByIdPaket/'
+const URL_INVOICE_PAGING = 'api/xero-integrasi/getInvoiceByIdPaketPaging/'
+const URL_DETAIL_Item = 'api/xero-integrasi/get-by-id/'
 const baseUrlOrigin = window.location.origin;
 let currentPage = 1;
 let currentSearch = '';
@@ -21,7 +21,7 @@ function getDataEdit(id) {
     });
 
     $.ajax({
-        url: `api/get-by-id/${id}`,
+        url: `api/xero-integrasi/get-by-id/${id}`,
         type: 'GET',
         dataType: 'json',
         success: function (response) {
@@ -346,7 +346,7 @@ $(document).ready(function () {
         }
 
         $.ajax({
-            url: 'api/submitUpdateinvoices',
+            url: 'api/xero-integrasi/submitUpdateinvoices',
             type: 'POST',
             dataType: 'json',
             data: JSON.stringify({

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Xero;
 
 use App\Servics\ConfigXero;
 use App\Models\ConfigSettingXero;
@@ -19,7 +19,7 @@ class ConfigController extends Controller
 
         // SCOPE 'offline_access' ADALAH KUNCI AGAR TOKEN BISA DI-REFRESH
         $scope = 'offline_access accounting.contacts accounting.settings';
-        
+
         $url = "https://login.xero.com/identity/connect/authorize?" . http_build_query([
             'response_type' => 'code',
             'client_id' => $config->client_id,
