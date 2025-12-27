@@ -32,6 +32,16 @@ class PaymentHistoryController extends Controller
         ], 200);
     }
 
+    function cekKataPertama($text) {
+        $text = trim($text);
+        $parts = explode(' ', $text, 2);
+        $firstWord = $parts[0] ?? '';
+        if (strtolower($firstWord) === '-man') {
+            return true;
+        }
+        return false;
+    }
+
     public function insertToHistory()
     {
         // 1. Set Time Limit Unlimited untuk Cron Job
@@ -81,7 +91,7 @@ class PaymentHistoryController extends Controller
                 }
 
                 $invoices = $response->json()['Invoices'];
-
+                  //return response()->json(['status' => $invoices, 'message' => 'Sync Selesai']);
                 // Jika array kosong, berarti data habis
                 if (empty($invoices)) {
                     $hasMoreData = false;
@@ -101,8 +111,7 @@ class PaymentHistoryController extends Controller
 
                     foreach ($invoice['Payments'] as $payment) {
                         // Cek Reference sesuai logic Anda
-                        if (isset($payment["Reference"]) && $payment["Reference"] == "-man") {
-
+                        if (isset($payment["Reference"]) && $this->cekKataPertama($payment["Reference"])) {
                             // Gunakan Transaction per record atau per batch
                             DB::beginTransaction();
                             try {
@@ -122,7 +131,7 @@ class PaymentHistoryController extends Controller
 
                                 DB::commit();
                                 // Log level info mungkin terlalu bising untuk cron job jika data ribuan
-                                // Log::info("Sukses: " . $invoice_number);
+                                Log::info("Sukses: insert history payment " . $invoice_number);
 
                             } catch (\Exception $e) {
                                 DB::rollBack();

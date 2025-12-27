@@ -208,7 +208,7 @@ class InvoiceItem2Controller extends Controller
 
         // Format Tanggal Xero (/Date(123123)/) ke Y-m-d
         $date = $this->parseXeroDate($payment["Date"]);
-
+        Log::info("insert or update payemt_params per item ".$payment["Invoice"]["InvoiceID"]);
       //  dd($payment["Account"]["AccountID"]);
         //dd($payment);//f31fd27e-570e-4898-9697-835258ebdfb1
         PaymentParams::updateOrCreate(
@@ -219,7 +219,7 @@ class InvoiceItem2Controller extends Controller
                 'account_id' => $payment['Account']['AccountID'] ?? null,
                 'date' => $date,
                 'amount' => $payment["Amount"],
-                'reference' => "by system" ?? "Re-payment API detail baris",
+                'reference' => "Re-payment API detail baris ".$payment["Reference"],
                 'bank_account_id'=>$this->getBankAccountFromPayment($paymentId)
             ]
         );
@@ -333,7 +333,7 @@ class InvoiceItem2Controller extends Controller
                     "Account"   => ["AccountID" => $accId], // Pastikan AccountID Bank valid
                     "Date"      => $payDate,
                     "Amount"    => $payToInvoice,
-                    "Reference" => "re payment by system"
+                    "Reference" => "re payment by system item detail ".$ref
                 ]]
             ];
 
