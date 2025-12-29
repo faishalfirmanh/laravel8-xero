@@ -15,6 +15,13 @@ use App\Http\Controllers\GlobalExternal\CurrencyController;
 use App\Http\Controllers\Xero\InvoiceItem2Controller;
 use App\Http\Controllers\Xero\PaymentHistoryController;
 use App\Http\Controllers\Xero\BankController;
+//location
+use App\Http\Controllers\MasterData\LocationCityController;
+use App\Http\Controllers\MasterData\LocationDistrictController;
+use App\Http\Controllers\MasterData\LocationProvinceController;
+use App\Http\Controllers\MasterData\LocationVillageController;
+//location
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -100,4 +107,35 @@ Route::get('/convert/usd-to-idr', [CurrencyController::class, 'usdToIdr']);
 
 //
 
+Route::prefix("master-data")->group(function(){
+
+    Route::prefix("location")->group(function(){
+
+        Route::prefix('city')->group(function () {
+            Route::post('/get-city', [LocationCityController::class, 'getAllCityByIdProf'])->name('getAllCityByIdProf');
+            Route::post('/search-city', [LocationCityController::class, 'SearchCityByIdProf'])->name('SearchCityByIdProf');
+            Route::post('/getCityById', [LocationCityController::class, 'getCityById'])->name('getCityById');
+        });
+
+        Route::prefix('province')->group(function () {
+            Route::post('/get-all', [LocationProvinceController::class, 'getAllProf'])->name('getAllProf');
+            Route::post('/search-prof', [LocationProvinceController::class, 'SearchProf'])->name('SearchProf');
+            Route::post('/getProvById', [LocationProvinceController::class, 'getProvById'])->name('getProvById');
+        });
+
+        //
+        Route::prefix('subdistrict')->group(function () {
+            Route::post('/get-kec', [LocationDistrictController::class, 'getAllSubdisByCityId'])->name('getAllSubdisByCityId');
+            Route::post('/search-sub', [LocationDistrictController::class, 'SearchSubdis'])->name('SearchSubdis');
+            Route::post('/getSubById', [LocationDistrictController::class, 'getSubdisById'])->name('getSubdisById');
+        });
+
+        Route::prefix('village')->group(function () {
+            Route::post('/get-village', [LocationVillageController::class, 'getAllVillageBySubdisId'])->name('getAllVillageBySubdisId');
+            Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
+            Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
+        });
+
+    });
+});
 
