@@ -114,12 +114,13 @@ class InvoicesController extends Controller
 
             $data_response = $response_detail->json();
             $inv = InvoicePriceGap::where('invoice_uuid',$idInvoice)->first();
+            //dd($inv);
             $data_response["custom"] = [
-                'id_invoice'=>$inv->invoice_number,
-                'contact_name'=>$inv->contact_name,
-                'total_xero' => $inv->total_nominal_payment_xero,
-                'total_local' => $inv->total_nominal_payment_local,
-                'total_price_return'=>$inv->total_price_return
+                'id_invoice'=>$inv ? $inv->invoice_number : 0,
+                'contact_name'=>$inv ? $inv->contact_name : 0,
+                'total_xero' =>$inv ? $inv->total_nominal_payment_xero : 0,
+                'total_local' =>$inv ? $inv->total_nominal_payment_local : 0,
+                'total_price_return'=>$inv ? $inv->total_price_return : 0
             ];
             return response()->json($data_response ?: ['message' => 'Xero API Error'], $response_detail->status());
         } catch (\Exception $e) {

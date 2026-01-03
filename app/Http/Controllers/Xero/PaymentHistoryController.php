@@ -8,13 +8,22 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\PaymentsHistoryFix;
 use Illuminate\Support\Facades\DB;
+use App\Models\InvoicePriceGap;
+use App\Services\GlobalService;
 use App\ConfigRefreshXero;
 class PaymentHistoryController extends Controller
 {
     //
 
+    private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
     use ConfigRefreshXero;
 
+    protected $globalService;
+
+    public function __construct(GlobalService $globalService)
+    {
+        $this->globalService = $globalService;
+    }
 
     private function parseXeroDate($xeroDate) {
         if (preg_match('/\/Date\((\d+)([+-]\d+)?\)\//', $xeroDate, $matches)) {
@@ -138,6 +147,31 @@ class PaymentHistoryController extends Controller
                                 Log::error("Gagal save payment inv $invoice_number: " . $e->getMessage());
                             }
                         }
+                    }
+
+                    $responseDetails = Http::withHeaders($headers)->get($this->xeroBaseUrl . '/Invoices/' . $invoice_id);
+                    if ($responseDetails->failed()) {
+                        return response()->json(['status' => 'error', 'message' => 'Gagal koneksi ke Xero'], 500);
+                    }
+                    $invoiceData = $responseDetails->json()['Invoices'][0];
+                    $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoice_id);
+                    $total_xero = $invoiceData['Total'];//['AmountPaid'];
+                    //dd($invoiceData);
+                    $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
+                    DB::beginTransaction();
+                    try {
+                        $this->globalService->SavedInvoiceValue($invoice_id,
+                            $invoiceData["InvoiceNumber"],
+                            $invoiceData["Contact"]["FirstName"],
+                            $total_xero,
+                            $local_total_payment,
+                            $hasil_selisih
+                        );
+                        DB::commit();
+                        Log::info("Sukses: create or update tabel InvoicePriceGap PaymentHistoryController line : 170");
+                    } catch (\Throwable $th) {
+                        DB::rollBack();
+                        Log::error("PaymentHistoryController line 173| gagal  create or update tabel InvoicePriceGap  ".$th->getMessage());
                     }
                 }
 
