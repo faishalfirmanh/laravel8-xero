@@ -136,6 +136,18 @@
                     <div id="history_local_payments">
                         <h5>Local history </h5>
                     </div>
+                    <div class="row mt-3">
+                        <div class="col-8">Amount Paid Xero</div>
+                        <div class="col-4" id="TotalAmountXero">0.00</div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-8">Amount Paid History</div>
+                        <div class="col-4" id="TotalAmountLocal">0.00</div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-8">Amount Return price</div>
+                        <div class="col-4" id="TotalAmountReturn">0.00</div>
+                    </div>
                 </div>
             </div>
         </form>
@@ -438,8 +450,12 @@
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
+                    console.log("detail",response)
                     $("#TotalAmountPaidDisplay").text(formatRupiah(response.Invoices[0].AmountPaid))
-                     $("#TotalAmountDueDisplay").text(formatRupiah(response.Invoices[0].AmountDue))
+                    $("#TotalAmountDueDisplay").text(formatRupiah(response.Invoices[0].AmountDue))
+                    $("#TotalAmountXero").html(`<strong>${formatRupiah(response.custom.total_xero)}</strong>`)
+                    $("#TotalAmountLocal").html(`<strong>${formatRupiah(response.custom.total_local)} </strong>`)
+                    $("#TotalAmountReturn").html("<strong>" +formatRupiah(response.custom.total_price_return) + "</strong>")
                     response.Invoices[0].LineItems.forEach(element => {
                         list_item_in_currentsRows.push(element.ItemCode)
                     });
@@ -501,7 +517,7 @@
                    if(response.data.length >0){
                         const container_local_pay = document.getElementById('history_local_payments');
                         let htmlContent_local = '';
-                        console.log('ass',response.data)
+                        console.log('history',response.data)
                         response.data.forEach(item => {
                             const tanggalFix = formatDateStringToText(item.date);
                             const amountFix = formatRupiah(item.amount);
@@ -688,7 +704,7 @@
         // Tampilan Loading
         let originalHtml = btn.html();
         btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
-        console.log("payload ",payload)
+        //console.log("payload ",payload)
         // AJAX CALL KE CONTROLLER SAVE
         $.ajax({
             url: "{{ route('invoice.item.save') }}", // Panggil Route Laravel
@@ -727,6 +743,7 @@
 
     $(document).on('click', '.remove-row', function () {
         let row = $(this).closest('tr');
+        let btn = $(this);
         let lineItemId = row.attr('data-id');
 
         // Jika baris belum pernah disimpan (tidak ada data-id), hapus langsung dari HTML saja
@@ -739,6 +756,8 @@
         if(!confirm("Anda yakin ingin menghapus baris ini dari Xero?")) return;
 
         // AJAX CALL KE CONTROLLER DELETE
+        let originalHtml = btn.html();
+        btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
         $.ajax({
             url: `${BASE_URL}/api/xero-integrasi/invoice/item/${lineItemId}`,
             type: "DELETE",
@@ -751,13 +770,16 @@
                     });
                     setTimeout(() => {
                         fetchDataDummy();
+                        btn.removeClass('btn-outline-danger').addClass('btn-primary').html('<i class="fas fa-check"></i>');
                     }, 1000);
                 } else {
                     alert("Gagal menghapus: " + response.message);
+                    btn.html(originalHtml).prop('disabled', false);
                 }
             },
             error: function (xhr) {
                 alert("Gagal menghapus data.");
+                btn.html(originalHtml).prop('disabled', false);
             }
         });
     });

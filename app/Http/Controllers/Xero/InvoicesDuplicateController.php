@@ -7,10 +7,18 @@ use Illuminate\Support\Facades\Http;
 use App\Models\PaymentParams;
 use Illuminate\Support\Facades\Log;
 use App\ConfigRefreshXero;
+use App\Services\GlobalService;
 class InvoicesDuplicateController extends Controller
 {
 
      use ConfigRefreshXero;
+
+     protected $globalService;
+
+    public function __construct(GlobalService $globalService)
+    {
+        $this->globalService = $globalService;
+    }
 
     function xeroDateToPhp($xeroDate, $format = 'Y-m-d') {
         if (empty($xeroDate)) return null;
@@ -273,29 +281,6 @@ class InvoicesDuplicateController extends Controller
             self::updateInvoicePaidPerRows($value_inv["PaymentID"]);
         }
 
-        //return response()->json($response_detail_invoice, 200);
-
-        // $response = Http::withHeaders([
-        //     'Authorization' => 'Bearer ' . $tokenData["access_token"],
-        //     'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
-        //     'Accept' => 'application/json',
-        // ])->get("https://api.xero.com/api.xro/2.0/Payments/$idPayment");
-
-        // if ($response->failed()) throw new \Exception("Gagal Get Payment: " . $response->body());
-
-        // $data = $response->json();
-        // if (empty($data['Payments'])) return;
-        // $payment = $data['Payments'][0];
-        // if ($payment['Status'] == 'DELETED') return;
-
-        // self::insertToDb(
-        //     $payment["Amount"],
-        //     $payment['Account']['Code'] ?? $payment['Account']['AccountID'],
-        //     self::xeroDateToPhp($payment["Date"]),
-        //     $payment["Invoice"]["InvoiceID"],
-        //     $payment["Reference"] ?? "Re-payment api",
-        //     $idPayment
-        // );
     }
 
     public function insertToDb($amount, $account_code, $date, $invoice_id, $reference_id, $idPayment) {
@@ -355,6 +340,16 @@ class InvoicesDuplicateController extends Controller
                 $data = $res->json();
                 $status = $data['Invoices'][0]['Status'];
                 Log::info("Try $attempt: Status Invoice saat ini: $status");
+                $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($parent_id);
+                $total_xero = $data['Invoices'][0]['Total'];//['AmountPaid'];
+                $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
+                $this->globalService->SavedInvoiceValue($cleanId,
+                        $data["Invoices"][0]["InvoiceNumber"],
+                        $data["Invoices"][0]["Contact"]["FirstName"],
+                        $total_xero,
+                        $local_total_payment,
+                        $hasil_selisih
+                );
 
                 if ($status == 'AUTHORISED' || $status == 'DRAFT') {
                     $isReady = true;

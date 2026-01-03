@@ -76,7 +76,7 @@ Route::prefix("xero-integrasi")->group(function(){
     Route::get('/getAllAccount', [PaymentController::class, 'getGroupedAccounts']);//used
 
     //local contact-cron-job payment history
-    Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory']);//used
+    Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory'])->name('cron-insert-history-payment-local');//used
     Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);//used
     Route::get('/getDetailInvoice/{idInvoice}', [InvoicesController::class, 'getDetailInvoice']);//used
 

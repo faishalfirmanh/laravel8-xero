@@ -8,13 +8,21 @@ use Illuminate\Support\Facades\Log;
 use App\Models\PaymentParams; // Pastikan model ini ada
 use Carbon\Carbon;
 use App\ConfigRefreshXero;
-
+use App\Services\GlobalService;
 class InvoiceItem2Controller extends Controller
 {
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
 
     use ConfigRefreshXero;
     // Helper Headers
+
+    protected $globalService;
+    public function __construct(GlobalService $globalService)
+    {
+        $this->globalService = $globalService;
+    }
+
+
     private function getHeaders()
     {
         $tokenData = $this->getValidToken();
@@ -175,6 +183,19 @@ class InvoiceItem2Controller extends Controller
                 }
                 PaymentParams::where('invoice_id', $invoiceId)->delete();
             }
+
+            //update
+            $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoiceId);
+            $total_xero = $updatedInvoice['Total'];//['AmountPaid'];
+            $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
+            $this->globalService->SavedInvoiceValue($invoiceId,
+                    $updatedInvoice["InvoiceNumber"],
+                    $updatedInvoice["Contact"]["FirstName"],
+                    $total_xero,
+                    $local_total_payment,
+                    $hasil_selisih
+            );
+            //update
 
             return response()->json([
                 'status' => 'success',
@@ -465,6 +486,18 @@ class InvoiceItem2Controller extends Controller
                 //PaymentParams::where('payments_id', $oldPayId)->delete();
             }
         }
+        //update
+        $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoiceId);
+        $total_xero = $updateResponse['Invoices'][0]['Total'];//['AmountPaid'];
+        $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
+        $this->globalService->SavedInvoiceValue($invoiceId,
+                $updateResponse['Invoices'][0]['InvoiceNumber'],
+                $updateResponse['Invoices'][0]["Contact"]["FirstName"],
+                $total_xero,
+                $local_total_payment,
+                $hasil_selisih
+        );
+        //update
 
         return response()->json(['status' => 'success', 'message' => 'Item deleted from Xero']);
     }

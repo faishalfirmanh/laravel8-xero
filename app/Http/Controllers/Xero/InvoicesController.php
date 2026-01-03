@@ -5,6 +5,7 @@ use App\ConfigRefreshXero;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Models\PaymentParams;
+use App\Models\InvoicePriceGap;
 use Illuminate\Support\Facades\Log;
 class InvoicesController extends Controller
 {
@@ -110,7 +111,17 @@ class InvoicesController extends Controller
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
             ])->get("https://api.xero.com/api.xro/2.0/Invoices/$idInvoice");
-            return response()->json($response_detail->json() ?: ['message' => 'Xero API Error'], $response_detail->status());
+
+            $data_response = $response_detail->json();
+            $inv = InvoicePriceGap::where('invoice_uuid',$idInvoice)->first();
+            $data_response["custom"] = [
+                'id_invoice'=>$inv->invoice_number,
+                'contact_name'=>$inv->contact_name,
+                'total_xero' => $inv->total_nominal_payment_xero,
+                'total_local' => $inv->total_nominal_payment_local,
+                'total_price_return'=>$inv->total_price_return
+            ];
+            return response()->json($data_response ?: ['message' => 'Xero API Error'], $response_detail->status());
         } catch (\Exception $e) {
             return response()->json(['message' => 'Proxy Error: ' . $e->getMessage()], $e->getCode());
         }
