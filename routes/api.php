@@ -85,6 +85,11 @@ Route::prefix("xero-integrasi")->group(function(){
     Route::post('/submitUpdateinvoices', [InvoicesDuplicateController::class, 'updateInvoiceSelected']);//update semua select submit
 });
 
+Route::prefix("admin-web")->group(function(){
+    Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
+});
+
+
 //payment
 Route::post('/updateDeletedPayment/{payment_id}/{status}', [PaymentController::class, 'updatePaymentStatus']);
 Route::get('/getDetailPayment/{idPayment}', [InvoicesController::class, 'getDetailPayment']);

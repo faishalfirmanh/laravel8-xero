@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Xero\ContactController;
 use App\Http\Controllers\Xero\InvoicesController;
+use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
 
@@ -18,8 +19,12 @@ use App\Http\Controllers\HomeController;
 */
 
 
-Route::get('/', function () {
-    return 'hello dunia';
+// Route::get('/', function () {
+//     return 'hello dunia';
+// });
+Route::get('/', [DashboardController::class, 'index']);
+Route::prefix('admin')->group(function(){
+    Route::get('/list-invoice',[DashboardController::class, 'getWebListInvoice'])->name('admin-list-invoice');
 });
 
 Route::get('/coba_redirect',function(){

@@ -419,6 +419,96 @@ class InvoicesController extends Controller
         }
     }
 
+    public function getInvoicesAll(Request $request)
+    {
+        // Default limit kita set 10
+        $limit = 10;
+        $clientPage = (int) $request->query('page', 1);
+
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json(['message' => 'Token kosong/invalid.'], 401);
+            }
+
+            /**
+             * LOGIKA LIMIT 10:
+             * Karena Xero selalu kasih 100 data per page, kita hitung
+             * xero_page mana yang harus dipanggil.
+             * Contoh: Client minta page 1-10 -> Semua ada di Xero page 1.
+             * Client minta page 11 -> Ambil dari Xero page 2.
+             */
+            $xeroPage = ceil(($clientPage * $limit) / 100);
+
+            $tenantId = env('XERO_TENANT_ID');
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                'page' => $xeroPage,
+                'where' => 'Status!="DELETED" AND Status!="VOIDED"',
+                'order' => 'Date DESC'
+            ]);
+
+            if ($response->failed()) {
+                return response()->json(['status' => 'error', 'message' => 'Gagal ambil data'], $response->status());
+            }
+
+            $allInvoices = $response->json()['Invoices'] ?? [];
+
+            /**
+             * SLICE DATA:
+             * Mengambil 10 data yang spesifik dari 100 data yang dikirim Xero
+             */
+            $offset = (($clientPage - 1) * $limit) % 100;
+            $slicedInvoices = array_slice($allInvoices, $offset, $limit);
+
+            $list_invoice = [];
+            foreach ($slicedInvoices as $invoice) {
+                $lineItems = [];
+                if (isset($invoice['LineItems'])) {
+                    foreach ($invoice['LineItems'] as $item) {
+                        $lineItems[] = [
+                            'line_item_id' => $item['LineItemID'] ?? null,
+                            'item_code'    => $item['ItemCode'] ?? null,
+                            'paket_name'   => $item['Item']['Name'] ?? $item['Description'] ?? '-',
+                            'qty'          => $item['Quantity'] ?? 0,
+                            'amount'       => $item['LineAmount'] ?? 0,
+                        ];
+                    }
+                }
+
+                $list_invoice[] = [
+                    'parent_invoice_id' => $invoice['InvoiceID'],
+                    'nama_jamaah'       => $invoice['Contact']['Name'] ?? '-',
+                    'no_invoice'        => $invoice['InvoiceNumber'],
+                    'tanggal'           => $invoice['DateString'] ?? '',
+                    'amount_paid'       => $invoice['AmountPaid'] ?? 0,
+                    'total'             => $invoice['Total'] ?? 0,
+                    'status'            => $invoice['Status'],
+                    'items'             => $lineItems,
+                ];
+            }
+
+            // Cek apakah masih ada data setelah data terakhir yang kita ambil
+            $hasMore = true;
+            if (count($allInvoices) < 100 && ($offset + $limit) >= count($allInvoices)) {
+                $hasMore = false;
+            }
+
+            return response()->json([
+                'current_page' => $clientPage,
+                'per_page'     => $limit,
+                'data'         => $list_invoice,
+                'has_more'     => $hasMore
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
 
     public function getInvoiceByIdPaket($itemCode = 0)
     {
