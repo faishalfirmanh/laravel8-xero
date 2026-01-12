@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Xero;
-
+use Illuminate\Support\Facades\Log;
 use App\ConfigRefreshXero;
 use Illuminate\Http\Request;
 use App\Services\XeroAuthService;
@@ -142,8 +142,12 @@ class ProductAndServiceController extends Controller
                 'page' => $xeroPageTarget, // Kirim halaman hasil hitungan, BUKAN halaman frontend
             ];
 
-            if (!empty($search)) {
-                $queryParams['where'] = 'Code.Contains("' . $search . '") OR Name.Contains("' . $search . '")';
+            //dd($search);
+            if (!empty($search) || $search != null) {
+                //old 12-01-2026
+              // $queryParams['where'] = 'Code.Contains("' . $search . '") OR Name.Contains("' . $search . '")';
+              $term = addslashes($search);
+              $queryParams['where'] = "((Code != null AND Code.Contains(\"{$term}\")) OR (Name != null AND Name.Contains(\"{$term}\")))";
             }
 
             // 4. Panggil Xero API
@@ -155,6 +159,8 @@ class ProductAndServiceController extends Controller
             ])->get('https://api.xero.com/api.xro/2.0/Items', $queryParams);
 
             //dd($tenantId);
+            Log::info('Xero Query Params:', $queryParams);
+            Log::info('Full URL: https://api.xero.com/api.xro/2.0/Items?' . http_build_query($queryParams));
             if ($response->failed()) {
                 return response()->json(['message' => 'Xero API Error', 'details' => $response->json()], $response->status());
             }

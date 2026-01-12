@@ -19,9 +19,9 @@ function getDataEdit(id) {
         behavior: 'smooth',
         block: 'start'
     });
-
+    //console.log('get data edit',id)
     $.ajax({
-        url: `api/xero-integrasi/get-by-id/${id}`,
+        url:  `${URL_DETAIL_Item}${id}`, //`api/xero-integrasi/get-by-id/${id}`,
         type: 'GET',
         dataType: 'json',
         success: function (response) {
@@ -55,7 +55,7 @@ function loadDataItem(idPaket){
     $('#listInvoiceLoader').removeClass('d-none');
     $('#invoiceTable').addClass('d-none');
     $('#invoiceTableBody').empty();
-
+    console.log('cureen',idPaket, currentIdPaket)
     $.ajax({
         url: `${URL_INVOICE}${currentIdPaket}`,
         type: 'GET',
@@ -264,7 +264,7 @@ $(document).ready(function () {
                         const description = contact.Description
                             ? contact.Description.substring(0, 50) + (contact.Description.length > 50 ? '...' : '')
                             : '-';
-
+                        //console.log('list inv ',contact.ItemID, " -- ",contact.Code)
                         const row = `
                         <tr>
                             <td>${counter++}</td>
@@ -309,7 +309,9 @@ $(document).ready(function () {
                 })
                 $('#listLoader').addClass('d-none');
                 $('#contactTable').removeClass('d-none');
-                console.error("Error fetching contacts:", error);
+                console.log("Error fetching product & service: lin 315", xhr);
+                console.log("Error fetching product & service:: line 316", status);
+                console.error("Error fetching contacts line 317:", error);
                 $('#contactTableBody').html('<tr><td colspan="6" class="text-center text-danger">Gagal mengambil data dari server.</td></tr>');
                 $('#listInvoiceLoader').addClass('d-none');
             }
@@ -546,7 +548,7 @@ $(document).ready(function () {
             //     search: currentInvSearch
             // },
             success: function (response) {
-
+                console.log('xxxx')
                 var notifContainer = $('#notif_save_checbox');
                 notifContainer.empty();
                 $('#listInvoiceLoader').addClass('d-none');
@@ -585,7 +587,9 @@ $(document).ready(function () {
                 })
             },
             error: function (xhr, status, error) {
-                console.log('eeeeee rrorr', error)
+                console.log('eeeeee rrorr line 593', error)
+                 console.log('eeeeee ', xhr)
+                  console.log('eeeeee ', status)
                 Swal.fire({
                     title: 'Erros!',
                     text: `load data by id ${error}`,
@@ -639,12 +643,12 @@ $(document).ready(function () {
                 "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content")
             },
             success: function (response) {
-                console.log("update harga save", response.Items[0])
+                //console.log("update harga save", response.Items[0])
                 $formMessage.html('<strong>Sukses!</strong> Proudct & Service berhasil disimpan.').addClass('alert-success').removeClass('d-none');
                 //    $('#createContactForm')[0].reset(); // Kosongkan form
                 fetchContacts(); // Muat ulang daftar kontak
-                fetchDataInvoice(payload.Items[0].Code)
-                fetchDataAccountCodeByItem(response.Items[0].Code)
+                fetchDataInvoice(payload.Items[0].ItemID)
+                fetchDataAccountCodeByItem(response.Items[0].ItemID)//fix 12-01-2025
                 $("#name_paket_saved").html(response.Items[0].Name)
             },
             error: function (xhr) {
