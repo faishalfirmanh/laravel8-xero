@@ -55,9 +55,10 @@ function loadDataItem(idPaket){
     $('#listInvoiceLoader').removeClass('d-none');
     $('#invoiceTable').addClass('d-none');
     $('#invoiceTableBody').empty();
-    console.log('cureen',idPaket, currentIdPaket)
+    let final_result_curr = currentIdPaket.replace(/\//g, "-").replace(/-(\d+)$/, "+$1");
+    console.log('cureen',final_result_curr)
     $.ajax({
-        url: `${URL_INVOICE}${currentIdPaket}`,
+        url: `${URL_INVOICE}${final_result_curr}`,
         type: 'GET',
         dataType: 'json',
         success: function (response) {

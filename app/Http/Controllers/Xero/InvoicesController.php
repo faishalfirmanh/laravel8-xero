@@ -512,6 +512,11 @@ class InvoicesController extends Controller
 
     public function getInvoiceByIdPaket($itemCode = 0)
     {
+         $string_final_code =  str_replace(
+                    ['-', '+'],
+                    ['/', '-'],
+                    $itemCode
+                );
         set_time_limit(0); // Biarkan berjalan lama jika data banyak
 
         try {
@@ -571,7 +576,7 @@ class InvoicesController extends Controller
 
                     foreach ($invoice['LineItems'] as $item) {
                         // Filter berdasarkan ItemCode
-                        if (isset($item['ItemCode']) && $item['ItemCode'] == $itemCode) {
+                        if (isset($item['ItemCode']) && $item['ItemCode'] == $string_final_code) {
 
                             // Struktur data SAMA PERSIS dengan kode lama Anda
                             $list_invoice[] = [
