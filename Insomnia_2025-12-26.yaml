@@ -830,12 +830,12 @@ collection:
             send: true
             store: true
           rebuildPath: true
-      - url: "{{ _.local_url }}tes-cron"
-        name: cron-jon-history-payment
+      - url: "{{ _.local_url_xero }}tes-cron"
+        name: cron-job-history-payment
         meta:
           id: req_615fc12b192d4e3cb8b1b39f2ef9812e
           created: 1766220312494
-          modified: 1766714992771
+          modified: 1767409671753
           isPrivate: false
           description: ""
           sortKey: -1764251818281.5
@@ -890,7 +890,7 @@ collection:
         meta:
           id: fld_8d260dd97b8d49e9a8609b2df659adf0
           created: 1764377828088
-          modified: 1764377828088
+          modified: 1766802441300
           sortKey: -1764377828088
           description: ""
         children:
@@ -1184,12 +1184,13 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
-          - url: "{{ _.local_url }}getDetailInvoice/bea71b1e-9324-4458-be79-d5ec0ddd83c6"
+          - url: "{{ _.local_url_xero
+              }}getDetailInvoice/d9db86e3-1d88-43ec-8678-7c476f03850d"
             name: 1.get-detail-invoices-byIdInvoice
             meta:
               id: req_18a7b21d1e4946768f3f2758ed04e06c
               created: 1764747457935
-              modified: 1766216345487
+              modified: 1768271496028
               isPrivate: false
               description: ""
               sortKey: -1764383404085.25
@@ -1205,7 +1206,7 @@ collection:
                 description: ""
                 disabled: false
               - name: xero-tenant-id
-                value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                value: 5e31c6a4-f85c-494f-8e0d-d285d54470e3
                 description: ""
                 disabled: false
               - name: Accept
@@ -1214,7 +1215,7 @@ collection:
                 disabled: false
             authentication:
               type: bearer
-              token: "{{ _.barer_token }}"
+              token: "{{ _.token_refres }}"
             settings:
               renderRequestBody: true
               encodeUrl: true
@@ -1649,6 +1650,46 @@ collection:
                     send: true
                     store: true
                   rebuildPath: true
+              - url: "{{ _.local_url_xero
+                  }}delete-invoice-byuuid/e9c1cd8b-0030-4639-a6e5-d3fae49c1571"
+                name: delete invoice (byUUID)
+                meta:
+                  id: req_56ff194e2fc2488e9b7d5348e9662cbd
+                  created: 1768276351428
+                  modified: 1768286788462
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1765164738058
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: ""
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
       - name: config
         meta:
           id: fld_f8497acbf5bd40dbbbe4f171b7cc0777
@@ -1744,7 +1785,7 @@ collection:
         meta:
           id: fld_5615f7910d904f6c86ba2321a049ea8e
           created: 1765436368716
-          modified: 1765436375166
+          modified: 1766802430581
           sortKey: -1764733275226
           description: ""
         children:
@@ -2024,6 +2065,13 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
+      - name: master-data
+        meta:
+          id: fld_41c4d0fcba7c4471b5c12b6ebc66309d
+          created: 1766983708942
+          modified: 1766983708942
+          sortKey: -1766983708942
+          description: ""
   - name: items
     meta:
       id: fld_317aa334a1aa4be3990da22b2e6c12d8
@@ -3291,6 +3339,405 @@ collection:
             send: true
             store: true
           rebuildPath: true
+  - name: internal
+    meta:
+      id: fld_45d6b5c121ed4a9ab4089780a9f117d1
+      created: 1766983697400
+      modified: 1766983697400
+      sortKey: -1766983697400
+      description: ""
+    children:
+      - name: master-data
+        meta:
+          id: fld_7f0642fa6e5d42b2810e3a5c7ca82189
+          created: 1766983727771
+          modified: 1766983727771
+          sortKey: -1766983727771
+          description: ""
+        children:
+          - name: location
+            meta:
+              id: fld_944ad87d07a64037b662ce97ddbaca63
+              created: 1766983743992
+              modified: 1766983743992
+              sortKey: -1766983743992
+              description: ""
+            children:
+              - url: "{{ _.local_url }}master-data/location/city/get-city"
+                name: 2-getCityByProv
+                meta:
+                  id: req_eac9ddfc2fe344828c55ef7d9c34bbe8
+                  created: 1766984025788
+                  modified: 1766987780545
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766984025788
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id_prov" : 35
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/city/search-city"
+                name: 2-getCityKeyword
+                meta:
+                  id: req_ab293728fdda4059b7668300d7d71f46
+                  created: 1766984499936
+                  modified: 1766987773044
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766863517417
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id_prov" : 35,
+                    	"keyword" : "mojo"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/city/getCityById"
+                name: 2-getCityById
+                meta:
+                  id: req_cf58604f6ca64df18f4d4d00655ff41a
+                  created: 1766985848024
+                  modified: 1766987764328
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766803263231.5
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":1103
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/province/get-all"
+                name: 1-get-all-prof
+                meta:
+                  id: req_3ad015372f1344b2ac25312d0fe13a00
+                  created: 1766986381816
+                  modified: 1766988229929
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766984025888
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":1103
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/province/search-prof"
+                name: 1-search-prof
+                meta:
+                  id: req_f0e538850c5843e192cad43459570829
+                  created: 1766986393420
+                  modified: 1766988233205
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766984025838
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"keyword": "jawa"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/province/getProvById"
+                name: 1-profById
+                meta:
+                  id: req_4ace8bed56e5499b99b71a43497bde83
+                  created: 1766986433338
+                  modified: 1766988237159
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766984025813
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":35
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/subdistrict/get-kec"
+                name: 3-get-all-kec
+                meta:
+                  id: req_38301c9c57bf499c8d25bca63dcf6f34
+                  created: 1766987794283
+                  modified: 1766987981107
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766750540719.1875
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id_city":3516
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/subdistrict/search-sub"
+                name: 3-search-kec
+                meta:
+                  id: req_25c52dfc23a04a4ba31a42b778f18422
+                  created: 1766988021629
+                  modified: 1766988684988
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766746774882.5938
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id_city":3516,
+                    	"keyword":"dawar"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/subdistrict/getSubById"
+                name: 3-kecById
+                meta:
+                  id: req_b7bbe218f34f4bf582b0261c7a6124e1
+                  created: 1766988110301
+                  modified: 1766988179340
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766744891964.2969
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":3516030
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/village/get-village"
+                name: 4-get-desa-all
+                meta:
+                  id: req_68c0d969169e4f4b9c5f3d3c1ed04ca9
+                  created: 1766988263323
+                  modified: 1766988693637
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766744891864.2969
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id_kec":3516170
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/village/search-village"
+                name: 4-get-desa-keyword
+                meta:
+                  id: req_9829a8a71edc456a8693fc7a8ee7af5e
+                  created: 1766988713355
+                  modified: 1766988897556
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766743950455.1484
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id_kec":3516170,
+                    	"keyword" :"gun"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}master-data/location/village/getVillageById"
+                name: 4-desa-byId
+                meta:
+                  id: req_cefbe025f6e543c59ec83df08cd80e2c
+                  created: 1766988912995
+                  modified: 1766988966921
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1766743479750.5742
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":3516170014
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.2.0
+                    description: ""
+                    disabled: false
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
 cookieJar:
   name: Default Jar
   meta:
@@ -3391,7 +3838,7 @@ environments:
   meta:
     id: env_c2ae793db59041d39578e135076b40ae
     created: 1763783221516
-    modified: 1766737849214
+    modified: 1768270885255
     isPrivate: false
   data:
     barer_token: eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3NjU1MzA0MTUsImV4cCI6MTc2NTUzMjIxNSwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6Imh0dHBzOi8vaWRlbnRpdHkueGVyby5jb20vcmVzb3VyY2VzIiwiY2xpZW50X2lkIjoiMzZGMDg3MUQyMjMzNERERTg4RDIzRUZFNDBBQjU2MjgiLCJzdWIiOiI4YzY4ZGYyYWMzOGU1ZjU3YjBkN2M0MzgwOGYzZTI1OSIsImF1dGhfdGltZSI6MTc2NTUzMDM5MSwieGVyb191c2VyaWQiOiJkM2RjMjc4YS0wZWUyLTQxMzEtOTA2Yy1iOWUyNjkyZWE4ODQiLCJnbG9iYWxfc2Vzc2lvbl9pZCI6IjVlODUzY2Y3NGNhZTQ2OTlhODVkZjgyYjNkMzNkNWFiIiwic2lkIjoiNWU4NTNjZjc0Y2FlNDY5OWE4NWRmODJiM2QzM2Q1YWIiLCJhdXRoZW50aWNhdGlvbl9ldmVudF9pZCI6IjQ4ZWEyYzY5LTMwOWEtNGYyZS1hZGM3LWI0MjNhY2I1ZTc4MiIsImp0aSI6IjM4OENENDFDNjk0QUVDMEI3NDAwOTQ1NTdGMTc4NkRGIiwic2NvcGUiOlsiYWNjb3VudGluZy5jb250YWN0cyIsImFjY291bnRpbmcuY29udGFjdHMucmVhZCIsImFjY291bnRpbmcuc2V0dGluZ3MiLCJhY2NvdW50aW5nLnNldHRpbmdzLnJlYWQiLCJhY2NvdW50aW5nLnRyYW5zYWN0aW9ucyIsImFjY291bnRpbmcudHJhbnNhY3Rpb25zLnJlYWQiLCJvZmZsaW5lX2FjY2VzcyJdLCJhbXIiOlsibGVnYWN5Il19.da_DzE_KaqtxOk_UyZn1iJwLEZh1wGMwR-qLN_604SRHzmbJuRi6AngxXi6CacWhZ2QX0AtmXd4zEjgR_ToWQ7tyl2sGb2xLcClWBuSxaAtJElwMpxq-0qWNm3Y7O1IShsWTmjJ0bCjyEIVVtiZxyuTKo4w1WeMoxw8ghWbfOu7fAgsfpJx_AxPn4oaEFe-0PZ4r_Tnmd2RED5PvzzsIwAcney2gR6uvxpsWI96KgJam2JMbdCKDsq7PRTb0d-vWfecKhSGDr0tLfO6FYK_LRFKVWDAgYSjEOsWKht2QOron_smpdBezhdprL2PAStCmtuFRQSKqytNh2FPGXnNw9A
@@ -3403,3 +3850,5 @@ environments:
     refresh_token: lsEDu1XDingtEx3U5xUq38IyiFgEoAy_ekAM65jjGPA
     prod_url: https://laravel8-xero.alhidayah.id/api/
     key_currencyfreaks: f759b7cefeb24896bc934f6a01c498a1
+    local_url_xero: http://127.0.0.1:8000/api/xero-integrasi/
+    token_refres: eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3NjY1NDYzNDksImV4cCI6MTc2NjU0ODE0OSwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6Imh0dHBzOi8vaWRlbnRpdHkueGVyby5jb20vcmVzb3VyY2VzIiwiY2xpZW50X2lkIjoiN0E3Qjk5Njg4RkNCNDc3MzgwRTNGMjBERUYzOTJCMjUiLCJzdWIiOiJkNGNlNTcyODk2YTc1YzJiODVhZWJmNWI4YTkyZjk4YiIsImF1dGhfdGltZSI6MTc2NjM3NTE0NiwieGVyb191c2VyaWQiOiJhMmM3NDU4Ni1iZTY5LTQ2MzUtODczNi0yNjBkMzhmNDM5MGEiLCJnbG9iYWxfc2Vzc2lvbl9pZCI6ImI0YmYyZTI0ZDQ4NjQyNTM4MTkzZWRlZGUzOWFjODhlIiwic2lkIjoiYjRiZjJlMjRkNDg2NDI1MzgxOTNlZGVkZTM5YWM4OGUiLCJhdXRoZW50aWNhdGlvbl9ldmVudF9pZCI6IjJkMzhiYjYyLWFkMGMtNGRkMC1iYWEyLWRhMjEyODI4M2EwZSIsImp0aSI6IkJBNDEyNjdBMEQ2Qzg2OTkzRDdEREIxM0U2MEVCRjAwIiwic2NvcGUiOlsiYWNjb3VudGluZy5jb250YWN0cyIsImFjY291bnRpbmcuY29udGFjdHMucmVhZCIsImFjY291bnRpbmcuc2V0dGluZ3MiLCJhY2NvdW50aW5nLnNldHRpbmdzLnJlYWQiLCJhY2NvdW50aW5nLnRyYW5zYWN0aW9ucyIsImFjY291bnRpbmcudHJhbnNhY3Rpb25zLnJlYWQiLCJvZmZsaW5lX2FjY2VzcyJdLCJhbXIiOlsicHdkIl19.JqgLTHX1xBV9Rlzt6dMpnyij0nE2pYEZZF4mIInjKCZOYfLYwDJ63GZzs1wup2DlQC2dUpuLudNd6W_B5Qwf9QUFBY2Ow1UZOHnvgsvJTR5Lmq4VrvlddYG02TNbZALlyLaJS2wE5TjkJ9qwrBP6K2FLDIx587K27fb1Xv-JbxNx-h6AslbxR6SMMFk-2mk-cLERzlP7bJl2KCIqYW15iKXfDRdhijYs4eLHZm-7M-DbKmOsA0Bj6g012cMc05TM_pzhMzQsY7zIrcQKN2h3VdG0EWgvp8o8Jz_fKFW6TCwL2Q1fpFe97EP1NZYUmOf0WO4QNHFTGEYoYVLsH2KM4g

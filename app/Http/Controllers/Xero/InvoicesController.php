@@ -96,6 +96,125 @@ class InvoicesController extends Controller
         return date($format, $matches[1] / 1000);
     }
 
+    private function voidPaymentInXero($paymentId)
+    {
+        $response = Http::withHeaders($this->getHeaders())
+            ->post($this->xeroBaseUrl . "/Payments/$paymentId", ["Status" => "DELETED"]);
+        if ($response->failed() && $response->status() != 404) {
+             throw new \Exception("Gagal Void Payment: " . $response->body());
+        }
+    }
+
+
+    public function forceDeleteInvoice(string $uuid_inv)
+    {
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json([
+                    'message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'
+                ], 401);
+            }
+
+            $headers = [
+                'Authorization' => 'Bearer ' . $tokenData["access_token"],
+                'Xero-Tenant-Id' => env('XERO_TENANT_ID'),
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ];
+
+             $invoiceResp = Http::withHeaders($headers)
+            ->get("https://api.xero.com/api.xro/2.0/Invoices/{$uuid_inv}");
+
+        if (!$invoiceResp->successful()) {
+            return response()->json([
+                'message' => 'Invoice tidak ditemukan',
+                'error' => $invoiceResp->json()
+            ], $invoiceResp->status());
+        }
+
+
+        $invoice = $invoiceResp->json('Invoices.0');
+        $currentStatus = $invoice['Status'];
+        // 2️⃣ Hapus semua payment (reconciled atau tidak)
+       if (!empty($invoice['Payments'])) {
+            foreach ($invoice['Payments'] as $payment) {
+                $paymentId = $payment['PaymentID'] ?? null;
+
+                if (!$paymentId) continue;
+
+                // FIX: Xero Payment dihapus dengan POST update Status ke 'DELETED'
+                // Bukan menggunakan HTTP DELETE
+                $deletePayment = Http::withHeaders($headers)
+                    ->post("https://api.xero.com/api.xro/2.0/Payments/{$paymentId}", [
+                        'Payments' => [
+                            [
+                                'PaymentID' => $paymentId,
+                                'Status'    => 'DELETED'
+                            ]
+                        ]
+                    ]);
+
+                if (!$deletePayment->successful()) {
+                    Log::error('Gagal menghapus payment Xero', [
+                        'payment_id' => $paymentId,
+                        'response' => $deletePayment->json()
+                    ]);
+
+                    // Opsional: Return error atau continue (tergantung kebijakan bisnis)
+                    // Di sini kita return error agar proses berhenti jika payment gagal dihapus
+                    return response()->json([
+                        'message' => 'Gagal menghapus payment. Kemungkinan payment sudah di-reconcile bank.',
+                        'payment_id' => $paymentId,
+                        'error' => $deletePayment->json()
+                    ], 400);
+                }
+            }
+        }
+
+        $targetStatus = in_array($currentStatus, ['DRAFT', 'SUBMITTED']) ? 'DELETED' : 'VOIDED';
+
+        $deleteInvoice = Http::withHeaders($headers)
+            ->post("https://api.xero.com/api.xro/2.0/Invoices/{$uuid_inv}", [
+                'Invoices' => [
+                    [
+                        'InvoiceID' => $uuid_inv,
+                        'Status'    => $targetStatus
+                    ]
+                ]
+            ]);
+
+
+        if (!$deleteInvoice->successful()) {
+            Log::error("gagal hapus invoice ",$deleteInvoice->json());
+            return response()->json([
+                'message' => 'Gagal mengubah status invoice',
+                'target_status' => $targetStatus,
+                'error' => $deleteInvoice->json()
+            ], $deleteInvoice->status());
+        }
+
+        return response()->json([
+            'message' => 'Invoice dan semua payment berhasil dihapus',
+            'invoice_id' => $uuid_inv
+        ], 200);
+
+
+        } catch (\Throwable $e) {
+
+            Log::error('Force delete invoice error', [
+                'invoice_id' => $uuid_inv,
+                'exception' => $e
+            ]);
+
+            return response()->json([
+                'message' => 'Internal Server Error'
+            ], 500);
+        }
+    }
+
+
+
     public function getDetailInvoice($idInvoice)
     {
         try {

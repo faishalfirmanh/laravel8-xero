@@ -83,6 +83,9 @@ Route::prefix("xero-integrasi")->group(function(){
     //invoice
     Route::get('/getInvoiceByIdPaket/{itemCode}', [InvoicesController::class, 'getInvoiceByIdPaket']);//used
     Route::post('/submitUpdateinvoices', [InvoicesDuplicateController::class, 'updateInvoiceSelected']);//update semua select submit
+
+    //hapus invoice untuk clean data
+    Route::post('/delete-invoice-byuuid/{uuid_inv}',[InvoicesController::class, 'forceDeleteInvoice'])->name('delete_invoice_uuid');
 });
 
 Route::prefix("admin-web")->group(function(){
