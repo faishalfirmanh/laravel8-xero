@@ -9,7 +9,12 @@
             <div class="row align-items-end">
                 <div class="col-md-8">
                     <label class="form-label">Pilih Invoice</label>
-                    <select class="form-control" id="invoiceSelect" name="invoice_ids[]" multiple>
+                    <select class="form-control select2" multiple id="invoiceSelect" name="invoice_ids[]" multiple>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Pilih Paket</label>
+                    <select class="form-control select2" id="paket_selected" name="paket_selected" multiple>
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -104,38 +109,111 @@
 <script>
     let currentPage = 1;
     let isLoading = false;
+let keyword = '';
+
+    $('#invoiceSelect').select2({
+        placeholder: 'Pilih Invoice',
+        width: '100%'
+    });
+
+    $('#paket_selected').select2({
+        placeholder: 'Pilih Paket Haji / Umroh',
+        width: '100%'
+    });
+
+     function renderPaketSelect(paket) {
+        const $select = $('#paket_selected');
+        $select.empty();
+
+        paket.forEach(inv => {
+            const option = new Option(
+                inv.nama_paket,
+                inv.uuid_proudct_and_service,
+                false,
+                false
+            );
+            $select.append(option);
+        });
+        $select.trigger('change');
+    }
+
+    function renderInvoiceSelect(invoices) {
+        const $select = $('#invoiceSelect');
+        $select.empty();
+
+        invoices.forEach(inv => {
+            const option = new Option(
+                inv.invoice_number,
+                inv.invoice_uuid,
+                false,
+                false
+            );
+
+            $select.append(option);
+        });
+        // Refresh select2
+        $select.trigger('change');
+    }
+
+    loadInvoiceSelect2(currentPage);
+    function loadInvoiceSelect2(page){
+         ajaxRequest( `{{ route('list-invoice-select2') }}`,'GET',{
+               page:page, keyword: keyword.toUpperCase()
+            }, null)
+            .then(response =>{
+                console.log('select3',response.data.data.d)
+                //renderTable(response.data.data);
+                renderInvoiceSelect(response.data.data.data);
+            })
+            .catch((err)=>{
+                console.log('error select2 invoice',err);
+            })
+    }
+
+
+    loadPaketSelect2(currentPage);
+    function loadPaketSelect2(page){
+         ajaxRequest( `{{ route('list-paket-select2') }}`,'GET',{
+               page:page
+            }, null)
+            .then(response =>{
+                renderPaketSelect(response.data.data.data);
+            })
+            .catch((err)=>{
+                console.log('error select2 invoice',err);
+            })
+    }
 
     // === LOAD PERTAMA ===
     loadInvoices(currentPage);
-
     function loadInvoices(page) {
         if (isLoading) return;
 
         isLoading = true;
         showLoading(true);
 
-        $.ajax({
-            url: `{{ route('list-invoice-web') }}`,
-            data: { page: page },
-            method: 'GET',
-            success: function(response) {
-
-                renderTable(response.data);
-
-                // Pagination
+        ajaxRequest( `{{ route('list-invoice-web') }}`,'GET',{
+               page:page
+            }, null)
+            .then(response =>{
+                renderTable(response.data.data);
+                //renderInvoiceSelect(response.data.data);
                 $('#btnPrev').toggle(page > 1);
-                $('#btnNext').toggle(response.has_more);
-
-            },
-            error: function(err){
-                console.error(err);
-                alert('Gagal memuat data');
-            },
-            complete: function () {
+                $('#btnNext').toggle(response.data.has_more);
                 isLoading = false;
                 showLoading(false);
-            }
-        });
+            })
+            .catch((err)=>{
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops',
+                    text: 'gagal load list',
+                })
+                isLoading = false;
+                showLoading(false);
+            })
+
+
     }
 
     $('#btnNext').on('click', function () {

@@ -213,6 +213,191 @@ class InvoicesController extends Controller
         }
     }
 
+   public function forceVoidOverpaymentPayment(string $paymentId)
+    {
+        $tokenData = $this->getValidToken();
+
+        $headers = [
+            'Authorization'  => 'Bearer ' . $tokenData['access_token'],
+            'Xero-Tenant-Id' => env('XERO_TENANT_ID'),
+            'Content-Type'   => 'application/json',
+            'Accept'         => 'application/json',
+        ];
+
+        // 1️⃣ Ambil Payment
+        $paymentResp = Http::withHeaders($headers)
+            ->get("https://api.xero.com/api.xro/2.0/Payments/{$paymentId}");
+
+        if (!$paymentResp->successful()) {
+            return response()->json([
+                'message' => 'Payment / Overpayment tidak ditemukan',
+                'error' => $paymentResp->json()
+            ], 404);
+        }
+
+        $payment = $paymentResp->json('Payments.0');
+
+        // 2️⃣ VOID / DELETE Payment
+        $delete = Http::withHeaders($headers)
+            ->post("https://api.xero.com/api.xro/2.0/Payments/{$paymentId}", [
+                'Payments' => [
+                    [
+                        'PaymentID' => $paymentId,
+                        'Status'    => 'DELETED'
+                    ]
+                ]
+            ]);
+
+        if (!$delete->successful()) {
+            return response()->json([
+                'message' => 'Gagal menghapus overpayment payment',
+                'error' => $delete->json()
+            ], 400);
+        }
+
+        return response()->json([
+            'message' => 'Overpayment (Payment) berhasil dihapus',
+            'payment_id' => $paymentId
+        ]);
+    }
+
+
+
+    public function forceDeleteCreditNote(string $creditNoteId)
+    {
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json([
+                    'message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'
+                ], 401);
+            }
+
+            $headers = [
+                'Authorization'  => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => env('XERO_TENANT_ID'),
+                'Content-Type'   => 'application/json',
+                'Accept'         => 'application/json',
+            ];
+
+            // 1️⃣ Ambil Credit Note
+            $creditNoteResp = Http::withHeaders($headers)
+                ->get("https://api.xero.com/api.xro/2.0/CreditNotes/{$creditNoteId}");
+
+            //dd($creditNoteResp);
+            if (!$creditNoteResp->successful()) {
+                return response()->json([
+                    'message' => 'Credit Note tidak ditemukan',
+                    'error'   => $creditNoteResp->json()
+                ], $creditNoteResp->status());
+            }
+
+            $creditNote = $creditNoteResp->json('CreditNotes.0');
+            $currentStatus = $creditNote['Status'];
+
+            // 2️⃣ Hapus semua Allocation (Credit Note → Invoice)
+            if (!empty($creditNote['Allocations'])) {
+                foreach ($creditNote['Allocations'] as $allocation) {
+                    $allocationId = $allocation['AllocationID'] ?? null;
+
+                    if (!$allocationId) continue;
+
+                    $deleteAllocation = Http::withHeaders($headers)
+                        ->delete(
+                            "https://api.xero.com/api.xro/2.0/CreditNotes/{$creditNoteId}/Allocations/{$allocationId}"
+                        );
+
+                    if (!$deleteAllocation->successful()) {
+                        Log::error('Gagal menghapus allocation credit note', [
+                            'credit_note_id' => $creditNoteId,
+                            'allocation_id'  => $allocationId,
+                            'response'       => $deleteAllocation->json()
+                        ]);
+
+                        return response()->json([
+                            'message'        => 'Gagal menghapus allocation credit note',
+                            'allocation_id' => $allocationId,
+                            'error'         => $deleteAllocation->json()
+                        ], 400);
+                    }
+                }
+            }
+
+            // 3️⃣ Hapus semua Refund (jika ada)
+            if (!empty($creditNote['Refunds'])) {
+                foreach ($creditNote['Refunds'] as $refund) {
+                    $refundId = $refund['RefundID'] ?? null;
+
+                    if (!$refundId) continue;
+
+                    // Refund dihapus dengan update Status = DELETED
+                    $deleteRefund = Http::withHeaders($headers)
+                        ->post("https://api.xero.com/api.xro/2.0/Refunds/{$refundId}", [
+                            'Refunds' => [
+                                [
+                                    'RefundID' => $refundId,
+                                    'Status'   => 'DELETED'
+                                ]
+                            ]
+                        ]);
+
+                    if (!$deleteRefund->successful()) {
+                        Log::error('Gagal menghapus refund credit note', [
+                            'refund_id' => $refundId,
+                            'response'  => $deleteRefund->json()
+                        ]);
+
+                        return response()->json([
+                            'message'   => 'Gagal menghapus refund credit note',
+                            'refund_id'=> $refundId,
+                            'error'    => $deleteRefund->json()
+                        ], 400);
+                    }
+                }
+            }
+
+            // 4️⃣ Tentukan target status
+            $targetStatus = in_array($currentStatus, ['DRAFT', 'SUBMITTED'])
+                ? 'DELETED'
+                : 'VOIDED';
+
+            // 5️⃣ Update status Credit Note
+           $voidCreditNote = Http::withHeaders($headers)
+            ->post("https://api.xero.com/api.xro/2.0/CreditNotes/{$creditNoteId}", [
+                'CreditNotes' => [
+                    [
+                        'CreditNoteID' => $creditNoteId,
+                        'Status'       => 'VOIDED'
+                    ]
+                ]
+            ]);
+
+            if (!$voidCreditNote->successful()) {
+                Log::error('Gagal mengubah status credit note', $voidCreditNote->json());
+
+                return response()->json([
+                    'message'       => 'Gagal mengubah status credit note',
+                    'target_status' => $targetStatus,
+                    'error'         => $voidCreditNote->json()
+                ], $voidCreditNote->status());
+            }
+
+            return response()->json([
+                'message'        => 'Credit Note berhasil dihapus (force delete)',
+                'credit_note_id'=> $creditNoteId
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('Force delete credit note error', [
+                'credit_note_id' => $creditNoteId,
+                'exception'      => $e
+            ]);
+
+            return response()->json([
+                'message' => 'Internal Server Error'
+            ], 500);
+        }
+    }
 
 
     public function getDetailInvoice($idInvoice)

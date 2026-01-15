@@ -13,8 +13,7 @@ class InvoicesAllFromXero extends Model
         'invoice_number',
         'invoice_uuid',
         'invoice_amount',
-        'spending_amount',
-        'profit_amount',
+        'uuid_proudct_and_service'
     ];
 
 }

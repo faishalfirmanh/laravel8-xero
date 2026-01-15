@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use App\Jobs\FetchXeroContacts;
 class XeroContactController extends Controller
 {
     private $tokenFile = 'xero_token.json';
@@ -71,8 +74,26 @@ class XeroContactController extends Controller
         return response()->json($response->json(), 400);
     }
 
-
+    //contact wiht cacahe
     public function getContacts()
+    {
+        // Ambil dari cache dulu
+        if (Cache::has('xero_contacts')) {
+            return response()->json([
+                'message' => 'Success (from cache)',
+                'data' => Cache::get('xero_contacts')
+            ], 200);
+        }
+
+        // Dispatch job ke queue
+        FetchXeroContacts::dispatch();
+
+        return response()->json([
+            'message' => 'Data sedang diproses, silakan refresh beberapa saat lagi'
+        ], 202);
+    }
+
+    public function getContacts1()
     {
         // 1. Ambil Token Valid (Otomatis refresh jika expired)
         $tokenData = $this->getValidToken();
@@ -118,7 +139,7 @@ class XeroContactController extends Controller
             return null;
         }
 
-        $tokens = json_decode(Storage::get($this->Token), true);
+        $tokens = json_decode(Storage::get($this->tokenFile_prod), true);
         if (empty($tokens))
             return null;
 

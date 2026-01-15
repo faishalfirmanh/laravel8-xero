@@ -10,6 +10,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Xero\TrackingController;
 use App\Http\Controllers\Xero\PaymentController;
 use App\Http\Controllers\InvoiceItemController;
+use App\Http\Controllers\Xero\XeroSyncInvoicePaidController;
 use App\Http\Controllers\Xero\XeroContactController;
 use App\Http\Controllers\GlobalExternal\CurrencyController;
 use App\Http\Controllers\Xero\InvoiceItem2Controller;
@@ -41,7 +42,8 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::prefix("xero")->group(function(){
     Route::get('connect', [XeroContactController::class, 'connect']);
     Route::get('callback', [XeroContactController::class, 'callback']);
-    Route::get('contacts', [XeroContactController::class, 'getContacts']);
+    Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');;
+    Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');
 });
 
 Route::prefix("xero-integrasi")->group(function(){
@@ -57,10 +59,10 @@ Route::prefix("xero-integrasi")->group(function(){
     //
     Route::post('/save-data-product', [ProductAndServiceController::class, 'updateProduct']);//used
     //proudct
-    Route::get('/get-data-product', [ProductAndServiceController::class, 'getProduct']);//used
+    Route::get('/get-data-product', [ProductAndServiceController::class, 'getProduct'])->name('xero-list-product-paging');//used
     Route::get('/get-data-no-limit', [ProductAndServiceController::class, 'getProductAllNoBearer']);//used
     Route::get('/get-product-withoutsame', [ProductAndServiceController::class, 'getProductNoSame']);
-    Route::get('/get-by-id/{id}', [ProductAndServiceController::class, 'getProductById']);//used
+    Route::get('/get-by-id/{id}', [ProductAndServiceController::class, 'getProductById'])->name('xero-product-by-id');//used
 
     //kategory (tracking)
     Route::get('/get_divisi', [TrackingController::class, 'getKategory']);//used
@@ -76,7 +78,8 @@ Route::prefix("xero-integrasi")->group(function(){
     Route::get('/getAllAccount', [PaymentController::class, 'getGroupedAccounts']);//used
 
     //local contact-cron-job payment history
-    Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory'])->name('cron-insert-history-payment-local');//used
+    Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory'])->name('cron-insert-history-payment-local');//used  //dibikin button saja
+
     Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);//used
     Route::get('/getDetailInvoice/{idInvoice}', [InvoicesController::class, 'getDetailInvoice']);//used
 
@@ -84,11 +87,15 @@ Route::prefix("xero-integrasi")->group(function(){
     Route::get('/getInvoiceByIdPaket/{itemCode}', [InvoicesController::class, 'getInvoiceByIdPaket']);//used
     Route::post('/submitUpdateinvoices', [InvoicesDuplicateController::class, 'updateInvoiceSelected']);//update semua select submit
 
-    //hapus invoice untuk clean data
+    //hapus invoice untuk clean data //forceDeleteCreditNote.,forceVoidOverpayment
     Route::post('/delete-invoice-byuuid/{uuid_inv}',[InvoicesController::class, 'forceDeleteInvoice'])->name('delete_invoice_uuid');
+    Route::post('/delete-creditnote-byuuid/{creditNoteId}',[InvoicesController::class, 'forceDeleteCreditNote'])->name('delete_creditnote_uuid');
+    Route::post('/delete-overpayment-byuuid/{overpaymentId}',[InvoicesController::class, 'forceVoidOverpayment'])->name('delete_overpayment_uuid');
 });
 
 Route::prefix("admin-web")->group(function(){
+    Route::get('/get-invoice-local',[XeroSyncInvoicePaidController::class,'getAllInvoiceLocal'])->name('list-invoice-select2');
+    Route::get('/get-paket-local',[XeroSyncInvoicePaidController::class,'getAllPaketLocal'])->name('list-paket-select2');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 });
 

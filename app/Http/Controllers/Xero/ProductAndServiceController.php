@@ -6,7 +6,7 @@ use App\ConfigRefreshXero;
 use Illuminate\Http\Request;
 use App\Services\XeroAuthService;
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Support\Facades\Cache;
 class ProductAndServiceController extends Controller
 {
     use ConfigRefreshXero;
@@ -108,7 +108,91 @@ class ProductAndServiceController extends Controller
         // return $response->json();
     }
 
+
     public function getProduct(Request $request)
+    {
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json(['message' => 'Token kosong/invalid'], 401);
+            }
+
+            $tenantId = $this->getTenantId($tokenData['access_token']);
+
+            // KONFIGURASI
+            $limit = 10;          // frontend limit
+            $xeroBatchSize = 100; // Xero limit tetap
+
+            $frontendPage = max((int)$request->query('page', 1), 1);
+
+            // Batasi page supaya tidak deep pagination
+            if ($frontendPage > 100) {
+                return response()->json([
+                    'message' => 'Page terlalu besar (maks 100)'
+                ], 400);
+            }
+
+            // Mapping page frontend -> Xero page
+            $xeroPageTarget = (int) ceil(($frontendPage * $limit) / $xeroBatchSize);
+            $offsetInBatch = (($frontendPage - 1) * $limit) % $xeroBatchSize;
+
+            // Cache per halaman Xero
+            $cacheKey = "xero_items_page_{$xeroPageTarget}";
+
+            $allItems = Cache::remember($cacheKey, now()->addSeconds(60), function () use (
+                    $tokenData,
+                    $tenantId,
+                    $xeroPageTarget
+                ) {
+            $response = Http::retry(1, 2000, function ($exception) {
+                return $exception->response &&
+                    $exception->response->status() === 429;
+            })->withHeaders([
+                'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])->get('https://api.xero.com/api.xro/2.0/Items', [
+                'page' => $xeroPageTarget,
+            ]);
+
+            if ($response->failed()) {
+                    throw new \Exception(
+                        'Xero API Error: ' . $response->status()
+                    );
+                }
+
+                return $response->json('Items') ?? [];
+            });
+
+            // Slice ke limit frontend
+            $pagedItems = array_slice($allItems, $offsetInBatch, $limit);
+
+            // Deteksi halaman berikutnya
+            $hasMore = count($pagedItems) === $limit &&
+                (count($allItems) > ($offsetInBatch + $limit) || count($allItems) === 100);
+
+            return response()->json([
+                'current_page' => $frontendPage,
+                'limit' => $limit,
+                'total_in_page' => count($pagedItems),
+                'has_more' => $hasMore,
+                'data' => $pagedItems,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Proxy Error',
+                'Controller' => 'ProductAndServiceController',
+                'line'=> 186,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+    //before 15-01-2026
+    public function getProduct2(Request $request)
     {
         try {
             $tokenData = $this->getValidToken();
@@ -162,7 +246,9 @@ class ProductAndServiceController extends Controller
             Log::info('Xero Query Params:', $queryParams);
             Log::info('Full URL: https://api.xero.com/api.xro/2.0/Items?' . http_build_query($queryParams));
             if ($response->failed()) {
-                return response()->json(['message' => 'Xero API Error', 'details' => $response->json()], $response->status());
+                Log::error('Xero error list product ');
+                return response()->json(['message' => 'Xero API Error', 'details' => $response->json()
+                ,'status'=>$response->status()], $response->status());
             }
 
             $xeroData = $response->json();

@@ -17,4 +17,6 @@ class DetailSpendingInvoice extends Model
         'id_master_pengeluaran',
         'paket_uuid'
     ];
+
+    
 }
