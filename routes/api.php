@@ -8,6 +8,7 @@ use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\Xero\TaxRateController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Xero\TrackingController;
+use App\Http\Controllers\Xero\WebhookController;
 use App\Http\Controllers\Xero\PaymentController;
 use App\Http\Controllers\InvoiceItemController;
 use App\Http\Controllers\Xero\XeroSyncInvoicePaidController;
@@ -98,6 +99,10 @@ Route::prefix("admin-web")->group(function(){
     Route::get('/get-paket-local',[XeroSyncInvoicePaidController::class,'getAllPaketLocal'])->name('list-paket-select2');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 });
+
+
+Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
+
 
 
 //payment

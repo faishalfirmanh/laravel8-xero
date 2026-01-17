@@ -137,7 +137,7 @@ class ProductAndServiceController extends Controller
             $offsetInBatch = (($frontendPage - 1) * $limit) % $xeroBatchSize;
 
             // Cache per halaman Xero
-            $cacheKey = "xero_items_page_{$xeroPageTarget}";
+            $cacheKey = "xero_items_{$tenantId}_page_{$xeroPageTarget}";
 
             $allItems = Cache::remember($cacheKey, now()->addSeconds(60), function () use (
                     $tokenData,

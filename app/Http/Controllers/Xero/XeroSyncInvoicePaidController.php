@@ -10,6 +10,7 @@ use App\ConfigRefreshXero;
 use App\Models\InvoicesAllFromXero;
 use App\Models\ItemsPaketAllFromXero;
 use Illuminate\Support\Str;
+use App\Services\GlobalService;
 use App\Services\XeroRateLimitService;
 use Illuminate\Support\Facades\DB;
 
@@ -17,10 +18,72 @@ class XeroSyncInvoicePaidController extends Controller
 {
     protected $rateLimiter;
     use ConfigRefreshXero;
+    protected $global;
 
-    public function __construct(XeroRateLimitService $rateLimiter)
+    public function __construct(XeroRateLimitService $rateLimiter, GlobalService $global)
     {
         $this->rateLimiter = $rateLimiter;
+        $this->global = $global;
+    }
+
+    public function syncSingleInvoice($invoiceId)
+    {
+        $tokenData = $this->getValidToken();
+        $tenantId = env('XERO_TENANT_ID');
+
+        $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])
+            ->retry(3, 1000) // Coba 3x jika gagal
+            ->get('https://api.xero.com/api.xro/2.0/Invoices/' . $invoiceId);
+
+        if ($response->successful()) {
+            $invoices = $response->json('Invoices');
+
+            if (empty($invoices)) return;
+
+            $data = $invoices[0]; // INI DATA HEADER INVOICE
+
+            // Pastikan ada LineItems
+            $lineItems = $data['LineItems'] ?? [];
+
+            foreach ($lineItems as $lineItem) {
+
+                InvoicesAllFromXero::updateOrCreate(
+                    [
+                        // KUNCI PENCARIAN
+                        'invoice_uuid' => $data['InvoiceID'], // Ambil dari $data (Header)
+                        //'uuid_proudct_and_service' => $lineItem['LineItemID'] // Ambil dari $lineItem (Detail)
+                    ],
+                    [
+                        // --- DATA HEADER (Ambil dari variabel $data) ---
+                        'invoice_uuid'   => $data['InvoiceID'],
+                        'invoice_amount' => $data['AmountPaid'],
+                        'invoice_number' => $data['InvoiceNumber'],
+                        'invoice_total'  => $data['Total'], // Biasanya 'Total', bukan 'SubTotal' utk total akhir
+                        'issue_date'     => $data['DateString'],
+                        'due_date'       => $data['DueDateString'],
+                        'status'         => $data['Status'],
+                        'uuid_contact'   => $data['Contact']['ContactID'],
+                        'contact_name'   => $data['Contact']['Name'],
+
+                        // --- DATA DETAIL ITEM (Ambil dari variabel $lineItem) ---
+                        'uuid_proudct_and_service' => $lineItem['LineItemID'],
+                        'item_name'      => $lineItem['Description'] ?? ($lineItem['Item']['Name'] ?? ''),
+                        //'item_code'      => $lineItem['ItemCode'] ?? null,
+                        // Tambahan jika perlu:
+                        // 'quantity'    => $lineItem['Quantity'],
+                        // 'unit_amount' => $lineItem['UnitAmount'],
+                    ]
+                );
+            }
+
+            Log::info("Sukses Sync Single Invoice: " . $data['InvoiceNumber']);
+        } else {
+            Log::error("Gagal Sync Single Invoice $invoiceId: " . $response->body());
+        }
     }
 
     public function getAllInvoiceLocal(Request $request)
@@ -99,146 +162,185 @@ class XeroSyncInvoicePaidController extends Controller
 
     public function getInvoicePaidArrival()
     {
+        //set_time_limit(100); // 5 Menit agar tidak timeout
+
         $tokenData = $this->getValidToken();
         if (!$tokenData) {
-            return response()->json(['message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'], 401);
+            return response()->json(['message' => 'Token kosong/invalid.'], 401);
         }
 
+        //dd(111);
+        $page = 1;
         $tenantId = $this->getTenantId($tokenData['access_token']);
 
+        $totalSyncedInvoiceLines = 0; // Menghitung baris item, bukan jumlah invoice header
+        $isFinished = false;
+
+        // --- BAGIAN 1: SYNC INVOICE ---
+        $aa = Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                        'Xero-Tenant-Id' => $tenantId,
+                        'Accept' => 'application/json',
+                    ])
+
+                    ->get('https://api.xero.com/api.xro/2.0/Invoices');
+        dd($aa);
         try {
+            while (!$isFinished) {
+                $this->rateLimiter->checkAndHit($tenantId);
 
-            $this->rateLimiter->checkAndHit($tenantId);
-            //$usage = $this->rateLimiter->getUsageInfo($tenantId);
+                // 1. Request List Invoice (Sudah termasuk LineItems)
+                // Gunakan Retry Wrapper agar aman
+                $response = $this->xeroRequestWithRetry(function() use ($tokenData, $tenantId, $page) {
+                     Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                        'Xero-Tenant-Id' => $tenantId,
+                        'Accept' => 'application/json',
+                    ])
+                    ->timeout(60)
+                    ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                        'order' => 'Date DESC',
+                        'page' => $page
+                    ]);
+                });
+                //dd($response);
 
-            // 3. Request Data Contacts
-            $response =
-                // Http::withHeaders([
-                //     'Authorization' => 'Bearer ' . $tokenData['access_token'],
-                //     'Xero-Tenant-Id' => $tenantId,
-                //     'Accept' => 'application/json',
-                // ])
-                //->timeout(30)
-                // ->get('https://api.xero.com/api.xro/2.0/Invoices', [
-                //     'where' => 'Status="PAID"',
-                //     'order' => 'Date DESC'
-                // ]);
-                $this->xeroRequestWithRetry(function() use ($tokenData, $tenantId) {
-            return Http::withHeaders([
-                'Authorization' => 'Bearer ' . $tokenData['access_token'],
-                'Xero-Tenant-Id' => $tenantId,
-                'Accept' => 'application/json',
-            ])
-            ->timeout(30)
-            ->get('https://api.xero.com/api.xro/2.0/Invoices', [
-                'where' => 'Status="PAID"',
-                'order' => 'Date DESC'
-            ]);
-        });
-
-
-
-
-            $tot = 0;
-            if ($response->serverError()) {
-                Log::error('Xero API Internal Server Error', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'headers' => $response->headers()
-                ]);
-                return response()->json([
-                    'message' => 'Xero API sedang bermasalah, coba lagi nanti',
-                    'status' => 503,
-                ], 503);
-            }
-            // if (!$response->successful()) {
-            //     return response()->json([
-            //         'message' => 'Request gagal',
-            //         'status' => $response->status(),
-            //         'body' => $response->body()
-            //     ], $response->status());
-            // }
-            $data_invoice_all =  $response->json('Invoices') ?? [];
-
-            foreach ($response['Invoices'] as $key => $value) {
-                if (empty($value['InvoiceNumber'])) {
-                    continue;
+                if ($response->serverError()) {
+                    Log::error('Xero 500 Error Page ' . $page);
+                    return response()->json(['message' => 'Xero Server Error'], 503);
                 }
-                $invoiceSaveDb =  InvoicesAllFromXero::firstOrCreate(
+
+                $data_invoice_all = $response->json('Invoices') ?? [];
+
+                if (empty($data_invoice_all)) {
+                    $isFinished = true;
+                    break;
+                }
+
+                // 2. Loop Data
+                foreach ($data_invoice_all as $invoice) {
+                    if (empty($invoice['InvoiceNumber'])) continue;
+
+                    // Ambil LineItems langsung dari response utama (TIDAK PERLU REQUEST ULANG)
+                    $lineItems = $invoice['LineItems'] ?? [];
+
+                    foreach ($lineItems as $lineItem) {
+
+                        InvoicesAllFromXero::updateOrCreate(
+                            [
+                                'invoice_uuid' => $invoice['InvoiceID'],
+                                'uuid_proudct_and_service' => $lineItem['LineItemID'] // KUNCI KEDUA AGAR TIDAK TIMPA DATA
+                            ],
+                            [
+                                // Data Header Invoice
+                                'invoice_uuid'   => $invoice['InvoiceID'],
+                                'invoice_amount' => $invoice['AmountPaid'],
+                                'invoice_number' => $invoice['InvoiceNumber'],
+                                'invoice_total'  => $invoice['SubTotal'],
+                                'issue_date'     => $invoice['DateString'],
+                                'due_date'       => $invoice['DueDateString'],
+                                'status'         => $invoice['Status'],
+                                'uuid_contact'   => $invoice['Contact']['ContactID'],
+                                'contact_name'   => $invoice['Contact']['Name'],
+
+                                // Data Detail Item
+                                'uuid_proudct_and_service' => $lineItem['LineItemID'],
+                                'item_name'      => $lineItem['Description'] ?? ($lineItem['Item']['Name'] ?? ''),
+                                'item_code'      => $lineItem['ItemCode'] ?? null, // Simpan juga kodenya
+                            ]
+                        );
+
+                        $totalSyncedInvoiceLines++;
+                    }
+                }
+
+                // Cek Pagination
+                if (count($data_invoice_all) < 100) {
+                    $isFinished = true;
+                } else {
+                    $page++;
+                    sleep(2); // Jeda wajib 2 detik antar halaman
+                }
+            }
+
+            // Jeda sebelum pindah ke Items
+            sleep(2);
+
+            // --- BAGIAN 2: SYNC ITEMS (PAKET) ---
+            $page_item = 1;
+            $totalSyncedItem = 0;
+            $isFinished_item = false;
+
+            while (!$isFinished_item) {
+                $this->rateLimiter->checkAndHit($tenantId);
+
+                $resItem = $this->xeroRequestWithRetry(function() use ($tokenData, $tenantId, $page_item) {
+                    return Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                        'Xero-Tenant-Id' => $tenantId,
+                        'Content-Type' => 'application/json',
+                        'Accept' => 'application/json',
+                    ])
+                    ->timeout(30)
+                    ->get('https://api.xero.com/api.xro/2.0/Items', [
+                        'order' => 'Code ASC', // Lebih rapi pakai Code
+                        'page' => $page_item
+                    ]);
+                });
+
+                $itemPaketAndProduct = $resItem->json('Items') ?? [];
+
+                if (empty($itemPaketAndProduct)) {
+                    $isFinished_item = true;
+                    break;
+                }
+
+                foreach ($itemPaketAndProduct as $value) {
+                    if (!isset($value['Name']) || trim($value['Name']) === '') continue;
+                    if (substr_count($value['Name'], '/') !== 2) continue;
+
+                    $hari = self::getTotalHari($value['Name']) ?? 0;
+
+                    ItemsPaketAllFromXero::updateOrCreate(
+                        ['uuid_proudct_and_service' => $value['ItemID']],
                         [
-                            'invoice_uuid'   => $value['InvoiceID']
-                        ],
-                        [
-                            'invoice_uuid'   => $value['InvoiceID'],
-                            'invoice_amount' => $value['AmountPaid'],
-                            'invoice_number' => $value['InvoiceNumber']
+                            'uuid_proudct_and_service' => $value['ItemID'],
+                            'code' => $value['Code'] ?? null,
+                            'nama_paket' => $value['Name'],
+                            'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),
+                            'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),
+                            'total_hari' => $hari,
+                            'jenis_item' => $this->global->cekJenisPaketBasePagar($value['Name']),
+                            'price_purchase' => data_get($value, 'PurchaseDetails.UnitPrice', 0),
+                            'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
+                            'desc' => $value['Description'] ?? ''
                         ]
                     );
+                    $totalSyncedItem++;
+                }
 
-                if($invoiceSaveDb->wasRecentlyCreated){
-                    $tot++;
+                if (count($itemPaketAndProduct) < 100) {
+                    $isFinished_item = true;
+                } else {
+                    $page_item++;
+                    sleep(2); // Jeda wajib
                 }
             }
 
-            sleep(1);
-            $this->rateLimiter->checkAndHit($tenantId);
-            $resItem = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $tokenData['access_token'],
-                    'Xero-Tenant-Id' => $tenantId,//env('XERO_TENANT_ID'),
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-            ])->get('https://api.xero.com/api.xro/2.0/Items');
-            $tot_paket = 0;
+            return response()->json([
+                'status' => 'success',
+                'pesan_invoice' => 'Total Baris Item Invoice tersimpan: ' . $totalSyncedInvoiceLines,
+                'pesan_paket'   => 'Total Paket tersimpan: ' . $totalSyncedItem,
+            ]);
 
-            $itemPaketAndProduct = $resItem->json('Items') ?? [];
-            foreach ($itemPaketAndProduct as $key => $value) {
-                if (!isset($value['Name']) || trim($value['Name']) === '') {
-                    continue;
-                }
-                if (substr_count($value['Name'], '/') !== 2) {
-                    continue;
-                }
-                $hari = self::getTotalHari($value['Name']) ?? 0;
-                $paketSaveDb =  ItemsPaketAllFromXero::firstOrCreate(
-                    [
-                        'uuid_proudct_and_service'   => $value['ItemID']
-                    ],
-                    [
-                        'uuid_proudct_and_service'   => $value['ItemID'],
-                        'code'   => $value['Code'] ?? null,
-                        'nama_paket' => $value['Name'],
-                        'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),// $value["PurchaseDetails"]["AccountCode"] ?? '-',
-                        'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),//$value["SalesDetails"]["AccountCode"] ?? '-',
-                        'total_hari'=> $hari
-
-                    ]
-                );
-
-
-                if($paketSaveDb->wasRecentlyCreated){
-                    $tot_paket++;
-                }
-
-            }
-
-            return response()->json(
-                [
-                    'pesan_invoice'=> 'total data di singkronise invoice '.$tot,
-                    'pesan_paket'=> 'total data di singkronise paket '.$tot_paket,
-                ]
-            );
-
-        }catch (\Exception $e) {
-            Log::error("rate limiter error sync paket dan invoice XeroSyncInvoicePaid line 40 ",
-            ['usage'=>$this->rateLimiter->getUsageInfo($tenantId)]);
+        } catch (\Exception $e) {
+            Log::error("Sync Error: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-                'type' => 'rate_limit_exceeded',
-                'usage' => $this->rateLimiter->getUsageInfo($tenantId)
-            ], 429);
+                'type' => 'process_error',
+            ], 500);
         }
-
     }
 
 

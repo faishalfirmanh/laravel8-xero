@@ -62,4 +62,16 @@ class GlobalService
         return $hasil;
     }
 
+
+     public function cekJenisPaketBasePagar(string $name) {
+        if (strpos($name, '#') !== false) {
+            $parts = explode('#', $name);
+            if (isset($parts[1])) {
+                return $parts[1];
+            }
+        }else{
+            return 1;
+        }
+    }
+
 }

@@ -12,7 +12,8 @@ class InvoicesAllFromXero extends Model
      protected $fillable = [
         'invoice_number',
         'invoice_uuid',
-        'invoice_amount',
+        'invoice_amount',//invoice paid
+        'invoice_total',//total yang harus di bayarkan
         'uuid_proudct_and_service'
     ];
 
