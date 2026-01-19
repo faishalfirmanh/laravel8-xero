@@ -3,6 +3,12 @@
 @section('content')
 
 
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Proses Pembayaran</h5>
+    <button onclick="syncData()" type="button" style="color: white !important;font-weidth:bold;" class="btn btn-warning text-dark shadow-sm fw-bold">
+        <i class="fas fa-sync-alt me-1"></i> Synchronization
+    </button>
+</div>
 <div class="card mb-4">
     <div class="card-body">
         <form id="invoicePaymentForm">
@@ -103,12 +109,74 @@
     </div>
 </div>
 
+<div id="fullScreenLoader" class="position-fixed w-100 h-100 flex-column justify-content-center align-items-center"
+     style="display: none; top: 0; left: 0; background-color: rgba(0,0,0,0.7); z-index: 9999;">
+
+    <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+    <h4 class="text-white mt-3 font-weight-bold">Sedang Sinkronisasi Data...</h4>
+    <p class="text-white-50">Mohon tunggu sebentar</p>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
     let currentPage = 1;
     let isLoading = false;
+
+    function syncData(){
+        const loader = document.getElementById('fullScreenLoader');
+        loader.style.display = 'flex';
+            ajaxRequest( `{{ route('sync-invoice-paid') }}`,'GET',{
+            }, null)
+            .then(response =>{
+                console.log('sync',response)
+                loader.style.display = 'none';
+                const data = response.data ? response.data : response;
+                if(response.status == 200){
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sinkronisasi Selesai!',
+                        html: `
+                            <div style="text-align: left; font-size: 14px;">
+                                <p class="mb-1">✅ <strong>Invoice:</strong> ${data.pesan_invoice}</p>
+                                <p class="mb-3">📦 <strong>Paket:</strong> ${data.pesan_paket}</p>
+                                <hr>
+                                <p class="mb-0 text-muted"><small>Xero API Limit:</small></p>
+                                <ul class="mb-0 pl-3">
+                                    <li>Sisa Limit Menit: <b>${data.request_min_tersisa_menit}</b></li>
+                                    <li>Sisa Limit Hari: <b>${data.request_min_tersisa_hari}</b></li>
+                                </ul>
+                            </div>
+                        `,
+                        confirmButtonText: 'Mantap'
+                    })
+                }else {
+                    Swal.fire('Gagal!', data.message || 'Terjadi kesalahan.', 'error');
+                }
+            })
+            .catch((err)=>{
+                console.log('error select2 invoice',err);
+            })
+        // console.log("Mulai Sinkronisasi...");
+        // // 4. Set timer 3 detik
+        // setTimeout(function() {
+        //     // 5. Sembunyikan loader lagi (Tambah class d-none)
+        //     loader.style.display = 'none';
+        //     console.log("Selesai Sinkronisasi");
+        //     // Opsional: Tampilkan notifikasi sukses (karena Anda pakai SweetAlert2)
+            // Swal.fire({
+            //     icon: 'success',
+            //     title: 'Berhasil!',
+            //     text: 'Data berhasil disinkronisasi.',
+            //     timer: 1500,
+            //     showConfirmButton: false
+            // });
+
+        // }, 3000);
+    }
 
 
     $('#invoiceSelect').select2({
@@ -226,7 +294,7 @@
     // }
 
     // === LOAD PERTAMA ===
-    loadInvoices(currentPage);
+    //loadInvoices(currentPage);
     function loadInvoices(page) {
         if (isLoading) return;
 

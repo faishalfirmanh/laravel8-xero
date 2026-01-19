@@ -98,7 +98,9 @@ class XeroSyncInvoicePaidController extends Controller
         $keyword = strtoupper(trim($request->get('keyword', '')));
 
         $query = InvoicesAllFromXero::query()
+            ->where('status','PAID')
             ->select([
+                'status',
                 'invoice_uuid', // Ini akan jadi ID
                 'invoice_number', // Ini akan jadi Text yang tampil
                 'invoice_amount',
@@ -138,7 +140,9 @@ class XeroSyncInvoicePaidController extends Controller
         $keyword = strtoupper(trim($request->get('keyword', '')));
 
         $query = ItemsPaketAllFromXero::query()
+        ->where('jenis_item',1)
         ->select([
+            'jenis_item',
             'uuid_proudct_and_service',
             'nama_paket',
             'total_hari',
@@ -240,7 +244,7 @@ class XeroSyncInvoicePaidController extends Controller
                         InvoicesAllFromXero::updateOrCreate(
                             [
                                 'invoice_uuid' => $invoice['InvoiceID'],
-                                'uuid_proudct_and_service' => $lineItem['LineItemID'] // KUNCI KEDUA AGAR TIDAK TIMPA DATA
+                                //'uuid_proudct_and_service' => $lineItem['LineItemID'] // KUNCI KEDUA AGAR TIDAK TIMPA DATA
                             ],
                             [
                                 // Data Header Invoice
@@ -313,7 +317,7 @@ class XeroSyncInvoicePaidController extends Controller
 
                 foreach ($itemPaketAndProduct as $value) {
                     if (!isset($value['Name']) || trim($value['Name']) === '') continue;
-                    //if (substr_count($value['Name'], '/') !== 2) continue;
+                    if (substr_count($value['Name'], '/') !== 2) continue;//harus ada 2 /
 
                     $hari = self::getTotalHari($value['Name']) ?? 0;
 
