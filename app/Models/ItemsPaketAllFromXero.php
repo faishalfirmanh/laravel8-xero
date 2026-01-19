@@ -17,12 +17,12 @@ class ItemsPaketAllFromXero extends Model
         'purchase_AccountCode',
         'sales_AccountCode',
         'total_hari',
-        'jenis_item',  //1 = paket umroh,
-                        // 2 = paket haji,
-                        // 3 = perlengkapan haji,terkait haji, ex : visa, passport, guide, bis
-                        //  4 = perlengkapan umroh,terkait umroh, ex : visa, passport, guide,bis
-                        // 5 = operasional kantor,
-                        //6 = lain-lain
+        'jenis_item',  //#1 = paket umroh,
+                        // #2 = paket haji,
+                        // #3 = perlengkapan haji,terkait haji, ex : visa, passport, guide, bis
+                        //  #4 = perlengkapan umroh,terkait umroh, ex : visa, passport, guide,bis
+                        // #5 = operasional kantor,
+                        //#6 = lain-lain
 
         'price_purchase',
         'price_sales',

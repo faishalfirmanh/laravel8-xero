@@ -19,29 +19,28 @@ class XeroRateLimitService
      * Jika aman, akan mencatat (hit) request ini.
      * * @param string $tenantId ID Tenant Xero (karena limit dihitung per tenant)
      */
-    public function checkAndHit(string $tenantId)
+   public function checkAndHit(string $tenantId)
     {
         $keyMinute = "xero_limit:min:{$tenantId}";
         $keyDay    = "xero_limit:day:{$tenantId}";
 
-        // 1. Cek Limit Harian
+        // 1. Cek Limit Harian (Jika habis, baru Throw Exception karena nunggu besok kelamaan)
         if (RateLimiter::tooManyAttempts($keyDay, self::LIMIT_DAY)) {
-            $seconds = RateLimiter::availableIn($keyDay);
-            throw new Exception("Xero Daily Limit Reached. Try again in " . gmdate("H:i:s", $seconds));
+             // Opsional: Sleep jika sisa waktu < 5 menit, tapi biasanya daily limit = stop hari ini.
+             throw new Exception("Daily Limit Reached.");
         }
 
-        // 2. Cek Limit Menit (Paling sering kena ini)
+        // 2. Cek Limit Menit (BLOCKING / SLEEP)
         if (RateLimiter::tooManyAttempts($keyMinute, self::LIMIT_MINUTE)) {
-            $seconds = RateLimiter::availableIn($keyMinute);
-            throw new Exception("Xero Minute Limit Reached. Slow down! Wait {$seconds} seconds.");
+            $seconds = RateLimiter::availableIn($keyMinute) + 1; // Tambah 1 detik buffer
+
+            Log::warning("Local Limit Reached. Sleeping {$seconds}s...");
+            sleep($seconds); // <--- PERBAIKAN UTAMA: TUNGGU, JANGAN ERROR
         }
 
-        // 3. Jika aman, catat request ini (Hit)
-        // Parameter kedua adalah waktu decay dalam detik (60 detik & 86400 detik/24 jam)
+        // 3. Catat Hit
         RateLimiter::hit($keyMinute, 60);
         RateLimiter::hit($keyDay, 86400);
-
-        return true;
     }
 
     /**

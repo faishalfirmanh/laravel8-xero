@@ -12,17 +12,17 @@ return new class extends Migration
     public function up(): void
     {
 
-        if (Config::has('database.connections.mysql_2')) {
-             \DB::connection('mysql_2')->statement("UPDATE data_jamaah SET estimasi_berangkat = NULL WHERE CAST(estimasi_berangkat AS CHAR) = '0000-00-00'");
+        // if (Config::has('database.connections.mysql_2')) {
+        //      \DB::connection('mysql_2')->statement("UPDATE data_jamaah SET estimasi_berangkat = NULL WHERE CAST(estimasi_berangkat AS CHAR) = '0000-00-00'");
 
-            Schema::connection("mysql_2")->table('data_jamaah', function (Blueprint $table) {
-                    if (!Schema::hasColumn('data_jamaah', 'is_updated_to_xero')) {
-                        Schema::table('data_jamaah', function (Blueprint $table) {
-                            $table->boolean('is_updated_to_xero')->default(false);
-                        });
-                    }
-            });
-        }
+        //     Schema::connection("mysql_2")->table('data_jamaah', function (Blueprint $table) {
+        //             if (!Schema::hasColumn('data_jamaah', 'is_updated_to_xero')) {
+        //                 Schema::table('data_jamaah', function (Blueprint $table) {
+        //                     $table->boolean('is_updated_to_xero')->default(false);
+        //                 });
+        //             }
+        //     });
+        // }
     }
 
     /**
@@ -30,12 +30,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (Config::has('database.connections.mysql_2')) {
-            Schema::table('data_jamaah', function (Blueprint $table) {
-            Schema::connection("mysql_2")->table('data_jamaah', function (Blueprint $table) {
-                    $table->dropColumn('is_updated_to_xero');
-            });
-            });
-        }
+        // if (Config::has('database.connections.mysql_2')) {
+        //     Schema::table('data_jamaah', function (Blueprint $table) {
+        //     Schema::connection("mysql_2")->table('data_jamaah', function (Blueprint $table) {
+        //             $table->dropColumn('is_updated_to_xero');
+        //     });
+        //     });
+        // }
     }
 };

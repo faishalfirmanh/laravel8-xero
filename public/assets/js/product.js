@@ -648,7 +648,9 @@ $(document).ready(function () {
                 $formMessage.html('<strong>Sukses!</strong> Proudct & Service berhasil disimpan.').addClass('alert-success').removeClass('d-none');
                 //    $('#createContactForm')[0].reset(); // Kosongkan form
                 fetchContacts(); // Muat ulang daftar kontak
-                fetchDataInvoice(payload.Items[0].ItemID)
+                fetchDataInvoice(payload.Items[0].ItemID ?? payload.Items[0].Code)
+                //console.log('load invouce by paket',payload.Items[0])
+                //loadDataItem();
                 fetchDataAccountCodeByItem(response.Items[0].ItemID)//fix 12-01-2025
                 $("#name_paket_saved").html(response.Items[0].Name)
             },

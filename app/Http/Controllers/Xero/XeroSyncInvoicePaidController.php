@@ -51,6 +51,8 @@ class XeroSyncInvoicePaidController extends Controller
 
             foreach ($lineItems as $lineItem) {
 
+            //dd($data);
+
                 InvoicesAllFromXero::updateOrCreate(
                     [
                         // KUNCI PENCARIAN
@@ -88,24 +90,68 @@ class XeroSyncInvoicePaidController extends Controller
 
     public function getAllInvoiceLocal(Request $request)
     {
+        $page = max((int) $request->get('page', 1), 1);
+        $limit = 10; // Naikkan sedikit limitnya biar UX lebih enak (misal 10 atau 20)
+        $offset = ($page - 1) * $limit;
+
+        // Ambil keyword dari parameter 'term' (default Select2) atau 'keyword'
+        $keyword = strtoupper(trim($request->get('keyword', '')));
+
+        $query = InvoicesAllFromXero::query()
+            ->select([
+                'invoice_uuid', // Ini akan jadi ID
+                'invoice_number', // Ini akan jadi Text yang tampil
+                'invoice_amount',
+            ]);
+
+        if ($keyword !== '') {
+            // Pastikan nama kolom sesuai database (misal: invoice_number)
+            $query->where(function($q) use ($keyword) {
+                $q->whereRaw('UPPER(invoice_number) LIKE ?', ['%' . $keyword . '%']);
+            });
+        }
+
+        $totalQuery = clone $query; // Clone untuk hitung total sebelum limit
+        $total = $totalQuery->count();
+
+        $data = $query->orderBy('created_at', 'desc')
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            // Struktur ini disesuaikan agar mudah dibaca JS
+            'results' => $data,
+            'pagination' => [
+                'more' => ($offset + $limit) < $total
+            ]
+        ], 200);
+    }
+
+     public function getAllPaketLocal(Request $request)
+    {
 
         $page  = max((int) $request->get('page', 1), 1);
         $limit = 5;
         $offset = ($page - 1) * $limit;
-
         $keyword = strtoupper(trim($request->get('keyword', '')));
 
-        $query = InvoicesAllFromXero::query()
+        $query = ItemsPaketAllFromXero::query()
         ->select([
-            'invoice_uuid',
-            DB::raw('UPPER(invoice_number) as invoice_number'),
-            'invoice_number',
-            'invoice_amount',
+            'uuid_proudct_and_service',
+            'nama_paket',
+            'total_hari',
+            'created_at'
         ]);
 
-        if ($keyword !== '') {
-            $query->whereRaw('UPPER(no_invoice) LIKE ?', ['%' . $keyword . '%']);
+         if ($keyword !== '') {
+            // Pastikan nama kolom sesuai database (misal: invoice_number)
+            $query->where(function($q) use ($keyword) {
+                $q->whereRaw('UPPER(nama_paket) LIKE ?', ['%' . $keyword . '%']);
+            });
         }
+
         $query->orderBy('created_at', 'desc');
 
         $total = $query->count();
@@ -117,52 +163,21 @@ class XeroSyncInvoicePaidController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => [
-                'data' => $data,
-                'page' => $page,
-                'limit' => $limit,
-                'total' => $total,
-                'has_more' => ($offset + $limit) < $total
-            ]
-        ], 200);
-    }
-
-     public function getAllPaketLocal(Request $request)
-    {
-
-        $page  = max((int) $request->get('page', 1), 1);
-        $limit = 5;
-        $offset = ($page - 1) * $limit;
-
-        $query = ItemsPaketAllFromXero::query()
-        ->select([
-            'uuid_proudct_and_service',
-            'nama_paket',
-            'total_hari',
-            'created_at'
-        ])
-        ->orderBy('created_at', 'desc');
-
-        $total = $query->count();
-        $data = $query
-            ->offset($offset)
-            ->limit($limit)
-            ->get();
-
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'data' => $data,
-                'page' => $page,
-                'limit' => $limit,
-                'total' => $total,
-                'has_more' => ($offset + $limit) < $total
+                'results' => $data,
+                'pagination' => [
+                    'more' => ($offset + $limit) < $total
+                ]
+                // 'page' => $page,
+                // 'limit' => $limit,
+                // 'total' => $total,
+                // 'has_more' => ($offset + $limit) < $total
             ]
         ], 200);
     }
 
     public function getInvoicePaidArrival()
     {
-        //set_time_limit(100); // 5 Menit agar tidak timeout
+        set_time_limit(300); // 5 Menit agar tidak timeout
 
         $tokenData = $this->getValidToken();
         if (!$tokenData) {
@@ -176,15 +191,6 @@ class XeroSyncInvoicePaidController extends Controller
         $totalSyncedInvoiceLines = 0; // Menghitung baris item, bukan jumlah invoice header
         $isFinished = false;
 
-        // --- BAGIAN 1: SYNC INVOICE ---
-        $aa = Http::withHeaders([
-                        'Authorization' => 'Bearer ' . $tokenData['access_token'],
-                        'Xero-Tenant-Id' => $tenantId,
-                        'Accept' => 'application/json',
-                    ])
-
-                    ->get('https://api.xero.com/api.xro/2.0/Invoices');
-        dd($aa);
         try {
             while (!$isFinished) {
                 $this->rateLimiter->checkAndHit($tenantId);
@@ -192,12 +198,12 @@ class XeroSyncInvoicePaidController extends Controller
                 // 1. Request List Invoice (Sudah termasuk LineItems)
                 // Gunakan Retry Wrapper agar aman
                 $response = $this->xeroRequestWithRetry(function() use ($tokenData, $tenantId, $page) {
-                     Http::withHeaders([
+                    return Http::withHeaders([
                         'Authorization' => 'Bearer ' . $tokenData['access_token'],
                         'Xero-Tenant-Id' => $tenantId,
                         'Accept' => 'application/json',
                     ])
-                    ->timeout(60)
+                    ->timeout(6)
                     ->get('https://api.xero.com/api.xro/2.0/Invoices', [
                         'order' => 'Date DESC',
                         'page' => $page
@@ -207,12 +213,15 @@ class XeroSyncInvoicePaidController extends Controller
 
                 if ($response->serverError()) {
                     Log::error('Xero 500 Error Page ' . $page);
+                    break;
                     return response()->json(['message' => 'Xero Server Error'], 503);
                 }
-
+                $available_min_req = (int) $response->header('X-MinLimit-Remaining');
+                $available_day_req = (int) $response->header('X-DayLimit-Remaining');
+                $this->global->requestCalculationXero($available_min_req, $available_day_req);
                 $data_invoice_all = $response->json('Invoices') ?? [];
 
-                if (empty($data_invoice_all)) {
+                if (count($data_invoice_all) < 1) {
                     $isFinished = true;
                     break;
                 }
@@ -226,6 +235,8 @@ class XeroSyncInvoicePaidController extends Controller
 
                     foreach ($lineItems as $lineItem) {
 
+                    // dd($invoice['DueDateString']);
+
                         InvoicesAllFromXero::updateOrCreate(
                             [
                                 'invoice_uuid' => $invoice['InvoiceID'],
@@ -238,7 +249,7 @@ class XeroSyncInvoicePaidController extends Controller
                                 'invoice_number' => $invoice['InvoiceNumber'],
                                 'invoice_total'  => $invoice['SubTotal'],
                                 'issue_date'     => $invoice['DateString'],
-                                'due_date'       => $invoice['DueDateString'],
+                                'due_date'       => isset($invoice['DueDateString']) ? $invoice['DueDateString'] : null,
                                 'status'         => $invoice['Status'],
                                 'uuid_contact'   => $invoice['Contact']['ContactID'],
                                 'contact_name'   => $invoice['Contact']['Name'],
@@ -259,12 +270,13 @@ class XeroSyncInvoicePaidController extends Controller
                     $isFinished = true;
                 } else {
                     $page++;
-                    sleep(2); // Jeda wajib 2 detik antar halaman
+                    // sleep(2); // Jeda wajib 2 detik antar halaman
+                    usleep(500000);
                 }
             }
 
             // Jeda sebelum pindah ke Items
-            sleep(2);
+            //sleep(2);
 
             // --- BAGIAN 2: SYNC ITEMS (PAKET) ---
             $page_item = 1;
@@ -281,13 +293,17 @@ class XeroSyncInvoicePaidController extends Controller
                         'Content-Type' => 'application/json',
                         'Accept' => 'application/json',
                     ])
-                    ->timeout(30)
+                    ->timeout(6)
                     ->get('https://api.xero.com/api.xro/2.0/Items', [
                         'order' => 'Code ASC', // Lebih rapi pakai Code
                         'page' => $page_item
                     ]);
                 });
 
+                $_min_req = (int) $resItem->header('X-MinLimit-Remaining');
+                $_day_req = (int) $resItem->header('X-DayLimit-Remaining');
+
+                $this->global->requestCalculationXero($_min_req, $_day_req);
                 $itemPaketAndProduct = $resItem->json('Items') ?? [];
 
                 if (empty($itemPaketAndProduct)) {
@@ -297,7 +313,7 @@ class XeroSyncInvoicePaidController extends Controller
 
                 foreach ($itemPaketAndProduct as $value) {
                     if (!isset($value['Name']) || trim($value['Name']) === '') continue;
-                    if (substr_count($value['Name'], '/') !== 2) continue;
+                    //if (substr_count($value['Name'], '/') !== 2) continue;
 
                     $hari = self::getTotalHari($value['Name']) ?? 0;
 
@@ -327,10 +343,15 @@ class XeroSyncInvoicePaidController extends Controller
                 }
             }
 
+            // $totalnya = $this->global->getDataAvailabeRequestXero();
+            // dd($totalnya);
+            $view_req =  $this->global->getDataAvailabeRequestXero();
             return response()->json([
                 'status' => 'success',
                 'pesan_invoice' => 'Total Baris Item Invoice tersimpan: ' . $totalSyncedInvoiceLines,
                 'pesan_paket'   => 'Total Paket tersimpan: ' . $totalSyncedItem,
+                'request_min_tersisa_hari' => $view_req->available_request_day,
+                'request_min_tersisa_menit'  => $view_req->available_request_min,
             ]);
 
         } catch (\Exception $e) {

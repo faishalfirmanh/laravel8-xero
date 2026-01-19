@@ -100,6 +100,9 @@ class PaymentHistoryController extends Controller
                 }
 
                 $invoices = $response->json()['Invoices'];
+                $available_min_req = (int) $response->header('X-MinLimit-Remaining');
+                $available_day_req = (int) $response->header('X-DayLimit-Remaining');
+                $this->globalService->requestCalculationXero($available_min_req, $available_day_req);
                   //return response()->json(['status' => $invoices, 'message' => 'Sync Selesai']);
                 // Jika array kosong, berarti data habis
                 if (empty($invoices)) {
@@ -156,19 +159,27 @@ class PaymentHistoryController extends Controller
                     $invoiceData = $responseDetails->json()['Invoices'][0];
                     $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoice_id);
                     $total_xero = $invoiceData['Total'];//['AmountPaid'];
+
+                    $av_min = (int) $responseDetails->header('X-MinLimit-Remaining');
+                    $av_day = (int) $responseDetails->header('X-DayLimit-Remaining');
+                    $this->globalService->requestCalculationXero($av_min, $av_day);
                     //dd($invoiceData);
                     $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
                     DB::beginTransaction();
                     try {
                         $this->globalService->SavedInvoiceValue($invoice_id,
                             $invoiceData["InvoiceNumber"],
-                            $invoiceData["Contact"]["FirstName"],
+                           isset($invoiceData["Contact"]) && $invoiceData["Contact"]["FirstName"] ? $invoiceData["Contact"]["FirstName"] : 'null-name',
                             $total_xero,
                             $local_total_payment,
                             $hasil_selisih
                         );
+                        $view_req =  $this->globalService->getDataAvailabeRequestXero();
                         DB::commit();
-                        Log::info("Sukses: create or update tabel InvoicePriceGap PaymentHistoryController line : 170");
+                        Log::info("Sukses: create or update tabel InvoicePriceGap PaymentHistoryController line : 170'
+                          request_min_tersisa_hari' = $view_req->available_request_day ||
+                         'request_min_tersisa_menit'  = $view_req->available_request_min");
+
                     } catch (\Throwable $th) {
                         DB::rollBack();
                         Log::error("PaymentHistoryController line 173| gagal  create or update tabel InvoicePriceGap  ".$th->getMessage());
@@ -184,8 +195,13 @@ class PaymentHistoryController extends Controller
 
             } while ($hasMoreData);
 
+            $view_req =  $this->globalService->getDataAvailabeRequestXero();
             Log::info("Cron Job History: Selesai.");
-            return response()->json(['status' => 'success', 'message' => 'Sync Selesai']);
+            return response()->json(['status' => 'success',
+                'message' => 'Sync Selesai',
+                'request_min_tersisa_hari' => $view_req->available_request_day,
+                'request_min_tersisa_menit'  => $view_req->available_request_min,
+            ]);
 
         } catch (\Exception $e) {
             Log::error("Cron Job Error Global: " . $e->getMessage());

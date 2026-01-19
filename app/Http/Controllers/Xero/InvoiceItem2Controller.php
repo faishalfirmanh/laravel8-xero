@@ -68,6 +68,10 @@ class InvoiceItem2Controller extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Gagal koneksi ke Xero'], 500);
             }
 
+            $available_min_req = (int) $response->header('X-MinLimit-Remaining');
+            $available_day_req = (int) $response->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($available_min_req, $available_day_req);
+
             $invoiceData = $response->json()['Invoices'][0];
             $currentLineItems = $invoiceData['LineItems'] ?? [];
             $payments = $invoiceData['Payments'] ?? [];
@@ -89,6 +93,10 @@ class InvoiceItem2Controller extends Controller
                 // Refresh data invoice setelah payment dihapus (Status harusnya jadi AUTHORISED/DRAFT)
                 $response = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Invoices/' . $invoiceId);
                 $invoiceData = $response->json()['Invoices'][0];
+                $av_min = (int) $response->header('X-MinLimit-Remaining');
+                $av_day = (int) $response->header('X-DayLimit-Remaining');
+                $this->globalService->requestCalculationXero($av_min, $av_day);
+
                 $currentLineItems = $invoiceData['LineItems'] ?? [];
             }
 
@@ -166,6 +174,11 @@ class InvoiceItem2Controller extends Controller
             $updateResponse = Http::withHeaders($this->getHeaders())
                 ->post($this->xeroBaseUrl . '/Invoices/' . $invoiceId, $payload);
 
+            //
+            $av2_min = (int) $updateResponse->header('X-MinLimit-Remaining');
+            $av2_day = (int) $updateResponse->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($av2_min, $av2_day);
+
             if ($updateResponse->failed()) {
                 // Jika gagal, kembalikan payment (opsional, tapi disarankan)
                 // $this->restorePayments($invoiceId, $paymentBackups);
@@ -188,19 +201,23 @@ class InvoiceItem2Controller extends Controller
             $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoiceId);
             $total_xero = $updatedInvoice['Total'];//['AmountPaid'];
             $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
+           // dd($updatedInvoice["Contact"]);
             $this->globalService->SavedInvoiceValue($invoiceId,
                     $updatedInvoice["InvoiceNumber"],
-                    $updatedInvoice["Contact"]["FirstName"],
+                    isset($updatedInvoice["Contact"]) && $updatedInvoice["Contact"]["Name"] ? $updatedInvoice["Contact"]["Name"] : 'null-name',
+                    //$updatedInvoice["Contact"]["FirstName"],
                     $total_xero,
                     $local_total_payment,
                     $hasil_selisih
             );
             //update
-
+            $view_req =  $this->globalService->getDataAvailabeRequestXero();
             return response()->json([
                 'status' => 'success',
                 'message' => 'Invoice updated successfully',
-                'data' => $updatedInvoice
+                'data' => $updatedInvoice,
+                'request_min_tersisa_hari' => $view_req->available_request_day,
+                'request_min_tersisa_menit'  => $view_req->available_request_min,
             ]);
 
         } catch (\Exception $e) {
@@ -295,6 +312,10 @@ class InvoiceItem2Controller extends Controller
             return;
         }
 
+        $av2_min = (int) $resInv->header('X-MinLimit-Remaining');
+        $av2_day = (int) $resInv->header('X-DayLimit-Remaining');
+        $this->globalService->requestCalculationXero($av2_min, $av2_day);
+
         $invoiceXero = $resInv->json()['Invoices'][0];
 
         // AmountDue adalah sisa tagihan yang harus dibayar saat ini
@@ -361,6 +382,10 @@ class InvoiceItem2Controller extends Controller
             $resPay = Http::withHeaders($this->getHeaders())
                 ->post($this->xeroBaseUrl . '/Payments', $payloadInvoicePay);
 
+            $avP_min = (int) $resPay->header('X-MinLimit-Remaining');
+            $avP_day = (int) $resPay->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($avP_min, $avP_day);
+
             if ($resPay->failed()) {
                 Log::error("Gagal Restore Payment ke Invoice: " . $resPay->body());
                 // Jangan throw exception di sini agar logic Overpayment tetap jalan jika perlu
@@ -394,6 +419,10 @@ class InvoiceItem2Controller extends Controller
             $resOver = Http::withHeaders($this->getHeaders())
                 ->put($this->xeroBaseUrl . '/BankTransactions', $payloadOverpayment);
 
+            $rmin = (int) $resOver->header('X-MinLimit-Remaining');
+            $rday = (int) $resOver->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($rmin, $rday);
+
             if ($resOver->failed()) {
                 Log::error("Gagal Restore Overpayment: " . $resOver->body());
                 Log::error("error", $payloadOverpayment);
@@ -423,6 +452,11 @@ class InvoiceItem2Controller extends Controller
         $response = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Invoices/' . $invoiceId);
         if ($response->failed()) return response()->json(['status' => 'error'], 500);
 
+        $rmin = (int) $response->header('X-MinLimit-Remaining');
+        $rday = (int) $response->header('X-DayLimit-Remaining');
+        $this->globalService->requestCalculationXero($rmin, $rday);
+
+
         $invoiceData = $response->json()['Invoices'][0];
         $payments = $invoiceData['Payments'] ?? [];
         $paymentBackups = [];
@@ -440,6 +474,10 @@ class InvoiceItem2Controller extends Controller
             }
             $response = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Invoices/' . $invoiceId);
             $invoiceData = $response->json()['Invoices'][0];
+
+            $a_min = (int) $response->header('X-MinLimit-Remaining');
+            $a_day = (int) $response->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($a_min, $a_day);
         }
 
         // 3. Filter Item (Hapus Item dari Array)
@@ -477,6 +515,10 @@ class InvoiceItem2Controller extends Controller
              return response()->json(['status' => 'error', 'message' => 'Gagal update Xero: ' . $updateResponse->body()], 400);
         }
 
+        $Req_min = (int) $updateResponse->header('X-MinLimit-Remaining');
+        $Req_day = (int) $updateResponse->header('X-DayLimit-Remaining');
+        $this->globalService->requestCalculationXero($Req_min, $Req_day);
+
         // 5. Restore Payment (Jika tadi ada payment)
         if (!empty($paymentBackups)) {
             Log::info("Mengembalikan Payment untuk Invoice: $invoiceId");
@@ -492,7 +534,8 @@ class InvoiceItem2Controller extends Controller
         $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
         $this->globalService->SavedInvoiceValue($invoiceId,
                 $updateResponse['Invoices'][0]['InvoiceNumber'],
-                $updateResponse['Invoices'][0]["Contact"]["FirstName"],
+                isset($updateResponse['Invoices'][0]["Contact"]["FirstName"]) ? $updateResponse['Invoices'][0]["Contact"]["FirstName"] : 'null-name',
+                // $updateResponse['Invoices'][0]["Contact"]["FirstName"],
                 $total_xero,
                 $local_total_payment,
                 $hasil_selisih

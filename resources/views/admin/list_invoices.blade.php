@@ -14,7 +14,7 @@
                 </div>
                 <div class="col-md-8">
                     <label class="form-label">Pilih Paket</label>
-                    <select class="form-control select2" id="paket_selected" name="paket_selected" multiple>
+                    <select class="form-control select2" id="paket_selected" name="paket_selected">
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -109,80 +109,121 @@
 <script>
     let currentPage = 1;
     let isLoading = false;
-let keyword = '';
+
 
     $('#invoiceSelect').select2({
         placeholder: 'Pilih Invoice',
-        width: '100%'
+        width: '100%',
+        allowClear:true,
+        ajax: {
+            url: `{{ route('list-invoice-select2') }}`, // URL Route Anda
+            dataType: 'json',
+            delay: 250, // Jeda 250ms saat mengetik sebelum request (biar server gak berat)
+            data: function (params) {
+                return {
+                    keyword: params.term, // Kata yang diketik user
+                    page: params.page || 1 // Halaman saat ini (otomatis dari Select2)
+                };
+            },
+            processResults: function (data, params) {
+                var apiData = data.results.map(function(item) {
+                    return {
+                        id: item.invoice_uuid,      // Value option
+                        text: item.invoice_number //+ ' (' + item.invoice_amount + ')' // Teks yang tampil
+                    };
+                });
+
+                return {
+                    results: apiData,
+                    pagination: {
+                        more: data.pagination.more
+                    }
+                };
+            },
+            cache: true
+        }
     });
 
     $('#paket_selected').select2({
         placeholder: 'Pilih Paket Haji / Umroh',
-        width: '100%'
+        width: '100%',
+        allowClear:true,
+        ajax: {
+            url: `{{ route('list-paket-select2') }}`, // URL Route Anda
+            dataType: 'json',
+            delay: 250, // Jeda 250ms saat mengetik sebelum request (biar server gak berat)
+            data: function (params) {
+                return {
+                    keyword: params.term, // Kata yang diketik user
+                    page: params.page || 1 // Halaman saat ini (otomatis dari Select2)
+                };
+            },
+            processResults: function (data, params) {
+            console.log('select2 haji',data.data.results)
+                var apiDataPaket = data.data.results.map(function(item) {
+                    return {
+                        id: item.uuid_proudct_and_service,      // Value option
+                        text: item.nama_paket //+ ' (' + item.invoice_amount + ')' // Teks yang tampil
+                    };
+                });
+
+                return {
+                    results: apiDataPaket,
+                    pagination: {
+                        more: data.data.pagination.more
+                    }
+                };
+            },
+            cache: true
+        }
     });
 
-     function renderPaketSelect(paket) {
-        const $select = $('#paket_selected');
-        $select.empty();
+    //  function renderPaketSelect(paket) {
+    //     const $select = $('#paket_selected');
+    //     $select.empty();
 
-        paket.forEach(inv => {
-            const option = new Option(
-                inv.nama_paket,
-                inv.uuid_proudct_and_service,
-                false,
-                false
-            );
-            $select.append(option);
-        });
-        $select.trigger('change');
-    }
-
-    function renderInvoiceSelect(invoices) {
-        const $select = $('#invoiceSelect');
-        $select.empty();
-
-        invoices.forEach(inv => {
-            const option = new Option(
-                inv.invoice_number,
-                inv.invoice_uuid,
-                false,
-                false
-            );
-
-            $select.append(option);
-        });
-        // Refresh select2
-        $select.trigger('change');
-    }
-
-    loadInvoiceSelect2(currentPage);
-    function loadInvoiceSelect2(page){
-         ajaxRequest( `{{ route('list-invoice-select2') }}`,'GET',{
-               page:page, keyword: keyword.toUpperCase()
-            }, null)
-            .then(response =>{
-                console.log('select3',response.data.data.d)
-                //renderTable(response.data.data);
-                renderInvoiceSelect(response.data.data.data);
-            })
-            .catch((err)=>{
-                console.log('error select2 invoice',err);
-            })
-    }
+    //     paket.forEach(inv => {
+    //         const option = new Option(
+    //             inv.nama_paket,
+    //             inv.uuid_proudct_and_service,
+    //             false,
+    //             false
+    //         );
+    //         $select.append(option);
+    //     });
+    //     $select.trigger('change');
+    // }
 
 
-    loadPaketSelect2(currentPage);
-    function loadPaketSelect2(page){
-         ajaxRequest( `{{ route('list-paket-select2') }}`,'GET',{
-               page:page
-            }, null)
-            .then(response =>{
-                renderPaketSelect(response.data.data.data);
-            })
-            .catch((err)=>{
-                console.log('error select2 invoice',err);
-            })
-    }
+
+    // loadInvoiceSelect2(currentPage);
+    // function loadInvoiceSelect2(page){
+    //      ajaxRequest( `{{ route('list-invoice-select2') }}`,'GET',{
+    //            page:page, keyword: keyword.toUpperCase()
+    //         }, null)
+    //         .then(response =>{
+    //             console.log('select3',response.data.data.data)
+    //             //renderTable(response.data.data);
+    //             renderInvoiceSelect(response.data.data.data);
+    //         })
+    //         .catch((err)=>{
+    //             console.log('error select2 invoice',err);
+    //         })
+    // }
+
+
+    // loadPaketSelect2(currentPage);
+    // function loadPaketSelect2(page){
+    //      ajaxRequest( `{{ route('list-paket-select2') }}`,'GET',{
+    //            page:page
+    //         }, null)
+    //         .then(response =>{
+    //             renderPaketSelect(response.data.data.data);
+    //         })
+    //         .catch((err)=>{
+    //             console.log('error select2 invoice',err);
+    //         })
+    // }
 
     // === LOAD PERTAMA ===
     loadInvoices(currentPage);

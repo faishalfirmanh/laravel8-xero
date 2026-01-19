@@ -14,7 +14,13 @@ class InvoicesAllFromXero extends Model
         'invoice_uuid',
         'invoice_amount',//invoice paid
         'invoice_total',//total yang harus di bayarkan
-        'uuid_proudct_and_service'
+        'uuid_proudct_and_service',
+        'issue_date',
+        'due_date',
+        'status',
+        'uuid_contact',
+        'contact_name',
+        'item_name'
     ];
 
 }

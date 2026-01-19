@@ -120,6 +120,11 @@ class InvoicesDuplicateController extends Controller
                 throw new \Exception("Gagal mengambil detail Invoice: " . $invResponse->body());
             }
 
+            $av_min = (int) $invResponse->header('X-MinLimit-Remaining');
+            $av_day = (int) $invResponse->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($av_min, $av_day);
+
+
             $xeroInvoice = $invResponse->json()['Invoices'][0];
             $currentAmountDue = (float) $xeroInvoice['AmountDue'];
 
@@ -265,6 +270,10 @@ class InvoicesDuplicateController extends Controller
             'Accept' => 'application/json',
         ])->get("https://api.xero.com/api.xro/2.0/Invoices/$codeInvoice");
 
+        $av_min = (int) $response_detail_invoice->header('X-MinLimit-Remaining');
+        $av_day = (int) $response_detail_invoice->header('X-DayLimit-Remaining');
+        $this->globalService->requestCalculationXero($av_min, $av_day);
+
         $history_payments = $response_detail_invoice->json()["Invoices"][0]["Payments"];
         foreach ($history_payments as $key_inv => $value_inv) {
            $final_date = $this->xeroDateToPhp($value_inv["Date"]);
@@ -308,6 +317,11 @@ class InvoicesDuplicateController extends Controller
             'Accept' => 'application/json',
         ])->post("https://api.xero.com/api.xro/2.0/Payments/$payment_id", ["Status" => "DELETED"]);
 
+        $av_min = (int) $response->header('X-MinLimit-Remaining');
+        $av_day = (int) $response->header('X-DayLimit-Remaining');
+        $this->globalService->requestCalculationXero($av_min, $av_day);
+
+
         if ($response->failed() && $response->status() != 404) {
              throw new \Exception("Gagal Hapus Payment: " . $response->body());
         }
@@ -343,9 +357,10 @@ class InvoicesDuplicateController extends Controller
                 $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($parent_id);
                 $total_xero = $data['Invoices'][0]['Total'];//['AmountPaid'];
                 $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
+                //dd( $data["Invoices"][0]["Contact"]);
                 $this->globalService->SavedInvoiceValue($cleanId,
                         $data["Invoices"][0]["InvoiceNumber"],
-                        $data["Invoices"][0]["Contact"]["FirstName"],
+                        $data["Invoices"][0]["Contact"]["FirstName"] ?? $data["Invoices"][0]["Contact"]["Name"],
                         $total_xero,
                         $local_total_payment,
                         $hasil_selisih

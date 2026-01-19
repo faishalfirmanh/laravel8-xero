@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\InvoicePriceGap;
+use App\Models\Xero\XeroRequestUsedLimit;
 use App\Models\PaymentsHistoryFix;
 use DB;
 use Illuminate\Support\Facades\Log;
@@ -72,6 +73,29 @@ class GlobalService
         }else{
             return 1;
         }
+    }
+
+    public function requestCalculationXero(int $available_min, int $avilabe_day ) {
+        $used_min = 60 - $available_min;
+        $used_day = 5000 - $avilabe_day;
+        $day_now = now()->format('Y-m-d');//Carbon::now()->format('Y-m-d');
+         XeroRequestUsedLimit::updateOrCreate([
+            'tracking_date'=>$day_now,
+         ],[
+            'total_request_used_min'=>$used_min,
+            'total_request_used_day'=>$used_day,
+            'available_request_min'=>$available_min,
+            'available_request_day'=>$avilabe_day,
+            'tracking_date'=>$day_now
+         ]);
+
+         return true;
+    }
+
+    public function getDataAvailabeRequestXero() {
+        $day_now = now()->format('Y-m-d');//Carbon::now()->format('Y-m-d');
+        $data = XeroRequestUsedLimit::where( 'tracking_date',$day_now,)->first();
+        return $data;
     }
 
 }

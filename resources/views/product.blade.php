@@ -84,7 +84,10 @@
                             <input type="text" disabled class="form-control" id="Description" name="Description">
                         </div>
                         <div class="col-md-4">
-                            <label for="UnitPrice" class="form-label">Harga</label>
+                            <label for="UnitPrice" class="form-label">
+                                Harga
+                                <span id="info_harga"></span>
+                            </label>
                             <input type="text" class="form-control" id="UnitPrice" name="UnitPrice">
                             <input type="hidden"  id="account_id_item" name="account_id_item">
                             <input type="hidden" id="unit_price_save" name="unit_price_save"/>
@@ -233,7 +236,19 @@
     <script src="{{ asset('assets/js/product.js?v.13432') }}"></script>
     <script>
          // URL endpoint sesuai dengan Lumen route yang telah diperbaiki
+        $(document).ready(function(){
+            $('#UnitPrice').on('input', function() {
+            let inputVal = $(this).val();
+            let cleanVal = inputVal.replace(/[^0-9]/g, '');
 
+            if (cleanVal === "") {
+                $('#info_harga').text("");
+                return;
+            }
+            let formatted = new Intl.NumberFormat('id-ID').format(cleanVal);
+                $('#info_harga').text("(Rp " + formatted + ")");
+            });
+        })
     </script>
 
 </body>

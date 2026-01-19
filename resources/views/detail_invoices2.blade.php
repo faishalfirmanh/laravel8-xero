@@ -29,12 +29,28 @@
 
 
 <div class="container-fluid">
+    <div id="loadingIndicator" class="text-center my-4" style="display:none;">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div class="mt-2">Loading data...</div>
+    </div>
+
     <div class="card p-4">
-        <div class="d-flex justify-content-between mb-4">
-            <h4>Edit Invoice: <span id="headerInvoiceNo">...</span> <span id="status_header"></span> </h4>
-            <button class="btn btn-primary btn-sm" onclick="fetchDataDummy()">
-                <i class="fas fa-sync"></i> Load Data from API
-            </button>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="mb-0">
+                Edit Invoice: <span id="headerInvoiceNo">...</span>
+                <span id="status_header"></span>
+            </h4>
+
+            <div class="d-flex" style="gap: 30px;">
+                <button class="btn btn-primary btn-sm" onclick="fetchDataDummy()">
+                    <i class="fas fa-sync"></i> Load Data from API
+                </button>
+
+                <button class="btn btn-success btn-sm" onclick="syncPayment()">
+                    <i class="fas fa-sync"></i> Synchronize Payment
+                </button>
+            </div>
+
             <input type="hidden" id="val_status"/>
         </div>
 
@@ -440,6 +456,37 @@
         else if (statusUpper === 'VOIDED') color = 'danger';
 
         $("#status_header").removeClass().addClass(`badge bg-${color}`).text(statusUpper);
+    }
+
+    function syncPayment(){//cron-insert-history-payment-local
+         $('#loadingIndicator').toggle(true);
+         $.ajax({
+              url: `{{ route('cron-insert-history-payment-local') }}`,
+                type: 'GET',
+                dataType: 'json',
+                success: function (response) {
+                    $('#loadingIndicator').toggle(false);
+                    if(response.status == 'success'){
+
+                        Swal.fire({
+                            title: "success",
+                            text: `berhasil \n singkronise sisa request ke xero perhari ${response.request_min_tersisa_hari}`,
+                            icon: "success"
+                        });
+                    }
+                },
+                 error: function (xhr, status, error) {
+                    $('#loadingIndicator').toggle(false);
+                    console.error('Error fetching history local payments :', xhr, status, error);
+                     Swal.fire({
+                        title: 'Erros!',
+                        text: `synchronize error ${error}`,
+                        icon: 'error',
+                        confirmButtonText: 'Ok'
+                    })
+
+                },
+         })
     }
 
     function fetchDataDummy() {

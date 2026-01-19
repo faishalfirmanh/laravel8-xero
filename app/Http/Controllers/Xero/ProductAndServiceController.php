@@ -120,7 +120,7 @@ class ProductAndServiceController extends Controller
             $tenantId = $this->getTenantId($tokenData['access_token']);
 
             // KONFIGURASI
-            $limit = 10;          // frontend limit
+            $limit = 20;          // frontend limit
             $xeroBatchSize = 100; // Xero limit tetap
 
             $frontendPage = max((int)$request->query('page', 1), 1);
