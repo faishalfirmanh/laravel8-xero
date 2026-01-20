@@ -78,7 +78,7 @@ Route::prefix("xero-integrasi")->group(function(){
     //getAcountDetailAcount Invoice
     Route::get('/getAllAccount', [PaymentController::class, 'getGroupedAccounts']);//used
 
-    //local contact-cron-job payment history
+    //local insert yang sudah paid saja.
     Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory'])->name('cron-insert-history-payment-local');//used  //dibikin button saja
 
     Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);//used
@@ -96,7 +96,9 @@ Route::prefix("xero-integrasi")->group(function(){
 
 Route::prefix("admin-web")->group(function(){
     Route::get('/get-invoice-local',[XeroSyncInvoicePaidController::class,'getAllInvoiceLocal'])->name('list-invoice-select2');
+    Route::get('/get-item-byinvoice',[XeroSyncInvoicePaidController::class,'getDetaPaketByInvoice'])->name('get-item-byinvoice');//multi
     Route::get('/get-paket-local',[XeroSyncInvoicePaidController::class,'getAllPaketLocal'])->name('list-paket-select2');
+    Route::get('/get-paket-filterby-invoice',[XeroSyncInvoicePaidController::class,'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 });
 

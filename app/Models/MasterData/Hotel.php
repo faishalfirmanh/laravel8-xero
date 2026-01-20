@@ -5,14 +5,13 @@ namespace App\Models\MasterData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class MasterPengeluaranPaket extends Model
+class Hotel extends Model
 {
     use HasFactory;
 
-       protected $fillable = [
-        'nama_pengeluaran',
-        'is_active'
-       ];
-
-
+    protected $fillable = [
+        'name',
+        'type_location_hotel',
+        'address'
+    ];
 }

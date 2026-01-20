@@ -125,7 +125,8 @@
 <script>
     let currentPage = 1;
     let isLoading = false;
-
+    let invoiceArraySaved = $('#invoiceSelect').val() || [];
+    let uuid_paket_after_change_invoice = [];
     function syncData(){
         const loader = document.getElementById('fullScreenLoader');
         loader.style.display = 'flex';
@@ -158,6 +159,8 @@
                 }
             })
             .catch((err)=>{
+                loader.style.display = 'none';
+                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 console.log('error select2 invoice',err);
             })
         // console.log("Mulai Sinkronisasi...");
@@ -197,7 +200,7 @@
                 var apiData = data.results.map(function(item) {
                     return {
                         id: item.invoice_uuid,      // Value option
-                        text: item.invoice_number //+ ' (' + item.invoice_amount + ')' // Teks yang tampil
+                        text: `${item.invoice_number}_${item.contact_name}_${convertStringDate(item.due_date)}` //+ ' (' + item.invoice_amount + ')' // Teks yang tampil
                     };
                 });
 
@@ -212,22 +215,45 @@
         }
     });
 
+
+    $('#invoiceSelect').on('change', function() {
+        // .select2('data') mengambil seluruh objek data
+        let rawData = $(this).select2('data');
+        invoiceArraySaved = rawData.map(item => item.id);
+        $('#paket_selected').val(null).trigger('change');
+        ajaxRequest( `{{ route('get-item-byinvoice') }}`,'GET',{
+           invoice_ids : invoiceArraySaved
+        }, null)
+        .then(response =>{
+           let res_success = response.data.data;
+           uuid_paket_after_change_invoice = res_success.map(item =>item.uuid_item);
+        //    res_success.forEach((x)=>{
+        //         console.log(x.uuid_item)
+        //         uuid_paket_after_change_invoice =
+        //    })
+        })
+        .catch((err)=>{
+            console.log('error select2 invoice',err);
+        })
+    });
+
     $('#paket_selected').select2({
         placeholder: 'Pilih Paket Haji / Umroh',
         width: '100%',
         allowClear:true,
         ajax: {
-            url: `{{ route('list-paket-select2') }}`, // URL Route Anda
+            url: `{{ route('get-paket-filterby-invoice') }}`, // URL Route Anda
             dataType: 'json',
             delay: 250, // Jeda 250ms saat mengetik sebelum request (biar server gak berat)
             data: function (params) {
                 return {
                     keyword: params.term, // Kata yang diketik user
-                    page: params.page || 1 // Halaman saat ini (otomatis dari Select2)
+                    page: params.page || 1, // Halaman saat ini (otomatis dari Select2)
+                    paket_uuid: uuid_paket_after_change_invoice
                 };
             },
             processResults: function (data, params) {
-            console.log('select2 haji',data.data.results)
+            console.log('select2 haji',data)
                 var apiDataPaket = data.data.results.map(function(item) {
                     return {
                         id: item.uuid_proudct_and_service,      // Value option
@@ -294,7 +320,7 @@
     // }
 
     // === LOAD PERTAMA ===
-    //loadInvoices(currentPage);
+    loadInvoices(currentPage);
     function loadInvoices(page) {
         if (isLoading) return;
 
