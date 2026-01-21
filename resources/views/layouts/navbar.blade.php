@@ -9,8 +9,9 @@
 
         <a href="#masterSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Master Data</a>
         <div class="collapse" id="masterSub">
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Jamaah</a>
+            <a href="{{ route('admin-list-pengeluaran') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Pengeluaran</a>
             <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Agen</a>
+            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a>
             <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a>
         </div>
 

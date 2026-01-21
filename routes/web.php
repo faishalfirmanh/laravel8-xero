@@ -22,8 +22,16 @@ use App\Http\Controllers\HomeController;
 // Route::get('/', function () {
 //     return 'hello dunia';
 // });
+Route::get('/cek-path', function () {
+    return [
+        'base_path' => base_path(),
+        'public_path' => public_path(),
+        'storage_path' => storage_path(),
+    ];
+});
 Route::get('/', [DashboardController::class, 'index']);
 Route::prefix('admin')->group(function(){
+    Route::get('/list-pengeluaran',[DashboardController::class, 'getWebListPengeluaran'])->name('admin-list-pengeluaran');
     Route::get('/list-invoice',[DashboardController::class, 'getWebListInvoice'])->name('admin-list-invoice');
 });
 

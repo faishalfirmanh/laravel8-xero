@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+use Validator;
+use App\Traits\ApiResponse;
+
 class DashboardController extends Controller
 {
     public function index()
@@ -23,6 +26,11 @@ class DashboardController extends Controller
     public function getWebListInvoice()
     {
         return view('admin.list_invoices');
+    }
+
+    public function getWebListPengeluaran()
+    {
+        return view('admin.list_pengeluaran');
     }
 
 }

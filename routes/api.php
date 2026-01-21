@@ -17,6 +17,9 @@ use App\Http\Controllers\GlobalExternal\CurrencyController;
 use App\Http\Controllers\Xero\InvoiceItem2Controller;
 use App\Http\Controllers\Xero\PaymentHistoryController;
 use App\Http\Controllers\Xero\BankController;
+//master data
+use App\Http\Controllers\MasterData\PengeluaranNameController;
+//master data
 //location
 use App\Http\Controllers\MasterData\LocationCityController;
 use App\Http\Controllers\MasterData\LocationDistrictController;
@@ -100,6 +103,20 @@ Route::prefix("admin-web")->group(function(){
     Route::get('/get-paket-local',[XeroSyncInvoicePaidController::class,'getAllPaketLocal'])->name('list-paket-select2');
     Route::get('/get-paket-filterby-invoice',[XeroSyncInvoicePaidController::class,'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
+
+    Route::prefix("transaksi")->group(function(){
+
+    });
+
+    Route::prefix("master-data")->group(function(){
+
+        //keterangna pengeluaran
+        Route::prefix("pengeluaran")->group(function(){
+            Route::get('/getData', [PengeluaranNameController::class, 'getData'])->name('md_g_pengeluaran');
+        });
+
+
+    });
 });
 
 
