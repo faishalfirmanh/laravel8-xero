@@ -37,6 +37,7 @@ Route::get('/user', function (Request $request) {
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/logout', [AuthController::class, 'logout']);
 
 //local contact-cron-job contact
 
@@ -117,6 +118,11 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/getData', [PengeluaranNameController::class, 'getData'])->name('md_g_pengeluaran');
         });
 
+        Route::middleware('auth:sanctum')->prefix('hotel')->group(function () {
+            Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+            Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
+            Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+        });
 
     });
 });
@@ -150,11 +156,7 @@ Route::get('/convert/usd-to-idr', [CurrencyController::class, 'usdToIdr']);
 
 Route::prefix("master-data")->group(function () {
 
-    Route::prefix('hotel')->group(function () {
-        Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
-        Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
-        Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
-    });
+
 
     Route::prefix("location")->group(function () {
 
