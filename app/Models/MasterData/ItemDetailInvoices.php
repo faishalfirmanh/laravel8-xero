@@ -15,6 +15,7 @@ class ItemDetailInvoices extends Model
         'uuid_item',
         'qty',
         'unit_price',
-        'total_amount_each_row'
+        'total_amount_each_row',
+        'line_item_uuid'
     ];
 }

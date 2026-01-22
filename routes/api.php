@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\Xero\ConfigController;
 use App\Http\Controllers\Xero\ContactController;
 use App\Http\Controllers\Xero\InvoicesController;
@@ -43,14 +44,15 @@ Route::post('/register', [AuthController::class, 'register']);
 
 //xero refresh token
 // 1. Route untuk inisiasi login (Jalankan ini saat xero_token.json masih kosong)
-Route::prefix("xero")->group(function(){
+Route::prefix("xero")->group(function () {
     Route::get('connect', [XeroContactController::class, 'connect']);
     Route::get('callback', [XeroContactController::class, 'callback']);
-    Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');;
+    Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');
+    ;
     Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');
 });
 
-Route::prefix("xero-integrasi")->group(function(){
+Route::prefix("xero-integrasi")->group(function () {
     Route::get('/get-data', [ContactController::class, 'getContact']);
 
     Route::get('/get-contact-local', [ContactController::class, 'getContactLocal']);//used
@@ -92,26 +94,26 @@ Route::prefix("xero-integrasi")->group(function(){
     Route::post('/submitUpdateinvoices', [InvoicesDuplicateController::class, 'updateInvoiceSelected']);//update semua select submit
 
     //hapus invoice untuk clean data //forceDeleteCreditNote.,forceVoidOverpayment
-    Route::post('/delete-invoice-byuuid/{uuid_inv}',[InvoicesController::class, 'forceDeleteInvoice'])->name('delete_invoice_uuid');
-    Route::post('/delete-creditnote-byuuid/{creditNoteId}',[InvoicesController::class, 'forceDeleteCreditNote'])->name('delete_creditnote_uuid');
-    Route::post('/delete-overpayment-byuuid/{overpaymentId}',[InvoicesController::class, 'forceVoidOverpayment'])->name('delete_overpayment_uuid');
+    Route::post('/delete-invoice-byuuid/{uuid_inv}', [InvoicesController::class, 'forceDeleteInvoice'])->name('delete_invoice_uuid');
+    Route::post('/delete-creditnote-byuuid/{creditNoteId}', [InvoicesController::class, 'forceDeleteCreditNote'])->name('delete_creditnote_uuid');
+    Route::post('/delete-overpayment-byuuid/{overpaymentId}', [InvoicesController::class, 'forceVoidOverpayment'])->name('delete_overpayment_uuid');
 });
 
-Route::prefix("admin-web")->group(function(){
-    Route::get('/get-invoice-local',[XeroSyncInvoicePaidController::class,'getAllInvoiceLocal'])->name('list-invoice-select2');
-    Route::get('/get-item-byinvoice',[XeroSyncInvoicePaidController::class,'getDetaPaketByInvoice'])->name('get-item-byinvoice');//multi
-    Route::get('/get-paket-local',[XeroSyncInvoicePaidController::class,'getAllPaketLocal'])->name('list-paket-select2');
-    Route::get('/get-paket-filterby-invoice',[XeroSyncInvoicePaidController::class,'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
+Route::prefix("admin-web")->group(function () {
+    Route::get('/get-invoice-local', [XeroSyncInvoicePaidController::class, 'getAllInvoiceLocal'])->name('list-invoice-select2');
+    Route::get('/get-item-byinvoice', [XeroSyncInvoicePaidController::class, 'getDetaPaketByInvoice'])->name('get-item-byinvoice');//multi
+    Route::get('/get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-select2');
+    Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 
-    Route::prefix("transaksi")->group(function(){
+    Route::prefix("transaksi")->group(function () {
 
     });
 
-    Route::prefix("master-data")->group(function(){
+    Route::prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
-        Route::prefix("pengeluaran")->group(function(){
+        Route::prefix("pengeluaran")->group(function () {
             Route::get('/getData', [PengeluaranNameController::class, 'getData'])->name('md_g_pengeluaran');
         });
 
@@ -130,7 +132,7 @@ Route::get('/getDetailPayment/{idPayment}', [InvoicesController::class, 'getDeta
 Route::post('/createPayments', [PaymentController::class, 'createPayments']);
 Route::get('/getInvoiceByIdPaketPaging/{itemCode}', [InvoicesController::class, 'getInvoiceByIdPaketPaging']);
 Route::get('/get-invoices', [InvoicesController::class, 'getAllInvoices']);
-Route::get('/all-invoices-no-limit',[InvoicesController::class,'listAllInvoices']);
+Route::get('/all-invoices-no-limit', [InvoicesController::class, 'listAllInvoices']);
 Route::post('/updatePerbaris/{parent_id}/{amount_input}/{line_item_id}', [InvoicesController::class, 'updateInvoicePerRows']);//untuk testing
 
 //paid
@@ -146,9 +148,15 @@ Route::get('/convert/usd-to-idr', [CurrencyController::class, 'usdToIdr']);
 
 //
 
-Route::prefix("master-data")->group(function(){
+Route::prefix("master-data")->group(function () {
 
-    Route::prefix("location")->group(function(){
+    Route::prefix('hotel')->group(function () {
+        Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+        Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
+        Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+    });
+
+    Route::prefix("location")->group(function () {
 
         Route::prefix('city')->group(function () {
             Route::post('/get-city', [LocationCityController::class, 'getAllCityByIdProf'])->name('getAllCityByIdProf');

@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use App\Services\GlobalService;
 use App\Services\XeroRateLimitService;
 use Illuminate\Support\Facades\DB;
+use PhpParser\Node\Stmt\TryCatch;
 
 class XeroSyncInvoicePaidController extends Controller
 {
@@ -33,17 +34,18 @@ class XeroSyncInvoicePaidController extends Controller
         $tenantId = env('XERO_TENANT_ID');
 
         $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $tokenData['access_token'],
-                'Xero-Tenant-Id' => $tenantId,
-                'Accept' => 'application/json',
-            ])
+            'Authorization' => 'Bearer ' . $tokenData['access_token'],
+            'Xero-Tenant-Id' => $tenantId,
+            'Accept' => 'application/json',
+        ])
             ->retry(3, 1000) // Coba 3x jika gagal
             ->get('https://api.xero.com/api.xro/2.0/Invoices/' . $invoiceId);
 
         if ($response->successful()) {
             $invoices = $response->json('Invoices');
 
-            if (empty($invoices)) return;
+            if (empty($invoices))
+                return;
 
             $data = $invoices[0]; // INI DATA HEADER INVOICE
 
@@ -52,7 +54,7 @@ class XeroSyncInvoicePaidController extends Controller
 
             foreach ($lineItems as $lineItem) {
 
-            //dd($data);
+                //dd($data);
 
                 InvoicesAllFromXero::updateOrCreate(
                     [
@@ -62,19 +64,19 @@ class XeroSyncInvoicePaidController extends Controller
                     ],
                     [
                         // --- DATA HEADER (Ambil dari variabel $data) ---
-                        'invoice_uuid'   => $data['InvoiceID'],
+                        'invoice_uuid' => $data['InvoiceID'],
                         'invoice_amount' => $data['AmountPaid'],
                         'invoice_number' => $data['InvoiceNumber'],
-                        'invoice_total'  => $data['Total'], // Biasanya 'Total', bukan 'SubTotal' utk total akhir
-                        'issue_date'     => $data['DateString'],
-                        'due_date'       => $data['DueDateString'],
-                        'status'         => $data['Status'],
-                        'uuid_contact'   => $data['Contact']['ContactID'],
-                        'contact_name'   => $data['Contact']['Name'],
+                        'invoice_total' => $data['Total'], // Biasanya 'Total', bukan 'SubTotal' utk total akhir
+                        'issue_date' => $data['DateString'],
+                        'due_date' => $data['DueDateString'],
+                        'status' => $data['Status'],
+                        'uuid_contact' => $data['Contact']['ContactID'],
+                        'contact_name' => $data['Contact']['Name'],
 
                         // --- DATA DETAIL ITEM (Ambil dari variabel $lineItem) ---
                         'uuid_proudct_and_service' => $lineItem['LineItemID'],
-                        'item_name'      => $lineItem['Description'] ?? ($lineItem['Item']['Name'] ?? ''),
+                        'item_name' => $lineItem['Description'] ?? ($lineItem['Item']['Name'] ?? ''),
                         //'item_code'      => $lineItem['ItemCode'] ?? null,
                         // Tambahan jika perlu:
                         // 'quantity'    => $lineItem['Quantity'],
@@ -111,10 +113,10 @@ class XeroSyncInvoicePaidController extends Controller
 
         if ($keyword !== '') {
             // Pastikan nama kolom sesuai database (misal: invoice_number)
-            $query->where(function($q) use ($keyword) {
+            $query->where(function ($q) use ($keyword) {
                 $q->whereRaw('UPPER(invoice_number) LIKE ?', ['%' . $keyword . '%'])
-                ->orWhereRaw('UPPER(contact_name) LIKE ?', ['%' . $keyword . '%'])
-                ->orWhereRaw("UPPER(DATE_FORMAT(due_date, '%W, %e %M %Y')) LIKE ?", ['%' . $keyword . '%']);
+                    ->orWhereRaw('UPPER(contact_name) LIKE ?', ['%' . $keyword . '%'])
+                    ->orWhereRaw("UPPER(DATE_FORMAT(due_date, '%W, %e %M %Y')) LIKE ?", ['%' . $keyword . '%']);
             });
         }
 
@@ -138,11 +140,11 @@ class XeroSyncInvoicePaidController extends Controller
 
     public function getDetaPaketByInvoice(Request $request)
     {
-         $invoiceIds = $request->input('invoice_ids', []);
-         $filter = explode(",", $invoiceIds);
-         //dd($filter);
-         $data = ItemDetailInvoices::whereIn('uuid_invoices',$filter)->get();
-         return response()->json([
+        $invoiceIds = $request->input('invoice_ids', []);
+        $filter = explode(",", $invoiceIds);
+        //dd($filter);
+        $data = ItemDetailInvoices::whereIn('uuid_invoices', $filter)->get();
+        return response()->json([
             'status' => 'success',
             'data' => $data
         ], 200);
@@ -150,7 +152,7 @@ class XeroSyncInvoicePaidController extends Controller
 
     public function getPaketByUuuidInvoice(Request $request)
     {
-        $page  = max((int) $request->get('page', 1), 1);
+        $page = max((int) $request->get('page', 1), 1);
         $limit = 5;
         $offset = ($page - 1) * $limit;
         //$paket_uuid = $request->uuid_paket;
@@ -159,17 +161,17 @@ class XeroSyncInvoicePaidController extends Controller
         //dd($invoiceIds)
         //$list_uuid =  array_column($paket_uuid, 'id');
         $query = ItemsPaketAllFromXero::query()
-        ->whereIn('uuid_proudct_and_service',$invoiceIds)
-        ->select([
-            'jenis_item',
-            'uuid_proudct_and_service',
-            'nama_paket',
-            'total_hari',
-            'created_at'
-        ]);
-         if ($keyword !== '') {
+            ->whereIn('uuid_proudct_and_service', $invoiceIds)
+            ->select([
+                'jenis_item',
+                'uuid_proudct_and_service',
+                'nama_paket',
+                'total_hari',
+                'created_at'
+            ]);
+        if ($keyword !== '') {
             // Pastikan nama kolom sesuai database (misal: invoice_number)
-            $query->where(function($q) use ($keyword) {
+            $query->where(function ($q) use ($keyword) {
                 $q->whereRaw('UPPER(nama_paket) LIKE ?', ['%' . $keyword . '%']);
             });
         }
@@ -192,27 +194,27 @@ class XeroSyncInvoicePaidController extends Controller
         ], 200);
     }
 
-     public function getAllPaketLocal(Request $request)
+    public function getAllPaketLocal(Request $request)
     {
 
-        $page  = max((int) $request->get('page', 1), 1);
+        $page = max((int) $request->get('page', 1), 1);
         $limit = 5;
         $offset = ($page - 1) * $limit;
         $keyword = strtoupper(trim($request->get('keyword', '')));
 
         $query = ItemsPaketAllFromXero::query()
-        ->where('jenis_item',1)
-        ->select([
-            'jenis_item',
-            'uuid_proudct_and_service',
-            'nama_paket',
-            'total_hari',
-            'created_at'
-        ]);
+            ->where('jenis_item', 1)
+            ->select([
+                'jenis_item',
+                'uuid_proudct_and_service',
+                'nama_paket',
+                'total_hari',
+                'created_at'
+            ]);
 
-         if ($keyword !== '') {
+        if ($keyword !== '') {
             // Pastikan nama kolom sesuai database (misal: invoice_number)
-            $query->where(function($q) use ($keyword) {
+            $query->where(function ($q) use ($keyword) {
                 $q->whereRaw('UPPER(nama_paket) LIKE ?', ['%' . $keyword . '%']);
             });
         }
@@ -240,7 +242,247 @@ class XeroSyncInvoicePaidController extends Controller
         ], 200);
     }
 
+
     public function getInvoicePaidArrival()
+    {
+        set_time_limit(600); // Naikkan jadi 10 menit jika data ribuan
+
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) {
+            return response()->json(['message' => 'Token kosong/invalid.'], 401);
+        }
+
+        $page = 1;
+        $tenantId = $this->getTenantId($tokenData['access_token']);
+
+        $totalSyncedInvoiceLines = 0;
+        $totalSyncedItem = 0;
+        $isFinished = false;
+
+        try {
+            // --- BAGIAN 1: SYNC INVOICE ---
+            while (!$isFinished) {
+                $this->rateLimiter->checkAndHit($tenantId);
+
+                $response = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page) {
+                    return Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                        'Xero-Tenant-Id' => $tenantId,
+                        'Accept' => 'application/json',
+                    ])
+                        ->timeout(15) // Naikkan timeout sedikit untuk jaga-jaga
+                        ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                            'order' => 'Date DESC',
+                            'page' => $page
+                        ]);
+                });
+
+                if ($response->serverError()) {
+                    Log::error('Xero 500 Error Page ' . $page);
+                    break;
+                }
+
+                // Hitung Limit
+                $min_rem = (int) $response->header('X-MinLimit-Remaining');
+                $day_rem = (int) $response->header('X-DayLimit-Remaining');
+                $this->global->requestCalculationXero($min_rem, $day_rem);
+
+                $data_invoice_all = $response->json('Invoices') ?? [];
+
+                if (count($data_invoice_all) < 1) {
+                    $isFinished = true;
+                    break;
+                }
+
+                // --- OPTIMASI DIMULAI DI SINI ---
+                // Kita tampung dulu datanya ke Array (RAM), jangan langsung ke DB.
+                $batchInvoices = [];
+                $batchLineItems = [];
+
+                foreach ($data_invoice_all as $invoice) {
+                    if (empty($invoice['InvoiceNumber']))
+                        continue;
+
+                    // 1. Tampung Header Invoice
+                    $batchInvoices[] = [
+                        'invoice_uuid' => $invoice['InvoiceID'],
+                        'invoice_amount' => $invoice['AmountPaid'],
+                        'invoice_number' => $invoice['InvoiceNumber'],
+                        'invoice_total' => $invoice['SubTotal'],
+                        'issue_date' => $invoice['DateString'], // Pastikan format tanggal sesuai kolom DB
+                        'due_date' => $invoice['DueDateString'] ?? null,
+                        'status' => $invoice['Status'],
+                        'uuid_contact' => $invoice['Contact']['ContactID'],
+                        'contact_name' => $invoice['Contact']['Name'],
+                        // Tambahkan created_at/updated_at manual jika perlu
+                        'updated_at' => now(),
+                    ];
+
+                    // 2. Tampung Line Items
+                    $lineItems = $invoice['LineItems'] ?? [];
+                    foreach ($lineItems as $lineItem) {
+                        if (isset($lineItem["Item"])) {
+                            // Pastikan LineItemID ada, jika null (jarang terjadi) buat fallback
+                            $lineItemId = $lineItem['LineItemID'] ?? $invoice['InvoiceID'] . '-' . $lineItem["Item"]["ItemID"];
+
+                            $batchLineItems[] = [
+                                'line_item_uuid' => $lineItemId, // Pastikan kolom ini ada di DB & Unique
+                                'uuid_invoices' => $invoice['InvoiceID'],
+                                'uuid_item' => $lineItem["Item"]["ItemID"],
+                                'qty' => $lineItem['Quantity'],
+                                'unit_price' => $lineItem['UnitAmount'],
+                                'total_amount_each_row' => $lineItem['LineAmount'],
+                                'invoice_number' => $invoice['InvoiceNumber'],
+                                'updated_at' => now(),
+                            ];
+                            $totalSyncedInvoiceLines++;
+                        }
+                    }
+                }
+
+                // EKSEKUSI DATABASE SEKALI JALAN (BULK UPSERT)
+                DB::beginTransaction();
+                try {
+                    // Upsert Header
+                    // Param 2: Kolom Unique Key (untuk mendeteksi update vs insert)
+                    // Param 3: Kolom yang mau di-update jika data sudah ada
+                    if (!empty($batchInvoices)) {
+                        InvoicesAllFromXero::upsert($batchInvoices, ['invoice_uuid'], [
+                            'invoice_amount',
+                            'invoice_total',
+                            'status',
+                            'issue_date',
+                            'due_date',
+                            'updated_at'
+                        ]);
+                    }
+
+                    // Upsert Line Items
+                    if (!empty($batchLineItems)) {
+                        ItemDetailInvoices::upsert($batchLineItems, ['line_item_uuid'], [
+                            'qty',
+                            'unit_price',
+                            'total_amount_each_row',
+                            'updated_at'
+                        ]);
+                    }
+
+                    DB::commit();
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    throw $e;
+                }
+
+                // Pagination Logic
+                if (count($data_invoice_all) < 100) {
+                    $isFinished = true;
+                } else {
+                    $page++;
+                    // Smart Sleep: Jika sisa request banyak (>10), gas terus (sleep 0.2s).
+                    // Jika sisa dikit (<10), baru sleep lama (2s).
+                    $sleepTime = ($min_rem > 10) ? 200000 : 2000000;
+                    usleep($sleepTime);
+                }
+            }
+
+            // --- BAGIAN 2: SYNC ITEMS (PAKET) ---
+            $page_item = 1;
+            $isFinished_item = false;
+
+            while (!$isFinished_item) {
+                $this->rateLimiter->checkAndHit($tenantId);
+
+                $resItem = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page_item) {
+                    return Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                        'Xero-Tenant-Id' => $tenantId,
+                        'Accept' => 'application/json',
+                    ])
+                        ->timeout(15)
+                        ->get('https://api.xero.com/api.xro/2.0/Items', [
+                            'order' => 'Code ASC',
+                            'page' => $page_item
+                        ]);
+                });
+
+                $min_rem = (int) $resItem->header('X-MinLimit-Remaining');
+                $day_rem = (int) $resItem->header('X-DayLimit-Remaining');
+                $this->global->requestCalculationXero($min_rem, $day_rem);
+
+                $itemPaketAndProduct = $resItem->json('Items') ?? [];
+
+                if (empty($itemPaketAndProduct)) {
+                    $isFinished_item = true;
+                    break;
+                }
+
+                // BATCH ARRAY ITEM
+                $batchItems = [];
+                foreach ($itemPaketAndProduct as $value) {
+                    if (!isset($value['Name']) || trim($value['Name']) === '')
+                        continue;
+
+                    $hari = self::getTotalHari($value['Name']) ?? 0;
+
+                    $batchItems[] = [
+                        'uuid_proudct_and_service' => $value['ItemID'],
+                        'code' => $value['Code'] ?? null,
+                        'nama_paket' => $value['Name'],
+                        'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),
+                        'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),
+                        'total_hari' => $hari,
+                        'jenis_item' => $this->global->cekJenisPaketBasePagar($value['Name']),
+                        'price_purchase' => data_get($value, 'PurchaseDetails.UnitPrice', 0),
+                        'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
+                        'desc' => $value['Description'] ?? '',
+                        'updated_at' => now(),
+                    ];
+                    $totalSyncedItem++;
+                }
+
+                // EKSEKUSI DB ITEM
+                if (!empty($batchItems)) {
+                    ItemsPaketAllFromXero::upsert($batchItems, ['uuid_proudct_and_service'], [
+                        'code',
+                        'nama_paket',
+                        'price_purchase',
+                        'price_sales',
+                        'desc',
+                        'updated_at'
+                    ]);
+                }
+
+                if (count($itemPaketAndProduct) < 100) {
+                    $isFinished_item = true;
+                } else {
+                    $page_item++;
+                    $sleepTime = ($min_rem > 10) ? 200000 : 2000000;
+                    usleep($sleepTime);
+                }
+            }
+
+            $view_req = $this->global->getDataAvailabeRequestXero();
+
+            return response()->json([
+                'status' => 'success',
+                'pesan_invoice' => 'Total Baris Item Invoice tersimpan: ' . $totalSyncedInvoiceLines,
+                'pesan_paket' => 'Total Paket tersimpan: ' . $totalSyncedItem,
+                'request_min_tersisa_hari' => $view_req->available_request_day,
+                'request_min_tersisa_menit' => $view_req->available_request_min,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Sync Error: " . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'type' => 'process_error',
+            ], 500);
+        }
+    }
+
+    //old
+    public function getInvoicePaidArrivalV1()
     {
         set_time_limit(300); // 5 Menit agar tidak timeout
 
@@ -256,24 +498,24 @@ class XeroSyncInvoicePaidController extends Controller
         $totalSyncedInvoiceLines = 0; // Menghitung baris item, bukan jumlah invoice header
         $isFinished = false;
 
-        DB::beginTransaction();
+
         try {
             while (!$isFinished) {
                 $this->rateLimiter->checkAndHit($tenantId);
 
                 // 1. Request List Invoice (Sudah termasuk LineItems)
                 // Gunakan Retry Wrapper agar aman
-                $response = $this->xeroRequestWithRetry(function() use ($tokenData, $tenantId, $page) {
+                $response = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page) {
                     return Http::withHeaders([
                         'Authorization' => 'Bearer ' . $tokenData['access_token'],
                         'Xero-Tenant-Id' => $tenantId,
                         'Accept' => 'application/json',
                     ])
-                    ->timeout(6)
-                    ->get('https://api.xero.com/api.xro/2.0/Invoices', [
-                        'order' => 'Date DESC',
-                        'page' => $page
-                    ]);
+                        ->timeout(6)
+                        ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                            'order' => 'Date DESC',
+                            'page' => $page
+                        ]);
                 });
                 //dd($response);
 
@@ -292,57 +534,70 @@ class XeroSyncInvoicePaidController extends Controller
                     break;
                 }
 
-                // 2. Loop Data
-                foreach ($data_invoice_all as $invoice) {
-                    if (empty($invoice['InvoiceNumber'])) continue;
 
-                    InvoicesAllFromXero::updateOrCreate(
-                        [
-                            'invoice_uuid' => $invoice['InvoiceID'],
-                            //'uuid_proudct_and_service' => $lineItem['LineItemID'] // KUNCI KEDUA AGAR TIDAK TIMPA DATA
-                        ],
-                        [
-                            // Data Header Invoice
-                            'invoice_uuid'   => $invoice['InvoiceID'],
-                            'invoice_amount' => $invoice['AmountPaid'],
-                            'invoice_number' => $invoice['InvoiceNumber'],
-                            'invoice_total'  => $invoice['SubTotal'],
-                            'issue_date'     => $invoice['DateString'],
-                            'due_date'       => isset($invoice['DueDateString']) ? $invoice['DueDateString'] : null,
-                            'status'         => $invoice['Status'],
-                            'uuid_contact'   => $invoice['Contact']['ContactID'],
-                            'contact_name'   => $invoice['Contact']['Name'],
+                DB::beginTransaction();
+                try {
+                    // 2. Loop Data
+                    foreach ($data_invoice_all as $invoice) {
+                        if (empty($invoice['InvoiceNumber']))
+                            continue;
 
-                            // Data Detail Item
-                            // 'uuid_proudct_and_service' => $lineItem['LineItemID'],
-                            // 'item_name'      => $lineItem['Description'] ?? ($lineItem['Item']['Name'] ?? ''),
-                            // 'item_code'      => $lineItem['ItemCode'] ?? null, // Simpan juga kodenya
-                        ]
-                    );
+                        InvoicesAllFromXero::updateOrCreate(
+                            [
+                                'invoice_uuid' => $invoice['InvoiceID'],
+                                //'uuid_proudct_and_service' => $lineItem['LineItemID'] // KUNCI KEDUA AGAR TIDAK TIMPA DATA
+                            ],
+                            [
+                                // Data Header Invoice
+                                'invoice_uuid' => $invoice['InvoiceID'],
+                                'invoice_amount' => $invoice['AmountPaid'],
+                                'invoice_number' => $invoice['InvoiceNumber'],
+                                'invoice_total' => $invoice['SubTotal'],
+                                'issue_date' => $invoice['DateString'],
+                                'due_date' => isset($invoice['DueDateString']) ? $invoice['DueDateString'] : null,
+                                'status' => $invoice['Status'],
+                                'uuid_contact' => $invoice['Contact']['ContactID'],
+                                'contact_name' => $invoice['Contact']['Name'],
 
-                      $totalSyncedInvoiceLines++;//invoices saja
-                    // Ambil LineItems langsung dari response utama (TIDAK PERLU REQUEST ULANG)
-                    $lineItems = $invoice['LineItems'] ?? [];
-
-                    foreach ($lineItems as $lineItem) {
-                        if(isset($lineItem["Item"])){
-                            $item_uuid = $lineItem["Item"]["ItemID"];
-                            //dd($lineItem);
-                            ItemDetailInvoices::updateOrCreate([
-                                'uuid_invoices'=>$invoice['InvoiceID'],
-                                'uuid_item'=>$item_uuid
-                            ],[
-                                'uuid_invoices'=>$invoice['InvoiceID'],
-                                'uuid_item'=>$item_uuid,
-                                'qty'=>$lineItem['Quantity'],
-                                'unit_price'=>$lineItem['UnitAmount'],
-                                'total_amount_each_row'=>$lineItem['LineAmount'],
-                                'invoice_number'=>$invoice['InvoiceNumber']
+                                // Data Detail Item
+                                // 'uuid_proudct_and_service' => $lineItem['LineItemID'],
+                                // 'item_name'      => $lineItem['Description'] ?? ($lineItem['Item']['Name'] ?? ''),
+                                // 'item_code'      => $lineItem['ItemCode'] ?? null, // Simpan juga kodenya
                             ]
-                            );
-                        }
+                        );
 
+
+                        // Ambil LineItems langsung dari response utama (TIDAK PERLU REQUEST ULANG)
+                        $lineItems = $invoice['LineItems'] ?? [];
+
+                        foreach ($lineItems as $lineItem) {
+                            if (isset($lineItem["Item"])) {
+                                $item_uuid = $lineItem["Item"]["ItemID"];
+                                //dd($lineItem);
+                                $uniqueKey = isset($lineItem['LineItemID'])
+                                    ? ['line_item_uuid' => $lineItem['LineItemID']] // Kunci paling aman
+                                    : ['uuid_invoices' => $invoice['InvoiceID'], 'uuid_item' => $item_uuid];
+
+                                ItemDetailInvoices::updateOrCreate(
+                                    $uniqueKey,
+                                    [
+                                        'uuid_invoices' => $invoice['InvoiceID'],
+                                        'uuid_item' => $item_uuid,
+                                        'qty' => $lineItem['Quantity'],
+                                        'unit_price' => $lineItem['UnitAmount'],
+                                        'total_amount_each_row' => $lineItem['LineAmount'],
+                                        'invoice_number' => $invoice['InvoiceNumber']
+                                    ]
+                                );
+                                $totalSyncedInvoiceLines++;//invoices saja
+                            }
+
+                        }
                     }
+                    DB::commit();
+                } catch (\Exception $th) {
+                    DB::rollBack();
+                    throw $th;
                 }
 
                 // Cek Pagination
@@ -351,7 +606,8 @@ class XeroSyncInvoicePaidController extends Controller
                 } else {
                     $page++;
                     // sleep(2); // Jeda wajib 2 detik antar halaman
-                    usleep(500000);
+                    //usleep(500000);
+                    usleep(200000);
                 }
             }
 
@@ -366,18 +622,18 @@ class XeroSyncInvoicePaidController extends Controller
             while (!$isFinished_item) {
                 $this->rateLimiter->checkAndHit($tenantId);
 
-                $resItem = $this->xeroRequestWithRetry(function() use ($tokenData, $tenantId, $page_item) {
+                $resItem = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page_item) {
                     return Http::withHeaders([
                         'Authorization' => 'Bearer ' . $tokenData['access_token'],
                         'Xero-Tenant-Id' => $tenantId,
                         'Content-Type' => 'application/json',
                         'Accept' => 'application/json',
                     ])
-                    ->timeout(6)
-                    ->get('https://api.xero.com/api.xro/2.0/Items', [
-                        'order' => 'Code ASC', // Lebih rapi pakai Code
-                        'page' => $page_item
-                    ]);
+                        ->timeout(6)
+                        ->get('https://api.xero.com/api.xro/2.0/Items', [
+                            'order' => 'Code ASC', // Lebih rapi pakai Code
+                            'page' => $page_item
+                        ]);
                 });
 
                 $_min_req = (int) $resItem->header('X-MinLimit-Remaining');
@@ -391,29 +647,37 @@ class XeroSyncInvoicePaidController extends Controller
                     break;
                 }
 
-                foreach ($itemPaketAndProduct as $value) {
-                    if (!isset($value['Name']) || trim($value['Name']) === '') continue;
-                    //if (substr_count($value['Name'], '/') !== 2) continue;//harus ada 2 //kusus paket induk, yang
-                    //ada 2 slash (/)
+                DB::beginTransaction();
+                try {
+                    foreach ($itemPaketAndProduct as $value) {
+                        if (!isset($value['Name']) || trim($value['Name']) === '')
+                            continue;
+                        //if (substr_count($value['Name'], '/') !== 2) continue;//harus ada 2 //kusus paket induk, yang
+                        //ada 2 slash (/)
 
-                    $hari = self::getTotalHari($value['Name']) ?? 0;
+                        $hari = self::getTotalHari($value['Name']) ?? 0;
 
-                    ItemsPaketAllFromXero::updateOrCreate(
-                        ['uuid_proudct_and_service' => $value['ItemID']],
-                        [
-                            'uuid_proudct_and_service' => $value['ItemID'],
-                            'code' => $value['Code'] ?? null,
-                            'nama_paket' => $value['Name'],
-                            'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),
-                            'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),
-                            'total_hari' => $hari,
-                            'jenis_item' => $this->global->cekJenisPaketBasePagar($value['Name']),
-                            'price_purchase' => data_get($value, 'PurchaseDetails.UnitPrice', 0),
-                            'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
-                            'desc' => $value['Description'] ?? ''
-                        ]
-                    );
-                    $totalSyncedItem++;
+                        ItemsPaketAllFromXero::updateOrCreate(
+                            ['uuid_proudct_and_service' => $value['ItemID']],
+                            [
+                                'uuid_proudct_and_service' => $value['ItemID'],
+                                'code' => $value['Code'] ?? null,
+                                'nama_paket' => $value['Name'],
+                                'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),
+                                'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),
+                                'total_hari' => $hari,
+                                'jenis_item' => $this->global->cekJenisPaketBasePagar($value['Name']),
+                                'price_purchase' => data_get($value, 'PurchaseDetails.UnitPrice', 0),
+                                'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
+                                'desc' => $value['Description'] ?? ''
+                            ]
+                        );
+                        $totalSyncedItem++;
+                    }
+                    DB::commit();
+                } catch (\Throwable $th) {
+                    DB::rollBack();
+                    throw $th;
                 }
 
                 if (count($itemPaketAndProduct) < 100) {
@@ -426,18 +690,18 @@ class XeroSyncInvoicePaidController extends Controller
 
             // $totalnya = $this->global->getDataAvailabeRequestXero();
             // dd($totalnya);
-            DB::commit();
-            $view_req =  $this->global->getDataAvailabeRequestXero();
+            //DB::commit();
+            $view_req = $this->global->getDataAvailabeRequestXero();
             return response()->json([
                 'status' => 'success',
                 'pesan_invoice' => 'Total Baris Item Invoice tersimpan: ' . $totalSyncedInvoiceLines,
-                'pesan_paket'   => 'Total Paket tersimpan: ' . $totalSyncedItem,
+                'pesan_paket' => 'Total Paket tersimpan: ' . $totalSyncedItem,
                 'request_min_tersisa_hari' => $view_req->available_request_day,
-                'request_min_tersisa_menit'  => $view_req->available_request_min,
+                'request_min_tersisa_menit' => $view_req->available_request_min,
             ]);
 
         } catch (\Exception $e) {
-            DB::rollback();
+            //DB::rollback();
             Log::error("Sync Error: " . $e->getMessage());
             return response()->json([
                 'status' => 'error',

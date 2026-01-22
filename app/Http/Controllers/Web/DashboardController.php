@@ -33,4 +33,9 @@ class DashboardController extends Controller
         return view('admin.list_pengeluaran');
     }
 
+    public function getWebListPembelianHotel()
+    {
+        return view('admin.transaksi.pembelian_hotel');
+    }
+
 }

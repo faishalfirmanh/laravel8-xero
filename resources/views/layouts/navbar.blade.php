@@ -4,13 +4,14 @@
 
         <a href="#transaksiSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Transaksi</a>
         <div class="collapse" id="transaksiSub">
-            <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran</a>
+             <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pembelian Hotel</a>
+            {{-- <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran</a> --}}
         </div>
 
         <a href="#masterSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Master Data</a>
         <div class="collapse" id="masterSub">
+            <a href="{{ route('admin-master-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Hotel</a>
             <a href="{{ route('admin-list-pengeluaran') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Pengeluaran</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Agen</a>
             <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a>
             <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a>
         </div>

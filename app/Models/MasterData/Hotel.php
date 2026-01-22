@@ -11,7 +11,7 @@ class Hotel extends Model
 
     protected $fillable = [
         'name',
-        'type_location_hotel',
+        'type_location_hotel',//1 = makah, 2 =madinah
         'address'
     ];
 }
