@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 
 class Handler extends ExceptionHandler
@@ -24,6 +25,19 @@ class Handler extends ExceptionHandler
         'password',
         'password_confirmation',
     ];
+
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        //if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Token tidak valid atau sudah expired'
+            ], 401);
+        // }
+
+        // dd($request->expectsJson());
+        //   return redirect()->guest(route('login'));
+    }
 
     /**
      * Register the exception handling callbacks for the application.

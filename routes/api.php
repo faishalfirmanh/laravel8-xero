@@ -12,6 +12,7 @@ use App\Http\Controllers\Xero\TrackingController;
 use App\Http\Controllers\Xero\WebhookController;
 use App\Http\Controllers\Xero\PaymentController;
 use App\Http\Controllers\InvoiceItemController;
+use App\Http\Controllers\Config\ConfigCurrencyApiController;
 use App\Http\Controllers\Xero\XeroSyncInvoicePaidController;
 use App\Http\Controllers\Xero\XeroContactController;
 use App\Http\Controllers\GlobalExternal\CurrencyController;
@@ -109,7 +110,13 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 
     Route::prefix("transaksi")->group(function () {
+        Route::prefix('revenue')->group(function () {
 
+        });
+
+        Route::prefix('expenses')->group(function () {
+
+        });
     });
 
     Route::prefix("master-data")->group(function () {
@@ -126,6 +133,11 @@ Route::prefix("admin-web")->group(function () {
         });
 
     });
+
+     Route::prefix("config-currency")->group(function () {
+        Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
+        Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
+     });
 });
 
 

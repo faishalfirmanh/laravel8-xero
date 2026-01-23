@@ -88,13 +88,71 @@ function initGlobalDataTable(selector, url, columns, extraParams = {}) {
   });
 }
 
+function initGlobalDataTableToken(selector, url, columns, extraParams = {}) {
+  return $(selector).DataTable({
+    processing: true,
+    serverSide: true,
+    destroy: true, // Reset tabel jika dipanggil ulang
+    ajax: function (data, callback, settings) {
+      // Logic hitung halaman (Page Number)
+      var page = Math.ceil(settings._iDisplayStart / settings._iDisplayLength) + 1;
+      var keyword = data.search.value;
+
+      // Menggabungkan parameter default + parameter tambahan
+      let param_send = Object.assign({
+        "limit": settings._iDisplayLength,
+        "page": page,
+        "keyword": keyword
+      }, extraParams);
+
+      $.ajax({
+        url: url,
+        type: 'GET',
+        data: param_send,
+        beforeSend: function (request) {
+          request.setRequestHeader("Authorization", 'Bearer ' + localStorage.getItem("token"));
+        },
+        success: function (response) {
+          callback({
+            draw: settings.iDraw,
+            recordsTotal: response.data.total,
+            recordsFiltered: response.data.total,
+            data: response.data.data
+          });
+        },
+        error: function (data) {
+          console.log('Error Load Data:', data);
+
+          // Handle Error dari Backend
+          let pesan = "Terjadi kesalahan pada server";
+          if (data.responseJSON && (data.responseJSON.msg || data.responseJSON.message)) {
+            pesan = data.responseJSON.msg || data.responseJSON.message;
+          }
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Oops... auth gagal',
+            text: pesan,
+          }).then((result) => {
+            // Redirect jika 401 (Unauthorized) atau user klik OK
+            // if (data.status === 401 || result.isConfirmed) {
+            //   window.location.href = '/login';
+            // }
+          });
+        }
+      });
+    },
+    columns: columns
+  });
+}
+
 //helper function ajax
 async function ajaxRequest(url, method = 'GET', data = null, token = null) {
   try {
     const options = {
       method: method, // GET, POST, PUT, DELETE, etc.
       headers: {
-        // 'Content-Type': 'application/json', //sebelum image
+        'Content-Type': 'application/json', //sebelum image
         'Accept': 'application/json',
       },
     };

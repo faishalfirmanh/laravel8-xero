@@ -5,6 +5,7 @@ use App\Http\Controllers\Web\MasterData\HotelController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Xero\ContactController;
 use App\Http\Controllers\Xero\InvoicesController;
+use App\Http\Controllers\Web\Config\CurrencyController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
@@ -36,9 +37,15 @@ Route::prefix('admin')->group(function () {
     Route::get('/list-pembelian-hotel', [DashboardController::class, 'getWebListPembelianHotel'])->name('admin-list-pembelian-hotel');
     Route::get('/list-pengeluaran', [DashboardController::class, 'getWebListPengeluaran'])->name('admin-list-pengeluaran');
     Route::get('/list-invoice', [DashboardController::class, 'getWebListInvoice'])->name('admin-list-invoice');
+    Route::get('/hotel-sales-list', [DashboardController::class, 'getHotelSalesList'])->name('admin-list-invoice-sales-hotel');
 
     Route::prefix('master_data')->group(function () {
         Route::get('/list-hotel', [HotelController::class, 'index'])->name('admin-master-hotel');
+        Route::get('/list-jamaah', [DashboardController::class, 'getJamaah'])->name('admin-master-jamaah');//semua client
+    });
+
+    Route::prefix('config')->group(function () {
+        Route::get('/config_currency', [DashboardController::class, 'getConfigCurrency'])->name('config-currency-web');
     });
 
 });

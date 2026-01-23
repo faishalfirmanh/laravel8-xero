@@ -38,4 +38,19 @@ class DashboardController extends Controller
         return view('admin.transaksi.pembelian_hotel');
     }
 
+    public function getConfigCurrency()
+    {
+        return view('admin.config.config_currency');
+    }
+
+    public function getJamaah()
+    {
+        return view('admin.master.jamaah');
+    }
+
+     public function getHotelSalesList()
+    {
+        return view('admin.master.hotel_sales');
+    }
+
 }
