@@ -110,7 +110,7 @@ class ProductAndServiceController extends Controller
     }
 
 
-    public function getProduct(Request $request)
+   public function getProduct(Request $request)
     {
         try {
             $tokenData = $this->getValidToken();
@@ -118,6 +118,107 @@ class ProductAndServiceController extends Controller
                 return response()->json(['message' => 'Token kosong/invalid'], 401);
             }
 
+            $keyword =  $request->search;
+            $tenantId = $this->getTenantId($tokenData['access_token']);
+
+            // KONFIGURASI
+            $limit = 20;           // frontend limit
+            $xeroBatchSize = 100; // Xero limit tetap
+
+            $frontendPage = max((int)$request->query('page', 1), 1);
+
+            if ($frontendPage > 100) {
+                return response()->json(['message' => 'Page terlalu besar (maks 100)'], 400);
+            }
+
+            $xeroPageTarget = (int) ceil(($frontendPage * $limit) / $xeroBatchSize);
+            $offsetInBatch = (($frontendPage - 1) * $limit) % $xeroBatchSize;
+
+            $cacheKey = "xero_items_{$tenantId}_page_{$xeroPageTarget}_" . md5($keyword);
+
+            $allItems = Cache::remember($cacheKey, now()->addSeconds(60), function () use (
+                    $tokenData,
+                    $tenantId,
+                    $xeroPageTarget,
+                    $keyword
+                ) {
+
+                $params = [
+                    'page' => $xeroPageTarget,
+                ];
+
+                if (!empty($keyword)) {
+                    // Escape petik dua
+                    $safeKeyword = str_replace(['\\', '"'], ['\\\\', '\"'], $keyword);
+
+                    // PERBAIKAN PENTING DISINI:
+                    // 1. Code menggunakan StartsWith (Xero sering menolak Contains untuk Code)
+                    // 2. Name menggunakan Contains
+                   $params['where'] = sprintf(
+                        '(Code != null && Code.StartsWith("%s")) OR (Name != null && Name.Contains("%s"))',
+                        $safeKeyword,
+                        $safeKeyword
+                    );
+                }
+
+                $response = Http::retry(1, 2000, function ($exception) {
+                    return $exception->response &&
+                        $exception->response->status() === 429;
+                })->withHeaders([
+                    'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                    'Xero-Tenant-Id' => $tenantId,
+                    'Accept' => 'application/json',
+                ])->get('https://api.xero.com/api.xro/2.0/Items', $params);
+
+                // PERBAIKAN ERROR HANDLING (Agar tidak error "Wrong parameters")
+                if ($response->failed()) {
+                    // Ambil body error, pastikan string
+                    $errorDetail = (string) $response->body();
+
+                    // Kita throw string biasa saja agar Exception tidak bingung
+                    throw new \Exception(
+                        'Xero Error (' . $response->status() . '): ' . $errorDetail
+                    );
+                }
+
+                return $response->json('Items') ?? [];
+            });
+
+            $pagedItems = array_slice($allItems, $offsetInBatch, $limit);
+
+            $hasMore = count($pagedItems) === $limit &&
+                (count($allItems) > ($offsetInBatch + $limit) || count($allItems) === 100);
+
+            return response()->json([
+                'current_page' => $frontendPage,
+                'limit' => $limit,
+                'total_in_page' => count($pagedItems),
+                'has_more' => $hasMore,
+                'data' => $pagedItems,
+            ]);
+
+        } catch (\Exception $e) {
+            // Log error ke file laravel.log agar bisa dibaca detailnya tanpa merusak UI
+            \Illuminate\Support\Facades\Log::error('Xero Search Error: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Gagal mengambil data dari Xero',
+                'error_snippet' => substr($e->getMessage(), 0, 200) . '...' // Potong pesan agar tidak terlalu panjang
+            ], 500);
+        }
+    }
+
+    //2025-01-23
+    public function getProduct3(Request $request)
+    {
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json(['message' => 'Token kosong/invalid'], 401);
+            }
+
+            $keyword =  $request->search;
+            //dd($keyword);
             $tenantId = $this->getTenantId($tokenData['access_token']);
 
             // KONFIGURASI
@@ -138,13 +239,28 @@ class ProductAndServiceController extends Controller
             $offsetInBatch = (($frontendPage - 1) * $limit) % $xeroBatchSize;
 
             // Cache per halaman Xero
-            $cacheKey = "xero_items_{$tenantId}_page_{$xeroPageTarget}";
+            $cacheKey = "xero_items_{$tenantId}_page_{$xeroPageTarget}_" . md5($keyword);
 
             $allItems = Cache::remember($cacheKey, now()->addSeconds(60), function () use (
                     $tokenData,
                     $tenantId,
-                    $xeroPageTarget
+                    $xeroPageTarget,
+                    $keyword
                 ) {
+
+            $params = [
+                'page' => $xeroPageTarget,
+            ];
+
+            if (!empty($keyword)) {
+               $safeKeyword = str_replace('"', '\"', $keyword);
+                $params['where'] = sprintf(
+                    'Code=="%s" OR Name.Contains("%s")',
+                    $safeKeyword,
+                    $safeKeyword
+                );
+            }
+
             $response = Http::retry(1, 2000, function ($exception) {
                 return $exception->response &&
                     $exception->response->status() === 429;
@@ -152,15 +268,13 @@ class ProductAndServiceController extends Controller
                 'Authorization' => 'Bearer ' . $tokenData['access_token'],
                 'Xero-Tenant-Id' => $tenantId,
                 'Accept' => 'application/json',
-            ])->get('https://api.xero.com/api.xro/2.0/Items', [
-                'page' => $xeroPageTarget,
-            ]);
+            ])->get('https://api.xero.com/api.xro/2.0/Items', $params);
 
-            if ($response->failed()) {
-                    throw new \Exception(
-                        'Xero API Error: ' . $response->status()
-                    );
-                }
+            // if ($response->failed()) {
+            //         throw new \Exception(
+            //             'Xero API Error: ' . $response->status()
+            //         );
+            //     }
 
                 return $response->json('Items') ?? [];
             });
@@ -184,7 +298,7 @@ class ProductAndServiceController extends Controller
             return response()->json([
                 'message' => 'Proxy Error',
                 'Controller' => 'ProductAndServiceController',
-                'line'=> 186,
+                'line'=> $e->getLine(),
                 'error' => $e->getMessage()
             ], 500);
         }

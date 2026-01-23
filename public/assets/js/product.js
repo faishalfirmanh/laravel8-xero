@@ -1,7 +1,7 @@
 const LIST_URL = 'api/xero-integrasi/get-data-product';
 const CREATE_URL = 'api/xero-integrasi/save-data-product';
-const URL_INVOICE = 'api/xero-integrasi/getInvoiceByIdPaket/'
-const URL_INVOICE_PAGING = 'api/xero-integrasi/getInvoiceByIdPaketPaging/'
+const URL_INVOICE = 'api/xero-integrasi/getInvoiceByIdPaket'
+
 const URL_DETAIL_Item = 'api/xero-integrasi/get-by-id/'
 const baseUrlOrigin = window.location.origin;
 let currentPage = 1;
@@ -51,16 +51,17 @@ function getDataEdit(id) {
 
 function loadDataItem(idPaket){
     if (idPaket) currentIdPaket = idPaket;
-    console.log("idpake",idPaket)
+    //console.log("idpake",idPaket)
     $('#listInvoiceLoader').removeClass('d-none');
     $('#invoiceTable').addClass('d-none');
     $('#invoiceTableBody').empty();
     let final_result_curr = currentIdPaket.replace(/\//g, "-").replace(/-(\d+)$/, "+$1");
-    console.log('cureen',final_result_curr)
+    //console.log('cureen',final_result_curr)
     $.ajax({
-        url: `${URL_INVOICE}${final_result_curr}`,
+        url:URL_INVOICE,// `${URL_INVOICE}${final_result_curr}`,
         type: 'GET',
         dataType: 'json',
+        data:{code_paket : idPaket},
         success: function (response) {
 
             var notifContainer = $('#notif_save_checbox');
@@ -540,7 +541,7 @@ $(document).ready(function () {
        // $('#prevInvPage, #nextInvPage').prop('disabled', true);
 
         $.ajax({
-            url: `${URL_INVOICE}${currentIdPaket}`,//URL_INVOICE_PAGING
+            url: URL_INVOICE,//`${URL_INVOICE}${currentIdPaket}`,//URL_INVOICE_PAGING
             type: 'GET',
             dataType: 'json',
             // data: {
