@@ -814,13 +814,14 @@ class InvoicesController extends Controller
         }
     }
 
-    public function getInvoiceByIdPaket($itemCode = 0)
+    public function getInvoiceByIdPaket(Request $request)
     {
-         $string_final_code =  str_replace(
-                    ['-', '+'],
-                    ['/', '-'],
-                    $itemCode
-                );
+        //  $string_final_code =  str_replace(
+        //             ['-', '+'],
+        //             ['/', '-'],
+        //             $itemCode
+        //         );
+        $itemCode= $request->code_paket;
         set_time_limit(0); // Biarkan berjalan lama jika data banyak
 
         try {
@@ -880,7 +881,7 @@ class InvoicesController extends Controller
 
                     foreach ($invoice['LineItems'] as $item) {
                         // Filter berdasarkan ItemCode
-                        if (isset($item['ItemCode']) && $item['ItemCode'] == $string_final_code) {
+                        if (isset($item['ItemCode']) && $item['ItemCode'] == $itemCode) {
 
                             // Struktur data SAMA PERSIS dengan kode lama Anda
                             $list_invoice[] = [
