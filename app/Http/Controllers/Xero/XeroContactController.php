@@ -109,10 +109,22 @@ class XeroContactController extends Controller
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $tokenData['access_token'],
             'Xero-Tenant-Id' => $tenantId,
-            'Accept' => 'application/json'
+           'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
         ])->get('https://api.xero.com/api.xro/2.0/Contacts');
 
-        return response()->json($response->json());
+        dd($tokenData['access_token']);
+
+         if ($response->failed()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal ambil data contact ',
+                'xero_status_code' => $response->status(),
+                'xero_error_detail' => $response->json()
+            ], $response->status());
+         }
+
+        return response()->json($response->json()['Contacts']);
     }
 
     // =========================================================================

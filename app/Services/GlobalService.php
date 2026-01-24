@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\InvoicePriceGap;
 use App\Models\Xero\XeroRequestUsedLimit;
 use App\Models\PaymentsHistoryFix;
+use App\Models\Revenue\Hotel\InvoicesHotel;
 use DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -73,6 +74,28 @@ class GlobalService
         }else{
             return 1;
         }
+    }
+
+
+
+
+    public function generateInvoiceHotel()
+    {
+        $now = Carbon::now();
+        $prefix = 'INV/' . $now->format('Ymd') . '/';
+        $lastInvoice = InvoicesHotel::where('no_invoice_hotel', 'like', $prefix . '%')
+            ->orderBy('id', 'desc') // Ambil yang paling baru dibuat
+            ->first();
+
+        if (!$lastInvoice) {
+            $newNumber = 1;
+        } else {
+            $parts = explode('/', $lastInvoice->no_invoice_hotel);
+            $lastNumber = end($parts);
+            $newNumber = intval($lastNumber) + 1;
+        }
+        $resultInvoice = $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        return $resultInvoice;
     }
 
     public function requestCalculationXero(int $available_min, int $avilabe_day ) {

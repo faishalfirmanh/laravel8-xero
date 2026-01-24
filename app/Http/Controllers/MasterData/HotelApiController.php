@@ -22,6 +22,17 @@ class HotelApiController extends Controller
 
     }
 
+    public function SearchHotel(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'keyword' => 'nullable|string'
+        ]);
+        $where = [];
+        $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
+        return $this->autoResponse($data);
+
+    }
+
     public function getAllPaginate(Request $request)
     {
         $validator = Validator::make($request->all(), [

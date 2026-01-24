@@ -28,6 +28,8 @@ use App\Http\Controllers\MasterData\LocationDistrictController;
 use App\Http\Controllers\MasterData\LocationProvinceController;
 use App\Http\Controllers\MasterData\LocationVillageController;
 //location
+//transaction
+use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -51,7 +53,8 @@ Route::prefix("xero")->group(function () {
     Route::get('connect', [XeroContactController::class, 'connect']);
     Route::get('callback', [XeroContactController::class, 'callback']);
     Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');
-    ;
+    Route::get('get_contact_byid', [ContactController::class, 'getContactsById'])->name('get-contact-byuuid');
+    Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2
     Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');
 });
 
@@ -111,7 +114,12 @@ Route::prefix("admin-web")->group(function () {
 
     Route::prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
-
+            Route::prefix('hotel')->group(function(){
+                Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');
+                Route::post('/store', [RHotelApiController::class, 'store'])->name('save-revanue-hotel');
+                Route::get('/getById', [RHotelApiController::class, 'getInvoiceReveueHotel'])->name('byid-revanue-hotel');
+                Route::post('/deleted', [RHotelApiController::class, 'deleteInvoiceReveueHotel'])->name('deleted-revanue-hotel');
+            });
         });
 
         Route::prefix('expenses')->group(function () {
@@ -128,6 +136,7 @@ Route::prefix("admin-web")->group(function () {
 
         Route::middleware('auth:sanctum')->prefix('hotel')->group(function () {
             Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+            Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
             Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
             Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
         });

@@ -10,21 +10,94 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use App\ConfigRefreshXero;
 use Illuminate\Support\Facades\Log;
-
+use App\Services\GlobalService;
 class ContactController extends Controller
 {
 
   use ConfigRefreshXero;
     protected $configXero;
-
-    public function __construct()
+      protected $globalService;
+    public function __construct(GlobalService $globalService)
     {
         // $this->configXero = new ConfigXero();
+        $this->globalService = $globalService;
+
     }
 
     public function viewContackForm()
     {
         return view('contact');
+    }
+
+    public function getContactsById(Request $request)
+    {
+
+    }
+
+    public function getContactsSearch(Request $request)
+    {
+        try {
+            $tokenData = $this->getValidToken();
+
+            if (!$tokenData) {
+                return response()->json([
+                    'message' => 'Token kosong / invalid'
+                ], 401);
+            }
+            // Ambil tenant ID secara dinamis (recommended)
+            $tenantId = $this->getTenantId($tokenData['access_token']);
+            if (!$tenantId) {
+                return response()->json([
+                    'message' => 'Tenant ID tidak ditemukan'
+                ], 400);
+            }
+
+            $search = $request->query('name'); // ?name=andi
+            $page   = (int) $request->query('page', 1);
+
+            $query = [
+                'page' => $page
+            ];
+
+            // Xero WHERE syntax
+            if (!empty($search)) {
+                $query['where'] = 'Name.Contains("' . addslashes($search) . '")';
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json'
+            ])->get('https://api.xero.com/api.xro/2.0/Contacts', $query);
+
+            $available_min_req = (int) $response->header('X-MinLimit-Remaining');
+            $available_day_req = (int) $response->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($available_min_req, $available_day_req);
+
+            // Jika Xero gagal
+            if ($response->failed()) {
+                return response()->json([
+                    'message' => 'Xero API Error',
+                    'status'  => $response->status(),
+                    'body'    => $response->body()
+                ], $response->status());
+            }
+
+            $view_req =  $this->globalService->getDataAvailabeRequestXero();
+           return response()->json([
+                'meta' => [
+                    'request_min_tersisa_hari'  => $view_req->available_request_day,
+                    'request_min_tersisa_menit' => $view_req->available_request_min,
+                ],
+                'data' => json_decode($response->body(), true)
+            ], $response->status());
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Proxy Error',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function getContactLocal()//26122025 , durasi update / create 5 detik untuk 50 data,
