@@ -261,6 +261,8 @@ class XeroSyncInvoicePaidController extends Controller
 
         try {
             // --- BAGIAN 1: SYNC INVOICE ---
+            $start_time = Carbon::now()->format('d-m-Y H.i');
+            Log::info("(/admin/list-invoice) mulai sync invoice ".$start_time);
             while (!$isFinished) {
                 $this->rateLimiter->checkAndHit($tenantId);
 
@@ -272,6 +274,7 @@ class XeroSyncInvoicePaidController extends Controller
                     ])
                         ->timeout(15) // Naikkan timeout sedikit untuk jaga-jaga
                         ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                            'where' => 'Status=="PAID"',
                             'order' => 'Date DESC',
                             'page' => $page
                         ]);
@@ -348,11 +351,11 @@ class XeroSyncInvoicePaidController extends Controller
                     // Param 3: Kolom yang mau di-update jika data sudah ada
                     if (!empty($batchInvoices)) {
                         InvoicesAllFromXero::upsert($batchInvoices, ['invoice_uuid'], [
-                            'invoice_amount',
-                            'invoice_total',
-                            'status',
-                            'issue_date',
-                            'due_date',
+                            // 'invoice_amount',//biar tidak terlalu berat
+                            // 'invoice_total',
+                            // 'status',
+                            // 'issue_date',
+                            // 'due_date',
                             'updated_at'
                         ]);
                     }
@@ -443,11 +446,11 @@ class XeroSyncInvoicePaidController extends Controller
                 // EKSEKUSI DB ITEM
                 if (!empty($batchItems)) {
                     ItemsPaketAllFromXero::upsert($batchItems, ['uuid_proudct_and_service'], [
-                        'code',
-                        'nama_paket',
-                        'price_purchase',
-                        'price_sales',
-                        'desc',
+                        // 'code', //biar tidak terlalu berat
+                        // 'nama_paket',
+                        // 'price_purchase',
+                        // 'price_sales',
+                        // 'desc',
                         'updated_at'
                     ]);
                 }
@@ -462,7 +465,8 @@ class XeroSyncInvoicePaidController extends Controller
             }
 
             $view_req = $this->global->getDataAvailabeRequestXero();
-
+            $end_time_sync = Carbon::now()->format('d-m-Y H.i');
+            Log::info("(/admin/list-invoice) selesai sync invoice ".$end_time_sync);
             return response()->json([
                 'status' => 'success',
                 'pesan_invoice' => 'Total Baris Item Invoice tersimpan: ' . $totalSyncedInvoiceLines,

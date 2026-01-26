@@ -5,7 +5,7 @@
         <a href="#transaksiSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Transaksi</a>
         <div class="collapse" id="transaksiSub">
              <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
-            {{-- <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran</a> --}}
+            <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
         </div>
 
         <a href="#masterSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Master Data</a>

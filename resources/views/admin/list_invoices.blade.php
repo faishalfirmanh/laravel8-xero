@@ -3,12 +3,23 @@
 @section('content')
 
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-start mb-3">
     <h5 class="mb-0">Proses Pembayaran</h5>
-    <button onclick="syncData()" type="button" style="color: white !important;font-weidth:bold;" class="btn btn-warning text-dark shadow-sm fw-bold">
-        <i class="fas fa-sync-alt me-1"></i> Synchronization
-    </button>
+
+    <div class="d-flex flex-column align-items-end">
+        <button
+            onclick="syncData()"
+            type="button"
+            class="btn btn-warning text-dark shadow-sm fw-bold">
+            <i class="fas fa-sync-alt me-1"></i> Synchronization
+        </button>
+
+        <span class="text-danger mt-1" style="font-size:10px;">
+            (hanya invoice yang sudah paid)
+        </span>
+    </div>
 </div>
+
 <div class="card mb-4">
     <div class="card-body">
         <form id="invoicePaymentForm">
