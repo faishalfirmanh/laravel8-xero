@@ -7,6 +7,7 @@ use App\Http\Repository\MasterData\HotelRepository;
 use Illuminate\Http\Request;
 use Validator;
 use App\Traits\ApiResponse;
+use Illuminate\Validation\Rule;
 class HotelApiController extends Controller
 {
     //
@@ -57,7 +58,11 @@ class HotelApiController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|unique:hotels,name',
+            'name' => [
+                'required',
+                'string',
+                Rule::unique('hotels', 'name')->ignore($request->id)
+            ],
             'type_location_hotel' => 'integer|between:1,5',
             'id' => 'nullable|integer',
         ]);

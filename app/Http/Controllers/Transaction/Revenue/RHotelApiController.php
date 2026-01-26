@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\Revenue\HotelInvoicesRepository;
+use App\Http\Repository\MasterData\DataJamaahXeroRepository;
 use App\Http\Repository\Revenue\HotelDetailInvoicesRepository;
 use Validator;
 use App\Traits\ApiResponse;
@@ -16,21 +17,23 @@ use Illuminate\Support\Facades\Http;
 use App\ConfigRefreshXero;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\Revenue\Hotel\InvoicesHotel;
-
+use App\Models\Config\ConfigCurrency;
 class RHotelApiController extends Controller
 {
     //
-    protected $repo, $repo_detail, $service_global;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
         HotelInvoicesRepository $repo,
         HotelDetailInvoicesRepository $repo_detail,
-        GlobalService $service_global
+        GlobalService $service_global,
+        DataJamaahXeroRepository $repo_jamaah
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
         $this->service_global = $service_global;
+        $this->repo_jamaah = $repo_jamaah;
     }
 
 
@@ -164,9 +167,10 @@ class RHotelApiController extends Controller
         $first = isset($contact["FirstName"]) ? $contact["FirstName"] : "_";
         $last = isset($contact["LastName"]) ? $contact["LastName"] : "_";
         $full_name = $contact["Name"] . "_" . $first . "_" . $last;
-        //dd($full_name);
+        $cek_phone = isset($contact["Phones"][3]["PhoneNumber"]) ? $contact["Phones"][3]["PhoneNumber"] : 0;//type mobile
+        //dd($cek_phone);
 
-        DB::beginTransaction(); // Mulai transaksi manual di controller agar atomicity terjaga
+        //DB::beginTransaction(); // Mulai transaksi manual di controller agar atomicity terjaga
         try {
             // --- A. PERSIAPAN DATA MASTER ---
             // Hitung total days jika belum ada (opsional, krn di view disabled)
@@ -182,7 +186,8 @@ class RHotelApiController extends Controller
                     $grandTotal += ($q * $price);
                 }
             }
-
+            $config_curency = ConfigCurrency::first();
+            $final_rupiah_amount = $grandTotal * $config_curency->nominal_rupiah_1_riyal;
             $masterData = [
                 'uuid_user_order' => $request->order_name, // Mapping dari input view
                 'hotel_id' => $request->hotel_id,
@@ -191,19 +196,20 @@ class RHotelApiController extends Controller
                 'check_out' => $request->check_out,
                 'total_days' => $diffDays > 0 ? $diffDays : 1,
                 'total_payment' => $grandTotal,
+                'total_payment_rupiah'=>$final_rupiah_amount,
                 'status' => 1,
                 // 'created_by'   => auth()->id(), // Jangan lupa ini jika perlu
             ];
+
+            $param_update_jamaah = ['uuid_contact'=> $request->order_name];
+            $param_create_jmaah = ['full_name'=>$full_name,'phone_number'=>$cek_phone,'is_mitra_trevel'=>true];
+            $this->repo_jamaah->firstOrCreata($param_update_jamaah,$param_create_jmaah);
 
             // Generate No Invoice hanya jika create baru
             if (empty($request->id)) {
                 $masterData['no_invoice_hotel'] = $this->service_global->generateInvoiceHotel();
             }
 
-            // --- B. SIMPAN MASTER ---
-            // Kita panggil repository, tapi hati-hati krn repo Anda punya DB::beginTransaction sendiri.
-            // Sebaiknya repo hanya logic save tanpa transaction jika dipanggil dari service kompleks.
-            // Tapi mari kita gunakan method CreateOrUpdate Anda.
             $savedMaster = $this->repo->CreateOrUpdate($masterData, $request->id);
 
             // Cek error dari return string repository Anda
@@ -227,7 +233,9 @@ class RHotelApiController extends Controller
                     'qty' => $request->qty[$index],
                     'price_each_item' => $request->price_hotel[$index],
                     'total_amount' => $request->qty[$index] * $request->price_hotel[$index],
-                    'desc' => '-' // default value
+                    'desc' => 'kurs 1 SAR ke Rupiah '.
+                    $config_curency->nominal_rupiah_1_riyal
+                    ." update terakhir ".$config_curency->updated_at
                 ];
 
                 // Simpan per baris menggunakan model create biasa
@@ -235,11 +243,14 @@ class RHotelApiController extends Controller
                 $this->repo_detail->model->create($detailData);
             }
 
-            DB::commit(); // Commit semua perubahan (Master + Detail)
+            // $total_nomial_rupiah = ['total_payment_rupiah'=> $final_rupiah_amount ];
+            // $this->repo->CreateOrUpdate($total_nomial_rupiah, $savedMaster->id);
+            //dd();
+            //DB::commit(); // Commit semua perubahan (Master + Detail)
             return $this->autoResponse($savedMaster, 'Data berhasil disimpan', 200);
 
         } catch (Exception $e) {
-            DB::rollBack();
+           // DB::rollBack();
             return $this->error('Gagal menyimpan data: ' . $e->getMessage(), 500);
         }
     }

@@ -29,7 +29,25 @@
         height: calc(1.5em + 0.75rem) !important;
         top: 2px !important; /* Geser panah biar tengah */
     }
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+
+        #printArea, #printArea * {
+            visibility: visible;
+        }
+
+        #printArea {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+    }
 </style>
+
 
 <div class="card shadow mb-5">
     <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
@@ -180,14 +198,88 @@
     </div>
 </div>
 
+<!-- Modal -->
+<div class="modal fade" id="invoiceModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
+    <div class="modal-content" id="printArea">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Invoice Hotel</h5>
+        <button type="button" class="close d-print-none" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- HEADER -->
+        <div class="text-center mb-3">
+          <h5 class="font-weight-bold" id="hotel_name"></h5>
+          <small>No Invoice: <span id="no_invoice"></span></small>
+        </div>
+
+        <!-- INFO -->
+        <div class="row">
+          <div class="col-12 col-md-6">
+            <p><strong>Nama Pemesan:</strong><br><span id="nama_pemesan"></span></p>
+          </div>
+          <div class="col-6 col-md-3">
+            <p><strong>Check In:</strong><br><span id="check_in_inv"></span></p>
+          </div>
+          <div class="col-6 col-md-3">
+            <p><strong>Check Out:</strong><br><span id="check_out_inv"></span></p>
+          </div>
+        </div>
+
+        <hr>
+
+        <!-- DETAIL TABLE -->
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead class="thead-light">
+              <tr>
+                <th>Type Room</th>
+                <th class="text-center">Qty</th>
+                <th class="text-right">Harga</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody id="detail_rows"></tbody>
+          </table>
+        </div>
+
+        <div class="text-right">
+          <h6>Total Payment:</h6>
+          <h5 class="font-weight-bold">SAR <span id="total_payment"></span></h5>
+          <h5 class="font-weight-bold">Rp <span id="total_payment_rp"></span></h5>
+        </div>
+
+      </div>
+
+      <div class="modal-footer d-print-none">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+        <button type="button" class="btn btn-primary" onclick="printInvoice()">
+          <i class="fa fa-print"></i> Print PDF
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
 @endsection
 
 @push('scripts')
 <script>
+     function printInvoice() {
+        window.print();
+    }
 $(document).ready(function() {
     var table;
 
     // --- HELPER 1: Hitung Hari ---
+
     function hitungTotalHari() {
         const checkIn  = $('#check_in').val();
         const checkOut = $('#check_out').val();
@@ -243,9 +335,9 @@ $(document).ready(function() {
     $('#order_name').select2({
         theme: 'bootstrap4',
         dropdownParent: $('#modalCreateHotel'),
-        placeholder: 'Pilih Agent',
+        placeholder: 'Pilih Agent / Mitra',
         allowClear: true,
-        minimumInputLength: 3,
+        minimumInputLength: 2,
         ajax: {
             url: `{{ route('search-contact-select2') }}`,
             dataType: 'json',
@@ -355,18 +447,66 @@ $(document).ready(function() {
         { data: 'nama_pemesan', name: 'nama_pemesan' },
         { data: 'check_in', name: 'check_in' },
         { data: 'check_out', name: 'check_out' },
-        { data: 'hotel_id', name: 'hotel_id' }, // Sesuaikan jika nama hotel ada relasi
+        {
+            data: 'hotel_name', name: 'hotel_name' }, // Sesuaikan jika nama hotel ada relasi
         {
             data: "id", className: "text-center", orderable: false, searchable: false,
             render: function(data) {
                 let btnEdit = `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
                 let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
-                return btnEdit + btnHapus;
+                let btn_detail = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-success view-hotel"><i class="ti ti-eye"></i></a>`;
+                return btnEdit + btnHapus + btn_detail;
             }
         }
     ];
 
     table = initGlobalDataTableToken('#tableHotel', `{{ route('list-revanue-hotel') }}`, columnHotel, { "kolom_name": "nama_pemesan" });
+
+    function formatDate(date) {
+        const [y, m, d] = date.split('-');
+        return `${d}/${m}/${y}`;
+    }
+
+    function formatNumber(num) {
+        return parseFloat(num).toLocaleString('id-ID');
+    }
+
+    $("#tableHotel").on('click','.view-hotel',function(){
+        let id = $(this).data('id');
+          ajaxRequest(`{{ route('byid-revanue-hotel') }}`, 'GET', { id: id }, localStorage.getItem("token"))
+            .then(response => {
+                if (response.status == 200) {
+                    let data = response.data.data;
+                    document.getElementById('hotel_name').innerText = data.hotel_name;
+                    document.getElementById('no_invoice').innerText = data.no_invoice_hotel;
+                    document.getElementById('nama_pemesan').innerText = data.nama_pemesan;
+                    document.getElementById('check_in_inv').innerText = formatDate(data.check_in);
+                    document.getElementById('check_out_inv').innerText = formatDate(data.check_out);
+                    document.getElementById('total_payment').innerText = formatNumber(data.total_payment);
+                    document.getElementById('total_payment_rp').innerText = formatNumber(data.total_payment_rupiah);
+
+                    let rows = '';
+                    data.details.forEach(item => {
+                        rows += `
+                            <tr>
+                                <td>${item.type_room_desc}</td>
+                                <td class="text-center">${item.qty}</td>
+                                <td class="text-right">Rp ${formatNumber(item.price_each_item)}</td>
+                                <td class="text-right">Rp ${formatNumber(item.total_amount)}</td>
+                            </tr>
+                        `;
+                    });
+
+                    document.getElementById('detail_rows').innerHTML = rows;
+                    $('#invoiceModal').modal('show');
+
+                    if (!data) { Swal.fire('Error', 'Data tidak ditemukan', 'error'); return; }
+                }
+            })
+            .catch((err) => {
+                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+            });
+    })
 
     // --- KLIK EDIT ---
     $('#tableHotel').on('click', '.edit-hotel', function() {
@@ -381,7 +521,8 @@ $(document).ready(function() {
         ajaxRequest(`{{ route('byid-revanue-hotel') }}`, 'GET', { id: id }, localStorage.getItem("token"))
             .then(response => {
                 if (response.status == 200) {
-                    let data = response.data;
+                    let data = response.data.data;
+
                     if (!data) { Swal.fire('Error', 'Data tidak ditemukan', 'error'); return; }
 
                     // Isi Header
