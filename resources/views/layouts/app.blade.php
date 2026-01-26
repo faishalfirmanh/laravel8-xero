@@ -103,20 +103,41 @@
         })
 
         $("#logout_btn").on("click", function(e){
-               ajaxRequest( `{{ route('login') }}`,'POST',param_send, null)
-                .then(response =>{
-                    if(response.status == 200){
-
+            $.ajax({
+                url: `{{ route('logout') }}`,
+                type: 'post',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Accept': 'application/json'
+                },
+                success: function (response) {
+                    console.log(response);
+                    if(response.status == "success"){
                         Swal.fire({
                             title: "Login sukses",
                             text: "Berhasil Login",
                             icon: "success"
                         });
                     }
-                })
-                .catch((err)=>{
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-                })
+                },
+                error: function (xhr) {
+                    console.error(xhr.responseText);
+                }
+            });
+                        //    ajaxRequest( `{{ route('login') }}`,'POST',localStorage.getItem('token'), null)
+            //     .then(response =>{
+                    // if(response.status == 200){
+
+                    //     Swal.fire({
+                    //         title: "Login sukses",
+                    //         text: "Berhasil Login",
+                    //         icon: "success"
+                    //     });
+                    // }
+            //     })
+            //     .catch((err)=>{
+            //         Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+            //     })
         })
     </script>
 

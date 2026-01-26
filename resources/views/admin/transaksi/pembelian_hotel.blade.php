@@ -276,7 +276,7 @@
   </div>
 </div>
 
-<div class="card">
+<div class="card" style="margin-bottom: 10px;">
     <h2>Cek Total Penjualan Hotel (filter data)</h2>
     <form id="form_filter_hotels">
         <div class="form-group">
@@ -662,7 +662,10 @@ $(document).ready(function() {
             type: "POST",
             data: formData,
             processData: false, contentType: false,
-            headers: { 'Authorization': localStorage.getItem("token") },
+            headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
+             },
             success: function(response) {
                 $("#modalCreateHotel").modal('hide');
                 if (response.status) {

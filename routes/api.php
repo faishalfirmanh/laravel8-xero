@@ -105,14 +105,14 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::post('/delete-overpayment-byuuid/{overpaymentId}', [InvoicesController::class, 'forceVoidOverpayment'])->name('delete_overpayment_uuid');
 });
 
-Route::prefix("admin-web")->middleware('auth:sanctum')->group(function () {
+Route::prefix("admin-web")->group(function () {
     Route::get('/get-invoice-local', [XeroSyncInvoicePaidController::class, 'getAllInvoiceLocal'])->name('list-invoice-select2');
     Route::get('/get-item-byinvoice', [XeroSyncInvoicePaidController::class, 'getDetaPaketByInvoice'])->name('get-item-byinvoice');//multi
     Route::get('/get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-select2');
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 
-    Route::prefix("transaksi")->group(function () {
+    Route::middleware('auth:sanctum')->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
             Route::prefix('hotel')->group(function(){
                 Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');

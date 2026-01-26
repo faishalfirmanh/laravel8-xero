@@ -31,7 +31,7 @@ class Handler extends ExceptionHandler
         //if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Token tidak valid atau sudah expired'
+                'message' => 'Token login web tidak valid atau sudah expired'
             ], 401);
         // }
 

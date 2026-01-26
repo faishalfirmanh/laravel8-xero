@@ -179,7 +179,7 @@ class RHotelApiController extends Controller
 
         if (!$tokenData) {
             return response()->json([
-                'message' => 'Token kosong / invalid'
+                'message' => 'Token XERO kosong / invalid'
             ], 401);
         }
         // Ambil tenant ID secara dinamis (recommended)
