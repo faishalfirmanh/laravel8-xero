@@ -129,6 +129,10 @@
                                      <label for="total_days" class="font-weight-bold">Total Hari <span class="text-danger">*</span></label>
                                      <input type="number" class="form-control" name="total_days" id="total_days" disabled>
                                 </div>
+                                <div class="form-group col-md-6">
+                                     <label for="date_transaction" class="font-weight-bold">Tanggal Transaksi <span class="text-danger">*</span></label>
+                                     <input type="date" class="form-control" name="date_transaction" id="date_transaction" required>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -230,6 +234,11 @@
             <p><strong>Check Out:</strong><br><span id="check_out_inv"></span></p>
           </div>
         </div>
+        <div class="row">
+            <div class="col-12 col-md-6">
+                <p><strong>Tanggal transaksi :</strong><br><span id="date_trans_inv"></span></p>
+            </div>
+        </div>
 
         <hr>
 
@@ -267,6 +276,24 @@
   </div>
 </div>
 
+<div class="card">
+    <h2>Cek Total (filter data)</h2>
+    <form id="form_filter_hotels">
+        <div class="form-group">
+            <label for="input_date_start_filter">Tanggal awal</label>
+            <input type="date" class="form-control" name="input_date_start_filter" id="input_date_start_filter">
+        </div>
+         <div class="form-group">
+            <label for="input_date_end_filter">Tanggal akhir</label>
+            <input type="date" class="form-control" name="input_date_end_filter" id="input_date_end_filter">
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+</div>
+<div>
+    <h5>SAR : <span id="total_sar_amount"> </h5>
+    <h5>Rupiah : <span id="total_rupiah_amount"> </h5>
+</div>
 
 @endsection
 
@@ -278,7 +305,37 @@
 $(document).ready(function() {
     var table;
 
-    // --- HELPER 1: Hitung Hari ---
+
+    const input_filter_start = document.getElementById('input_date_start_filter');
+    if (!input_filter_start) return;
+
+    const now = new Date();
+    const year  = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+
+    input_filter_start.value = `${year}-${month}-01`;
+
+    const input_filter_end = document.getElementById('input_date_end_filter');
+    const hari_ini = String(new Date().getDate()).padStart(2, '0');
+
+    input_filter_end.value = `${year}-${month}-${hari_ini}`;
+
+    $("#form_filter_hotels").on("click",function(e){
+        e.preventDefault();
+        ajaxRequest(`{{ route('total-amount-revanue-hotel') }}`, 'GET',
+        {
+            date_start :  document.getElementById('input_date_start_filter').value,
+            date_end :  document.getElementById('input_date_end_filter').value,
+        },
+        localStorage.getItem('token'))
+        .then(response => {
+            let res_success = response.data.data;
+            $("#total_sar_amount").text(formatCurrency(res_success.sar))
+            $("#total_rupiah_amount").text(formatCurrency(res_success.rupiah))
+        })
+        .catch((err) => console.log('error currency', err));
+
+    })
 
     function hitungTotalHari() {
         const checkIn  = $('#check_in').val();
@@ -484,6 +541,10 @@ $(document).ready(function() {
                     document.getElementById('check_out_inv').innerText = formatDate(data.check_out);
                     document.getElementById('total_payment').innerText = formatNumber(data.total_payment);
                     document.getElementById('total_payment_rp').innerText = formatNumber(data.total_payment_rupiah);
+                    if(data.date_transaction){
+                        document.getElementById('date_trans_inv').innerText = convertStringDate(data.date_transaction);
+                    }
+
 
                     let rows = '';
                     data.details.forEach(item => {

@@ -154,6 +154,25 @@ class BaseRepository
         return $data;
     }
 
+    public function sumWhereDateRange(
+        string $kolom,
+        array $where = [],
+        ?array $range = null,
+        string $column_range = 'created_at'
+    ) {
+        $query = $this->model->newQuery();
+
+        if (!empty($where)) {
+            $query->where($where);
+        }
+
+        if (!empty($range) && count($range) === 2) {
+            $query->whereBetween($column_range, $range);
+        }
+
+        return $query->sum($kolom);
+    }
+
     public function getLastIdTable(string $column_id)
     {
         return $this->model->max($column_id);

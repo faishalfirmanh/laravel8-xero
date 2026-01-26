@@ -105,6 +105,40 @@ class RHotelApiController extends Controller
 
     }
 
+    public function getTotalAmount(Request $request)
+    {
+         $validator = Validator::make($request->all(), [
+            'date_start' => 'required|date',
+            'date_end'=>  'required|date',
+        ]);
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+        $data_sar = $this->repo->sumWhereDateRange(
+            'total_payment',
+            [],
+            [
+                'date_start'=>$request->date_start,
+                'date_end'=>$request->date_end,
+            ],
+            'date_transaction');
+        $data_rp = $this->repo->sumWhereDateRange(
+            'total_payment_rupiah',
+            [],
+            [
+                'date_start'=>$request->date_start,
+                'date_end'=>$request->date_end,
+            ],
+            'date_transaction');
+        $final = [
+            'tanggal_awal'=>$request->date_start,
+            'tanggal_akhir'=>$request->date_end,
+            'sar'=>$data_sar,
+            'rupiah'=> $data_rp
+        ];
+        return $this->autoResponse($final);
+    }
+
 
     public function getInvoiceReveueHotel(Request $request)
     {
@@ -188,16 +222,29 @@ class RHotelApiController extends Controller
             }
             $config_curency = ConfigCurrency::first();
             $final_rupiah_amount = $grandTotal * $config_curency->nominal_rupiah_1_riyal;
+           // $request->request->add(['nama_pemesan'=> json_encode($request->list_product_id)]);
+            $request['nama_pemesan'] = $full_name;
+            $request['total_days'] =  $diffDays > 0 ? $diffDays : 1;
+            $request['total_payment'] =  $grandTotal;
+            $request['total_payment_rupiah'] =  $final_rupiah_amount;
+            $request['uuid_user_order'] =  $request->order_name;
+             $request['status'] = 1;
+            $request['no_invoice_hotel'] = $this->service_global->generateInvoiceHotel();//  $final_rupiah_amount;
+
+
+
+            //disabled
             $masterData = [
-                'uuid_user_order' => $request->order_name, // Mapping dari input view
-                'hotel_id' => $request->hotel_id,
-                'nama_pemesan' => $full_name, // Sesuaikan logic bisnis Anda
-                'check_in' => $request->check_in,
-                'check_out' => $request->check_out,
-                'total_days' => $diffDays > 0 ? $diffDays : 1,
-                'total_payment' => $grandTotal,
-                'total_payment_rupiah'=>$final_rupiah_amount,
-                'status' => 1,
+                // 'uuid_user_order' => $request->order_name, // Mapping dari input view
+                // 'hotel_id' => $request->hotel_id,
+                // 'nama_pemesan' => $full_name, // Sesuaikan logic bisnis Anda
+                // 'check_in' => $request->check_in,
+                // 'check_out' => $request->check_out,
+                // 'total_days' => $diffDays > 0 ? $diffDays : 1,
+                // 'total_payment' => $grandTotal,
+                // 'total_payment_rupiah'=>$final_rupiah_amount,
+                // 'date_transaction'=>$request->date_transaction,
+                // 'status' => 1,
                 // 'created_by'   => auth()->id(), // Jangan lupa ini jika perlu
             ];
 
@@ -210,7 +257,7 @@ class RHotelApiController extends Controller
                 $masterData['no_invoice_hotel'] = $this->service_global->generateInvoiceHotel();
             }
 
-            $savedMaster = $this->repo->CreateOrUpdate($masterData, $request->id);
+            $savedMaster = $this->repo->CreateOrUpdate($request->all(), $request->id);
 
             // Cek error dari return string repository Anda
             if (is_string($savedMaster) && (str_contains($savedMaster, 'error') || str_contains($savedMaster, 'no data'))) {

@@ -26,6 +26,7 @@ class InvoicesHotel extends Model
         'total_days',
         'total_payment',//Sar,
         'total_payment_rupiah',
+        'date_transaction',
         'created_by',
         'status'
     ];

@@ -29,6 +29,19 @@ function convertStringDate(dateStr) {
   return formattedDate
 }
 
+function formatCurrency(value, currency = 'IDR', decimals = 0) {
+    if (value === null || value === undefined || value === '') return 'Rp 0';
+
+    const number = Number(value);
+    if (isNaN(number)) return 'Rp 0';
+
+    return number.toLocaleString('id-ID', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: decimals
+    });
+}
+
 
 function initGlobalDataTable(selector, url, columns, extraParams = {}) {
   return $(selector).DataTable({
