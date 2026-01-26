@@ -81,7 +81,7 @@
                 console.log('login--',$(this).serialize())
             ajaxRequest( `{{ route('login') }}`,'POST',param_send, null)
                 .then(response =>{
-                    console.log('sss',response)
+                    //console.log('sss',response)
                     if(response.status == 200){
                         //console.log(response.access_token)
                         localStorage.setItem('token', response.data.access_token);
@@ -111,11 +111,11 @@
                     'Accept': 'application/json'
                 },
                 success: function (response) {
-                    console.log(response);
+                    //console.log(response);
                     if(response.status == "success"){
                         Swal.fire({
-                            title: "Login sukses",
-                            text: "Berhasil Login",
+                            title: "Logout sukses",
+                            text: "Berhasil logout",
                             icon: "success"
                         });
                     }
