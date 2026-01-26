@@ -277,7 +277,7 @@
 </div>
 
 <div class="card">
-    <h2>Cek Total (filter data)</h2>
+    <h2>Cek Total Penjualan Hotel (filter data)</h2>
     <form id="form_filter_hotels">
         <div class="form-group">
             <label for="input_date_start_filter">Tanggal awal</label>
