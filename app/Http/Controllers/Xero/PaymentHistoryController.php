@@ -77,8 +77,8 @@ class PaymentHistoryController extends Controller
 
             $page = 1;
             $hasMoreData = true;
-
-            Log::info("Cron Job History: Mulai sinkronisasi...");
+            //$start_time = Carbon::now()->format('d-m-Y H.i');
+            Log::info("Cron Job History: Mulai sinkronisasi... ");
 
             // 2. Loop per Halaman (Batch Processing)
             do {
@@ -86,7 +86,7 @@ class PaymentHistoryController extends Controller
                 $response = Http::withHeaders($headers)
                     ->get('https://api.xero.com/api.xro/2.0/Invoices', [
                         'page' => $page,
-                        'where' => 'Status=="PAID"'
+                        'where' =>'Status=="PAID" || Status=="AUTHORISED"', //'Status=="PAID"'
                     ]);
 
                 if ($response->failed()) {
@@ -137,7 +137,8 @@ class PaymentHistoryController extends Controller
                                         'invoice_number' => $invoice_number,
                                         'date'           => $this->parseXeroDate($payment["Date"]),
                                         'amount'         => $payment["Amount"],
-                                        'reference'      => $payment["Reference"]
+                                        'reference'      => $payment["Reference"],
+                                        'payment_uuid' => $payment["PaymentID"],
                                     ]
                                 );
 
@@ -154,6 +155,15 @@ class PaymentHistoryController extends Controller
 
                     $responseDetails = Http::withHeaders($headers)->get($this->xeroBaseUrl . '/Invoices/' . $invoice_id);
                     if ($responseDetails->failed()) {
+                        $statusCode = $responseDetails->status();
+                        $errorBody  = $responseDetails->json();
+
+                        Log::error('Xero Invoice Detail Error', [
+                            'invoice_id' => $invoice_id,
+                            'status'     => $statusCode,
+                            'error'      => $errorBody
+                        ]);
+                        //Log::error("inv ".$invoice_id." Cron Job History Gagal koneksi pada detail : " . $responseDetails->body());
                         return response()->json(['status' => 'error', 'message' => 'Gagal koneksi ke Xero'], 500);
                     }
                     $invoiceData = $responseDetails->json()['Invoices'][0];
@@ -165,23 +175,24 @@ class PaymentHistoryController extends Controller
                     $this->globalService->requestCalculationXero($av_min, $av_day);
                     //dd($invoiceData);
                     $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2); //bcsub($total_xero, $local_total_payment, 2);
-                    DB::beginTransaction();
+                    //DB::beginTransaction();
                     try {
+                        //dd($invoiceData["Contact"]);
                         $this->globalService->SavedInvoiceValue($invoice_id,
                             $invoiceData["InvoiceNumber"],
-                           isset($invoiceData["Contact"]) && $invoiceData["Contact"]["FirstName"] ? $invoiceData["Contact"]["FirstName"] : 'null-name',
+                           isset($invoiceData["Contact"]) && $invoiceData["Contact"]["Name"] ? $invoiceData["Contact"]["Name"] : 'null-name',
                             $total_xero,
                             $local_total_payment,
                             $hasil_selisih
                         );
                         $view_req =  $this->globalService->getDataAvailabeRequestXero();
-                        DB::commit();
+                       // DB::commit();
                         Log::info("Sukses: create or update tabel InvoicePriceGap PaymentHistoryController line : 170'
                           request_min_tersisa_hari' = $view_req->available_request_day ||
                          'request_min_tersisa_menit'  = $view_req->available_request_min");
 
                     } catch (\Throwable $th) {
-                        DB::rollBack();
+                       // DB::rollBack();
                         Log::error("PaymentHistoryController line 173| gagal  create or update tabel InvoicePriceGap  ".$th->getMessage());
                     }
                 }
@@ -195,8 +206,9 @@ class PaymentHistoryController extends Controller
 
             } while ($hasMoreData);
 
+           // $end_time =  Carbon::now()->format('d-m-Y H.i');
             $view_req =  $this->globalService->getDataAvailabeRequestXero();
-            Log::info("Cron Job History: Selesai.");
+            Log::info("Cron Job History: Selesai. ");
             return response()->json(['status' => 'success',
                 'message' => 'Sync Selesai',
                 'request_min_tersisa_hari' => $view_req->available_request_day,

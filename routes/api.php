@@ -21,8 +21,10 @@ use App\Http\Controllers\Xero\PaymentHistoryController;
 use App\Http\Controllers\Xero\BankController;
 //master data
 use App\Http\Controllers\MasterData\PengeluaranNameController;
+use App\Http\Controllers\MasterData\DataApiJamaahController;
 //master data
 //location
+
 use App\Http\Controllers\MasterData\LocationCityController;
 use App\Http\Controllers\MasterData\LocationDistrictController;
 use App\Http\Controllers\MasterData\LocationProvinceController;
@@ -128,18 +130,23 @@ Route::prefix("admin-web")->group(function () {
         });
     });
 
-    Route::prefix("master-data")->group(function () {
+    Route::middleware('auth:sanctum')->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
         Route::prefix("pengeluaran")->group(function () {
             Route::get('/getData', [PengeluaranNameController::class, 'getData'])->name('md_g_pengeluaran');
         });
 
-        Route::middleware('auth:sanctum')->prefix('hotel')->group(function () {
+        Route::prefix('hotel')->group(function () {
             Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
             Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
             Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
             Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+        });
+
+        Route::prefix("contact-xero")->group(function () {
+            Route::get('/get', [DataApiJamaahController::class, 'getAllPaginate'])->name('getAllContactApi');
+            Route::get('/get_by_id', [DataApiJamaahController::class, 'getById'])->name('getByIdContact');
         });
 
     });

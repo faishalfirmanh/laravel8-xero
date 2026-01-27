@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-
+use Carbon\Carbon;
 class AuthController extends Controller
 {
     public function login(Request $request)
@@ -27,6 +27,9 @@ class AuthController extends Controller
             ], 401);
         }
 
+        $expired_at = Carbon::now()->addDay();
+        $tokenResult = $user->createToken('auth_token', ['*'], $expired_at);
+
         // Hapus token lama (opsional, agar 1 device 1 token)
         // $user->tokens()->delete();
 
@@ -38,6 +41,7 @@ class AuthController extends Controller
             'message' => 'Login Berhasil',
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'expires_at' => $expired_at->toDateTimeString(),
             'user' => $user
         ]);
     }
