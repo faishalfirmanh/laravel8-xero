@@ -4,11 +4,11 @@
 
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Daftar Hotel</h5>
+        <h5 class="mb-0">Daftar Jmaah Mitra pesan hotel</h5>
 
-        <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
+        {{-- <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
             <i class="ti ti-plus me-1"></i> Tambah Hotel
-        </button>
+        </button> --}}
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
@@ -17,13 +17,13 @@
     </div>
 
     <div class="table-responsive p-3">
-        <table class="table table-striped table-bordered mt-0" id="tableHotel">
+        <table class="table table-striped table-bordered mt-0" id="table_jamaah">
             <thead class="table-dark">
                 <tr>
                     <th width="5%">No</th>
                     <th>Name</th>
-                    <th>Lokasi</th>
-                    <th width="15%">Action</th>
+                    <th>Phone number</th>
+                    {{-- <th width="15%">Action</th> --}}
                 </tr>
             </thead>
         </table>
@@ -39,28 +39,6 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form id="formCreateHotel">
-                @csrf
-                <div class="modal-body">
-                    <input type="hidden" name="idHotelInput" id="idHotelInput">
-                    <div class="form-group"> <label for="nameHotel">Nama Hotel</label>
-                        <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Hotel Hilton" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="typeLocation">Lokasi</label>
-                        <select class="form-control" id="typeLocation" name="type_location_hotel" required> <option value="" selected disabled>Pilih Lokasi...</option>
-                            <option value="0">PIlih Lokasi</option>
-                            <option value="1">Makkah</option>
-                            <option value="2">Madinah</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary" id="btnSave">Simpan</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -73,7 +51,8 @@ $(document).ready(function() {
     //console.log("token",localStorage.getItem("token"))
     var table;
     // --- 1. DATATABLE ---
-    let columnHotel = [
+    console.log('token',localStorage.getItem('token'))
+    let columnJamaah = [
         {
             data: null,
             className: "text-center",
@@ -81,36 +60,31 @@ $(document).ready(function() {
                 return meta.row + meta.settings._iDisplayStart + 1;
             },
         },
-        { data: 'name', name: 'name' },
+        { data: 'full_name', name: 'full_name' },
         {
-            data: 'type_location_hotel',
-            name: 'type_location_hotel',
-            render: function(data) {
-                if(data == 1) return '<span class="badge badge-success">Makkah</span>'; // BS4 pakai badge-success
-                if(data == 2) return '<span class="badge badge-info">Madinah</span>';   // BS4 pakai badge-info
-                return '-';
-            }
+            data: 'phone_number',
+            name: 'phone_number'
         },
-        {
-            data: "id",
-            orderable: false,
-            searchable: false,
-            className: "text-center",
-            render: function(data, type, row) {
-                console.log('idd',data)
-                // Di sini saya asumsikan Edit juga pakai Modal, jadi nanti pakai data-toggle="modal" juga
-                let btnEdit = `<a href="javascript:;" onclick="${loadDataHotel(data)}" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
-                let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
-                return btnEdit + btnHapus;
-            },
-        }
+        // {
+        //     data: "id",
+        //     orderable: false,
+        //     searchable: false,
+        //     className: "text-center",
+        //     render: function(data, type, row) {
+        //         console.log('idd',data)
+        //         // Di sini saya asumsikan Edit juga pakai Modal, jadi nanti pakai data-toggle="modal" juga
+        //         let btnEdit = `<a href="javascript:;" onclick="" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
+        //         let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
+        //         return btnEdit + btnHapus;
+        //     },
+        // }
     ];
 
-    $('#tableHotel').on('click', '.edit-hotel', function() {
+    $('#table_jamaah').on('click', '.edit-hotel', function() {
         let id = $(this).data('id');
         let rowData = table.row($(this).parents('tr')).data(); // Ambil data baris tersebut
 
-        $('#idHotelInput').val(id);
+        $('#id_jamaah_xero').val(id);
         $('#nameHotel').val(rowData.name);
         $('#typeLocation').val(rowData.type_location_hotel).change(); // .change() untuk memicu update jika pakai select2
 
@@ -120,11 +94,11 @@ $(document).ready(function() {
     });
 
     function loadDataHotel(id){
-        $("#idHotelInput").val(id)
+        $("#id_jamaah_xero").val(id)
 
     }
 
-    $('#tableHotel').on('click', '.deleted-hotel', function() {
+    $('#table_jamaah').on('click', '.deleted-hotel', function() {
         let id = $(this).data('id');
         let rowData = table.row($(this).parents('tr')).data();
         let hotelName = rowData ? rowData.name : 'Data ini';
@@ -161,63 +135,23 @@ $(document).ready(function() {
     });
 
     $("#button_add_hotel").on("click",function(){
-        $('#idHotelInput').val(0);
+        $('#id_jamaah_xero').val(0);
         $('#nameHotel').val('');
         $('#typeLocation').val(0).change();
     });
 
     function tambahDataHotel(){
-          $("#idHotelInput").val(0)
+          $("#id_jamaah_xero").val(0)
     }
 
      table = initGlobalDataTableToken(
-        '#tableHotel',
-        `{{ route('getAllHotelApi') }}`,
-        columnHotel,
-        { "kolom_name": "name" }
+        '#table_jamaah',
+        `{{ route('getAllContactApi') }}`,
+        columnJamaah,
+        { "kolom_name": "full_name" }
     );
 
     // --- 2. AJAX SUBMIT ---
-    $('#formCreateHotel').on('submit', function(e) {
-        e.preventDefault();
-
-        let formData = $(this).serialize();
-        let params = new URLSearchParams(formData);
-        let idInput = params.get('idHotelInput');
-        let idHotel = (idInput && idInput > 0) ? idInput : null;
-
-
-        let selectedData = {
-            id: idHotel,
-            name: params.get('name'),
-            type_location_hotel: params.get('type_location_hotel')
-        };
-
-        let jsonResult = JSON.stringify(selectedData);
-         ajaxRequest( `{{ route('saveMasterHotel') }}`,'POST',selectedData, localStorage.getItem("token"))
-            .then(response =>{
-                 $("#modalCreateHotel").modal('hide')
-                if(response.status == 200){
-                     Swal.fire({
-                        icon: 'success',
-                        title: 'Simpan Berhasil!',
-                        html: `
-                            <div style="text-align: left; font-size: 14px;">
-                                <p class="mb-1"> berhasil simpan hotel </p>
-                                <hr>
-                            </div>
-                        `,
-                        confirmButtonText: 'Sukses'
-                    })
-
-                }
-                table.ajax.reload()
-            })
-            .catch((err)=>{
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-                console.log('error select2 invoice',err);
-            })
-    });
 
 });
 </script>

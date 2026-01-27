@@ -24,11 +24,15 @@ class InvoicesHotel extends Model
         'check_in',
         'check_out',
         'total_days',
-        'total_payment',//Sar,
-        'total_payment_rupiah',
+        'total_payment',//Sar,//total amount
+        'total_payment_rupiah',//total amount
         'date_transaction',
         'created_by',
-        'status'
+        'status',
+        'final_payment_sar',
+        'final_payment_idr',
+        'less_payment_idr',
+        'less_payment_sar'
     ];
 
     public function getHotelNameAttribute()

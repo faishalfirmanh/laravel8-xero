@@ -133,10 +133,10 @@ function initGlobalDataTableToken(selector, url, columns, extraParams = {}) {
             data: response.data.data
           });
         },
-        error: function (data) {
+        error: function (data,error, thrown) {
           console.log('Error Load Data:', data);
-
-          // Handle Error dari Backend
+          $(selector + '_processing').hide();
+          $( ".dt-empty" ).addClass( "d-none" );
           let pesan = "Terjadi kesalahan pada server";
           if (data.responseJSON && (data.responseJSON.msg || data.responseJSON.message)) {
             pesan = data.responseJSON.msg || data.responseJSON.message;
