@@ -55,6 +55,15 @@ function loadDataItem(idPaket){
     $('#listInvoiceLoader').removeClass('d-none');
     $('#invoiceTable').addClass('d-none');
     $('#invoiceTableBody').empty();
+    //
+    const elm_loader = document.getElementById("listInvoiceLoader");
+    if(elm_loader){
+        elm_loader.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center' // scroll agar loader ada di tengah layar
+        });
+    }
+
     let final_result_curr = currentIdPaket.replace(/\//g, "-").replace(/-(\d+)$/, "+$1");
     //console.log('cureen',final_result_curr)
     $.ajax({

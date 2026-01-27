@@ -233,7 +233,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- JQuery and AJAX Logic -->
-    <script src="{{ asset('assets/js/product.js?v.33') }}"></script>
+    <script src="{{ asset('assets/js/product.js?v.3223') }}"></script>
     <script>
          // URL endpoint sesuai dengan Lumen route yang telah diperbaiki
         $(document).ready(function(){

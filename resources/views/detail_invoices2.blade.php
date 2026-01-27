@@ -345,15 +345,17 @@
         // --- ITEM ---
       let itemOptionsHtml = `<option value="">Select Item</option>`;
        if(item != null){
-            availableProducts.forEach(product => {
+            availableProducts.forEach(product => {//saat load pertama data
+                //console.log('aaa',product)
                 const pCode = product.Code;
                 const pName = product.Name;
                 const isSelected = (itemCode == pCode) ? 'selected' : '';
                 itemOptionsHtml += `<option value="${pCode}" ${isSelected}>${pName}</option>`;
             });
        }else{
-            available_products_not_same.forEach(product => {
-                const pCode = product.Code;
+            available_products_not_same.forEach(product => {//saat nambah data baru
+                // console.log('bbb',product)
+                const pCode = product.ItemID;
                 const pName = product.Name;
                 const isSelected = (itemCode == pCode) ? 'selected' : '';
                 itemOptionsHtml += `<option value="${pCode}">${pName}</option>`;
@@ -477,10 +479,10 @@
                 },
                  error: function (xhr, status, error) {
                     $('#loadingIndicator').toggle(false);
-                    console.error('Error fetching history local payments :', xhr, status, error);
+                    console.log('Error fetching history local payments :', xhr, status, error);
                      Swal.fire({
                         title: 'Erros!',
-                        text: `synchronize error ${error}`,
+                        text: `synchronize error ${error} ${status}`,
                         icon: 'error',
                         confirmButtonText: 'Ok'
                     })
@@ -682,7 +684,7 @@
         let self = $(this);
         let itemCode = self.val();
         let currentRow = self.closest('tr');
-
+        console.log("select",self.val())
         if (!itemCode) return;
 
         let urlProduct = `${BASE_URL}/api/xero-integrasi/get-by-id/${itemCode}`;
@@ -721,7 +723,7 @@
     $(document).on('click', '.save-row', function() {
         let btn = $(this);
         let row = btn.closest('tr');
-
+        //console.log('saved',row.find('.item-select').val())
         // Ambil Data dari Input
         let payload = {
             invoice_id: code_invoice, // Wajib ada

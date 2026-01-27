@@ -118,6 +118,11 @@ class InvoiceItem2Controller extends Controller
                 $tracking[] = ['Name' => 'Divisi', 'Option' => '', 'TrackingOptionID' => $request->divisi_id];
             }
 
+            $response_for_code = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Items/' .  $request->item_code);
+            $data_item_prod = $response_for_code['Items'][0]["Code"];
+            //dd($data_item_prod);
+            $request->item_code =  $data_item_prod;
+
             // Object Line Item Baru
             $newLineItem = [
                 'ItemCode'      => $request->item_code,
@@ -180,6 +185,7 @@ class InvoiceItem2Controller extends Controller
             $this->globalService->requestCalculationXero($av2_min, $av2_day);
 
             if ($updateResponse->failed()) {
+                 Log::info("insert or update invoices "." status ".$updateResponse->status());
                 // Jika gagal, kembalikan payment (opsional, tapi disarankan)
                 // $this->restorePayments($invoiceId, $paymentBackups);
                 return response()->json(['status' => 'error', 'message' => 'Xero Update Failed: ' . $updateResponse->body()], 400);
