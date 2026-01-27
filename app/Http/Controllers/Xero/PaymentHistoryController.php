@@ -53,6 +53,169 @@ class PaymentHistoryController extends Controller
 
     public function insertToHistory()
     {
+        set_time_limit(0);
+        ini_set('memory_limit', '512M');
+
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                Log::error('Cron Job History: Token Invalid');
+                return response()->json(['message' => 'Token kosong/invalid.'], 401);
+            }
+
+            $tenantId = $this->getTenantId($tokenData['access_token']);
+            $headers = [
+                'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => $tenantId,
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ];
+
+            $page = 1;
+            $hasMoreData = true;
+
+            // --- OPTIMASI 1: Ambil data lebih banyak per request ---
+            // Kita tidak request detail lagi di dalam loop.
+            // Pastikan endpoint list ini mengembalikan field yang dibutuhkan:
+            // Payments, Contact, InvoiceNumber, Total, AmountPaid
+
+            Log::info("Cron Job History: Mulai sinkronisasi...");
+
+            do {
+                // Cek limit lokal sebelum nembak (Opsional, jika Anda simpan counter di DB)
+                // $this->checkLocalLimit();
+
+                $response = Http::withHeaders($headers)
+                    ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                        'page' => $page,
+                        'where' => 'Status=="PAID" || Status=="AUTHORISED"',
+                        // 'order' => 'Date DESC' // Opsional biar terurut
+                    ]);
+
+                // --- HANDLING ERROR 429 (Rate Limit) ---
+                if ($response->status() == 429) {
+                    $retryAfter = (int) $response->header('Retry-After');
+                    // Jika header kosong, default 60 detik
+                    $waitTime = $retryAfter > 0 ? $retryAfter : 65;
+
+                    Log::warning("Kena Limit 429 Xero. Tidur selama $waitTime detik...");
+                    sleep($waitTime);
+
+                    // Jangan increment page, ulangi request ini
+                    continue;
+                }
+
+                if ($response->failed()) {
+                    Log::error("Cron Job Gagal di Page $page: " . $response->body());
+                    break;
+                }
+
+                // Update Limit Info ke Service Global
+                $av_min = (int) $response->header('X-MinLimit-Remaining');
+                $av_day = (int) $response->header('X-DayLimit-Remaining');
+                $this->globalService->requestCalculationXero($av_min, $av_day);
+
+                // --- LOGIC SAFETY LIMIT ---
+                // Jika limit menit tinggal dikit (misal < 5), tidur dulu sampai reset
+                if ($av_min < 5) {
+                    Log::info("Limit menit menipis ($av_min). Tidur 30 detik...");
+                    sleep(30);
+                }
+
+                $invoices = $response->json()['Invoices'];
+
+                if (empty($invoices)) {
+                    $hasMoreData = false;
+                    break;
+                }
+
+                // --- PROSES DATA (Tanpa Nembak API Detail Lagi) ---
+                foreach ($invoices as $invoice) {
+
+                    // --- 1. PROSES PAYMENT HISTORY ---
+                    if (!empty($invoice['Payments'])) {
+                        $contact_name = $invoice['Contact']['Name'] ?? "-";
+                        $invoice_number = $invoice['InvoiceNumber'];
+                        $invoice_id = $invoice['InvoiceID'];
+
+                        foreach ($invoice['Payments'] as $payment) {
+                            if (isset($payment["Reference"]) && $this->cekKataPertama($payment["Reference"])) {
+                                DB::beginTransaction();
+                                try {
+                                    PaymentsHistoryFix::updateOrCreate(
+                                        ['payment_uuid' => $payment["PaymentID"]],
+                                        [
+                                            'invoice_uuid'   => $invoice_id,
+                                            'contact_name'   => $contact_name,
+                                            'invoice_number' => $invoice_number,
+                                            'date'           => $this->parseXeroDate($payment["Date"]),
+                                            'amount'         => $payment["Amount"],
+                                            'reference'      => $payment["Reference"],
+                                            'payment_uuid' => $payment["PaymentID"],
+                                        ]
+                                    );
+                                    DB::commit();
+                                } catch (\Exception $e) {
+                                    DB::rollBack();
+                                    Log::error("Gagal save payment $invoice_number: " . $e->getMessage());
+                                }
+                            }
+                        }
+                    }
+
+                    // --- 2. PROSES GAP / SELISIH (Menggunakan Data dari List) ---
+                    // OPTIMASI: Data 'Total' dan 'AmountPaid' biasanya SUDAH ADA di list invoice
+                    // Jadi tidak perlu nembak GET /Invoices/{id} lagi.
+
+                    try {
+                        // Pastikan field 'Total' ada. Jika Xero paging list tidak bawa field ini,
+                        // barulah terpaksa nembak detail (tapi biasanya ada).
+                        $total_xero = $invoice['Total'];
+
+                        // Hitung lokal (ini query DB lokal, aman, cepat)
+                        $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoice['InvoiceID']);
+
+                        $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2);
+
+                        $this->globalService->SavedInvoiceValue(
+                            $invoice['InvoiceID'],
+                            $invoice['InvoiceNumber'],
+                            $invoice['Contact']['Name'] ?? 'null-name',
+                            $total_xero,
+                            $local_total_payment,
+                            $hasil_selisih
+                        );
+
+                    } catch (\Throwable $th) {
+                        Log::error("Gagal hitung gap inv " . $invoice['InvoiceNumber'] . ": " . $th->getMessage());
+                    }
+                }
+
+                $page++;
+
+                // Tidur sebentar antar halaman agar aman (opsional jika logic $av_min di atas sudah ada)
+                // sleep(1);
+
+            } while ($hasMoreData);
+
+            $view_req =  $this->globalService->getDataAvailabeRequestXero();
+            Log::info("Cron Job History: Selesai.");
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Sync Selesai',
+                'request_min_tersisa_hari' => $view_req->available_request_day,
+                'request_min_tersisa_menit'  => $view_req->available_request_min,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Cron Job Error Global: " . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    //before 27-01-2026
+    public function insertToHistoryV2()
+    {
         // 1. Set Time Limit Unlimited untuk Cron Job
         set_time_limit(0);
         ini_set('memory_limit', '512M'); // Tambah memori jika perlu
@@ -164,7 +327,7 @@ class PaymentHistoryController extends Controller
                             'error'      => $errorBody
                         ]);
                         //Log::error("inv ".$invoice_id." Cron Job History Gagal koneksi pada detail : " . $responseDetails->body());
-                        return response()->json(['status' => 'error', 'message' => 'Gagal koneksi ke Xero'], 500);
+                        return response()->json(['status' => 'error', 'message' => 'Gagal koneksi ke Xero '.$responseDetails->status()], 500);
                     }
                     $invoiceData = $responseDetails->json()['Invoices'][0];
                     $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoice_id);
