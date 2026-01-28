@@ -31,6 +31,7 @@ use App\Http\Controllers\MasterData\LocationProvinceController;
 use App\Http\Controllers\MasterData\LocationVillageController;
 //location
 //transaction
+use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 
 use Illuminate\Http\Request;
@@ -119,9 +120,15 @@ Route::prefix("admin-web")->group(function () {
             Route::prefix('hotel')->group(function(){
                 Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');
                 Route::get('/getTotalAmount', [RHotelApiController::class, 'getTotalAmount'])->name('total-amount-revanue-hotel');
-                Route::post('/store', [RHotelApiController::class, 'store'])->name('save-revanue-hotel');
+                Route::post('/store', [RHotelApiController::class, 'savedRhotel'])->name('save-revenue-hotel');
                 Route::get('/getById', [RHotelApiController::class, 'getInvoiceReveueHotel'])->name('byid-revanue-hotel');
                 Route::post('/deleted', [RHotelApiController::class, 'deleteInvoiceReveueHotel'])->name('deleted-revanue-hotel');
+                //payment
+                Route::get('/getAllPaymentByIdInv', [RPaymentHotelApiController::class, 'getAllByIdInv'])->name('get-allpayment-hotelby-idinvoice');
+                Route::get('/getRowById', [RPaymentHotelApiController::class, 'by_id_row'])->name('get-by-row-payment-hotel');
+                Route::post('/deleteRow', [RPaymentHotelApiController::class, 'deleted_row'])->name('delete-by-row-payment-hotel');
+                Route::post('/savedRowCreate', [RPaymentHotelApiController::class, 'store'])->name('create-by-row-payment-hotel');
+                Route::post('/updateRowPayment', [RPaymentHotelApiController::class, 'updated_row'])->name('updated-by-row-payment-hotel');
             });
         });
 

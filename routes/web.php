@@ -9,7 +9,7 @@ use App\Http\Controllers\Web\Config\CurrencyController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
-
+use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -49,6 +49,9 @@ Route::prefix('admin')->group(function () {
     });
 
 });
+
+//print-pdf
+Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
 
 Route::get('/coba_redirect', function () {
     return "aaa";

@@ -13,11 +13,13 @@ class PaymentHotels extends Model
         'invoices_id',
         'payment_idr',
         'payment_sar',
+        'date_transfer',
+        'desc',
         'created_by'
     ];
 
     public function getInvoice()
     {
-        return $this->hasOne(InvoicesHotel::class, 'uuid_user_order','uuid_contact');
+        return $this->hasOne(InvoicesHotel::class, 'id','invoices_id');
     }
 }

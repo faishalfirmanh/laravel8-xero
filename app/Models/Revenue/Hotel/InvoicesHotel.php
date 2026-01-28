@@ -4,6 +4,7 @@ namespace App\Models\Revenue\Hotel;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Revenue\Hotel\PaymentHotels;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\MasterData\Hotel;
 
@@ -52,5 +53,10 @@ class InvoicesHotel extends Model
     public function hotel()
     {
         return $this->hasMany(Hotel::class, 'hotel_id');
+    }
+
+     public function payments()
+    {
+        return $this->hasMany(PaymentHotels::class, 'invoices_id');
     }
 }

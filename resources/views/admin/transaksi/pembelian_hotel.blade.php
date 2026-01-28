@@ -225,6 +225,7 @@
         <!-- INFO -->
         <div class="row">
           <div class="col-12 col-md-6">
+            <input type="hidden" id="id_invoice_view_detail" name="id_invoice_view_detail"/>
             <p><strong>Nama Pemesan:</strong><br><span id="nama_pemesan"></span></p>
           </div>
           <div class="col-6 col-md-3">
@@ -268,8 +269,128 @@
       <div class="modal-footer d-print-none">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
         <button type="button" class="btn btn-primary" onclick="printInvoice()">
-          <i class="fa fa-print"></i> Print PDF
+          <i class="fa fa-print"></i> Download PDF
         </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1" role="dialog" aria-labelledby="paymentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
+    <div class="modal-content" id="printArea">
+
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="paymentModalLabel">
+            <i class="fa fa-money-bill-wave mr-2"></i> Form Pembayaran
+        </h5>
+        <button type="button" class="close text-white d-print-none" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="text-center mb-4">
+          <h4 class="font-weight-bold mb-1" id="hotel_name_display"></h4>
+          <span class="badge badge-light border px-3 py-2">
+              No Invoice: <span id="no_invoice_display" class="font-weight-bold text-primary">...</span>
+          </span>
+        </div>
+
+        <div class="row mb-4 text-center">
+            <div class="col-md-4">
+                <div class="card border-primary mb-2">
+                    <div class="card-body py-2">
+                        <small class="text-muted font-weight-bold text-uppercase">Total Tagihan</small>
+                        <h5 class="font-weight-bold text-primary mb-0" id="summary_total">0</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-success mb-2">
+                    <div class="card-body py-2">
+                        <small class="text-muted font-weight-bold text-uppercase">Sudah Dibayar</small>
+                        <h5 class="font-weight-bold text-success mb-0" id="summary_paid">0</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-danger mb-2">
+                    <div class="card-body py-2">
+                        <small class="text-muted font-weight-bold text-uppercase">Sisa Kekurangan</small>
+                        <h5 class="font-weight-bold text-danger mb-0" id="summary_remaining">0</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <h6 class="font-weight-bold mb-3"><i class="fa fa-history mr-1"></i> Riwayat Pembayaran</h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-striped table-sm text-center" id="tablePaymentList">
+                <thead class="thead-dark">
+                    <tr>
+                        <th width="5%">No</th>
+                        <th>Tanggal</th>
+                        <th>Keterangan / Ref</th>
+                        <th>Nominal</th>
+                        <th width="10%" class="d-print-none">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="payment_list_body">
+                    <tr><td colspan="5" class="text-muted">Belum ada data pembayaran</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card bg-light d-print-none">
+            <div class="card-body">
+                <h6 class="font-weight-bold mb-3 text-primary"><i class="fa fa-plus-circle mr-1"></i> Tambah Pembayaran Baru</h6>
+                <a href="javascript:;" style="margin-left:5px;" class="text-info clear-edit-pay"><i class="ti ti-plus"></i></a>
+                <form id="formSubmitPayment">
+                    <input type="hidden" id="row_payment_id" name="row_payment_id">
+                    <input type="hidden" id="invoices_id_parent" name="invoices_id_parent">
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Tanggal Bayar</label>
+                            <input type="date" class="form-control form-control-sm" id="input_payment_date" name="date_transfer" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold">Nominal (Rupiah)</label>
+                            <div class="input-group input-group-sm">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text font-weight-bold">Rupiah</span>
+                                </div>
+                                <input type="number" class="form-control font-weight-bold" id="input_payment_nominal" name="payment_idr" placeholder="0" min="1"  required>
+                            </div>
+                        </div>
+                        <div class="form-group col-md-5">
+                            <label class="small font-weight-bold">Catatan / Ref</label>
+                            <input type="text" class="form-control form-control-sm" id="input_payment_ref" name="desc" placeholder="Contoh: Transfer Bank / Cash">
+                        </div>
+                    </div>
+
+                    <div class="text-right">
+                        <button type="submit" class="btn btn-success shadow-sm" id="btnSavePayment">
+                            <i class="fa fa-save mr-1"></i> Simpan Pembayaran
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer d-print-none bg-white">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fa fa-times mr-1"></i> Tutup
+        </button>
+        {{-- <button type="button" class="btn btn-info" onclick="window.print()">
+          <i class="fa fa-print mr-1"></i> Print Laporan
+        </button> --}}
       </div>
 
     </div>
@@ -300,7 +421,14 @@
 @push('scripts')
 <script>
      function printInvoice() {
-        window.print();
+      let id_nya = $("#id_invoice_view_detail").val();
+        if(!id_nya) {
+            alert("ID Invoice tidak ditemukan");
+            return;
+        }
+        let url = "{{ route('invoice_hotel_print', ':id') }}";
+        url = url.replace(':id', id_nya);
+        window.open(url, '_blank');
     }
 $(document).ready(function() {
     var table;
@@ -493,8 +621,6 @@ $(document).ready(function() {
     });
 
 
-    // --- 5. DATATABLE & EDIT ---
-
     let columnHotel = [
         {
             data: null, className: "text-center",
@@ -512,7 +638,8 @@ $(document).ready(function() {
                 let btnEdit = `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
                 let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
                 let btn_detail = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-success view-hotel"><i class="ti ti-eye"></i></a>`;
-                return btnEdit + btnHapus + btn_detail;
+                let btn_detail_pay = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-info payment-hotel"><i class="ti ti-cash"></i></a>`;
+                return btnEdit + btnHapus + btn_detail + btn_detail_pay;
             }
         }
     ];
@@ -524,12 +651,156 @@ $(document).ready(function() {
         return `${d}/${m}/${y}`;
     }
 
+    function loadListPayment(idInv){
+         ajaxRequest(`{{ route('get-allpayment-hotelby-idinvoice') }}`, 'GET', { id: idInv }, localStorage.getItem("token"))
+            .then(response => {
+                let date_get = response.data.data;
+               // $("#row_payment_id").val(idnya)
+                if(date_get.length > 0){
+                    let rows_item = '';
+                    let i = 0;
+                    date_get.forEach((item)=>{
+                    let get_edit = `<a href="javascript:;" style="margin-left:5px;" data-id="${item.id}" class="text-success get-edit-pay"><i class="ti ti-pencil"></i></a>`;
+                    let delete_payment = `<a href="javascript:;" style="margin-left:5px;" data-id="${item.id}" class="text-info delete-pay"><i class="ti ti-trash"></i></a>`;
+                        let cek_date_tf = item.date_transfer ? item.date_transfer : '-';
+                        let cek_desc = item.desc ? item.desc : '-';
+                        rows_item +=
+                        `<tr>
+                            <td>${i}</td>
+                            <td> ${convertStringDate(cek_date_tf)}</td>
+                            <td class="text-center">${cek_desc}</td>
+                            <td class="text-right">Rp. ${formatNumber(item.payment_idr)}</td>
+                            <td class="">
+                                 ${get_edit} ${delete_payment}
+                            </td>
+                        </tr>`
+                        i++;
+                    })
+                     document.getElementById('payment_list_body').innerHTML = rows_item;
+                    $("#no_invoice_display").text(date_get[0].get_invoice.no_invoice_hotel)
+                    $("#hotel_name_display").text(date_get[0].get_invoice.hotel_name)
+                }else{
+                    $("#hotel_name_display").text('empty')
+                    $("#no_invoice_display").text('empty')
+                     document.getElementById('payment_list_body').innerHTML = 'data kosong';
+                }
+
+            })
+            .catch((err)=>{
+                console.log('error',err)
+            })
+    }
+
+    $("#tableHotel").on('click','.payment-hotel',function(){
+          let idnya = $(this).data('id');
+          $("#invoices_id_parent").val(idnya)
+           $('#formSubmitPayment')[0].reset();
+            loadListPayment(idnya)
+        $('#paymentModal').modal('show');
+    })
+
+    $("#tablePaymentList").on('click','.delete-pay',function(){
+        let idRow = $(this).data('id');
+        console.log('id parent inv',$("#invoices_id_parent").val())
+         Swal.fire({
+            title: 'Hapus Data?', text: "Data tidak bisa dikembalikan!", icon: 'warning',
+            showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                ajaxRequest(`{{ route('delete-by-row-payment-hotel') }}`, 'POST', { id: idRow }, localStorage.getItem("token"))
+                    .then(res => {
+                        if (res.status == 200) Swal.fire("Sukses", "Data terhapus", "success");
+                         loadListPayment($("#invoices_id_parent").val())
+                    })
+                    .catch(err => Swal.fire('Gagal', err.message, 'error'));
+            }
+        });
+    })
+
+    $("#tablePaymentList").on('click','.get-edit-pay',function(){
+          let idRow = $(this).data('id');
+          $("#row_payment_id").val(idRow)
+            ajaxRequest(`{{ route('get-by-row-payment-hotel') }}`, 'GET', { id: idRow }, localStorage.getItem("token"))
+            .then(response => {
+                if(response.data.status){
+                    let res_data = response.data.data
+                    console.log('res get edti',res_data)
+                    $("#input_payment_date").val(res_data.date_transfer)
+                    $("#input_payment_nominal").val(Number(res_data.payment_idr))
+                    //res_data.payment_sar ?? $("#input_payment_ref").val(res_data.payment_sar)
+                    $("#input_payment_ref").val(res_data.desc)
+
+
+                    //console.log('aa',res_data.get_invoice.hotel_name)
+                }
+                console.log("get edit",response.data.status)
+            })
+            .catch(err=>{
+                console.log("error",err)
+            })
+    })
+
+    $(document).on('click', '.clear-edit-pay', function() {
+        $("#row_payment_id").val(0)
+        $('#formSubmitPayment')[0].reset();
+    });
+
+     $('#formSubmitPayment').on('submit', function(e) {
+        e.preventDefault();
+        //btn.html('<i class="fa fa-spin fa-spinner"></i> Menyimpan...').prop('disabled', true);
+
+        let formData = new FormData(this);
+        let data_json = Object.fromEntries(formData);
+
+        data_json.id = data_json.row_payment_id;
+        delete data_json.row_payment_id;
+
+        let cek_url = Number(data_json.id) > 0 ?
+          `{{ route('updated-by-row-payment-hotel') }}` : `{{ route('create-by-row-payment-hotel') }}`;
+         ajaxRequest(cek_url, 'POST', data_json, localStorage.getItem("token"))
+            .then(response => {
+                if(response.status == 200){
+                    Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data disimpan' });
+                    loadListPayment(response.data.data.invoices_id)
+                }else{
+                    Swal.fire('Gagal!', 'Terjadi kesalahan.', 'error');
+                }
+            })
+            .catch(err=>{
+                console.log("Raw Error:", err); // Debugging
+                let pesanError = 'Terjadi kesalahan pada server.';
+                if (err.error && err.error.message) {
+                    let rawMessage = err.error.message;
+                    try {
+                        let parsedMessage = JSON.parse(rawMessage);
+                        let listPesan = [];
+                        Object.keys(parsedMessage).forEach(key => {
+                            listPesan.push(parsedMessage[key][0]);
+                        });
+                        pesanError = listPesan.join('<br>');
+                    } catch (e) {
+                        pesanError = rawMessage;
+                    }
+                }
+                else if (err.statusText) {
+                    pesanError = err.statusText;
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Validasi!',
+                    html: pesanError
+                });
+            })
+    })
+
+
     function formatNumber(num) {
         return parseFloat(num).toLocaleString('id-ID');
     }
 
     $("#tableHotel").on('click','.view-hotel',function(){
         let id = $(this).data('id');
+        $("#id_invoice_view_detail").val(id)
           ajaxRequest(`{{ route('byid-revanue-hotel') }}`, 'GET', { id: id }, localStorage.getItem("token"))
             .then(response => {
                 if (response.status == 200) {
@@ -552,8 +823,8 @@ $(document).ready(function() {
                             <tr>
                                 <td>${item.type_room_desc}</td>
                                 <td class="text-center">${item.qty}</td>
-                                <td class="text-right">Rp ${formatNumber(item.price_each_item)}</td>
-                                <td class="text-right">Rp ${formatNumber(item.total_amount)}</td>
+                                <td class="text-right">Sar ${formatNumber(item.price_each_item)}</td>
+                                <td class="text-right">Sar ${formatNumber(item.total_amount)}</td>
                             </tr>
                         `;
                     });
@@ -656,9 +927,9 @@ $(document).ready(function() {
         let formData = new FormData(this);
         let idInput = $('#idHotelInput').val();
         if (idInput) formData.append('id', idInput);
-
+        console.log('saved form')
         $.ajax({
-            url: "{{ route('save-revanue-hotel') }}",
+            url: `{{ route('save-revenue-hotel') }}`,
             type: "POST",
             data: formData,
             processData: false, contentType: false,

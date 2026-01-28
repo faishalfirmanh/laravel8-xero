@@ -18,6 +18,9 @@ use App\ConfigRefreshXero;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
+use Barryvdh\DomPDF\Facade\Pdf;
+
+
 class RHotelApiController extends Controller
 {
     //
@@ -105,6 +108,19 @@ class RHotelApiController extends Controller
 
     }
 
+    public function printInvoice($id)
+    {
+        $invoice = InvoicesHotel::with(['details','payments'])->find($id);
+        $data = [
+            'invoice' => $invoice,
+            'title' => 'Invoice #' . $invoice->invoice_number,
+            'date' => date('d-m-Y')
+        ];
+        $pdf = Pdf::loadView('pdf.invoice_hotel_print', $data);
+        $pdf->setPaper('A4', 'portrait');
+        return $pdf->download('Invoice-'.$invoice->invoice_number.'.pdf');
+    }
+
     public function getTotalAmount(Request $request)
     {
          $validator = Validator::make($request->all(), [
@@ -153,7 +169,7 @@ class RHotelApiController extends Controller
 
     }
 
-    public function store(Request $request)
+    public function savedRhotel(Request $request)
     {
         // 1. Validasi Input (Termasuk Array)
         $validator = Validator::make($request->all(), [
@@ -225,9 +241,11 @@ class RHotelApiController extends Controller
            // $request->request->add(['nama_pemesan'=> json_encode($request->list_product_id)]);
             $request['nama_pemesan'] = $full_name;
             $request['total_days'] =  $diffDays > 0 ? $diffDays : 1;
-            $request['total_payment'] =  $grandTotal;
+            $request['total_payment'] =  $grandTotal;//sar
             $request['total_payment_rupiah'] =  $final_rupiah_amount;
             $request['uuid_user_order'] =  $request->order_name;
+            $request['less_payment_sar'] =  $grandTotal;
+            $request['less_payment_idr'] =  $final_rupiah_amount;
              $request['status'] = 1;
             $request['no_invoice_hotel'] = $this->service_global->generateInvoiceHotel();//  $final_rupiah_amount;
 
