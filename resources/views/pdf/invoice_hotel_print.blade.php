@@ -215,8 +215,12 @@ Silakan copy-paste kode ini:
             @endforeach
 
             <tr class="total-row">
-                <td colspan="4" class="text-right">GRAND TOTAL</td>
-                <td class="text-right">Rp {{ number_format($invoice->total_payment) }}</td>
+                <td colspan="4" class="text-right"> TOTAL SAR</td>
+                <td class="text-right">SAR {{ number_format($invoice->total_payment) }}</td>
+            </tr>
+             <tr class="">
+                <td colspan="4" class="text-right"> TOTAL IDR</td>
+                <td class="text-right">Rp. {{ number_format($invoice->total_payment_rupiah) }}</td>
             </tr>
         </tbody>
     </table>
@@ -241,6 +245,22 @@ Silakan copy-paste kode ini:
                     <td class="text-right">{{ number_format($item->payment_idr) }}</td>
                 </tr>
                 @endforeach
+                <tr class="total-row">
+                    <td colspan="3" class="text-right">Total Pembayaran SAR</td>
+                    <td class="text-right">SAR {{ number_format($invoice->final_payment_sar) }}</td>
+                </tr>
+                <tr class="">
+                    <td colspan="3" class="text-right">Total Pembayaran IDR</td>
+                    <td class="text-right">IDR {{ number_format($invoice->final_payment_idr) }}</td>
+                </tr>
+                <tr class="">
+                    <td colspan="3" class="text-right" style="color: red;font-weight: bold">Sisa Pembayaran SAR</td>
+                    <td class="text-right text-danger" style="color: red;font-weight: bold">SAR {{ number_format($invoice->less_payment_sar) }}</td>
+                </tr>
+                <tr class="">
+                    <td colspan="3" class="text-right"  style="color: red;font-weight: bold">Sisa Pembayaran IDR</td>
+                    <td class="text-right" style="color: red;font-weight: bold">IDR {{ number_format($invoice->less_payment_idr) }}</td>
+                </tr>
             </tbody>
         </table>
     @endif
