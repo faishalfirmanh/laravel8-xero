@@ -7,13 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Revenue\Hotel\PaymentHotels;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\MasterData\Hotel;
+use App\Models\User;
 
 class InvoicesHotel extends Model
 {
     use HasFactory;
 
     protected $appends = [
-     'hotel_name'
+     'hotel_name',
+     'name_created_user'
     ];
 
     protected $fillable =
@@ -36,13 +38,23 @@ class InvoicesHotel extends Model
         'less_payment_sar'
     ];
 
+
+    public function getNameCreatedUserAttribute()
+    {
+        if(isset($this->created_by)){
+             $data = User::find($this->created_by);
+             return $data->name;
+        }else{
+            return '-';
+        }
+
+    }
+
     public function getHotelNameAttribute()
     {
         $data = Hotel::find($this->hotel_id);
         return $data->name;
     }
-
-
 
 
       public function details()

@@ -115,7 +115,7 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 
-    Route::middleware('auth:sanctum')->prefix("transaksi")->group(function () {
+    Route::middleware(['auth:sanctum','xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
             Route::prefix('hotel')->group(function(){
                 Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');

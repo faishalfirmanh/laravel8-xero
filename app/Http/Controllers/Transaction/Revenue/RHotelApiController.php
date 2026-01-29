@@ -10,6 +10,7 @@ use App\Http\Repository\MasterData\DataJamaahXeroRepository;
 use App\Http\Repository\Revenue\HotelDetailInvoicesRepository;
 use Validator;
 use App\Traits\ApiResponse;
+use Illuminate\Support\Facades\Auth;
 use App\Services\GlobalService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -108,17 +109,21 @@ class RHotelApiController extends Controller
 
     }
 
-    public function printInvoice($id)
+    public function printInvoice(Request $request,$id)
     {
         $invoice = InvoicesHotel::with(['details','payments'])->find($id);
+        //dd(Auth::guard('sanctum')->user());
+
         $data = [
             'invoice' => $invoice,
-            'title' => 'Invoice #' . $invoice->invoice_number,
-            'date' => date('d-m-Y')
+            'title' => 'Invoice #' . $invoice->no_invoice_hotel,
+            'date' => date('d-m-Y'),
+           // 'cetak_by'=>
         ];
         $pdf = Pdf::loadView('pdf.invoice_hotel_print', $data);
         $pdf->setPaper('A4', 'portrait');
-        return $pdf->download('Invoice-'.$invoice->invoice_number.'.pdf');
+        return $pdf->download('Invoice-'.$invoice->no_invoice_hotel.'.pdf');
+        //return $pdf->stream('Invoice-'.$invoice->invoice_number.'.pdf');//tampil
     }
 
     public function getTotalAmount(Request $request)
@@ -246,7 +251,8 @@ class RHotelApiController extends Controller
             $request['uuid_user_order'] =  $request->order_name;
             $request['less_payment_sar'] =  $grandTotal;
             $request['less_payment_idr'] =  $final_rupiah_amount;
-             $request['status'] = 1;
+            $request['created_by'] = $request->user_login->id;
+            $request['status'] = 1;
             $request['no_invoice_hotel'] = $this->service_global->generateInvoiceHotel();//  $final_rupiah_amount;
 
 

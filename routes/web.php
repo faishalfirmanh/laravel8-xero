@@ -51,7 +51,7 @@ Route::prefix('admin')->group(function () {
 });
 
 //print-pdf
-Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
+ Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
 
 Route::get('/coba_redirect', function () {
     return "aaa";

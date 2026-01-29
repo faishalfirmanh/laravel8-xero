@@ -658,6 +658,11 @@ $(document).ready(function() {
                // $("#row_payment_id").val(idnya)
                 if(date_get.length > 0){
                     let rows_item = '';
+                    let payment_conculsion= date_get[0].get_invoice;
+                    $("#summary_total").text(formatCurrency(Number(payment_conculsion.total_payment),"SAR"))
+                    $("#summary_paid").text(formatCurrency(Number(payment_conculsion.final_payment_sar),"SAR"))
+                    $("#summary_remaining").text(formatCurrency(Number(payment_conculsion.less_payment_sar),"SAR"))
+                   // console.log('ss',payment_conculsion)
                     let i = 0;
                     date_get.forEach((item)=>{
                     let get_edit = `<a href="javascript:;" style="margin-left:5px;" data-id="${item.id}" class="text-success get-edit-pay"><i class="ti ti-pencil"></i></a>`;

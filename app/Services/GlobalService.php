@@ -82,7 +82,7 @@ class GlobalService
     public function generateInvoiceHotel()
     {
         $now = Carbon::now();
-        $prefix = 'INV/' . $now->format('Ymd') . '/';
+        $prefix = 'INV/H/' . $now->format('Ymd') . '/';
         $lastInvoice = InvoicesHotel::where('no_invoice_hotel', 'like', $prefix . '%')
             ->orderBy('id', 'desc') // Ambil yang paling baru dibuat
             ->first();

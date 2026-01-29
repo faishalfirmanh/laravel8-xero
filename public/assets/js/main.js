@@ -30,15 +30,31 @@ function convertStringDate(dateStr) {
 }
 
 function formatCurrency(value, currency = 'IDR', decimals = 0) {
-    if (value === null || value === undefined || value === '') return 'Rp 0';
+    let number = 0;
+    if (value !== null && value !== undefined && value !== '') {
+        number = Number(value);
+        if (isNaN(number)) number = 0;
+    }
+    let locale = 'id-ID'; // Default Indonesia
 
-    const number = Number(value);
-    if (isNaN(number)) return 'Rp 0';
+    switch (currency) {
+        case 'USD':
+            locale = 'en-US'; // Format Amerika (1,000.00)
+            break;
+        case 'SAR':
+            locale ='id-ID'; //'ar-SA';
+            break;
+        default:
+            locale = 'id-ID'; // Default Rupiah (1.000,00)
+            break;
+    }
 
-    return number.toLocaleString('id-ID', {
+    // 3. Format
+    return number.toLocaleString(locale, {
         style: 'currency',
         currency: currency,
-        minimumFractionDigits: decimals
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
     });
 }
 
