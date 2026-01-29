@@ -238,7 +238,7 @@ class RHotelApiController extends Controller
             if ($request->has('qty') && $request->has('price_hotel')) {
                 foreach ($request->qty as $key => $q) {
                     $price = $request->price_hotel[$key] ?? 0;
-                    $grandTotal += ($q * $price);
+                    $grandTotal += ($q * $price * $diffDays);
                 }
             }
             $config_curency = ConfigCurrency::first();

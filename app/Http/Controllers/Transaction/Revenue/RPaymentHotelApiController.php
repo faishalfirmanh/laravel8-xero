@@ -108,18 +108,22 @@ class RPaymentHotelApiController extends Controller
         $final_idr =$total_bayar_idr_sum;
         $less_Payment_idr = $parent->total_payment_rupiah-$total_bayar_idr_sum;
         //
+        $updated_data = [ 'final_payment_sar'=>$final_sar, 'less_payment_sar'=>$less_payment_sar,
+        'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr];
+
+        $update_sar_payment = $this->repo->CreateOrUpdate($updated_data,$request->invoices_id);
+        $get_after_save = $this->repo->whereData(['id' => $request->invoices_id])->first();
+
         $cek_status = 1;
-        if($final_sar == $parent->total_payment){
+        if($get_after_save->final_payment_sar == $get_after_save->total_payment){
             $cek_status = 3;
         }else{
-            if($parent->final_payment_sar > 0){
+            if($get_after_save->final_payment_sar > 0){
                 $cek_status = 2;
             }
         }
-        $updated_data = [ 'final_payment_sar'=>$final_sar, 'less_payment_sar'=>$less_payment_sar,
-        'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr,'status'=>$cek_status];
 
-        $update_sar_payment = $this->repo->CreateOrUpdate($updated_data,$request->invoices_id);
+        $update_after_save =  $this->repo->CreateOrUpdate(['status'=>$cek_status],$request->invoices_id);
         return $this->autoResponse($saved_details);
     }
 
@@ -227,17 +231,21 @@ class RPaymentHotelApiController extends Controller
             $less_payment_sar = $parent->total_payment-$total_bayar_sar_sum;
             $less_Payment_idr = $parent->total_payment_rupiah-$total_bayar_idr_sum;
             //
+            $updated_data = [ 'final_payment_sar'=>$total_bayar_sar_sum, 'less_payment_sar'=>$less_payment_sar,
+            'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr];
+            $update_sar_payment = $this->repo->CreateOrUpdate($updated_data, $row_payment->invoices_id);
+
+            $parent_after_update = $this->repo->whereData(['id' => $row_payment->invoices_id])->first();
             $cek_status = 1;
-            if($total_bayar_sar_sum == $parent->total_payment){
+            if($parent_after_update->final_payment_sar == $parent_after_update->total_payment){
                 $cek_status = 3;
             }else{
-                if($parent->final_payment_sar > 0){
+                if($parent_after_update->final_payment_sar > 0){
                     $cek_status = 2;
                 }
             }
-            $updated_data = [ 'final_payment_sar'=>$total_bayar_sar_sum, 'less_payment_sar'=>$less_payment_sar,
-            'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr, 'status'=>$cek_status];
-             $update_sar_payment = $this->repo->CreateOrUpdate($updated_data, $row_payment->invoices_id);
+
+            $update_status_Payment = $this->repo->CreateOrUpdate(['status'=>$cek_status], $row_payment->invoices_id);
             return $this->autoResponse($deleted);
         }
         return $this->autoResponse($saved_details);
