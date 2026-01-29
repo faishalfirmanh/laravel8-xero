@@ -108,8 +108,16 @@ class RPaymentHotelApiController extends Controller
         $final_idr =$total_bayar_idr_sum;
         $less_Payment_idr = $parent->total_payment_rupiah-$total_bayar_idr_sum;
         //
+        $cek_status = 1;
+        if($final_sar == $parent->total_payment){
+            $cek_status = 3;
+        }else{
+            if($parent->final_payment_sar > 0){
+                $cek_status = 2;
+            }
+        }
         $updated_data = [ 'final_payment_sar'=>$final_sar, 'less_payment_sar'=>$less_payment_sar,
-        'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr];
+        'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr,'status'=>$cek_status];
 
         $update_sar_payment = $this->repo->CreateOrUpdate($updated_data,$request->invoices_id);
         return $this->autoResponse($saved_details);
@@ -165,7 +173,7 @@ class RPaymentHotelApiController extends Controller
         $saved_details = $this->repo_payment->CreateOrUpdate($request->all(), $request->id);
         $parent = $this->repo->whereData(['id' => $request->invoices_id])->first();
         //parent
-         $total_bayar_idr_sum = $this->repo_payment->sumDataWhereDinamis(['invoices_id'=>$request->invoices_id],'payment_idr');
+        $total_bayar_idr_sum = $this->repo_payment->sumDataWhereDinamis(['invoices_id'=>$request->invoices_id],'payment_idr');
         $total_bayar_sar_sum = $this->repo_payment->sumDataWhereDinamis(['invoices_id'=>$request->invoices_id],'payment_sar');
         //
         $final_sar = $total_bayar_sar_sum;
@@ -173,8 +181,22 @@ class RPaymentHotelApiController extends Controller
         $final_idr =$total_bayar_idr_sum;
         $less_Payment_idr = $parent->total_payment_rupiah-$total_bayar_idr_sum;
         //
-        $updated_data = [ 'final_payment_sar'=>$final_sar, 'less_payment_sar'=>$less_payment_sar,
-        'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr];
+        $cek_status = 1;
+        if($final_sar == $parent->total_payment){
+            $cek_status = 3;
+        }else{
+            if($parent->final_payment_sar > 0){
+                $cek_status = 2;
+            }
+        }
+
+        $updated_data = [
+            'final_payment_sar'=>$final_sar,
+            'less_payment_sar'=>$less_payment_sar,
+            'final_payment_idr'=>$total_bayar_idr_sum,
+            'less_payment_idr'=>$less_Payment_idr,
+            'status'=>$cek_status
+        ];
 
         $update_sar_payment = $this->repo->CreateOrUpdate($updated_data,$request->invoices_id);
         return $this->autoResponse($saved_details);
@@ -205,8 +227,16 @@ class RPaymentHotelApiController extends Controller
             $less_payment_sar = $parent->total_payment-$total_bayar_sar_sum;
             $less_Payment_idr = $parent->total_payment_rupiah-$total_bayar_idr_sum;
             //
+            $cek_status = 1;
+            if($total_bayar_sar_sum == $parent->total_payment){
+                $cek_status = 3;
+            }else{
+                if($parent->final_payment_sar > 0){
+                    $cek_status = 2;
+                }
+            }
             $updated_data = [ 'final_payment_sar'=>$total_bayar_sar_sum, 'less_payment_sar'=>$less_payment_sar,
-            'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr];
+            'final_payment_idr'=>$total_bayar_idr_sum, 'less_payment_idr'=>$less_Payment_idr, 'status'=>$cek_status];
              $update_sar_payment = $this->repo->CreateOrUpdate($updated_data, $row_payment->invoices_id);
             return $this->autoResponse($deleted);
         }

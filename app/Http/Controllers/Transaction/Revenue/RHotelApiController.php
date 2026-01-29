@@ -122,8 +122,8 @@ class RHotelApiController extends Controller
         ];
         $pdf = Pdf::loadView('pdf.invoice_hotel_print', $data);
         $pdf->setPaper('A4', 'portrait');
-        return $pdf->download('Invoice-'.$invoice->no_invoice_hotel.'.pdf');
-        //return $pdf->stream('Invoice-'.$invoice->invoice_number.'.pdf');//tampil
+        //return $pdf->download('Invoice-'.$invoice->no_invoice_hotel.'.pdf');
+        return $pdf->stream('Invoice-'.$invoice->no_invoice_hotel.'.pdf');//tampil
     }
 
     public function getTotalAmount(Request $request)

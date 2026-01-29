@@ -186,9 +186,18 @@ Silakan copy-paste kode ini:
     </table>
     <table class="info-table">
     <tr>
+        @php
+            $class_warna = 'color:rgb(61, 118, 241);'; // Default (misal: Lunas)
+
+            if ($invoice->status == 1) {
+                $class_warna = 'color:red;'; // Belum Bayar/Cancel
+            } elseif ($invoice->status == 2) {
+                $class_warna = 'color:orange;'; // DP / Partial
+            }
+        @endphp
         <td width="55%">
-            <span class="info-label">Nama Hotel:</span><br>
-            <strong>{{ $invoice->hotel_name }}</strong>
+            <span class="info-label">Nama Hotel: {{ $invoice->hotel_name }}</span><br>
+            <strong style="{{ $class_warna }}" >{{ $invoice->status_name_payment }}</strong>
         </td>
     </tr>
     </table>
@@ -253,14 +262,17 @@ Silakan copy-paste kode ini:
                     <td colspan="3" class="text-right">Total Pembayaran IDR</td>
                     <td class="text-right">IDR {{ number_format($invoice->final_payment_idr) }}</td>
                 </tr>
-                <tr class="">
-                    <td colspan="3" class="text-right" style="color: red;font-weight: bold">Sisa Pembayaran SAR</td>
-                    <td class="text-right text-danger" style="color: red;font-weight: bold">SAR {{ number_format($invoice->less_payment_sar) }}</td>
-                </tr>
-                <tr class="">
-                    <td colspan="3" class="text-right"  style="color: red;font-weight: bold">Sisa Pembayaran IDR</td>
-                    <td class="text-right" style="color: red;font-weight: bold">IDR {{ number_format($invoice->less_payment_idr) }}</td>
-                </tr>
+                @if ($invoice->less_payment_sar > 0)
+                    <tr class="">
+                        <td colspan="3" class="text-right" style="color: red;font-weight: bold">Sisa Pembayaran SAR</td>
+                        <td class="text-right text-danger" style="color: red;font-weight: bold">SAR {{ number_format($invoice->less_payment_sar) }}</td>
+                    </tr>
+                    <tr class="">
+                        <td colspan="3" class="text-right"  style="color: red;font-weight: bold">Sisa Pembayaran IDR</td>
+                        <td class="text-right" style="color: red;font-weight: bold">IDR {{ number_format($invoice->less_payment_idr) }}</td>
+                    </tr>
+                @endif
+
             </tbody>
         </table>
     @endif

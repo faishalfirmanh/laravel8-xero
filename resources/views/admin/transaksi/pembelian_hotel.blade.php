@@ -75,6 +75,7 @@
                     <th>Check In</th>
                     <th>Check Out</th>
                     <th>Nama Hotel</th>
+                     <th>Status</th>
                     <th width="15%" class="text-center">Action</th>
                 </tr>
             </thead>
@@ -313,6 +314,7 @@
                     <div class="card-body py-2">
                         <small class="text-muted font-weight-bold text-uppercase">Sudah Dibayar</small>
                         <h5 class="font-weight-bold text-success mb-0" id="summary_paid">0</h5>
+                        <h5 class="font-weight-bold text-success mb-0" id="sum_paid_rp">0</h5>
                     </div>
                 </div>
             </div>
@@ -321,6 +323,7 @@
                     <div class="card-body py-2">
                         <small class="text-muted font-weight-bold text-uppercase">Sisa Kekurangan</small>
                         <h5 class="font-weight-bold text-danger mb-0" id="summary_remaining">0</h5>
+                        <h5 class="font-weight-bold text-danger mb-0" id="sum_pem_rp">0</h5>
                     </div>
                 </div>
             </div>
@@ -385,7 +388,7 @@
       </div>
 
       <div class="modal-footer d-print-none bg-white">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+        <button type="button" id="close_modal_payment" class="btn btn-secondary" data-dismiss="modal">
             <i class="fa fa-times mr-1"></i> Tutup
         </button>
         {{-- <button type="button" class="btn btn-info" onclick="window.print()">
@@ -633,6 +636,18 @@ $(document).ready(function() {
         {
             data: 'hotel_name', name: 'hotel_name' }, // Sesuaikan jika nama hotel ada relasi
         {
+            data: 'status', name: 'status',
+            render: function(data){
+                if(data == 1){
+                    return '<span class="badge badge-danger">Belum dibayar</span>'
+                }else if(data == 2){
+                    return '<span class="badge light badge-warning">Proses Pembayaran</span>'
+                }else{
+                    return '<span class="badge badge-primary">Lunas</span>'
+                }
+            }
+        },
+        {
             data: "id", className: "text-center", orderable: false, searchable: false,
             render: function(data) {
                 let btnEdit = `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
@@ -663,6 +678,8 @@ $(document).ready(function() {
                     $("#summary_paid").text(formatCurrency(Number(payment_conculsion.final_payment_sar),"SAR"))
                     $("#summary_remaining").text(formatCurrency(Number(payment_conculsion.less_payment_sar),"SAR"))
                    // console.log('ss',payment_conculsion)
+                   $("#sum_paid_rp").text(formatCurrency(Number(payment_conculsion.final_payment_idr),"IDR"))
+                   $("#sum_pem_rp").text(formatCurrency(Number(payment_conculsion.less_payment_idr),"IDR"))
                     let i = 0;
                     date_get.forEach((item)=>{
                     let get_edit = `<a href="javascript:;" style="margin-left:5px;" data-id="${item.id}" class="text-success get-edit-pay"><i class="ti ti-pencil"></i></a>`;
@@ -915,6 +932,11 @@ $(document).ready(function() {
             }
         });
     });
+
+    $("#close_modal_payment").on('click',function(){
+         table.ajax.reload();
+         console.log('reload')
+    })
 
     // Trigger Tambah Baru
     $("#button_add_hotel").on("click", function() {

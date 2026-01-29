@@ -15,7 +15,8 @@ class InvoicesHotel extends Model
 
     protected $appends = [
      'hotel_name',
-     'name_created_user'
+     'name_created_user',
+     'status_name_payment'
     ];
 
     protected $fillable =
@@ -31,13 +32,24 @@ class InvoicesHotel extends Model
         'total_payment_rupiah',//total amount
         'date_transaction',
         'created_by',
-        'status',
+        'status',//1 belum dibayar, //2 proses pembayaran //3 lunas
         'final_payment_sar',
         'final_payment_idr',
         'less_payment_idr',
         'less_payment_sar'
     ];
 
+     public function getStatusNamePaymentAttribute()
+    {
+        if($this->status == 1){
+             return 'Belum Dibayar';
+        }else if($this->status == 2){
+            return 'Proses Pembayaran';
+        }else{
+            return 'Lunas';
+        }
+
+    }
 
     public function getNameCreatedUserAttribute()
     {
