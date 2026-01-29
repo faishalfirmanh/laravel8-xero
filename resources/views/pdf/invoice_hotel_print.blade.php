@@ -208,6 +208,7 @@ Silakan copy-paste kode ini:
                 <th width="5%" class="text-center">No</th>
                 <th>Keterangan / Tipe Kamar</th>
                 <th width="8%" class="text-center">Qty</th>
+                <th width="8%" class="text-center">Total Malam</th>
                 <th width="20%" class="text-right">Harga</th>
                 <th width="20%" class="text-right">Total</th>
             </tr>
@@ -218,17 +219,18 @@ Silakan copy-paste kode ini:
                 <td class="text-center">{{ $index + 1 }}</td>
                 <td>{{ $item->type_room_desc }}</td>
                 <td class="text-center">{{ $item->qty }}</td>
+                <td class="text-center">{{ $invoice->total_days }}</td>
                 <td class="text-right">{{ number_format($item->price_each_item) }}</td>
                 <td class="text-right">{{ number_format($item->total_amount) }}</td>
             </tr>
             @endforeach
 
             <tr class="total-row">
-                <td colspan="4" class="text-right"> TOTAL SAR</td>
+                <td colspan="5" class="text-right"> TOTAL SAR</td>
                 <td class="text-right">SAR {{ number_format($invoice->total_payment) }}</td>
             </tr>
              <tr class="">
-                <td colspan="4" class="text-right"> TOTAL IDR</td>
+                <td colspan="5" class="text-right"> TOTAL IDR</td>
                 <td class="text-right">Rp. {{ number_format($invoice->total_payment_rupiah) }}</td>
             </tr>
         </tbody>
@@ -242,6 +244,7 @@ Silakan copy-paste kode ini:
                     <th width="5%" class="text-center">No</th>
                     <th width="20%">Tanggal</th>
                     <th>Ref/Ket</th>
+                    <th>Total Malam</th>
                     <th width="20%" class="text-right">Nominal</th>
                 </tr>
             </thead>
@@ -251,24 +254,25 @@ Silakan copy-paste kode ini:
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $item->date_transfer }}</td>
                     <td>{{ $item->desc }}</td>
+                     <td class="text-center">{{ $invoice->total_days }}</td>
                     <td class="text-right">{{ number_format($item->payment_idr) }}</td>
                 </tr>
                 @endforeach
                 <tr class="total-row">
-                    <td colspan="3" class="text-right">Total Pembayaran SAR</td>
+                    <td colspan="4" class="text-right">Total Pembayaran SAR</td>
                     <td class="text-right">SAR {{ number_format($invoice->final_payment_sar) }}</td>
                 </tr>
                 <tr class="">
-                    <td colspan="3" class="text-right">Total Pembayaran IDR</td>
+                    <td colspan="4" class="text-right">Total Pembayaran IDR</td>
                     <td class="text-right">IDR {{ number_format($invoice->final_payment_idr) }}</td>
                 </tr>
                 @if ($invoice->less_payment_sar > 0)
                     <tr class="">
-                        <td colspan="3" class="text-right" style="color: red;font-weight: bold">Sisa Pembayaran SAR</td>
+                        <td colspan="4" class="text-right" style="color: red;font-weight: bold">Sisa Pembayaran SAR</td>
                         <td class="text-right text-danger" style="color: red;font-weight: bold">SAR {{ number_format($invoice->less_payment_sar) }}</td>
                     </tr>
                     <tr class="">
-                        <td colspan="3" class="text-right"  style="color: red;font-weight: bold">Sisa Pembayaran IDR</td>
+                        <td colspan="4" class="text-right"  style="color: red;font-weight: bold">Sisa Pembayaran IDR</td>
                         <td class="text-right" style="color: red;font-weight: bold">IDR {{ number_format($invoice->less_payment_idr) }}</td>
                     </tr>
                 @endif

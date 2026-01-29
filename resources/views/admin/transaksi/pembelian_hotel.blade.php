@@ -252,6 +252,7 @@
                 <th>Type Room</th>
                 <th class="text-center">Qty</th>
                 <th class="text-right">Harga</th>
+                <th class="text-right">Total Malam</th>
                 <th class="text-right">Total</th>
               </tr>
             </thead>
@@ -417,6 +418,8 @@
 <div>
     <h5>SAR : <span id="total_sar_amount"> </h5>
     <h5>Rupiah : <span id="total_rupiah_amount"> </h5>
+    <h5>Rupiah Sudah Dibayar : <span id="paid_rupiah_amount"> </h5>
+    <h5>Rupiah Belum Dibayar : <span id="remain_rupiah_amount"> </h5>
 </div>
 
 @endsection
@@ -463,6 +466,8 @@ $(document).ready(function() {
             let res_success = response.data.data;
             $("#total_sar_amount").text(formatCurrency(res_success.sar))
             $("#total_rupiah_amount").text(formatCurrency(res_success.rupiah))
+            $("#paid_rupiah_amount").text(formatCurrency(res_success.payment_idr))
+            $("#remain_rupiah_amount").text(formatCurrency(res_success.remaining_idr))
         })
         .catch((err) => console.log('error currency', err));
 
@@ -846,6 +851,7 @@ $(document).ready(function() {
                                 <td>${item.type_room_desc}</td>
                                 <td class="text-center">${item.qty}</td>
                                 <td class="text-right">Sar ${formatNumber(item.price_each_item)}</td>
+                                <td class="text-right">${data.total_days}</td>
                                 <td class="text-right">Sar ${formatNumber(item.total_amount)}</td>
                             </tr>
                         `;

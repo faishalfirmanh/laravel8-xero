@@ -151,11 +151,32 @@ class RHotelApiController extends Controller
                 'date_end'=>$request->date_end,
             ],
             'date_transaction');
+
+        //UANG DITERIMA
+         $data_rp_paid = $this->repo->sumWhereDateRange(
+            'final_payment_idr',
+            [],
+            [
+                'date_start'=>$request->date_start,
+                'date_end'=>$request->date_end,
+            ],
+            'date_transaction');
+
+        $data_rp_remain = $this->repo->sumWhereDateRange(
+            'less_payment_idr',
+            [],
+            [
+                'date_start'=>$request->date_start,
+                'date_end'=>$request->date_end,
+            ],
+            'date_transaction');
         $final = [
             'tanggal_awal'=>$request->date_start,
             'tanggal_akhir'=>$request->date_end,
             'sar'=>$data_sar,
-            'rupiah'=> $data_rp
+            'rupiah'=> $data_rp,
+            'payment_idr'=>$data_rp_paid,
+            'remaining_idr'=>$data_rp_remain
         ];
         return $this->autoResponse($final);
     }
