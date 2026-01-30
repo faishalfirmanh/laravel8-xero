@@ -4,6 +4,7 @@
 
 
 <div class="d-flex justify-content-between align-items-start mb-3">
+    <br><br>
     <h5 class="mb-0 align-self-center">Proses Pembayaran</h5>
     <div class="d-flex">
 
@@ -14,7 +15,7 @@
                 <i class="fas fa-trash-alt me-1"></i> Hapus Invoice
             </button>
             <span class="text-danger mt-1 small" style="font-size:10px;">
-                (hapus invoice & paket local)
+                (hapus semua invoice & paket local)
             </span>
         </div>
 
@@ -62,7 +63,6 @@
                     </select>
                 </div>
             </div>
-
             <div class="col-md-3">
                 <div class="form-group">
                     <label for="qty_input_html">Qty Input</label>
@@ -82,7 +82,7 @@
         <hr>
 
         <div id="pengeluaran_container">
-            </div>
+        </div>
 
         <hr>
 
@@ -133,44 +133,17 @@
         <div class="mt-2">Loading data...</div>
     </div>
 
-
-
-    {{-- <div class="table-responsive">
-        <table class="table table-striped table-bordered mt-0" id="invoice_web_list">
-            <thead class="table-dark">
-                <tr>
-                    <th style="">#</th>
-                    <th style="">No Invoice</th>
-                    <th style="">Name Jamaah</th>
-                    <th style="">Name Paket</th>
-                    <th style="">Date</th>
-                    <th style="">Due Date</th>
-                    <th style="">Nominal Paid</th>
-                    <th style="">Total</th>
-                    <th style="">Status</th>
-                    <th style="" class="text-center" width="10%">
-                        <div class="form-check d-flex flex-column align-items-center justify-content-center">
-                            <input class="form-check-input" type="checkbox" id="checkAll">
-                            <label class="form-check-label small mt-1" for="checkAll" style="cursor: pointer;">
-                                All
-                            </label>
-                        </div>
-                    </th>
-                </tr>
-            </thead>
-            <tbody id="invoiceTableBody">
-            </tbody>
-        </table>
-        <div class="d-flex justify-content-between mt-3">
-            <button class="btn btn-secondary" id="btnPrev" style="display:none;">
-                ← Previous
-            </button>
-
-            <button class="btn btn-primary" id="btnNext" style="display:none;">
-                Next →
-            </button>
-        </div>
-    </div> --}}
+    <table class="table table-striped table-bordered mt-0" id="pangeluaran_package_invoice_web_list">
+        <thead class="table-dark">
+            <tr>
+                <th width="5%">No</th>
+                <th>Nama Paket</th>
+                <th>Uang Masuk</th>
+                <th>Uang Keluar</th>
+                <th>Keuntungan</th>
+            </tr>
+        </thead>
+    </table>
 </div>
 
 <div id="fullScreenLoader" class="position-fixed w-100 h-100 flex-column justify-content-center align-items-center"
@@ -188,6 +161,7 @@
 @push('scripts')
 <script>
     let currentPage = 1;
+    var table_pengeluaran ;
     let isLoading = false;
     let invoiceArraySaved = $('#invoiceSelect').val() || [];
     let uuid_paket_after_change_invoice = [];
@@ -227,27 +201,106 @@
                 Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 console.log('error select2 invoice',err);
             })
-        // console.log("Mulai Sinkronisasi...");
-        // // 4. Set timer 3 detik
-        // setTimeout(function() {
-        //     // 5. Sembunyikan loader lagi (Tambah class d-none)
-        //     loader.style.display = 'none';
-        //     console.log("Selesai Sinkronisasi");
-        //     // Opsional: Tampilkan notifikasi sukses (karena Anda pakai SweetAlert2)
-            // Swal.fire({
-            //     icon: 'success',
-            //     title: 'Berhasil!',
-            //     text: 'Data berhasil disinkronisasi.',
-            //     timer: 1500,
-            //     showConfirmButton: false
-            // });
-
-        // }, 3000);
     }
 
-
+    $("#invoicePaymentForm").on("submit",function(){
+        e.preventDefault();
+        let formData = new FormData(this);
+        let data_json = Object.fromEntries(formData);
+        console.log('xxxxx',data_json)
+        // let json_data = {
+        //     id: idInput,
+        //     nama_pengeluaran: params.get('pengeluaran_name'),
+        //     is_active: params.get('is_active_check')
+        // };
+    })
+ //
+    let column_table = [
+        {
+            data: null,
+            className: "text-center",
+            render: function(data, type, row, meta) {
+                return meta.row + meta.settings._iDisplayStart + 1;
+            },
+        },
+        { data: 'name_paket', name: 'name_paket' },
+        {
+            data: 'nominal_purchase',
+            name: 'nominal_purchase',
+            render: function(data) {
+                return formatRupiah(data);
+            }
+        },
+         {
+            data: 'nominal_sales',
+            name: 'nominal_sales',
+            render: function(data) {
+                return formatRupiah(data);
+            }
+        },
+         {
+            data: 'nominal_profit',
+            name: 'nominal_profit',
+            render: function(data) {
+                return formatRupiah(data);
+            }
+        },
+    ];
+    table_pengeluaran = initGlobalDataTableToken(
+        '#pangeluaran_package_invoice_web_list',
+        `{{ route('t_pp_package_getall') }}`,
+        column_table,
+        { "kolom_name": "name_paket" }
+    );
     function deleteDataLocalSync(){
 
+        Swal.fire({
+            title: 'Konfirmasi Hapus',
+            text: "Apakah Anda yakin ingin melakukan hapus semua data invoice?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, hapus!',
+            cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Sedang Memproses...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    ajaxRequest( `{{ route('delete-sync-invoice-paid') }}`,'GET',null, localStorage.getItem('token'))
+                    .then(response =>{
+                        console.log('response',response)
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: response.message || 'Data berhasil dihapus',
+                            timer: 2000, // Opsional: tutup otomatis setelah 2 detik
+                            showConfirmButton: true
+                        }).then(() => {
+                            // Opsional: Reload halaman atau update tabel setelah sukses
+                            // window.location.reload();
+                            // atau syncData();
+                        });
+                    })
+                    .catch((err)=>{
+                        let errorMsg = 'Terjadi kesalahan pada sistem.';
+                        if(err.responseJSON && err.responseJSON.message) {
+                            errorMsg = err.responseJSON.message;
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: errorMsg
+                        });
+                    })
+                }
+            });
     }
 
 
@@ -474,45 +527,59 @@
 
    $('#add_tag_html').click(function() {
 
-        // Ambil Data dari Input
         let pengeluaranId   = $('#m_pengeluaran_name').val();
         let pengeluaranText = $('#m_pengeluaran_name option:selected').text();
         let qty             = parseInt($('#qty_input_html').val()) || 1; // Default 1 jika kosong
-
         // Validasi: Pastikan user memilih jenis pengeluaran
         if (!pengeluaranId) {
             alert("Harap pilih Jenis Pengeluaran terlebih dahulu!");
             return;
         }
-
         // Loop sebanyak Qty
         for (let i = 0; i < qty; i++) {
-
             let cek_index = i != 0 ? i : '';
             // Template HTML String
             // Perhatikan: name="...[]" agar terbaca array di controller
             let htmlRow = `
             <div class="row align-items-end mb-2 row-item-pengeluaran">
-                <div class="col-md-7">
+                <div class="col-md-6">
                     <div class="form-group mb-0">
                         <label class="small font-weight-bold text-muted">${pengeluaranText} ${cek_index}</label>
                         <input type="hidden" name="pengeluaran_id[]" value="${pengeluaranId}">
 
                         <div class="input-group">
                             <div class="input-group-prepend">
-                                <span class="input-group-text">Rp</span>
+                                <span class="input-group-text">Rp/Sar</span>
                             </div>
-                            <input type="number" class="form-control" name="nominal_pengeluaran_dinamis[]" placeholder="Masukkan Nominal" required>
+                            <input type="number" class="form-control" name="nominal_pengeluaran_dinamis[]" placeholder="0" required>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-5">
+
+                <div class="col-md-4">
                     <div class="form-group mb-0">
-                        <button type="button" class="btn btn-danger btn-block btn-remove">
-                            <i class="ti ti-trash me-1"></i> Hapus inputan
+                        <label class="small font-weight-bold text-muted d-block">Mata Uang</label>
+
+                        <div class="form-check form-check-inline mt-2">
+                            <input class="form-check-input" type="radio" name="is_currency_check_${cek_index}" id="radio_idr_${cek_index}" value="1" checked>
+                            <label class="form-check-label" for="radio_idr_${cek_index}">IDR</label>
+                        </div>
+
+                        <div class="form-check form-check-inline mt-2">
+                            <input class="form-check-input" type="radio" name="is_currency_check_${i}" id="radio_sar_${i}" value="0">
+                            <label class="form-check-label" for="radio_sar_${i}">SAR</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="form-group mb-0">
+                        <button type="button" class="btn btn-danger btn-block btn-remove" title="Hapus">
+                            <i class="ti ti-trash"></i>
                         </button>
                     </div>
                 </div>
+
             </div>`;
             $('#pengeluaran_container').append(htmlRow);
         }

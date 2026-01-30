@@ -33,6 +33,7 @@ use App\Http\Controllers\MasterData\LocationVillageController;
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
+use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -133,7 +134,11 @@ Route::prefix("admin-web")->group(function () {
         });
 
         Route::prefix('expenses')->group(function () {
-
+            Route::prefix("/package-profit")->group(function(){
+                Route::get('/getData', [ExpensesPackageApiController::class, 'getAllPaginate'])->name('t_pp_package_getall');
+                Route::get('/get_by_id', [PengeluaranNameController::class, 'getById'])->name('md_gbyid_pengeluaran');
+                Route::post('/save', [ExpensesPackageApiController::class, 'store'])->name('t_pp_package');
+            });
         });
     });
 
