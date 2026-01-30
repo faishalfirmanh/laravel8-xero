@@ -30,7 +30,7 @@ class DashboardController extends Controller
 
     public function getWebListPengeluaran()
     {
-        return view('admin.list_pengeluaran');
+        return view('admin.master.list_pengeluaran');
     }
 
     public function getWebListPembelianHotel()

@@ -21,27 +21,67 @@
 </div>
 
 <div class="card mb-4">
-    <div class="card-body">
-        <form id="invoicePaymentForm">
-            <div class="row align-items-end">
-                <div class="col-md-8">
-                    <label class="form-label">Pilih Invoice</label>
-                    <select class="form-control select2" multiple id="invoiceSelect" name="invoice_ids[]" multiple>
-                    </select>
+   <div class="card-body">
+    <form id="invoicePaymentForm">
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="invoiceSelect">Pilih Invoice</label>
+                    <select class="form-control select2" id="invoiceSelect" name="invoice_ids[]" multiple>
+                        </select>
                 </div>
-                <div class="col-md-8">
-                    <label class="form-label">Pilih Paket</label>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="paket_selected">Pilih Paket</label>
                     <select class="form-control select2" id="paket_selected" name="paket_selected">
+                        </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row align-items-end">
+            <div class="col-md-7">
+                <div class="form-group">
+                    <label for="m_pengeluaran_name">Pilih Jenis Pengeluaran</label>
+                    <select class="form-control select2" id="m_pengeluaran_name" name="m_pengeluaran_name">
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary w-100">
-                        Proses Pembayaran
+            </div>
+
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label for="qty_input_html">Qty Input</label>
+                    <input type="number" class="form-control" name="qty_input_html" id="qty_input_html" value="1" min="1"/>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="form-group">
+                    <button type="button" id="add_tag_html" class="btn btn-primary btn-block">
+                        <i class="ti ti-plus me-1"></i> Tambah
                     </button>
                 </div>
             </div>
-        </form>
-    </div>
+        </div>
+
+        <hr>
+
+        <div id="pengeluaran_container">
+            </div>
+
+        <hr>
+
+        <div class="row">
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-primary btn-lg btn-block">
+                    Proses Pembayaran
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
 </div>
 
 <div class="modal fade" id="paymentModal" tabindex="-1">
@@ -82,7 +122,7 @@
 
 
 
-    <div class="table-responsive">
+    {{-- <div class="table-responsive">
         <table class="table table-striped table-bordered mt-0" id="invoice_web_list">
             <thead class="table-dark">
                 <tr>
@@ -117,7 +157,7 @@
                 Next →
             </button>
         </div>
-    </div>
+    </div> --}}
 </div>
 
 <div id="fullScreenLoader" class="position-fixed w-100 h-100 flex-column justify-content-center align-items-center"
@@ -331,7 +371,7 @@
     // }
 
     // === LOAD PERTAMA ===
-    loadInvoices(currentPage);
+    //loadInvoices(currentPage);
     function loadInvoices(page) {
         if (isLoading) return;
 
@@ -413,6 +453,97 @@
             currency: 'IDR'
         }).format(number);
     }
+
+   $('#add_tag_html').click(function() {
+
+        // Ambil Data dari Input
+        let pengeluaranId   = $('#m_pengeluaran_name').val();
+        let pengeluaranText = $('#m_pengeluaran_name option:selected').text();
+        let qty             = parseInt($('#qty_input_html').val()) || 1; // Default 1 jika kosong
+
+        // Validasi: Pastikan user memilih jenis pengeluaran
+        if (!pengeluaranId) {
+            alert("Harap pilih Jenis Pengeluaran terlebih dahulu!");
+            return;
+        }
+
+        // Loop sebanyak Qty
+        for (let i = 0; i < qty; i++) {
+
+            let cek_index = i != 0 ? i : '';
+            // Template HTML String
+            // Perhatikan: name="...[]" agar terbaca array di controller
+            let htmlRow = `
+            <div class="row align-items-end mb-2 row-item-pengeluaran">
+                <div class="col-md-7">
+                    <div class="form-group mb-0">
+                        <label class="small font-weight-bold text-muted">${pengeluaranText} ${cek_index}</label>
+                        <input type="hidden" name="pengeluaran_id[]" value="${pengeluaranId}">
+
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text">Rp</span>
+                            </div>
+                            <input type="number" class="form-control" name="nominal_pengeluaran_dinamis[]" placeholder="Masukkan Nominal" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="form-group mb-0">
+                        <button type="button" class="btn btn-danger btn-block btn-remove">
+                            <i class="ti ti-trash me-1"></i> Hapus inputan
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+            $('#pengeluaran_container').append(htmlRow);
+        }
+
+        // Opsional: Reset Qty ke 1 setelah tambah
+        $('#qty_input_html').val(1);
+    });
+
+    // --- 2. LOGIC TOMBOL HAPUS (Event Delegation) ---
+    // Menggunakan $(document).on agar elemen yang baru dibuat tetap bisa diklik
+    $(document).on('click', '.btn-remove', function() {
+        $(this).closest('.row-item-pengeluaran').remove();
+    });
+
+    $('#m_pengeluaran_name').select2({
+        placeholder: 'Pilih Pengeluaran',
+        width: '100%',
+        allowClear:true,
+        ajax: {
+            url: `{{ route('md_select2_name_pengeluaran') }}`,
+            dataType: 'json',
+            delay: 250,
+            beforeSend: function(xhr) {
+                xhr.setRequestHeader("Authorization", "Bearer " + localStorage.getItem('token'));
+            },
+            data: function (params) {
+                return {
+                    keyword: params.term, // Kata yang diketik user
+                    page: params.page || 1 // Halaman saat ini (otomatis dari Select2)
+                };
+            },
+            processResults: function (data, params) {
+                var apiData = data.results.map(function(item) {
+                    return {
+                        id: item.id,      // Value option
+                        text: `${item.nama_pengeluaran}` //+ ' (' + item.invoice_amount + ')' // Teks yang tampil
+                    };
+                });
+
+                return {
+                    results: apiData,
+                    pagination: {
+                        more: data.pagination.more
+                    }
+                };
+            },
+            cache: true
+        }
+    });
 </script>
 @endpush
 

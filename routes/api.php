@@ -137,11 +137,14 @@ Route::prefix("admin-web")->group(function () {
         });
     });
 
-    Route::middleware('auth:sanctum')->prefix("master-data")->group(function () {
+    Route::middleware(['auth:sanctum','xss'])->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
         Route::prefix("pengeluaran")->group(function () {
             Route::get('/getData', [PengeluaranNameController::class, 'getData'])->name('md_g_pengeluaran');
+            Route::get('/get_by_id', [PengeluaranNameController::class, 'getById'])->name('md_gbyid_pengeluaran');
+            Route::post('/save', [PengeluaranNameController::class, 'store'])->name('md_store_pengeluaran');
+            Route::get('/get_select_2', [PengeluaranNameController::class, 'getAllNamePengeluaranLocal'])->name('md_select2_name_pengeluaran');
         });
 
         Route::prefix('hotel')->group(function () {
