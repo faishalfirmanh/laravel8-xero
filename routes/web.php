@@ -25,6 +25,8 @@ use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 // Route::get('/', function () {
 //     return 'hello dunia';
 // });
+
+Route::view('/game', 'game', ['name' => 'game']);
 Route::get('/cek-path', function () {
     return [
         'base_path' => base_path(),

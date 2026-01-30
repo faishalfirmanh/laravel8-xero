@@ -485,6 +485,24 @@ class XeroSyncInvoicePaidController extends Controller
         }
     }
 
+    public function deletedDataLocal()
+    {
+        DB::beginTransaction();
+        try {
+
+            $hapus_detail = ItemDetailInvoices::delete();
+            $hapus_invoice = InvoicesAllFromXero::delete();
+            DB::commit();
+           return response()->json([
+                'status' => 'success',
+                'message'=>""
+            ]);
+        } catch (\Throwable $th) {
+           DB::rollback();
+        }
+
+    }
+
     //old
     public function getInvoicePaidArrivalV1()
     {

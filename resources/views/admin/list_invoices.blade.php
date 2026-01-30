@@ -4,19 +4,32 @@
 
 
 <div class="d-flex justify-content-between align-items-start mb-3">
-    <h5 class="mb-0">Proses Pembayaran</h5>
+    <h5 class="mb-0 align-self-center">Proses Pembayaran</h5>
+    <div class="d-flex">
 
-    <div class="d-flex flex-column align-items-end">
-        <button
-            onclick="syncData()"
-            type="button"
-            class="btn btn-warning text-dark shadow-sm fw-bold">
-            <i class="fas fa-sync-alt me-1"></i> Synchronization
-        </button>
+        <div class="d-flex flex-column align-items-end mr-2 me-2"> <button
+                onclick="deleteDataLocalSync()"
+                type="button"
+                class="btn btn-danger shadow-sm fw-bold text-white">
+                <i class="fas fa-trash-alt me-1"></i> Hapus Invoice
+            </button>
+            <span class="text-danger mt-1 small" style="font-size:10px;">
+                (hapus invoice & paket local)
+            </span>
+        </div>
 
-        <span class="text-danger mt-1" style="font-size:10px;">
-            (hanya invoice yang sudah paid)
-        </span>
+        <div class="d-flex flex-column align-items-end">
+            <button
+                onclick="syncData()"
+                type="button"
+                class="btn btn-warning text-dark shadow-sm fw-bold">
+                <i class="fas fa-sync-alt me-1"></i> Synchronization
+            </button>
+            <span class="text-danger mt-1 small" style="font-size:10px;">
+                (hanya invoice yang sudah paid)
+            </span>
+        </div>
+
     </div>
 </div>
 
@@ -230,6 +243,11 @@
             // });
 
         // }, 3000);
+    }
+
+
+    function deleteDataLocalSync(){
+
     }
 
 

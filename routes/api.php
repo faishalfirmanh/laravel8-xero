@@ -145,6 +145,7 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/get_by_id', [PengeluaranNameController::class, 'getById'])->name('md_gbyid_pengeluaran');
             Route::post('/save', [PengeluaranNameController::class, 'store'])->name('md_store_pengeluaran');
             Route::get('/get_select_2', [PengeluaranNameController::class, 'getAllNamePengeluaranLocal'])->name('md_select2_name_pengeluaran');
+            Route::get('delete_local_sync_inv', [XeroSyncInvoicePaidController::class, 'deletedDataLocal'])->name('delete-sync-invoice-paid');
         });
 
         Route::prefix('hotel')->group(function () {
