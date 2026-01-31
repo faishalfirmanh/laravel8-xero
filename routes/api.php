@@ -234,20 +234,15 @@ Route::prefix("master-data")->group(function () {
             Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
             Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
         });
-// List Invoice
-Route::get('/xero/list-transaksi', [XeroController::class, 'listTransaksi']);
+// List transaksi Xero
+Route::get('admin/xero/list-transaksi', [XeroController::class, 'listTransaksi']);
 
-// Detail Invoice
-Route::get('/xero/detail/{id}', [XeroController::class, 'detail']);
+// Delete invoice (DRAFT / SUBMITTED)
+Route::post('admin/xero/delete/{id}', [XeroController::class, 'deleteInvoice']);
 
-// Void Invoice
-Route::post('/xero/void/{id}', [XeroController::class, 'void']);
-
-// Create Invoice
-Route::post('/xero/create', [XeroController::class, 'create']);
-
-// Update Invoice
-Route::post('/xero/update/{id}', [XeroController::class, 'update']);
+// Void invoice (AUTHORISED)
+Route::post('admin/xero/void/{id}', [XeroController::class, 'voidInvoice']);
     });
+    
 });
 
