@@ -10,6 +10,7 @@ use App\Http\Repository\MasterData\DataJamaahXeroRepository;
 use App\Http\Repository\Revenue\HotelDetailInvoicesRepository;
 use Validator;
 use App\Traits\ApiResponse;
+use Illuminate\Support\Facades\Auth;
 use App\Services\GlobalService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -18,6 +19,9 @@ use App\ConfigRefreshXero;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
+use Barryvdh\DomPDF\Facade\Pdf;
+
+
 class RHotelApiController extends Controller
 {
     //
@@ -105,6 +109,23 @@ class RHotelApiController extends Controller
 
     }
 
+    public function printInvoice(Request $request,$id)
+    {
+        $invoice = InvoicesHotel::with(['details','payments'])->find($id);
+        //dd(Auth::guard('sanctum')->user());
+
+        $data = [
+            'invoice' => $invoice,
+            'title' => 'Invoice #' . $invoice->no_invoice_hotel,
+            'date' => date('d-m-Y'),
+           // 'cetak_by'=>
+        ];
+        $pdf = Pdf::loadView('pdf.invoice_hotel_print', $data);
+        $pdf->setPaper('A4', 'portrait');
+        //return $pdf->download('Invoice-'.$invoice->no_invoice_hotel.'.pdf');
+        return $pdf->stream('Invoice-'.$invoice->no_invoice_hotel.'.pdf');//tampil
+    }
+
     public function getTotalAmount(Request $request)
     {
          $validator = Validator::make($request->all(), [
@@ -130,11 +151,32 @@ class RHotelApiController extends Controller
                 'date_end'=>$request->date_end,
             ],
             'date_transaction');
+
+        //UANG DITERIMA
+         $data_rp_paid = $this->repo->sumWhereDateRange(
+            'final_payment_idr',
+            [],
+            [
+                'date_start'=>$request->date_start,
+                'date_end'=>$request->date_end,
+            ],
+            'date_transaction');
+
+        $data_rp_remain = $this->repo->sumWhereDateRange(
+            'less_payment_idr',
+            [],
+            [
+                'date_start'=>$request->date_start,
+                'date_end'=>$request->date_end,
+            ],
+            'date_transaction');
         $final = [
             'tanggal_awal'=>$request->date_start,
             'tanggal_akhir'=>$request->date_end,
             'sar'=>$data_sar,
-            'rupiah'=> $data_rp
+            'rupiah'=> $data_rp,
+            'payment_idr'=>$data_rp_paid,
+            'remaining_idr'=>$data_rp_remain
         ];
         return $this->autoResponse($final);
     }
@@ -153,7 +195,7 @@ class RHotelApiController extends Controller
 
     }
 
-    public function store(Request $request)
+    public function savedRhotel(Request $request)
     {
         // 1. Validasi Input (Termasuk Array)
         $validator = Validator::make($request->all(), [
@@ -217,7 +259,7 @@ class RHotelApiController extends Controller
             if ($request->has('qty') && $request->has('price_hotel')) {
                 foreach ($request->qty as $key => $q) {
                     $price = $request->price_hotel[$key] ?? 0;
-                    $grandTotal += ($q * $price);
+                    $grandTotal += ($q * $price * $diffDays);
                 }
             }
             $config_curency = ConfigCurrency::first();
@@ -225,10 +267,13 @@ class RHotelApiController extends Controller
            // $request->request->add(['nama_pemesan'=> json_encode($request->list_product_id)]);
             $request['nama_pemesan'] = $full_name;
             $request['total_days'] =  $diffDays > 0 ? $diffDays : 1;
-            $request['total_payment'] =  $grandTotal;
+            $request['total_payment'] =  $grandTotal;//sar
             $request['total_payment_rupiah'] =  $final_rupiah_amount;
             $request['uuid_user_order'] =  $request->order_name;
-             $request['status'] = 1;
+            $request['less_payment_sar'] =  $grandTotal;
+            $request['less_payment_idr'] =  $final_rupiah_amount;
+            $request['created_by'] = $request->user_login->id;
+            $request['status'] = 1;
             $request['no_invoice_hotel'] = $this->service_global->generateInvoiceHotel();//  $final_rupiah_amount;
 
 

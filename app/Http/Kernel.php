@@ -63,5 +63,6 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'xero.limit' => \App\Http\Middleware\XeroRateLimit::class,
+        'xss' => \App\Http\Middleware\XssSanitization::class,
     ];
 }

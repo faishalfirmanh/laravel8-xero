@@ -21,16 +21,23 @@ use App\Http\Controllers\Xero\PaymentHistoryController;
 use App\Http\Controllers\Xero\BankController;
 //master data
 use App\Http\Controllers\MasterData\PengeluaranNameController;
+use App\Http\Controllers\MasterData\DataApiJamaahController;
 //master data
 //location
+
 use App\Http\Controllers\MasterData\LocationCityController;
 use App\Http\Controllers\MasterData\LocationDistrictController;
 use App\Http\Controllers\MasterData\LocationProvinceController;
 use App\Http\Controllers\MasterData\LocationVillageController;
 //location
 //transaction
+use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
+
 use App\Http\Controllers\Transaction\Revenue\XeroController;
+
+use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
+
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -113,34 +120,53 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 
-    Route::middleware('auth:sanctum')->prefix("transaksi")->group(function () {
+    Route::middleware(['auth:sanctum','xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
             Route::prefix('hotel')->group(function(){
                 Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');
                 Route::get('/getTotalAmount', [RHotelApiController::class, 'getTotalAmount'])->name('total-amount-revanue-hotel');
-                Route::post('/store', [RHotelApiController::class, 'store'])->name('save-revanue-hotel');
+                Route::post('/store', [RHotelApiController::class, 'savedRhotel'])->name('save-revenue-hotel');
                 Route::get('/getById', [RHotelApiController::class, 'getInvoiceReveueHotel'])->name('byid-revanue-hotel');
                 Route::post('/deleted', [RHotelApiController::class, 'deleteInvoiceReveueHotel'])->name('deleted-revanue-hotel');
+                //payment
+                Route::get('/getAllPaymentByIdInv', [RPaymentHotelApiController::class, 'getAllByIdInv'])->name('get-allpayment-hotelby-idinvoice');
+                Route::get('/getRowById', [RPaymentHotelApiController::class, 'by_id_row'])->name('get-by-row-payment-hotel');
+                Route::post('/deleteRow', [RPaymentHotelApiController::class, 'deleted_row'])->name('delete-by-row-payment-hotel');
+                Route::post('/savedRowCreate', [RPaymentHotelApiController::class, 'store'])->name('create-by-row-payment-hotel');
+                Route::post('/updateRowPayment', [RPaymentHotelApiController::class, 'updated_row'])->name('updated-by-row-payment-hotel');
             });
         });
 
         Route::prefix('expenses')->group(function () {
-
+            Route::prefix("/package-profit")->group(function(){
+                Route::get('/getData', [ExpensesPackageApiController::class, 'getAllPaginate'])->name('t_pp_package_getall');
+                Route::get('/get_by_id', [PengeluaranNameController::class, 'getById'])->name('md_gbyid_pengeluaran');
+                Route::post('/save', [ExpensesPackageApiController::class, 'store'])->name('t_pp_package');
+            });
         });
     });
 
-    Route::prefix("master-data")->group(function () {
+    Route::middleware(['auth:sanctum','xss'])->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
         Route::prefix("pengeluaran")->group(function () {
             Route::get('/getData', [PengeluaranNameController::class, 'getData'])->name('md_g_pengeluaran');
+            Route::get('/get_by_id', [PengeluaranNameController::class, 'getById'])->name('md_gbyid_pengeluaran');
+            Route::post('/save', [PengeluaranNameController::class, 'store'])->name('md_store_pengeluaran');
+            Route::get('/get_select_2', [PengeluaranNameController::class, 'getAllNamePengeluaranLocal'])->name('md_select2_name_pengeluaran');
+            Route::get('delete_local_sync_inv', [XeroSyncInvoicePaidController::class, 'deletedDataLocal'])->name('delete-sync-invoice-paid');
         });
 
-        Route::middleware('auth:sanctum')->prefix('hotel')->group(function () {
+        Route::prefix('hotel')->group(function () {
             Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
             Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
             Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
             Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+        });
+
+        Route::prefix("contact-xero")->group(function () {
+            Route::get('/get', [DataApiJamaahController::class, 'getAllPaginate'])->name('getAllContactApi');
+            Route::get('/get_by_id', [DataApiJamaahController::class, 'getById'])->name('getByIdContact');
         });
 
     });

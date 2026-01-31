@@ -8,7 +8,11 @@
     ],
     "license": "MIT",
     "require": {
+
         "php": "^8.1",
+        "php": "^7.3",
+        "barryvdh/laravel-dompdf": "^2.2",
+
         "doctrine/dbal": "^3.10",
         "fideloper/proxy": "^4.2",
         "fruitcake/laravel-cors": "^2.0",

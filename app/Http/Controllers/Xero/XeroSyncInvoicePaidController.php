@@ -245,7 +245,10 @@ class XeroSyncInvoicePaidController extends Controller
 
     public function getInvoicePaidArrival()
     {
-        set_time_limit(600); // Naikkan jadi 10 menit jika data ribuan
+        //set_time_limit(600); // Naikkan jadi 10 menit jika data ribuan
+
+        ini_set('max_execution_time', 0);
+        set_time_limit(0);
 
         $tokenData = $this->getValidToken();
         if (!$tokenData) {
@@ -261,8 +264,8 @@ class XeroSyncInvoicePaidController extends Controller
 
         try {
             // --- BAGIAN 1: SYNC INVOICE ---
-            $start_time = Carbon::now()->format('d-m-Y H.i');
-            Log::info("(/admin/list-invoice) mulai sync invoice ".$start_time);
+           // $start_time = Carbon::now()->format('d-m-Y H.i');
+            Log::info("(/admin/list-invoice) mulai sync invoice ");
             while (!$isFinished) {
                 $this->rateLimiter->checkAndHit($tenantId);
 
@@ -327,6 +330,7 @@ class XeroSyncInvoicePaidController extends Controller
                         if (isset($lineItem["Item"])) {
                             // Pastikan LineItemID ada, jika null (jarang terjadi) buat fallback
                             $lineItemId = $lineItem['LineItemID'] ?? $invoice['InvoiceID'] . '-' . $lineItem["Item"]["ItemID"];
+                            if (substr_count($lineItem["Item"]["Name"], '/') !== 2) continue;
 
                             $batchLineItems[] = [
                                 'line_item_uuid' => $lineItemId, // Pastikan kolom ini ada di DB & Unique
@@ -483,6 +487,30 @@ class XeroSyncInvoicePaidController extends Controller
                 'type' => 'process_error',
             ], 500);
         }
+    }
+
+    public function deletedDataLocal()
+    {
+        DB::beginTransaction();
+        try {
+            $hapus_detail = ItemDetailInvoices::query()->delete();
+            $hapus_invoice = InvoicesAllFromXero::query()->delete();
+            DB::commit();
+            Log::info("deleted all invoice success: ");
+           return response()->json([
+                'status' => 'success',
+                'message'=>"berhasil hapus invoice"
+            ]);
+        } catch (\Throwable $th) {
+           DB::rollback();
+            Log::error("deleted all invoice Error: " . $th->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => $th->getMessage(),
+                'type' => 'process_error',
+            ], 500);
+        }
+
     }
 
     //old

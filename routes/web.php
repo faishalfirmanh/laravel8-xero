@@ -11,6 +11,7 @@ use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Transaction\XeroController;
 
+use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -26,6 +27,8 @@ use App\Http\Controllers\Transaction\XeroController;
 // Route::get('/', function () {
 //     return 'hello dunia';
 // });
+
+Route::view('/game', 'game', ['name' => 'game']);
 Route::get('/cek-path', function () {
     return [
         'base_path' => base_path(),
@@ -50,6 +53,9 @@ Route::prefix('admin')->group(function () {
     });
 
 });
+
+//print-pdf
+ Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
 
 Route::get('/coba_redirect', function () {
     return "aaa";
