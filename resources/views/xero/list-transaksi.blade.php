@@ -1,271 +1,211 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
-    <h3>List Transaksi Xero (AJAX)</h3>
-
-    <form id="filter-form" class="mb-3">
-        <div class="row">
-            <div class="col-md-3">
-                <input type="text" name="contact" class="form-control" placeholder="Cari Contact">
-            </div>
-            <div class="col-md-3">
-                <input type="text" name="number" class="form-control" placeholder="Cari Invoice Number">
-            </div>
-            <div class="col-md-3">
-                <select name="status" class="form-control">
-                    <option value="">Semua Status</option>
-                    <option value="AUTHORISED">AUTHORISED</option>
-                    <option value="DRAFT">DRAFT</option>
-                    <option value="SUBMITTED">SUBMITTED</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-success">Filter</button>
-                <button type="button" class="btn btn-primary create-btn">Create Invoice</button>
-            </div>
+<div class="container-fluid">
+    <div class="card shadow mb-5">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 font-weight-bold text-primary">List Transaksi Xero</h5>
         </div>
-    </form>
 
-    <table class="table table-bordered" id="xero-table">
-        <thead>
-            <tr>
-                <th>No</th>
-                <th>Number</th>
-                <th>Ref</th>
-                <th>To</th>
-                <th>Date</th>
-                <th>Due Date</th>
-                <th>Due</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+        <div class="card-body">
+            <form id="filter-form" class="mb-3">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" name="contact" class="form-control" placeholder="Cari Contact">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" name="number" class="form-control" placeholder="Cari Invoice Number">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-control">
+                            <option value="">Semua Status</option>
+                            <option value="AUTHORISED">AUTHORISED</option>
+                            <option value="DRAFT">DRAFT</option>
+                            <option value="SUBMITTED">SUBMITTED</option>
+                            <option value="PAID">PAID</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-success w-100">Filter</button>
+                    </div>
+                </div>
+            </form>
 
-    <nav>
-        <ul class="pagination" id="pagination"></ul>
-    </nav>
-</div>
-
-<!-- MODAL -->
-<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Invoice Detail</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped table-bordered w-100" id="xero-table">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>No</th>
+                            <th>Number</th>
+                            <th>Ref</th>
+                            <th>To</th>
+                            <th>Date</th>
+                            <th>Due Date</th>
+                            <th>Due</th>
+                            <th>Status</th>
+                            <th class="text-center" width="10%">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
-            <div class="modal-body">
-                <form id="invoice-form">
-                    <input type="hidden" name="InvoiceID">
-                    <div class="mb-2">
-                        <label>Invoice Number</label>
-                        <input type="text" name="InvoiceNumber" class="form-control">
-                    </div>
-                    <div class="mb-2">
-                        <label>Reference</label>
-                        <input type="text" name="Reference" class="form-control">
-                    </div>
-                    <div class="mb-2">
-                        <label>Contact</label>
-                        <input type="text" name="ContactName" class="form-control" readonly>
-                    </div>
-                    <div class="mb-2">
-                        <label>Date</label>
-                        <input type="date" name="Date" class="form-control">
-                    </div>
-                    <div class="mb-2">
-                        <label>Due Date</label>
-                        <input type="date" name="DueDate" class="form-control">
-                    </div>
 
-                    <hr>
-                    <h6>Items</h6>
-                    <table class="table table-bordered" id="invoice-items">
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Description</th>
-                                <th>Qty</th>
-                                <th>Price</th>
-                                <th>Disc</th>
-                                <th>Account</th>
-                                <th>Tax Rate</th>
-                                <th>Tax Amount</th>
-                                <th>Amount IDR</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                    <button type="submit" class="btn btn-success">Save Invoice</button>
-                </form>
-            </div>
+            <nav>
+                <ul class="pagination justify-content-center mt-3" id="pagination"></ul>
+            </nav>
         </div>
     </div>
 </div>
 
+<style>
+.card-header { background-color: #fff; border-bottom: 2px solid #dee2e6; font-weight: bold; }
+.table th { background-color: #e9ecef; color: #495057; }
+.btn-void { color: #fff; background-color: #dc3545; border: none; padding: 4px 10px; border-radius: 4px; }
+.btn-void:hover { background-color: #c82333; }
+.table-responsive { margin-top: 1rem; }
+</style>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 $(document).ready(function(){
     let currentPage = 1;
 
-function formatDate(date) {
-    if (!date) return '-';
-    let d = null;
-    if (typeof date === 'string' && date.includes('/Date(')) {
-        const match = date.match(/\d+/);
-        if (match) d = new Date(parseInt(match[0]));
-    } else {
-        d = new Date(date);
+    function formatDate(date) {
+        if (!date) return '-';
+        let d = (typeof date === 'string' && date.includes('/Date('))
+                ? new Date(parseInt(date.match(/\d+/)[0]))
+                : new Date(date);
+        if (!d || isNaN(d.getTime())) return '-';
+        const day = String(d.getDate()).padStart(2,'0');
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const month = monthNames[d.getMonth()];
+        return `${day} ${month} ${d.getFullYear()}`;
     }
-    if (!d || isNaN(d.getTime())) return '-';
-    const day = String(d.getDate()).padStart(2,'0');
-    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const month = monthNames[d.getMonth()];
-    const year = d.getFullYear();
-    return `${day} ${month} ${year}`;
-}
 
-function loadXero(filters = {}){
-    filters.page = currentPage;
-    $.ajax({
-        url: '/api/xero/list-transaksi',
-        method: 'GET',
-        data: filters,
-        success: function(res){
-            if(!res.data || !Array.isArray(res.data)){
-                alert('Data Xero tidak valid');
-                return;
+    function loadXero(filters = {}){
+        filters.page = currentPage;
+
+        Swal.fire({
+            title: 'Memuat...',
+            text: 'Sedang mengambil data invoice...',
+            didOpen: () => Swal.showLoading(),
+            allowOutsideClick: false
+        });
+
+        $.ajax({
+            url: '/api/xero/list-transaksi',
+            method: 'GET',
+            data: filters,
+            success: function(res){
+                Swal.close();
+                if(!res.data || !Array.isArray(res.data)){
+                    Swal.fire('Error','Data Xero tidak valid','error');
+                    return;
+                }
+                let tbody = '';
+                res.data.forEach((inv,index)=>{
+                    let contactName = inv.Contact?.Name ?? '-';
+                    let reference = inv.Reference ?? '-';
+                    let amountDue = inv.AmountDue ? Number(inv.AmountDue).toLocaleString('id-ID') : '0';
+                    let status = inv.Status ?? '-';
+                    tbody += `<tr>
+                        <td>${(res.currentPage-1)*res.perPage + index + 1}</td>
+                        <td>${inv.InvoiceNumber ?? '-'}</td>
+                        <td>${reference}</td>
+                        <td>${contactName}</td>
+                        <td>${formatDate(inv.Date)}</td>
+                        <td>${formatDate(inv.DueDate)}</td>
+                        <td>${amountDue}</td>
+                        <td>${status}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-void void-btn" 
+                                    data-id="${inv.InvoiceID}" 
+                                    data-status="${status}">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+                $('#xero-table tbody').html(tbody);
+
+                let totalPages = Math.ceil(res.total/res.perPage);
+                let html = '';
+                for(let i=1;i<=totalPages;i++){
+                    html += `<li class="page-item ${i===res.currentPage?'active':''}">
+                                <a class="page-link" href="#">${i}</a>
+                             </li>`;
+                }
+                $('#pagination').html(html);
+            },
+            error: function(xhr){
+                Swal.close();
+                console.error(xhr.responseText);
+                Swal.fire('Error','Gagal mengambil data Xero','error');
             }
-            let tbody = '';
-            res.data.forEach((inv,index)=>{
-                let contactName = inv.Contact?.Name ?? '-';
-                let reference = inv.Reference ?? '-';
-                let amountDue = inv.AmountDue ? Number(inv.AmountDue).toLocaleString('id-ID') : '0';
-                let status = inv.Status ?? '-';
-                tbody += `<tr>
-                    <td>${(res.currentPage-1)*res.perPage + index + 1}</td>
-                    <td>${inv.InvoiceNumber ?? '-'}</td>
-                    <td>${reference}</td>
-                    <td>${contactName}</td>
-                    <td>${formatDate(inv.Date)}</td>
-                    <td>${formatDate(inv.DueDate)}</td>
-                    <td>${amountDue}</td>
-                    <td>${status}</td>
-                    <td>
-                        <button class="btn btn-sm btn-info view-btn" data-id="${inv.InvoiceID}">View</button>
-                        <button class="btn btn-sm btn-warning update-btn" data-id="${inv.InvoiceID}">Update</button>
-                        <button class="btn btn-sm btn-danger void-btn" data-id="${inv.InvoiceID}">Void</button>
-                    </td>
-                </tr>`;
-            });
-            $('#xero-table tbody').html(tbody);
-            let totalPages = Math.ceil(res.total/res.perPage);
-            let html = '';
-            for(let i=1;i<=totalPages;i++){
-                html += `<li class="page-item ${i===res.currentPage?'active':''}"><a class="page-link" href="#">${i}</a></li>`;
-            }
-            $('#pagination').html(html);
-        },
-        error: function(xhr){
-            console.error(xhr.responseText);
-            alert('Gagal mengambil data Xero');
-        }
+        });
+    }
+
+    loadXero();
+
+    $('#filter-form').submit(function(e){
+        e.preventDefault();
+        currentPage = 1;
+        let filters = {};
+        $(this).serializeArray().forEach(item => { if(item.value) filters[item.name]=item.value; });
+        loadXero(filters);
     });
-}
 
-loadXero();
+    $(document).on('click','.page-link',function(e){
+        e.preventDefault();
+        currentPage = parseInt($(this).text());
+        loadXero($('#filter-form').serializeArray().reduce((o,i)=>{ if(i.value)o[i.name]=i.value; return o; }, {}));
+    });
 
-$('#filter-form').submit(function(e){
-    e.preventDefault();
-    currentPage = 1;
-    let filters = {};
-    $(this).serializeArray().forEach(item => { if(item.value) filters[item.name]=item.value; });
-    loadXero(filters);
-});
-
-$(document).on('click','.page-link',function(e){
-    e.preventDefault();
-    currentPage = parseInt($(this).text());
-    loadXero($('#filter-form').serializeArray().reduce((o,i)=>{ if(i.value)o[i.name]=i.value; return o; }, {}));
-});
-
-// Void
+    // Delete / Void sesuai status
 $(document).on('click','.void-btn',function(){
-    if(!confirm('Yakin mau void invoice ini?')) return;
     let id = $(this).data('id');
-    $.ajax({
-        url:`/api/xero/void/${id}`,
-        method:'POST',
-        headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}'},
-        success:function(){ alert('Invoice berhasil di-void'); loadXero(); },
-        error:function(xhr){ console.error(xhr.responseText); alert('Gagal void invoice'); }
-    });
-});
+    let status = $(this).data('status');
+    console.log('idnya',id)
+    let url = (status === 'AUTHORISED') 
+                ? `/api/xero/void/${id}` 
+                : `/api/xero/delete/${id}`;
+    let method = (status === 'AUTHORISED') ? 'POST' : 'DELETE';
 
-// View
-$(document).on('click','.view-btn',function(){
-    let id = $(this).data('id');
-    $.ajax({
-        url:`/api/xero/view/${id}`,
-        method:'GET',
-        success:function(res){
-            $('#invoiceModal').modal('show');
-            $('#invoice-form [name=InvoiceID]').val(res.InvoiceID);
-            $('#invoice-form [name=InvoiceNumber]').val(res.InvoiceNumber);
-            $('#invoice-form [name=Reference]').val(res.Reference);
-            $('#invoice-form [name=ContactName]').val(res.Contact?.Name ?? '');
-            $('#invoice-form [name=Date]').val(res.Date?.slice(0,10));
-            $('#invoice-form [name=DueDate]').val(res.DueDate?.slice(0,10));
-            let itemsBody = '';
-            (res.LineItems ?? []).forEach(item=>{
-                itemsBody += `<tr>
-                    <td>${item.ItemCode ?? ''}</td>
-                    <td>${item.Description ?? ''}</td>
-                    <td>${item.Quantity ?? ''}</td>
-                    <td>${item.UnitAmount ?? ''}</td>
-                    <td>${item.Discount ?? ''}</td>
-                    <td>${item.AccountCode ?? ''}</td>
-                    <td>${item.TaxType ?? ''}</td>
-                    <td>${item.TaxAmount ?? ''}</td>
-                    <td>${item.LineAmount ?? ''}</td>
-                </tr>`;
+    Swal.fire({
+        title: 'Yakin?',
+        text: "Invoice akan dihapus!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, hapus!'
+    }).then((result) => {
+        if(result.isConfirmed){
+            Swal.fire({
+                title: 'Sedang memproses...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                    $.ajax({
+                        url: url,
+                        method: method,
+                        headers: {'X-CSRF-TOKEN':'{{ csrf_token() }}'},
+                        success:function(){ 
+                            Swal.fire('Berhasil','Invoice berhasil dihapus','success'); 
+                            loadXero(); 
+                        },
+                        error:function(xhr){ 
+                            console.error(xhr.responseText); 
+                            Swal.fire('Gagal','Gagal hapus invoice','error'); 
+                        }
+                    });
+                }
             });
-            $('#invoice-items tbody').html(itemsBody);
         }
     });
 });
-
-// Update / Create
-$('.create-btn').click(function(){
-    $('#invoiceModal').modal('show');
-    $('#invoice-form')[0].reset();
-    $('#invoice-form [name=InvoiceID]').val('');
-});
-
-$('#invoice-form').submit(function(e){
-    e.preventDefault();
-    let id = $('#invoice-form [name=InvoiceID]').val();
-    let method = id ? 'PUT' : 'POST';
-    let url = id ? `/api/xero/update/${id}` : '/api/xero/create';
-    let data = $(this).serializeArray().reduce((obj,item)=>{ obj[item.name]=item.value; return obj; },{});
-    $.ajax({
-        url: url,
-        method: 'POST',
-        headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}'},
-        data: JSON.stringify(data),
-        contentType: 'application/json',
-        success:function(res){
-            alert('Invoice berhasil disimpan');
-            $('#invoiceModal').modal('hide');
-            loadXero();
-        },
-        error:function(xhr){ console.error(xhr.responseText); alert('Gagal simpan invoice'); }
     });
-});
 
-});
 </script>
 @endsection

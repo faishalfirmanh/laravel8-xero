@@ -11,7 +11,7 @@ class XeroController extends Controller
 {
     public function index()
     {
-        return view('xero.list-transaksi');
+        return view('admin.xero.list-transaksi');
     }
 
     public function listTransaksi(Request $request)
@@ -33,11 +33,10 @@ class XeroController extends Controller
             $data = json_decode($response->getBody(), true);
             $invoices = $data['Invoices'] ?? [];
 
-            // ❌ Hanya tampilkan yang aktif: DRAFT, SUBMITTED, AUTHORISED
-            $activeStatuses = ['DRAFT', 'SUBMITTED', 'AUTHORISED'];
+            // ✨ Semua status termasuk PAID
+            $activeStatuses = ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'];
             $invoices = array_filter($invoices, fn($inv) => in_array($inv['Status'], $activeStatuses));
 
-            // 🔎 Filter search (opsional)
             if ($request->contact) {
                 $invoices = array_filter($invoices, fn($inv) => str_contains(strtolower($inv['Contact']['Name'] ?? ''), strtolower($request->contact)));
             }
@@ -48,7 +47,6 @@ class XeroController extends Controller
                 $invoices = array_filter($invoices, fn($inv) => $inv['Status'] === $request->status);
             }
 
-            // Pagination sederhana
             $perPage = 10;
             $page = $request->page ?? 1;
             $total = count($invoices);
@@ -62,14 +60,12 @@ class XeroController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage()
-            ], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    // ✨ VIEW DETAIL INVOICE
-    public function viewInvoice($id)
+    // ✨ Void Invoice (untuk AUTHORISED & PAID)
+    public function voidInvoice($id)
     {
         try {
             $accessToken = XeroService::getAccessToken();
@@ -84,18 +80,16 @@ class XeroController extends Controller
                 ],
             ]);
 
-            $response = $client->get("Invoices/{$id}");
-            $data = json_decode($response->getBody(), true);
-            $invoice = $data['Invoices'][0] ?? null;
+            $client->post("Invoices/{$id}/void");
 
-            return response()->json($invoice);
+            return response()->json(['message' => 'Invoice berhasil di-void']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    // ✨ CREATE INVOICE
-    public function createInvoice(Request $request)
+    // ✨ Delete Invoice (untuk DRAFT/SUBMITTED)
+    public function deleteInvoice($id)
     {
         try {
             $accessToken = XeroService::getAccessToken();
@@ -110,37 +104,9 @@ class XeroController extends Controller
                 ],
             ]);
 
-            $response = $client->post('Invoices', [
-                'json' => $request->all()
-            ]);
+            $client->delete("Invoices/{$id}");
 
-            return response()->json(json_decode($response->getBody(), true));
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    // ✨ UPDATE INVOICE
-    public function updateInvoice(Request $request, $id)
-    {
-        try {
-            $accessToken = XeroService::getAccessToken();
-            $tenantId = env('XERO_TENANT_ID');
-
-            $client = new Client([
-                'base_uri' => 'https://api.xero.com/api.xro/2.0/',
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $accessToken,
-                    'Xero-tenant-id' => $tenantId,
-                    'Accept' => 'application/json',
-                ],
-            ]);
-
-            $response = $client->post("Invoices/{$id}", [
-                'json' => $request->all()
-            ]);
-
-            return response()->json(json_decode($response->getBody(), true));
+            return response()->json(['message' => 'Invoice berhasil dihapus']);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }

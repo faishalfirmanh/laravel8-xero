@@ -65,9 +65,9 @@ class XeroContactController extends Controller
         if ($response->successful()) {
             $tokens = $response->json();
             $this->saveToken($tokens); // Simpan ke file JSON
-            // $res_json = [
-            //     "pesan" =>"Koneksi Berhasil! Token tersimpan di storage/app/private/{$this->tokenFile_prod}. Sekarang coba akses /xero/contacts",
-            // ];
+            $res_json = [
+                "pesan" =>"Koneksi Berhasil! Token tersimpan di storage/app/private/{$this->tokenFile_prod}. Sekarang coba akses /xero/contacts",
+            ];
             return "Koneksi Berhasil! Token tersimpan di storage/app/private/{$this->tokenFile_prod}. Sekarang coba akses /xero/contacts";
         }
 
