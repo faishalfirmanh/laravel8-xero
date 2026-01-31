@@ -30,6 +30,7 @@ use App\Http\Controllers\MasterData\LocationVillageController;
 //location
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
+use App\Http\Controllers\Transaction\Revenue\XeroController;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -207,7 +208,20 @@ Route::prefix("master-data")->group(function () {
             Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
             Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
         });
+// List Invoice
+Route::get('/xero/list-transaksi', [XeroController::class, 'listTransaksi']);
 
+// Detail Invoice
+Route::get('/xero/detail/{id}', [XeroController::class, 'detail']);
+
+// Void Invoice
+Route::post('/xero/void/{id}', [XeroController::class, 'void']);
+
+// Create Invoice
+Route::post('/xero/create', [XeroController::class, 'create']);
+
+// Update Invoice
+Route::post('/xero/update/{id}', [XeroController::class, 'update']);
     });
 });
 
