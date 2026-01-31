@@ -16,8 +16,18 @@ class DPackageExpensesXero extends Model
         'nominal_idr',
         'nominal_sar',
         'is_idr',
+        'combine_id_random',
         'nominal_currency'//config harus diisi jika , input adalah ryal
     ];
+
+    protected $appends = [
+        'nama_pengeluaran'
+    ];
+
+    public function getNamaPengeluaranAttribute()
+    {
+        return $this->getNameExpens->nama_pengeluaran;
+    }
 
     public function getExpenPackage()
     {

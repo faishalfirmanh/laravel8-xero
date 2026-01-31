@@ -398,7 +398,7 @@ collection:
         meta:
           id: req_f3c6de0781df42ebac4a9005e67438ff
           created: 1763951898930
-          modified: 1766715996340
+          modified: 1769223040390
           isPrivate: false
           description: ""
           sortKey: -1763953070066
@@ -418,7 +418,7 @@ collection:
             disabled: false
         authentication:
           type: bearer
-          token: "{{ _.barer_token }}"
+          token: "{{ _.refresh_token }}"
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -619,11 +619,45 @@ collection:
             send: true
             store: true
           rebuildPath: true
+      - url: "{{ _.local_url }}xero/contacts_search?name=isal"
+        name: 1. get search
+        meta:
+          id: req_0a21ca407e444c5bac16e1564e36d783
+          created: 1769248621867
+          modified: 1769248725200
+          isPrivate: false
+          description: ""
+          sortKey: -1763953070016
+        method: GET
+        headers:
+          - name: User-Agent
+            value: insomnia/12.1.0
+            description: ""
+            disabled: false
+          - name: xero-tenant-id
+            value: "{{ _.tenant_id }}"
+            description: ""
+            disabled: false
+          - name: Accept
+            value: application/json
+            description: ""
+            disabled: false
+        authentication:
+          type: bearer
+          token: "{{ _.refresh_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
   - name: lokal-laravel
     meta:
       id: fld_b8d9e7f742a74677af65726d84997cb8
       created: 1763956600653
-      modified: 1764323561050
+      modified: 1769135121523
       sortKey: -1763956600653
       description: ""
     children:
@@ -666,12 +700,12 @@ collection:
             send: true
             store: true
           rebuildPath: true
-      - url: "{{ _.prod_url }}get-data"
+      - url: "{{ _.local_url_xero }}get-data"
         name: get-all-contact
         meta:
           id: req_c7e9570078d548dfba4cb29cfa8b2793
           created: 1763965694122
-          modified: 1766721991517
+          modified: 1769223990595
           isPrivate: false
           description: ""
           sortKey: -1764323595345
@@ -972,12 +1006,12 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
-          - url: "{{ _.local_url }}get-data-product"
+          - url: "{{ _.local_url_xero }}get-data-product"
             name: get-all
             meta:
               id: req_964060bdc32942ac9127de8594351b5d
               created: 1764911901121
-              modified: 1765858706905
+              modified: 1768468573015
               isPrivate: false
               description: ""
               sortKey: -1764383095531
@@ -986,7 +1020,7 @@ collection:
               mimeType: application/json
               text: |-
                 {
-                	"page":"2"
+                	"page":1
                 }
             headers:
               - name: Content-Type
@@ -1185,12 +1219,12 @@ collection:
                 store: true
               rebuildPath: true
           - url: "{{ _.local_url_xero
-              }}getDetailInvoice/d9db86e3-1d88-43ec-8678-7c476f03850d"
+              }}getDetailInvoice/e85420a8-53e0-44d9-a80f-5ce351ae0b7a"
             name: 1.get-detail-invoices-byIdInvoice
             meta:
               id: req_18a7b21d1e4946768f3f2758ed04e06c
               created: 1764747457935
-              modified: 1768271496028
+              modified: 1768619582467
               isPrivate: false
               description: ""
               sortKey: -1764383404085.25
@@ -1270,7 +1304,7 @@ collection:
             meta:
               id: req_6007de7a8e91420dab6b1ed070b39bce
               created: 1766220002928
-              modified: 1766220036741
+              modified: 1768617944096
               isPrivate: false
               description: ""
               sortKey: -1764383352667.875
@@ -1278,6 +1312,129 @@ collection:
             body:
               mimeType: application/json
               text: ""
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+              - name: xero-tenant-id
+                value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                description: ""
+                disabled: false
+              - name: Accept
+                value: application/json
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: "{{ _.barer_token }}"
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}xero/sync-invoice-paid"
+            name: sync invoice
+            meta:
+              id: req_56ff194e2fc2488e9b7d5348e9662cbd
+              created: 1768276351428
+              modified: 1768881263157
+              isPrivate: false
+              description: ""
+              sortKey: -1765164729822
+            method: GET
+            body:
+              mimeType: application/json
+              text: ""
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+              - name: xero-tenant-id
+                value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                description: ""
+                disabled: false
+              - name: Accept
+                value: application/json
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: "{{ _.token_refres }}"
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/getInvoicesAll"
+            name: get-invoices-web
+            meta:
+              id: req_e3282d8488c2413d81baad833fe7d807
+              created: 1768443900212
+              modified: 1768619635325
+              isPrivate: false
+              description: ""
+              sortKey: -1764383712589.5
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"page": 1
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+              - name: xero-tenant-id
+                value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                description: ""
+                disabled: false
+              - name: Accept
+                value: application/json
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: "{{ _.refresh_token }}"
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url_xero }}getInvoiceByIdPaket"
+            name: 1.get-invoices-byIdPaketLocal
+            meta:
+              id: req_6e0ca950fd594876bd164a9fe3044d1c
+              created: 1769139037160
+              modified: 1769139343173
+              isPrivate: false
+              description: ""
+              sortKey: -1764383455502.625
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"code_paket":"A25/1/2026-2A"
+                }
             headers:
               - name: Content-Type
                 value: application/json
@@ -1572,12 +1729,12 @@ collection:
                     send: true
                     store: true
                   rebuildPath: true
-              - url: "{{ _.local_url }}getAllAccount"
+              - url: "{{ _.local_url_xero }}getAllAccount"
                 name: get all acount rows invoice
                 meta:
                   id: req_e3e86079d0ab4753988c986eaa823651
                   created: 1765014097766
-                  modified: 1765185023036
+                  modified: 1768374148346
                   isPrivate: false
                   description: ""
                   sortKey: -1765164738108
@@ -1651,15 +1808,16 @@ collection:
                     store: true
                   rebuildPath: true
               - url: "{{ _.local_url_xero
-                  }}delete-invoice-byuuid/e9c1cd8b-0030-4639-a6e5-d3fae49c1571"
-                name: delete invoice (byUUID)
+                  }}delete-creditnote-byuuid/99a74fb0-9762-44fe-8f68-6d26c71690\
+                  e7"
+                name: delete creditNote (byUUID)
                 meta:
-                  id: req_56ff194e2fc2488e9b7d5348e9662cbd
-                  created: 1768276351428
-                  modified: 1768286788462
+                  id: req_6558508429624b42bd1ecccf54660f58
+                  created: 1768288482467
+                  modified: 1768293543039
                   isPrivate: false
                   description: ""
-                  sortKey: -1765164738058
+                  sortKey: -1765164738033
                 method: POST
                 body:
                   mimeType: application/json
@@ -1682,6 +1840,88 @@ collection:
                 authentication:
                   type: bearer
                   token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url_xero
+                  }}delete-overpayment-byuuid/976c64fb-334d-4634-9d47-f886ec6d5\
+                  edd"
+                name: delete overpayment (byUUID)
+                meta:
+                  id: req_fd97a3f7fe61422bb313cc1c041a26df
+                  created: 1768288934347
+                  modified: 1768289666673
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1765164738020.5
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: ""
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.prod_url
+                  }}xero-integrasi/delete-invoice-byuuid/0ba6aa08-21b5-4faa-8d4\
+                  c-c6f2162c5494"
+                name: deleted inv paid to local
+                meta:
+                  id: req_b6864ddb291641f99f4a150652761378
+                  created: 1768296558761
+                  modified: 1769756125851
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1765164738045.5
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: ""
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.barer_token }}"
                 settings:
                   renderRequestBody: true
                   encodeUrl: true
@@ -2008,10 +2248,10 @@ collection:
             meta:
               id: req_16b8556b7a9840fbae53c76a503a3643
               created: 1766740795294
-              modified: 1766743015849
+              modified: 1768874531899
               isPrivate: false
               description: ""
-              sortKey: -1766743008996
+              sortKey: -1766743009011.625
             method: GET
             body:
               mimeType: application/json
@@ -2039,10 +2279,10 @@ collection:
             meta:
               id: req_0a5ff5f878e44e5ab9da659655e827ce
               created: 1766741621393
-              modified: 1766743008997
+              modified: 1768874529749
               isPrivate: false
               description: ""
-              sortKey: -1766743008946
+              sortKey: -1766743009014.75
             method: GET
             body:
               mimeType: application/json
@@ -2072,6 +2312,661 @@ collection:
           modified: 1766983708942
           sortKey: -1766983708942
           description: ""
+        children:
+          - name: hotels
+            meta:
+              id: fld_4c7dd8d8cc644e8cbf9d90ab39a4294f
+              created: 1769226977607
+              modified: 1769226977607
+              sortKey: -1769226977607
+              description: ""
+            children:
+              - url: "{{ _.local_url }}admin-web/master-data/hotel/search_hotel"
+                name: hotel
+                meta:
+                  id: req_940e1d4b91a1495c8fdcb069a1806d80
+                  created: 1769226991693
+                  modified: 1769228402326
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769226997590
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"keyword":""
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 3|qecHb1TB3bgPdxgRJl3q8FFoiKBBRxjaAWc2En4P
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/master-data/hotel/search_hotel"
+                name: get-byid
+                meta:
+                  id: req_66b7a95c781040adafd28ccdbefe80a5
+                  created: 1769241982396
+                  modified: 1769241982396
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769181075279
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"keyword":""
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 3|qecHb1TB3bgPdxgRJl3q8FFoiKBBRxjaAWc2En4P
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+          - name: data jamaah xero
+            meta:
+              id: fld_e5ff50c47512464e808f1c5fcd7766d0
+              created: 1769480345392
+              modified: 1769480345392
+              sortKey: -1769480345392
+              description: ""
+            children:
+              - url: "{{ _.local_url }}admin-web/master-data/contact-xero/get"
+                name: getAll
+                meta:
+                  id: req_407e94602abb432dad5c1e5e0b68d5b1
+                  created: 1769483897267
+                  modified: 1769488932099
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769483902027
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"keyword":"",
+                    	"page":1,
+                    	"limit":10,
+                    	"kolom_name":"full_name"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/master-data/contact-xero/get_by_id"
+                name: get_by_id
+                meta:
+                  id: req_14147b030b62406b9ac8cab0c3cab295
+                  created: 1769483918456
+                  modified: 1769484436782
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769362963966
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":"1"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 3|qecHb1TB3bgPdxgRJl3q8FFoiKBBRxjaAWc2En4P
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+          - name: nama pengeluaran
+            meta:
+              id: fld_2634726a54e04f7184603c29208f5cf8
+              created: 1769742181464
+              modified: 1769742181464
+              sortKey: -1769742181464
+              description: ""
+            children:
+              - url: "{{ _.local_url }}admin-web/master-data/pengeluaran/getData"
+                name: getAll
+                meta:
+                  id: req_0d17085ea3ac43718727daeff5757b33
+                  created: 1769742191980
+                  modified: 1769742366459
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769742197782
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"keyword":"",
+                    	"page":1,
+                    	"limit":10,
+                    	"kolom_name":"nama_pengeluaran"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 18|C6BQU65iunmmIcsV9BGAC8cVl2wSlgWditkRDxfG
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/master-data/pengeluaran/getData"
+                name: get_byid
+                meta:
+                  id: req_f7c53b9d4bd14c42a8354e8f5f1021d7
+                  created: 1769742402872
+                  modified: 1769742402872
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769613049904.5
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"keyword":"",
+                    	"page":1,
+                    	"limit":10,
+                    	"kolom_name":"nama_pengeluaran"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 18|C6BQU65iunmmIcsV9BGAC8cVl2wSlgWditkRDxfG
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+      - name: login
+        meta:
+          id: fld_789487a00abb4fc49e8ea464a41a7771
+          created: 1769135128066
+          modified: 1769135128066
+          sortKey: -1769135128066
+          description: ""
+        children:
+          - url: "{{ _.local_url }}login"
+            name: login
+            meta:
+              id: req_81a6ba078adf4a28aae39d674f97e982
+              created: 1769135139079
+              modified: 1769135213281
+              isPrivate: false
+              description: ""
+              sortKey: -1769135152968
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"email":"isal@gmail.com",
+                	"password":"isal1234"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+                disabled: false
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}logout"
+            name: lgout
+            meta:
+              id: req_dc09591b6b054840a82e8606dcbd1df1
+              created: 1769135244526
+              modified: 1769136601309
+              isPrivate: false
+              description: ""
+              sortKey: -1768059589428
+            method: POST
+            body:
+              mimeType: application/json
+              text: ""
+            headers:
+              - name: Content-Type
+                value: application/json
+                disabled: false
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+              - name: ""
+                value: application/json
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 4|uvl0VAcachDeDSKqKJMaT8yWvapVHbztjZ3UcsAH
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}register"
+            name: register
+            meta:
+              id: req_5d8d5c23b79647278f308260d1f01865
+              created: 1769135251137
+              modified: 1769135299222
+              isPrivate: false
+              description: ""
+              sortKey: -1767521807658
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"name":"isal",
+                	"email":"isal@gmail.com",
+                	"password":"isal1234",
+                	"password_confirmation":"isal1234"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+                disabled: false
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+      - name: transaction
+        meta:
+          id: fld_60a3d40251984ff3a19f3d890b8f497c
+          created: 1769242008163
+          modified: 1769242008163
+          sortKey: -1769242008163
+          description: ""
+        children:
+          - name: revenue
+            meta:
+              id: fld_d721772456c34410bad4bb49e20ed5cd
+              created: 1769242015904
+              modified: 1769246277107
+              sortKey: -1769242015904
+              description: ""
+            children:
+              - url: "{{ _.local_url }}admin-web/transaksi/revenue/hotel/getById"
+                name: get-hotel-byid
+                meta:
+                  id: req_2caba7c603144a7d9decd8da5b1643e1
+                  created: 1769242025905
+                  modified: 1769394685512
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769242025905
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":6
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/transaksi/revenue/hotel/deleted"
+                name: deleted-hotel
+                meta:
+                  id: req_323d02643d284d94b7dfd42bade3e6dd
+                  created: 1769246304337
+                  modified: 1769246575090
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769234511747.5
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":2
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/transaksi/revenue/hotel/deleted"
+                name: payment-hotel
+                meta:
+                  id: req_aa3cd0df5fc3471ea2e7c1a6d63de08c
+                  created: 1769506829377
+                  modified: 1769506829377
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769230754668.75
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":2
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/transaksi/revenue/hotel/deleted"
+                name: get-payment-hotel
+                meta:
+                  id: req_a7626207b60e4cea88f1dac4bbf88789
+                  created: 1769506843741
+                  modified: 1769506843741
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769228876129.375
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":2
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/transaksi/revenue/hotel/getTotalAmount"
+                name: get-total
+                meta:
+                  id: req_14d4e6df15da45f2bd980b8a75d3c22b
+                  created: 1769759668525
+                  modified: 1769759668525
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769236390286.875
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"date_start":"2025-01-07",
+                    	"date_end":"2026-10-02"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.token_refres }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+          - name: expenses-profit
+            meta:
+              id: fld_d052f1196c034b7ab539b42cbcc80feb
+              created: 1769759660913
+              modified: 1769759660913
+              sortKey: -1769759660914
+              description: ""
+            children:
+              - url: "{{ _.local_url }}admin-web/transaksi/expenses/package-profit/getData"
+                name: get-paginate
+                meta:
+                  id: req_fedcdc537d1547508dcace826b09bfae
+                  created: 1769400905131
+                  modified: 1769760416379
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769759672261
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"keyword":"ali",
+                    	"page":1,
+                    	"limit":10,
+                    	"kolom_name":"name_paket"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 18|C6BQU65iunmmIcsV9BGAC8cVl2wSlgWditkRDxfG
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/transaksi/expenses/package-profit/save"
+                name: saved
+                meta:
+                  id: req_ef0e083f5c684c3fb1f4bcdfe0d41bc6
+                  created: 1769759999706
+                  modified: 1769760389064
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769750935021.5
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"uuid_paket_item":"sadfasdf",
+                    	"code_paket":"234f",
+                    	"name_paket":"umroh dengan anjass ",
+                    	"nominal_purchase" :"12211",
+                    	"nominal_sales": "9999999911",
+                    	"nominal_profit":"3000020"
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 18|C6BQU65iunmmIcsV9BGAC8cVl2wSlgWditkRDxfG
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/transaksi/expenses/package-profit/get_by_id"
+                name: getDetails
+                meta:
+                  id: req_d804a618546d4f7795f9dcee968d6f7d
+                  created: 1769844951356
+                  modified: 1769845809085
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769755303641.25
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	"id":19
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 18|C6BQU65iunmmIcsV9BGAC8cVl2wSlgWditkRDxfG
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
   - name: items
     meta:
       id: fld_317aa334a1aa4be3990da22b2e6c12d8
@@ -2085,7 +2980,7 @@ collection:
         meta:
           id: req_eeb867b87395404d9f04fbca6e0cc611
           created: 1763969932226
-          modified: 1764381130059
+          modified: 1768374072153
           isPrivate: false
           description: ""
           sortKey: -1763969932226
@@ -2110,7 +3005,7 @@ collection:
             disabled: false
         authentication:
           type: bearer
-          token: "{{ _.barer_token }}"
+          token: "{{ _.token_refres }}"
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -2266,7 +3161,7 @@ collection:
         meta:
           id: req_2e35575b20234dc0b2ad724cf46b653a
           created: 1764381138499
-          modified: 1764381140930
+          modified: 1768374092571
           isPrivate: false
           description: ""
           sortKey: -1763966601055.75
@@ -2291,7 +3186,7 @@ collection:
             disabled: false
         authentication:
           type: bearer
-          token: "{{ _.barer_token }}"
+          token: "{{ _.token_refres }}"
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -2313,7 +3208,7 @@ collection:
         meta:
           id: req_ad8a619d19ad44cda982162525180e13
           created: 1764036461793
-          modified: 1764036604999
+          modified: 1769483497579
           isPrivate: false
           description: ""
           sortKey: -1764036487091
@@ -2348,7 +3243,7 @@ collection:
             disabled: true
         authentication:
           type: bearer
-          token: "{{ _.barer_token }}"
+          token: "{{ _.token_refres }}"
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -2426,13 +3321,13 @@ collection:
             send: true
             store: true
           rebuildPath: true
-      - url: "\thttps://api.xero.com/api.xro/2.0/Invoices/1b34074d-6b1b-4347-bb2c-902e3\
-          54d2a01"
+      - url: "\thttps://api.xero.com/api.xro/2.0/Invoices/e85420a8-53e0-44d9-a80f-5ce35\
+          1ae0b7a"
         name: 1.get invoice-detail
         meta:
           id: req_1641f359073c4d67bbfca6271f10c41b
           created: 1764037244144
-          modified: 1765161885394
+          modified: 1768619685635
           isPrivate: false
           description: ""
           sortKey: -1764007369337.5625
@@ -2467,7 +3362,7 @@ collection:
             disabled: true
         authentication:
           type: bearer
-          token: "{{ _.barer_token }}"
+          token: "{{ _.refresh_token }}"
         settings:
           renderRequestBody: true
           encodeUrl: true
@@ -3248,7 +4143,7 @@ collection:
     meta:
       id: fld_211c2265d96448ff9baeb0717dfc8598
       created: 1765523678405
-      modified: 1765523678405
+      modified: 1768986899197
       sortKey: -1765523678405
       description: ""
     children:
@@ -3280,12 +4175,12 @@ collection:
             send: true
             store: true
           rebuildPath: true
-      - url: "{{ _.prod_url }}xero/callback"
+      - url: "{{ _.local_url }}xero/callback"
         name: 2. calback
         meta:
           id: req_841d079e20764d4b86bfe4ab4b3290c6
           created: 1765524099733
-          modified: 1766721399577
+          modified: 1769408654717
           isPrivate: false
           description: ""
           sortKey: -1765480047715.5
@@ -3294,7 +4189,7 @@ collection:
           mimeType: application/json
           text: |-
             {
-            	"code":"2hz1Iddh5uZF-JC1GHDPgGXoHrQyjjU_PeGKEtn7seA"
+            	"code":"eAvRwLk422lYmhD62McHVrzoOCJRZA3GmVE3DL1b-xc"
             }
         headers:
           - name: Content-Type
@@ -3320,6 +4215,34 @@ collection:
           isPrivate: false
           description: ""
           sortKey: -1765458223561.75
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/12.1.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ _.local_url }}xero/contacts_search?name="
+        name: 4. get data search
+        meta:
+          id: req_b92b6b2891224d9c8aa50be3678b7fba
+          created: 1769223314841
+          modified: 1769753246800
+          isPrivate: false
+          description: ""
+          sortKey: -1765447311484.875
         method: GET
         body:
           mimeType: application/json
@@ -3743,17 +4666,17 @@ cookieJar:
   meta:
     id: jar_6acb5b1d99e14e16a91eeade956be264
     created: 1763783221519
-    modified: 1766715998372
+    modified: 1769483499952
   cookies:
-    - id: 34767620-7cf9-4f95-a0bb-97a18967bd32
+    - id: af92808f-c040-4d77-99a5-9f59dd5fad18
       key: ak_bmsc
-      value: 8D4C38A62EE0CBA35653E6D25881891D~000000000000000000000000000000~YAAQng81F0nGCVibAQAA17h6WB42cfpq+Xi8n/RnuMBbDwJq03lCJrHelwdA1NO6p+zztZ3gcf3NzjcupWSI/J05//mGHvMKfxx447fB15dwuhaYggSN+OeUeKW9J4reo8u0bbQcrea9yty4WALY/tZ6jnfua/VKJFi9O49GORfPLzG4bDxdiuSa0bjBdFVv8jV20x6dX1dma2bawnZkNlcC0UXscOIHcZ/uJOxrUPfJlquUEtxYD5HFKkDn7hcon1Zsu1PtSwoDsiV40QJGT6rcX1Zkzwm+c2XHIdxxdD/ifLWw6CZYS5gaToYZ0utTgFNHn9Rj2t8YseOlqCA7Kv6DRDDHrxoj6kAvVlUQXFo1XmzcvZlpPP4133nwYfVj8ZThP4CypbTKcTrD
+      value: D8DE9A317D8F83C70264AB8D5F04BAA4~000000000000000000000000000000~YAAQLz7VjMbAmNibAQAAcXhv/R7dxpxN80/FrKFhf5O9ySyM3oh5lZ4FRxG9ijC6T61LPurtA5oVghX1rege3lpDOhvjBkpu2pb+eSnHmHd4DCsErNQyo3b5ecF/LkvbME+UQZjvr1QqGOR0Wqn24+Mo7WzL5Lkc/VKXptrw1E/1KxrqtJhrglyzAvrTh22Qzd+GgvJcW6VZlpWknG6/EqPRMfAxavP+WTTOyygcGXpdLHAGoEXVuG/3YM/2d6/NOnGYfx4kd/LGtF0W/FGUM8Aml5n6G+jaztX9R0JTIgmk/Woksa5zNU4SBmlJPJDOPX+3cDfwV97SYcxT+cBE22OHQg5M/0869n9CHzZb15gaooQOWMvr+KLg8y5+Jaw7Ob4jOifbL4gdB48=
       domain: xero.com
       path: /
       secure: true
       httpOnly: true
       hostOnly: false
-    - id: 5789a87c-8815-4f18-ba1e-413a20bdded2
+    - id: 31eb8782-d48e-4f54-abec-6fbc1b53df2c
       key: bm_sv
       value: 4FE35FFEC4183926F7FF7102B5223D7D~YAAQtinOdJdw36SaAQAAOBNI/R6h7sujy7g+gqM91jntff5QNxfYxpwSaAkvOSAwY7ktgZLI8axRZlmybejKX4G9EMZ4V9lXFPCggIdMf+MrFRvaiLx3mnjzNPFRT4KZ5Vxii3ESU7fL25/Aq1CkYZqJqBAe1X0mzsRkwSWK//N9aqvobT8aNhCXtrVfn1TQ40n+EK/UVyOJmkvZAovRPxfvK9reQbwqF2XfSkvEpr3nxTserdZEGg1xqKj0CQ==~1
       domain: xero.com
@@ -3761,7 +4684,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: false
-    - id: 04e4d74a-9965-4f20-9875-853a183453f0
+    - id: 8bd41eec-48a2-4b29-84c7-5d4a97be2ec0
       key: Device
       value: 0a0dd8c3-c5ac-419a-8d34-e3ab42a846e2
       domain: xero.com
@@ -3769,7 +4692,7 @@ cookieJar:
       secure: true
       httpOnly: true
       hostOnly: false
-    - id: 629415c4-1521-448a-b152-4668f192f548
+    - id: cb6baa46-a394-484f-9524-77f3508d2b22
       key: _abck
       value: 648CDAF68C5A8B81810FFB4DEAEF8D7C~-1~YAAQxinOdFWkqKSaAQAA/sFS4g4lywLwy00uHWRS9Hx+jD41xHxJ8A+sywcM6ZdpFfZp3lOqlr7x8szLBbUh5Nmh8963g6HdoYrVuAtBxAd8tBpHNdyZqLNwmQqmydGEYBNbOdX4DZi9fwpbXbLqD9pxHmdMn9N66Z4aXqL5n/F8ryD/ij3Hik378t1iA2Vq3TfSSbvRu7xs8qZaCMHCJR4YNzvT9CqXl88XjI+DdC/jUF8H0B4nPNY+SNPJnP5PHP7eiQ4ZoSE9B2f4DN8ma3j+cnhSy/bTixpJKAa5jv2XwMZ78Bb//5Sz4WGMmngyL2kIOckC4RcQRrwgO7ofV0VOLa+9GWNARirJ2xo1hJ3Tr5zvtK6OQm3/CryP9HS4SupyLTmF93rBcxIjne+0lQxqHRtXS3YtQ8e5o2g7cbWvdDfUtcrh+lA5PYukhn3SbeQHL1LDY6KtkaydJz7sy/g=~-1~-1~-1~-1~-1
       domain: xero.com
@@ -3777,7 +4700,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: false
-    - id: 993bb9e6-8cd1-4914-85d5-d5974be687ed
+    - id: f87d3c22-d1bc-4152-9f16-ac042ca87d1d
       key: bm_sz
       value: 91C74FF2E5775FBA5DEE32D70F09A231~YAAQxinOdFakqKSaAQAA/sFS4h6X1xcSLf9tW9X+Gj0Aji/QIVoEEOtJWaR7bTTPbxpvivYGDt4ShFMj251B2dBqtrVt6/O/1qiW0PBpMV48NBMOjHZQ6sB4hDYGbua4h9PbTmDJjAN5TetXBKjtpSmwhSOIPU82AIz7FJW2J/n8FfNjTBgO7wg7ZIRBAtY2CDiDBGpkqzYaN/VnayebH5zUd+Of/a4H7orBshqG6nWriOhxv6+4OaGUBNGYwjubd4HcrceaYCr7q6rosulOrq7RrZuoywOEFBd5B5btHpDa7fc+KnxE5ipjZgazgSo36LZViDuS3xYswB2X8J/18/Fe6UkdE91ccTWngnYG/JeRV4o=~3621937~3487792
       domain: xero.com
@@ -3785,7 +4708,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: false
-    - id: 54622869-c088-40f2-ab1d-78bdba5aa85d
+    - id: 56d29c90-8c5a-4a80-94bf-9e8b6e8f59ed
       key: laravel-session
       value: eyJpdiI6IjlISi9Ia053cllJWjBlUmRQeGV5Wmc9PSIsInZhbHVlIjoiNlFGMmtpRW9XL1hhUERheVVuRVZQbGRTeFhFYnBFWG9HKy9NMm5tRlRqbXJNUHFqNnFkTzBHKysrc0xPR1BvQWFoaGZhd01XYTRodDBEVzFRb0ZQUy9YRU5waVo2YTkwbHNtTldOZUtDMXAveW1zanZ2TWVPbmZaYXBUbVJHbW4iLCJtYWMiOiI5MjZhODE4ZTYzYWZmYzA3NTJjMTVlZjQ2MDViMGExOTQ0ODZhZjQ1ZmM0OTI4YjMwZGIwYjk4ODJiZTk3NzU4IiwidGFnIjoiIn0%3D
       domain: 127.0.0.1
@@ -3793,7 +4716,7 @@ cookieJar:
       secure: false
       httpOnly: true
       hostOnly: true
-    - id: 6dadc63f-6bd0-424c-87f6-f95d503dcf9c
+    - id: f6df8920-3531-43d9-8d08-7858a3b439e9
       key: laravel_session
       value: VGihr3yFfh6GDjkvyoCj00RhUhMsY1bM4WpTlM55
       domain: 127.0.0.1
@@ -3801,7 +4724,7 @@ cookieJar:
       secure: false
       httpOnly: true
       hostOnly: true
-    - id: 84001ea6-000d-4ba9-bddf-50471736a946
+    - id: de307dfe-4cc6-41dd-a2f9-e2d71e4ef1bc
       key: XSRF-TOKEN
       value: eyJpdiI6IktSeGlkMGlkVEdmaXhkNlk0OFVxWlE9PSIsInZhbHVlIjoid0JXUUFGZ3MwRTJ5eFdHOXhjVHhZZ2ZSRnB6VlAvbmljMnEyMHBtZ1cvRVhjY1o5QWNkbGJNR3R0K1lvOWo1YjlXK0xnOThBOWFLVDlRMldzYmVXa250RmgydHRaVTlLaVptT3ZXb1RBVDVJWnFnYWhycDV6S0wxblNTUEFUb3giLCJtYWMiOiI4NmI0M2VjZTU3NzY3ZWEyM2RjYTI5ODBjNDJkMjViZTJkMjI2ODgzYmIwZGM1NmMyODY3NjMzOGMyNWE2ODJhIiwidGFnIjoiIn0%3D
       domain: 127.0.0.1
@@ -3809,7 +4732,7 @@ cookieJar:
       secure: false
       httpOnly: false
       hostOnly: true
-    - id: eb68ad67-a632-48da-acee-d23f81aa79fc
+    - id: f46ffe18-1b57-4c7a-8292-f953acef8c77
       key: AWSALBTG
       value: DKQi4zFAhQwUw67SgB7mxIEGXrGauDlPOwupRLI4dN5IdMOdbAJRfr83OE6W1lKXNdz+dONZroR6asQiMQfqhB1FJkD3uBGHpZcAsjSDhZ3o65c1oFi8+pntfTZD4BBT1rqnu8W3LB75CIuieseM1Ku96AyZbTL+CGc4/Rli3MJ3qub/VVc=
       domain: api.xero.com
@@ -3817,7 +4740,7 @@ cookieJar:
       secure: false
       httpOnly: false
       hostOnly: true
-    - id: 281a36f8-47e0-4132-918e-e1acea482755
+    - id: da5369ac-d0d5-401f-aea8-0d12db29bbff
       key: AWSALBTGCORS
       value: DKQi4zFAhQwUw67SgB7mxIEGXrGauDlPOwupRLI4dN5IdMOdbAJRfr83OE6W1lKXNdz+dONZroR6asQiMQfqhB1FJkD3uBGHpZcAsjSDhZ3o65c1oFi8+pntfTZD4BBT1rqnu8W3LB75CIuieseM1Ku96AyZbTL+CGc4/Rli3MJ3qub/VVc=
       domain: api.xero.com
@@ -3825,7 +4748,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: true
-    - id: befa42bc-8bfe-406d-8e62-bfe6475c8ab4
+    - id: 4d324283-8f2a-4042-8e89-7260d31b3dd3
       key: .AspNetCore.Antiforgery.C9aXng5w_sY
       value: CfDJ8DpjPcFVBJdEhyuAqPej6PkkyQV8zdG4Vbh0a_PSDG-GmM80TAJjY95Hk5s0zHQNevVAm_X0drNN0j3nyaQeDCugSlKOd1E1ZbyOe_FNWSIt-5x81pC6dW4WXw-BCVjmj54lgpUDvWwQkJSUB-9BBdQ
       domain: login.xero.com
@@ -3838,7 +4761,7 @@ environments:
   meta:
     id: env_c2ae793db59041d39578e135076b40ae
     created: 1763783221516
-    modified: 1768270885255
+    modified: 1769756545398
     isPrivate: false
   data:
     barer_token: eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3NjU1MzA0MTUsImV4cCI6MTc2NTUzMjIxNSwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6Imh0dHBzOi8vaWRlbnRpdHkueGVyby5jb20vcmVzb3VyY2VzIiwiY2xpZW50X2lkIjoiMzZGMDg3MUQyMjMzNERERTg4RDIzRUZFNDBBQjU2MjgiLCJzdWIiOiI4YzY4ZGYyYWMzOGU1ZjU3YjBkN2M0MzgwOGYzZTI1OSIsImF1dGhfdGltZSI6MTc2NTUzMDM5MSwieGVyb191c2VyaWQiOiJkM2RjMjc4YS0wZWUyLTQxMzEtOTA2Yy1iOWUyNjkyZWE4ODQiLCJnbG9iYWxfc2Vzc2lvbl9pZCI6IjVlODUzY2Y3NGNhZTQ2OTlhODVkZjgyYjNkMzNkNWFiIiwic2lkIjoiNWU4NTNjZjc0Y2FlNDY5OWE4NWRmODJiM2QzM2Q1YWIiLCJhdXRoZW50aWNhdGlvbl9ldmVudF9pZCI6IjQ4ZWEyYzY5LTMwOWEtNGYyZS1hZGM3LWI0MjNhY2I1ZTc4MiIsImp0aSI6IjM4OENENDFDNjk0QUVDMEI3NDAwOTQ1NTdGMTc4NkRGIiwic2NvcGUiOlsiYWNjb3VudGluZy5jb250YWN0cyIsImFjY291bnRpbmcuY29udGFjdHMucmVhZCIsImFjY291bnRpbmcuc2V0dGluZ3MiLCJhY2NvdW50aW5nLnNldHRpbmdzLnJlYWQiLCJhY2NvdW50aW5nLnRyYW5zYWN0aW9ucyIsImFjY291bnRpbmcudHJhbnNhY3Rpb25zLnJlYWQiLCJvZmZsaW5lX2FjY2VzcyJdLCJhbXIiOlsibGVnYWN5Il19.da_DzE_KaqtxOk_UyZn1iJwLEZh1wGMwR-qLN_604SRHzmbJuRi6AngxXi6CacWhZ2QX0AtmXd4zEjgR_ToWQ7tyl2sGb2xLcClWBuSxaAtJElwMpxq-0qWNm3Y7O1IShsWTmjJ0bCjyEIVVtiZxyuTKo4w1WeMoxw8ghWbfOu7fAgsfpJx_AxPn4oaEFe-0PZ4r_Tnmd2RED5PvzzsIwAcney2gR6uvxpsWI96KgJam2JMbdCKDsq7PRTb0d-vWfecKhSGDr0tLfO6FYK_LRFKVWDAgYSjEOsWKht2QOron_smpdBezhdprL2PAStCmtuFRQSKqytNh2FPGXnNw9A
@@ -3848,7 +4771,8 @@ environments:
     line_item_id: 5fff6c88-7cbd-4bd8-ac1f-d5700c64f76d
     payment_id: b044ad76-ce98-4f78-a747-1676d8a7a36d
     refresh_token: lsEDu1XDingtEx3U5xUq38IyiFgEoAy_ekAM65jjGPA
-    prod_url: https://laravel8-xero.alhidayah.id/api/
+    prod_url: https://an.alhidayah.id/api/
     key_currencyfreaks: f759b7cefeb24896bc934f6a01c498a1
     local_url_xero: http://127.0.0.1:8000/api/xero-integrasi/
     token_refres: eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3NjY1NDYzNDksImV4cCI6MTc2NjU0ODE0OSwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6Imh0dHBzOi8vaWRlbnRpdHkueGVyby5jb20vcmVzb3VyY2VzIiwiY2xpZW50X2lkIjoiN0E3Qjk5Njg4RkNCNDc3MzgwRTNGMjBERUYzOTJCMjUiLCJzdWIiOiJkNGNlNTcyODk2YTc1YzJiODVhZWJmNWI4YTkyZjk4YiIsImF1dGhfdGltZSI6MTc2NjM3NTE0NiwieGVyb191c2VyaWQiOiJhMmM3NDU4Ni1iZTY5LTQ2MzUtODczNi0yNjBkMzhmNDM5MGEiLCJnbG9iYWxfc2Vzc2lvbl9pZCI6ImI0YmYyZTI0ZDQ4NjQyNTM4MTkzZWRlZGUzOWFjODhlIiwic2lkIjoiYjRiZjJlMjRkNDg2NDI1MzgxOTNlZGVkZTM5YWM4OGUiLCJhdXRoZW50aWNhdGlvbl9ldmVudF9pZCI6IjJkMzhiYjYyLWFkMGMtNGRkMC1iYWEyLWRhMjEyODI4M2EwZSIsImp0aSI6IkJBNDEyNjdBMEQ2Qzg2OTkzRDdEREIxM0U2MEVCRjAwIiwic2NvcGUiOlsiYWNjb3VudGluZy5jb250YWN0cyIsImFjY291bnRpbmcuY29udGFjdHMucmVhZCIsImFjY291bnRpbmcuc2V0dGluZ3MiLCJhY2NvdW50aW5nLnNldHRpbmdzLnJlYWQiLCJhY2NvdW50aW5nLnRyYW5zYWN0aW9ucyIsImFjY291bnRpbmcudHJhbnNhY3Rpb25zLnJlYWQiLCJvZmZsaW5lX2FjY2VzcyJdLCJhbXIiOlsicHdkIl19.JqgLTHX1xBV9Rlzt6dMpnyij0nE2pYEZZF4mIInjKCZOYfLYwDJ63GZzs1wup2DlQC2dUpuLudNd6W_B5Qwf9QUFBY2Ow1UZOHnvgsvJTR5Lmq4VrvlddYG02TNbZALlyLaJS2wE5TjkJ9qwrBP6K2FLDIx587K27fb1Xv-JbxNx-h6AslbxR6SMMFk-2mk-cLERzlP7bJl2KCIqYW15iKXfDRdhijYs4eLHZm-7M-DbKmOsA0Bj6g012cMc05TM_pzhMzQsY7zIrcQKN2h3VdG0EWgvp8o8Jz_fKFW6TCwL2Q1fpFe97EP1NZYUmOf0WO4QNHFTGEYoYVLsH2KM4g
+    "": ""

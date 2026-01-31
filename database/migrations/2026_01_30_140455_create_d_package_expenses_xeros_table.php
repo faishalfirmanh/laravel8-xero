@@ -24,7 +24,7 @@ class CreateDPackageExpensesXerosTable extends Migration
             $table->timestamps();
             $table->foreign('package_expenses_id')//
                 ->references('id')
-                ->on('users')
+                ->on('package_expenses_xeros')
                 ->onDelete('cascade');
             $table->foreign('pengeluaran_id')
                 ->references('id')

@@ -4,6 +4,7 @@ namespace App\Models\Expenses;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Expenses\DPackageExpensesXero;
 
 class PackageExpensesXero extends Model
 {
@@ -18,4 +19,10 @@ class PackageExpensesXero extends Model
         'nominal_profit',
         'created_by',
     ];
+
+
+    public function details()
+    {
+       return $this->hasMany(DPackageExpensesXero::class, 'package_expenses_id');
+    }
 }
