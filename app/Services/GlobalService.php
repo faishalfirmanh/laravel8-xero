@@ -98,6 +98,14 @@ class GlobalService
         return $resultInvoice;
     }
 
+    function generateUniqueRandomString($length = 6) {
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $shuffled = str_shuffle($characters);
+        return substr($shuffled, 0, $length);
+    }
+
+// Contoh Hasil: "a4B9zK", "1mP2xR" (Tidak ada huruf/angka yang dobel)
+
     public function requestCalculationXero(int $available_min, int $avilabe_day ) {
         $used_min = 60 - $available_min;
         $used_day = 5000 - $avilabe_day;

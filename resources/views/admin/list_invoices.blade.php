@@ -3,15 +3,14 @@
 @section('content')
 
 
-<div class="d-flex justify-content-between align-items-start mb-3">
-    <br><br>
-    <h5 class="mb-0 align-self-center">Proses Pembayaran</h5>
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <h5 class="mb-0">Proses Pembayaran</h5>
+    <input type="hidden" id="temp_rate_sar_from_ajax" value="">
     <div class="d-flex">
 
-        <div class="d-flex flex-column align-items-end mr-2 me-2"> <button
-                onclick="deleteDataLocalSync()"
-                type="button"
-                class="btn btn-danger shadow-sm fw-bold text-white">
+        <div class="d-flex flex-column align-items-end mr-2">
+            <button onclick="deleteDataLocalSync()" type="button" class="btn btn-danger shadow-sm fw-bold text-white">
                 <i class="fas fa-trash-alt me-1"></i> Hapus Invoice
             </button>
             <span class="text-danger mt-1 small" style="font-size:10px;">
@@ -19,11 +18,8 @@
             </span>
         </div>
 
-        <div class="d-flex flex-column align-items-end">
-            <button
-                onclick="syncData()"
-                type="button"
-                class="btn btn-warning text-dark shadow-sm fw-bold">
+        <div class="d-flex flex-column align-items-end me-2 mr-2">
+            <button onclick="syncData()" type="button" class="btn btn-warning text-dark shadow-sm fw-bold">
                 <i class="fas fa-sync-alt me-1"></i> Synchronization
             </button>
             <span class="text-danger mt-1 small" style="font-size:10px;">
@@ -31,71 +27,18 @@
             </span>
         </div>
 
+        <div class="d-flex flex-column align-items-end mr-2">
+            <button onclick="openModalCreateTrans()" type="button" class="btn btn-primary text-white shadow-sm fw-bold">
+                <i class="fas fa-plus me-1"></i> Tambah Transaksi
+            </button>
+            <span class="text-primary mt-1 small" style="font-size:10px;">
+                (buat transaksi baru)
+            </span>
+        </div>
+
     </div>
 </div>
 
-<div class="card mb-4">
-   <div class="card-body">
-    <form id="invoicePaymentForm">
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label for="invoiceSelect">Pilih Invoice</label>
-                    <select class="form-control select2" id="invoiceSelect" name="invoice_ids[]" multiple>
-                        </select>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label for="paket_selected">Pilih Paket</label>
-                    <select class="form-control select2" id="paket_selected" name="paket_selected">
-                        </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="row align-items-end">
-            <div class="col-md-7">
-                <div class="form-group">
-                    <label for="m_pengeluaran_name">Pilih Jenis Pengeluaran</label>
-                    <select class="form-control select2" id="m_pengeluaran_name" name="m_pengeluaran_name">
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="form-group">
-                    <label for="qty_input_html">Qty Input</label>
-                    <input type="number" class="form-control" name="qty_input_html" id="qty_input_html" value="1" min="1"/>
-                </div>
-            </div>
-
-            <div class="col-md-2">
-                <div class="form-group">
-                    <button type="button" id="add_tag_html" class="btn btn-primary btn-block">
-                        <i class="ti ti-plus me-1"></i> Tambah
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <hr>
-
-        <div id="pengeluaran_container">
-        </div>
-
-        <hr>
-
-        <div class="row">
-            <div class="col-md-12">
-                <button type="submit" class="btn btn-primary btn-lg btn-block">
-                    Proses Pembayaran
-                </button>
-            </div>
-        </div>
-    </form>
-</div>
-</div>
 
 <div class="modal fade" id="paymentModal" tabindex="-1">
     <div class="modal-dialog">
@@ -141,6 +84,7 @@
                 <th>Uang Masuk</th>
                 <th>Uang Keluar</th>
                 <th>Keuntungan</th>
+                <th>Action</th>
             </tr>
         </thead>
     </table>
@@ -156,6 +100,183 @@
     <p class="text-white-50">Mohon tunggu sebentar</p>
 </div>
 
+<div class="modal fade" id="modalCreateTrans" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel">Tambah Transaksi Baru</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <form id="invoicePaymentForm">
+                    <input type="hidden" id="id_header_trans" name="id_header_trans"/>
+                    <ul class="nav nav-tabs mb-3" id="transTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="step1-tab" data-toggle="tab" href="#step1" role="tab">
+                                1. Header Invoice
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link disabled" id="step2-tab" data-toggle="tab" href="#step2" role="tab">
+                                2. Detail Pengeluaran
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="transTabsContent">
+
+                        <div class="tab-pane fade show active" id="step1" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="invoiceSelect">Pilih Invoice <span class="text-danger">*</span></label>
+                                        <select class="form-control select2" id="invoiceSelect" name="invoice_ids[]" multiple style="width: 100%;">
+                                            </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="paket_selected">Pilih Paket <span class="text-danger">*</span></label>
+                                        <select class="form-control select2" id="paket_selected" name="paket_selected" style="width: 100%;">
+                                            </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-right mt-3">
+                                <button type="button" class="btn btn-primary" onclick="goToStep2()">
+                                    Save <i class="fas fa-arrow-right ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="step2" role="tabpanel">
+
+                            <div class="row align-items-end">
+                                <div class="col-md-7">
+                                    <div class="form-group">
+                                        <label for="m_pengeluaran_name">Pilih Jenis Pengeluaran</label>
+                                        <select class="form-control select2" id="m_pengeluaran_name" name="m_pengeluaran_name" style="width: 100%;">
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="qty_input_html">Qty Input</label>
+                                        <input type="number" class="form-control" name="qty_input_html" id="qty_input_html" value="1" min="1"/>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <button type="button" id="add_tag_html" class="btn btn-primary btn-block">
+                                            <i class="ti ti-plus me-1"></i> Tambah
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <div id="pengeluaran_container" style="max-height: 300px; overflow-y: auto;">
+                            </div>
+
+                            <hr>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <button type="button" class="btn btn-secondary btn-block" onclick="goToStep1()">
+                                        <i class="fas fa-arrow-left mr-1"></i> Kembali
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <button type="submit" class="btn btn-success btn-block">
+                                        <i class="fas fa-save mr-1"></i> Proses Pembayaran
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="DetailPengeluaran" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
+    <div class="modal-content" id="printArea">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Invoice Hotel</h5>
+        <button type="button" class="close d-print-none" data-dismiss="modal">
+          <span>&times;</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- HEADER -->
+        <div class="text-center mb-3">
+          <h5 class="font-weight-bold" id="hotel_name"></h5>
+          <small>No Invoice: <span id="no_invoice"></span></small>
+        </div>
+
+        <!-- INFO -->
+        <div class="row">
+          <div class="col-12 col-md-6">
+            <input type="hidden" id="id_invoice_view_detail" name="id_invoice_view_detail"/>
+            <p><strong>Nama Pemesan:</strong><br><span id="nama_pemesan"></span></p>
+          </div>
+          <div class="col-6 col-md-3">
+            <p><strong>Check In:</strong><br><span id="check_in_inv"></span></p>
+          </div>
+          <div class="col-6 col-md-3">
+            <p><strong>Check Out:</strong><br><span id="check_out_inv"></span></p>
+          </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-md-6">
+                <p><strong>Tanggal transaksi :</strong><br><span id="date_trans_inv"></span></p>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- DETAIL TABLE -->
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm">
+            <thead class="thead-light">
+              <tr>
+                <th>Type Room</th>
+                <th class="text-center">Qty</th>
+                <th class="text-right">Harga</th>
+                <th class="text-right">Total Malam</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody id="detail_rows"></tbody>
+          </table>
+        </div>
+
+        <div class="text-right">
+          <h6>Total Payment:</h6>
+          <h5 class="font-weight-bold">SAR <span id="total_payment"></span></h5>
+          <h5 class="font-weight-bold">Rp <span id="total_payment_rp"></span></h5>
+        </div>
+
+      </div>
+
+      <div class="modal-footer d-print-none">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+      </div>
+
+    </div>
+  </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -203,16 +324,97 @@
             })
     }
 
-    $("#invoicePaymentForm").on("submit",function(){
+    function openModalCreateTrans(){
+        $("#id_header_trans").val(0)
+        $('#invoicePaymentForm')[0].reset();
+        $('#invoiceSelect').val(null).trigger('change');
+        $('#paket_selected').val(null).trigger('change');
+        $('#m_pengeluaran_name').val(null).trigger('change');
+        $('#pengeluaran_container').empty(); // Hapus item dinamis lama
+
+        // Reset Tab ke Step 1 & Disable Step 2
+        $('#step1-tab').tab('show');
+        $('#step2-tab').addClass('disabled');
+
+        // Tampilkan Modal
+        $('#modalCreateTrans').modal('show');
+    }
+
+
+    function goToStep2() {
+        let invoice = $('#invoiceSelect').val();
+        let paket   = $('#paket_selected').val();
+
+        if (!invoice || invoice.length === 0 || !paket) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Data Belum Lengkap',
+                text: 'Harap pilih Invoice dan Paket terlebih dahulu!'
+            });
+            return;
+        }
+         ajaxRequest( `{{ route('t_pp_package_create') }}`,'POST',{
+           invoice_ids : invoice,
+           uuid_paket_item:paket
+        }, localStorage.getItem('token'))
+        .then(response =>{
+           let res_success = response.data;
+           if(res_success.status){
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data disimpan' });
+                $('#step2-tab').removeClass('disabled');
+                $('#step2-tab').tab('show');
+                $("#id_header_trans").val(res_success.data.id)
+           }else{
+             Swal.fire('Gagal!', 'Terjadi kesalahan saat simpan.', 'error');
+           }
+        })
+        .catch((err)=>{
+            console.log('error select2 invoice',err);
+        })
+
+    }
+
+    function goToStep1() {
+        $('#step1-tab').tab('show');
+    }
+
+    $("#invoicePaymentForm").on("submit",function(e){
         e.preventDefault();
         let formData = new FormData(this);
         let data_json = Object.fromEntries(formData);
-        console.log('xxxxx',data_json)
-        // let json_data = {
-        //     id: idInput,
-        //     nama_pengeluaran: params.get('pengeluaran_name'),
-        //     is_active: params.get('is_active_check')
-        // };
+        let items_dinamis = getFormData();
+        console.log(items_dinamis);
+         ajaxRequest( `{{ route('t_pp_package_createdetail') }}`,'POST',items_dinamis
+         , localStorage.getItem('token'))
+            .then((response) =>{
+                let res_data = response.data;
+                if(res_data.status == 200){
+                     $('#modalCreateTrans').modal('hide');
+                       Swal.fire({
+                            title: "Add Transaksi sukses",
+                            text: "Berhasil Nambah transaksi",
+                            icon: "success"
+                        });
+                        table_pengeluaran.ajax.reload()
+                }else{
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal!',
+                        text: 'gagal simpan data'
+                    });
+                }
+            }).catch((err)=>{
+                let errorMsg = 'Terjadi kesalahan pada sistem.';
+                if(err.responseJSON && err.responseJSON.message) {
+                    errorMsg = err.responseJSON.message;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal!',
+                    text: errorMsg
+                });
+            })
     })
  //
     let column_table = [
@@ -224,16 +426,16 @@
             },
         },
         { data: 'name_paket', name: 'name_paket' },
-        {
-            data: 'nominal_purchase',
-            name: 'nominal_purchase',
+         {
+            data: 'nominal_sales',
+            name: 'nominal_sales',
             render: function(data) {
                 return formatRupiah(data);
             }
         },
-         {
-            data: 'nominal_sales',
-            name: 'nominal_sales',
+        {
+            data: 'nominal_purchase',
+            name: 'nominal_purchase',
             render: function(data) {
                 return formatRupiah(data);
             }
@@ -245,6 +447,13 @@
                 return formatRupiah(data);
             }
         },
+        {
+            data: "id", className: "text-center", orderable: false, searchable: false,
+            render: function(data) {
+                let btn_detail = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-success view-trans-laba"><i class="ti ti-eye"></i></a>`;
+                return btn_detail;
+            }
+        }
     ];
     table_pengeluaran = initGlobalDataTableToken(
         '#pangeluaran_package_invoice_web_list',
@@ -337,11 +546,15 @@
         }
     });
 
+    $("#pangeluaran_package_invoice_web_list").on("click",'.view-trans-laba',function(){
+        $("#DetailPengeluaran").modal('show')
+    })
 
     $('#invoiceSelect').on('change', function() {
         // .select2('data') mengambil seluruh objek data
         let rawData = $(this).select2('data');
         invoiceArraySaved = rawData.map(item => item.id);
+        console.log('rowdata',rawData)
         $('#paket_selected').val(null).trigger('change');
         ajaxRequest( `{{ route('get-item-byinvoice') }}`,'GET',{
            invoice_ids : invoiceArraySaved
@@ -394,52 +607,7 @@
         }
     });
 
-    //  function renderPaketSelect(paket) {
-    //     const $select = $('#paket_selected');
-    //     $select.empty();
 
-    //     paket.forEach(inv => {
-    //         const option = new Option(
-    //             inv.nama_paket,
-    //             inv.uuid_proudct_and_service,
-    //             false,
-    //             false
-    //         );
-    //         $select.append(option);
-    //     });
-    //     $select.trigger('change');
-    // }
-
-
-
-    // loadInvoiceSelect2(currentPage);
-    // function loadInvoiceSelect2(page){
-    //      ajaxRequest( `{{ route('list-invoice-select2') }}`,'GET',{
-    //            page:page, keyword: keyword.toUpperCase()
-    //         }, null)
-    //         .then(response =>{
-    //             console.log('select3',response.data.data.data)
-    //             //renderTable(response.data.data);
-    //             renderInvoiceSelect(response.data.data.data);
-    //         })
-    //         .catch((err)=>{
-    //             console.log('error select2 invoice',err);
-    //         })
-    // }
-
-
-    // loadPaketSelect2(currentPage);
-    // function loadPaketSelect2(page){
-    //      ajaxRequest( `{{ route('list-paket-select2') }}`,'GET',{
-    //            page:page
-    //         }, null)
-    //         .then(response =>{
-    //             renderPaketSelect(response.data.data.data);
-    //         })
-    //         .catch((err)=>{
-    //             console.log('error select2 invoice',err);
-    //         })
-    // }
 
     // === LOAD PERTAMA ===
     //loadInvoices(currentPage);
@@ -525,30 +693,82 @@
         }).format(number);
     }
 
-   $('#add_tag_html').click(function() {
+    //ambil data input dinamis
 
+    function getFormData() {
+        // 1. Siapkan ARRAY KOSONG untuk setiap kolom
+        let package_ids     = [];
+        let pengeluaran_ids = [];
+        let is_idrs         = [];
+        let nom_currencies  = []; // Untuk 'nominal_currency' (Rate)
+        let nom_idrs        = []; // Untuk 'nominal_idr'
+        let nom_sars        = []; // Untuk 'nominal_sar'
+
+        // 2. Loop setiap baris (Row)
+        $('.row-item-pengeluaran').each(function() {
+            let row = $(this);
+
+            // Ambil Value dari Input
+            let p_id        = row.find('input[name="pengeluaran_id[]"]').val();
+            let p_nominal   = row.find('input[name="nominal_pengeluaran_dinamis[]"]').val(); // Input Utama
+            let p_rate      = row.find('input[name="currency_nominal[]"]').val();            // Input Rate SAR
+            let p_currency  = row.find('input[type="radio"]:checked').val();                 // 1=IDR, 0=SAR
+
+            // Parsing ke Angka & Boolean
+            let val_nominal = parseFloat(p_nominal) || 0;
+            let val_rate    = parseFloat(p_rate) || 0;
+            let is_idr_bool = (p_currency == '1');
+
+            // 3. PUSH ke Array masing-masing (Isi Kolom)
+            package_ids.push($("#id_header_trans").val());
+            pengeluaran_ids.push(p_id);
+            is_idrs.push(is_idr_bool ? 1 : 0); // Kirim 1 atau 0
+
+            // Logic Rate (nominal_currency)
+            nom_currencies.push(is_idr_bool ? 0 : val_rate);
+
+            // Logic Split Nominal (Isi 0 jika tidak sesuai currency, agar index sinkron)
+            if (is_idr_bool) {
+                nom_idrs.push(val_nominal); // Isi IDR
+                nom_sars.push(0);           // SAR Kosong
+            } else {
+                nom_idrs.push(0);           // IDR Kosong
+                nom_sars.push(val_nominal);    // Isi SAR
+            }
+        });
+
+        // 4. RETURN OBJECT berisi Array (Sesuai permintaan Laravel)
+        return {
+            package_expenses_id: package_ids,
+            pengeluaran_id:      pengeluaran_ids,
+            is_idr:              is_idrs,
+            nominal_currency:    nom_currencies,
+            nominal_idr:         nom_idrs,
+            nominal_sar:         nom_sars
+        };
+    }
+
+    $('#add_tag_html').click(function() {
         let pengeluaranId   = $('#m_pengeluaran_name').val();
         let pengeluaranText = $('#m_pengeluaran_name option:selected').text();
-        let qty             = parseInt($('#qty_input_html').val()) || 1; // Default 1 jika kosong
-        // Validasi: Pastikan user memilih jenis pengeluaran
+        let qty             = parseInt($('#qty_input_html').val()) || 1;
+        let rateDariAjax    = Number($('#temp_rate_sar_from_ajax').val());
         if (!pengeluaranId) {
-            alert("Harap pilih Jenis Pengeluaran terlebih dahulu!");
+            Swal.fire('Warning', 'Harap pilih Jenis Pengeluaran terlebih dahulu!', 'warning');
             return;
         }
-        // Loop sebanyak Qty
+
         for (let i = 0; i < qty; i++) {
-            let cek_index = i != 0 ? i : '';
-            // Template HTML String
-            // Perhatikan: name="...[]" agar terbaca array di controller
+            let uniqueId = Date.now() + i;
+
             let htmlRow = `
-            <div class="row align-items-end mb-2 row-item-pengeluaran">
+            <div class="row align-items-center mb-2 row-item-pengeluaran">
+
                 <div class="col-md-6">
                     <div class="form-group mb-0">
-                        <label class="small font-weight-bold text-muted">${pengeluaranText} ${cek_index}</label>
+                        <label class="small font-weight-bold text-muted mb-1">${pengeluaranText}</label>
                         <input type="hidden" name="pengeluaran_id[]" value="${pengeluaranId}">
-
-                        <div class="input-group">
-                            <div class="input-group-prepend">
+                        <div class="input-group input-group-sm"> <div class="input-group-prepend">
                                 <span class="input-group-text">Rp/Sar</span>
                             </div>
                             <input type="number" class="form-control" name="nominal_pengeluaran_dinamis[]" placeholder="0" required>
@@ -556,38 +776,66 @@
                     </div>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-5">
                     <div class="form-group mb-0">
-                        <label class="small font-weight-bold text-muted d-block">Mata Uang</label>
+                        <div class="d-flex align-items-center mt-4"> <label class="small font-weight-bold text-muted mr-2 mb-0">Mata Uang:</label>
 
-                        <div class="form-check form-check-inline mt-2">
-                            <input class="form-check-input" type="radio" name="is_currency_check_${cek_index}" id="radio_idr_${cek_index}" value="1" checked>
-                            <label class="form-check-label" for="radio_idr_${cek_index}">IDR</label>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" id="radio_idr_${uniqueId}" value="1" checked>
+                                <label class="form-check-label small" for="radio_idr_${uniqueId}">IDR</label>
+                            </div>
+
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" id="radio_sar_${uniqueId}" value="0">
+                                <label class="form-check-label small" for="radio_sar_${uniqueId}">SAR</label>
+                            </div>
                         </div>
 
-                        <div class="form-check form-check-inline mt-2">
-                            <input class="form-check-input" type="radio" name="is_currency_check_${i}" id="radio_sar_${i}" value="0">
-                            <label class="form-check-label" for="radio_sar_${i}">SAR</label>
+                        <div class="box-currency-nominal d-none mt-1 animate__animated animate__fadeIn">
+                            <input type="number" class="form-control form-control-sm" value="${rateDariAjax}" name="currency_nominal[]" placeholder="Masukkan Rate SAR">
                         </div>
                     </div>
                 </div>
 
-                <div class="col-md-2">
-                    <div class="form-group mb-0">
-                        <button type="button" class="btn btn-danger btn-block btn-remove" title="Hapus">
+                <div class="col-md-1">
+                    <div class="form-group mb-0 mt-4">
+                        <button type="button" class="btn btn-danger btn-sm btn-block btn-remove" title="Hapus">
                             <i class="ti ti-trash"></i>
                         </button>
                     </div>
                 </div>
 
             </div>`;
+
             $('#pengeluaran_container').append(htmlRow);
         }
-
-        // Opsional: Reset Qty ke 1 setelah tambah
         $('#qty_input_html').val(1);
     });
 
+//temp_rate_sar_from_ajax
+     ajaxRequest(`{{ route('getByIdCurrency') }}`, 'GET', { id : 1 }, localStorage.getItem('token'))
+        .then(response => {
+            $("#temp_rate_sar_from_ajax").val(response.data.data.nominal_rupiah_1_riyal);
+        })
+        .catch((err) => console.log('error currency', err));
+    $(document).on('change', '.check-currency', function() {
+        let currentRow = $(this).closest('.row-item-pengeluaran');
+        let boxInput = currentRow.find('.box-currency-nominal');
+        let inputField = currentRow.find('input[name="currency_nominal[]"]');
+
+        // 3. Cek valuenya (0 = SAR, 1 = IDR)
+        if ($(this).val() == '0') {
+            // Jika SAR, TAMPILKAN input
+            boxInput.removeClass('d-none');
+            inputField.prop('required', true);
+
+        } else {
+            // Jika IDR, SEMBUNYIKAN input
+            boxInput.addClass('d-none');
+            inputField.val(''); // Kosongkan nilainya
+            inputField.prop('required', false);
+        }
+    });
     // --- 2. LOGIC TOMBOL HAPUS (Event Delegation) ---
     // Menggunakan $(document).on agar elemen yang baru dibuat tetap bisa diklik
     $(document).on('click', '.btn-remove', function() {

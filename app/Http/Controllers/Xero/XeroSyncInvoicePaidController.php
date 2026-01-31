@@ -495,6 +495,7 @@ class XeroSyncInvoicePaidController extends Controller
         try {
             $hapus_detail = ItemDetailInvoices::query()->delete();
             $hapus_invoice = InvoicesAllFromXero::query()->delete();
+            $hapus_paket = ItemsPaketAllFromXero::query()->delete();
             DB::commit();
             Log::info("deleted all invoice success: ");
            return response()->json([
