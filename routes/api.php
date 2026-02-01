@@ -116,9 +116,9 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 
-    Route::middleware(['auth:sanctum','xss'])->prefix("transaksi")->group(function () {
+    Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
-            Route::prefix('hotel')->group(function(){
+            Route::prefix('hotel')->group(function () {
                 Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');
                 Route::get('/getTotalAmount', [RHotelApiController::class, 'getTotalAmount'])->name('total-amount-revanue-hotel');
                 Route::post('/store', [RHotelApiController::class, 'savedRhotel'])->name('save-revenue-hotel');
@@ -134,16 +134,16 @@ Route::prefix("admin-web")->group(function () {
         });
 
         Route::prefix('expenses')->group(function () {
-            Route::prefix("/package-profit")->group(function(){
+            Route::prefix("/package-profit")->group(function () {
                 Route::get('/getData', [ExpensesPackageApiController::class, 'getAllPaginate'])->name('t_pp_package_getall');
-                Route::get('/get_by_id', [ExpensesPackageApiController::class, 'getById'])->name('md_gbyid_pengeluaran');
+                Route::get('/get_by_id', [ExpensesPackageApiController::class, 'getById'])->name('t_gbyid_pengeluaran');
                 Route::post('/save', [ExpensesPackageApiController::class, 'store'])->name('t_pp_package_create');
                 Route::post('/saveDetail', [ExpensesPackageApiController::class, 'storeDetail'])->name('t_pp_package_createdetail');
             });
         });
     });
 
-    Route::middleware(['auth:sanctum','xss'])->prefix("master-data")->group(function () {
+    Route::middleware(['auth:sanctum', 'xss'])->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
         Route::prefix("pengeluaran")->group(function () {
@@ -168,10 +168,10 @@ Route::prefix("admin-web")->group(function () {
 
     });
 
-     Route::prefix("config-currency")->group(function () {
+    Route::prefix("config-currency")->group(function () {
         Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
         Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
-     });
+    });
 });
 
 
