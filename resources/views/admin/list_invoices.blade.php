@@ -430,9 +430,10 @@
         {
             data: "id", className: "text-center", orderable: false, searchable: false,
             render: function(data) {
-                let btn_pencil = `<a href="javascript:;" style="margin-left:5px;margin-right:10px;" data-id="${data}" class="text-primary edit-trans-laba"><i class="ti ti-pencil"></i></a>`;
+                let btn_pencil = `<a href="javascript:;" style="margin-left:10px;margin-right:0px;" data-id="${data}" class="text-primary edit-trans-laba"><i class="ti ti-pencil"></i></a>`;
                 let btn_detail = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-success view-trans-laba"><i class="ti ti-eye"></i></a>`;
-                return btn_pencil + btn_detail;
+                let btn_delete = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-danger delete-trans-laba"><i class="ti ti-trash"></i></a>`;
+                return btn_detail + btn_pencil + btn_delete;
             }
         }
     ];
@@ -527,9 +528,52 @@
         }
     });
 
+    $("#pangeluaran_package_invoice_web_list").on("click",".delete-trans-laba",function(){
+        let id = $(this).data('id');
+        let rowData = table_pengeluaran.row($(this).parents('tr')).data();
+
+        Swal.fire({
+            title: 'Apakah Anda yakin?',
+            text: `Anda akan menghapus transaksi ${rowData.name_paket}. Data yang dihapus tidak dapat dikembalikan!`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33', // Merah untuk bahaya
+            cancelButtonColor: '#3085d6', // Biru untuk batal
+            confirmButtonText: 'Ya, Hapus!',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                 ajaxRequest( `{{ route('t_pp_package_delete') }}`,'POST',{
+                    id : id
+                    }, localStorage.getItem('token'))
+                    .then(response =>{
+                        if(response.data.status){
+                            table_pengeluaran.ajax.reload()
+                        }else{
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Oops',
+                                text: 'gagal hapus ',
+                            })
+                        }
+                        //console.log('res',response)
+                    })
+                    .catch((err)=>{
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Oops',
+                            text: 'gagal hapus ',
+                        })
+                    })
+            }
+        })
+
+    })
+
+
     $("#pangeluaran_package_invoice_web_list").on("click",'.view-trans-laba',function(){
          let id = $(this).data('id');
-         console.log('aaa',id)//
+
         ajaxRequest( `{{ route('t_gbyid_pengeluaran') }}`,'GET',{
            id : id
         }, localStorage.getItem('token'))
