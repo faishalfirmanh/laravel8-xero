@@ -135,7 +135,17 @@ $(document).ready(function(){
                         <td>${formatDate(inv.Date)}</td>
                         <td>${formatDate(inv.DueDate)}</td>
                         <td>${Number(inv.AmountDue ?? 0).toLocaleString('id-ID')}</td>
-                        <td>${inv.Status}</td>
+                        <td>
+                        ${(() => {
+                            switch(inv.Status){
+                                case 'AUTHORISED': return '<span class="badge badge-primary">AUTHORISED</span>';
+                                case 'DRAFT': return '<span class="badge badge-secondary">DRAFT</span>';
+                                case 'SUBMITTED': return '<span class="badge badge-warning">SUBMITTED</span>';
+                                case 'PAID': return '<span class="badge badge-success">PAID</span>';
+                                default: return `<span class="badge badge-dark">${inv.Status}</span>`;
+                            }
+                        })()}
+                        </td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-void void-btn"
                                 data-id="${inv.InvoiceID}"
@@ -200,45 +210,60 @@ $(document).ready(function(){
     });
 
     // DELETE / VOID (TIDAK DIUBAH)
-    $(document).on('click','.void-btn',function(){
-        let id = $(this).data('id');
-        let status = $(this).data('status');
+$(document).on('click','.void-btn',function(){
+    let uuid = $(this).data('id');
+    let status = $(this).data('status');
 
-        console.log('Invoice ID:', id);
-        console.log('Invoice Status:', status);
+    console.log('Invoice UUID:', uuid);
+    console.log('Invoice Status:', status);
 
-        let url = (status === 'AUTHORISED' || status === 'PAID')
-            ? `xero.void${id}`
-            : `xero.delete${id}`;
+    Swal.fire({
+        title: 'Yakin?',
+        text: 'Invoice akan diproses (delete / void)',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Ya, lanjut!'
+    }).then((result) => {
+        if (result.isConfirmed) {
 
-        let method = (status === 'AUTHORISED' || status === 'PAID') ? 'POST' : 'DELETE';
+            // 🔥 ALERT PROSES
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Sedang menghapus / void invoice',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
 
-        Swal.fire({
-            title: 'Yakin?',
-            text: 'Invoice akan dihapus!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            confirmButtonText: 'Ya, hapus!'
-        }).then((result) => {
-            if(result.isConfirmed){
-                Swal.showLoading();
-                $.ajax({
-                    url: url,
-                    method: method,
-                    headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}'},
-                    success:function(){
-                        Swal.fire('Berhasil','Invoice berhasil dihapus','success');
-                        loadXero();
-                    },
-                    error:function(){
-                        Swal.fire('Gagal','Gagal hapus invoice','error');
-                    }
-                });
-            }
-        });
+            $.ajax({
+                url: `/api/xero-integrasi/delete-invoice-byuuid/${uuid}`,
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                success: function(res){
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: res.message ?? 'Invoice berhasil diproses'
+                    });
+
+                    loadXero(); // reload data
+                },
+                error: function(xhr){
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: xhr.responseJSON?.error ?? 'Gagal memproses invoice'
+                    });
+                }
+            });
+        }
     });
-
+});
 });
 </script>
 @endsection

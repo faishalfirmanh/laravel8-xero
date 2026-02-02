@@ -34,7 +34,7 @@ use App\Http\Controllers\MasterData\LocationVillageController;
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 
-use App\Http\Controllers\Transaction\XeroController;
+use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
 
@@ -119,9 +119,7 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-select2');
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
-    Route::get('list-transaksi', [XeroController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
-    Route::delete('delete/{id}', [XeroController::class, 'deleteInvoice'])->name('xero.delete');// DELETE (DRAFT / SUBMITTED)
-    Route::post('void/{id}', [XeroController::class, 'voidInvoice'])->name('xero.void'); // VOID (AUTHORISED / PAID)
+    Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
 
         Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {

@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\Transaction;
+namespace App\Http\Controllers\Transaction\Revenue;
 use App\Http\Controllers\Controller;
 use App\ConfigRefreshXero;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 
-class XeroController extends Controller
+class XeroTransaksiController extends Controller
 {
     use ConfigRefreshXero;
 
@@ -115,71 +115,59 @@ class XeroController extends Controller
      * VOID INVOICE
      * (AUTHORISED & PAID)
      */
-    public function voidInvoice($id)
-    {
-        try {
-            $tokens = $this->getValidToken();
-            if (!$tokens) {
-                return response()->json(['error' => 'Token tidak valid'], 401);
-            }
+public function forceDeleteInvoice($uuid_inv)
+{
+    try {
+        $tokens = $this->getValidToken();
+        if (!$tokens) {
+            return response()->json(['error' => 'Token tidak valid'], 401);
+        }
 
-            $accessToken = $tokens['access_token'];
-            $tenantId = $this->getTenantId($accessToken);
+        $accessToken = $tokens['access_token'];
+        $tenantId = $this->getTenantId($accessToken);
 
-            $client = new Client([
-                'base_uri' => 'https://api.xero.com/api.xro/2.0/',
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $accessToken,
-                    'Xero-tenant-id' => $tenantId,
-                    'Accept' => 'application/json',
-                ],
-            ]);
+        $client = new Client([
+            'base_uri' => 'https://api.xero.com/api.xro/2.0/',
+            'headers' => [
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Xero-tenant-id' => $tenantId,
+                'Accept' => 'application/json',
+            ],
+        ]);
 
-            $client->post("Invoices/{$id}/void");
+        // 1️⃣ Ambil invoice dulu
+        $response = $client->get("Invoices/{$uuid_inv}");
+        $invoice = json_decode($response->getBody(), true)['Invoices'][0];
+
+        $status = $invoice['Status'];
+
+        // 2️⃣ Tentukan aksi
+        if (in_array($status, ['AUTHORISED', 'PAID'])) {
+            // VOID
+            $client->post("Invoices/{$uuid_inv}/void");
 
             return response()->json([
                 'message' => 'Invoice berhasil di-void'
             ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage()
-            ], 500);
         }
-    }
 
-    /**
-     * DELETE INVOICE
-     * (DRAFT & SUBMITTED)
-     */
-    public function deleteInvoice($id)
-    {
-        try {
-            $tokens = $this->getValidToken();
-            if (!$tokens) {
-                return response()->json(['error' => 'Token tidak valid'], 401);
-            }
-
-            $accessToken = $tokens['access_token'];
-            $tenantId = $this->getTenantId($accessToken);
-
-            $client = new Client([
-                'base_uri' => 'https://api.xero.com/api.xro/2.0/',
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $accessToken,
-                    'Xero-tenant-id' => $tenantId,
-                    'Accept' => 'application/json',
-                ],
-            ]);
-
-            $client->delete("Invoices/{$id}");
+        if (in_array($status, ['DRAFT', 'SUBMITTED'])) {
+            // DELETE
+            $client->delete("Invoices/{$uuid_inv}");
 
             return response()->json([
                 'message' => 'Invoice berhasil dihapus'
             ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage()
-            ], 500);
         }
+
+        return response()->json([
+            'error' => 'Status invoice tidak bisa dihapus'
+        ], 400);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 }

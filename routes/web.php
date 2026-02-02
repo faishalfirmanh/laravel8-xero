@@ -9,7 +9,7 @@ use App\Http\Controllers\Web\Config\CurrencyController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\Transaction\XeroController;
+use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 /*
@@ -72,11 +72,11 @@ Route::get('/list_productAndService', [ProductAndServiceController::class, 'view
 Route::get('/detailInvoiceWeb/{invoiceId}', [InvoicesController::class, 'viewDetailInvoice']);
 
 
-Route::get('/xero/list-transaksi', [XeroController::class, 'index'])
+Route::get('/xero/list-transaksi', [XeroTransaksiController::class, 'index'])
     ->name('xero-list-transaksi');
 
-Route::get('/api/xero/list-transaksi', [XeroController::class, 'listTransaksi']);
-Route::post('/api/xero/void/{id}', [XeroController::class, 'voidInvoice']);
+Route::get('/api/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
+Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
 
 
 
