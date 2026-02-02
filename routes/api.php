@@ -145,6 +145,7 @@ Route::prefix("admin-web")->group(function () {
                 Route::post('/delete', [ExpensesPackageApiController::class, 'deletedExpenses'])->name('t_pp_package_delete');
                 Route::post('/save', [ExpensesPackageApiController::class, 'store'])->name('t_pp_package_create');
                 Route::post('/saveDetail', [ExpensesPackageApiController::class, 'storeDetail'])->name('t_pp_package_createdetail');
+                Route::post('/deletedRow', [ExpensesPackageApiController::class, 'deleteDetail'])->name('t_pp_package_deleteddetail');
             });
         });
     });

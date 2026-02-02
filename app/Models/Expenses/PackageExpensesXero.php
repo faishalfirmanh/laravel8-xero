@@ -4,6 +4,7 @@ namespace App\Models\Expenses;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Expenses\DInvPackageExpenses;
 use App\Models\Expenses\DPackageExpensesXero;
 
 class PackageExpensesXero extends Model
@@ -24,5 +25,10 @@ class PackageExpensesXero extends Model
     public function details()
     {
        return $this->hasMany(DPackageExpensesXero::class, 'package_expenses_id');
+    }
+
+    public function detailsLocalInvoice()
+    {
+       return $this->hasMany(DInvPackageExpenses::class, 'package_expenses_id');
     }
 }
