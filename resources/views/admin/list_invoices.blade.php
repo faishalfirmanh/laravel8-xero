@@ -211,7 +211,7 @@
     <div class="modal-content" id="printArea">
 
       <div class="modal-header">
-        <h5 class="modal-title">Invoice Hotel</h5>
+        <h5 class="modal-title">Detail Pengeluaran</h5>
         <button type="button" class="close d-print-none" data-dismiss="modal">
           <span>&times;</span>
         </button>
@@ -221,27 +221,8 @@
 
         <!-- HEADER -->
         <div class="text-center mb-3">
-          <h5 class="font-weight-bold" id="hotel_name"></h5>
-          <small>No Invoice: <span id="no_invoice"></span></small>
-        </div>
-
-        <!-- INFO -->
-        <div class="row">
-          <div class="col-12 col-md-6">
-            <input type="hidden" id="id_invoice_view_detail" name="id_invoice_view_detail"/>
-            <p><strong>Nama Pemesan:</strong><br><span id="nama_pemesan"></span></p>
-          </div>
-          <div class="col-6 col-md-3">
-            <p><strong>Check In:</strong><br><span id="check_in_inv"></span></p>
-          </div>
-          <div class="col-6 col-md-3">
-            <p><strong>Check Out:</strong><br><span id="check_out_inv"></span></p>
-          </div>
-        </div>
-        <div class="row">
-            <div class="col-12 col-md-6">
-                <p><strong>Tanggal transaksi :</strong><br><span id="date_trans_inv"></span></p>
-            </div>
+          <h5 class="font-weight-bold" id="name_paket_detail"></h5>
+          <small> <span id="name_paket_detail"></span></small>
         </div>
 
         <hr>
@@ -251,11 +232,8 @@
           <table class="table table-bordered table-sm">
             <thead class="thead-light">
               <tr>
-                <th>Type Room</th>
-                <th class="text-center">Qty</th>
-                <th class="text-right">Harga</th>
-                <th class="text-right">Total Malam</th>
-                <th class="text-right">Total</th>
+                <th>Nama Pengeluaran</th>
+                <th class="text-right">Nominal</th>
               </tr>
             </thead>
             <tbody id="detail_rows"></tbody>
@@ -263,9 +241,10 @@
         </div>
 
         <div class="text-right">
-          <h6>Total Payment:</h6>
-          <h5 class="font-weight-bold">SAR <span id="total_payment"></span></h5>
-          <h5 class="font-weight-bold">Rp <span id="total_payment_rp"></span></h5>
+          <h6>Nominal:</h6>
+           <h5 class="font-weight-bold">Uang Masuk <span id="money_in"></span></h5>
+          <h5 class="font-weight-bold">Uang Keluar <span id="money_out"></span></h5>
+          <h5 class="font-weight-bold">Keuntungan <span id="money_profit"></span></h5>
         </div>
 
       </div>
@@ -388,7 +367,8 @@
          , localStorage.getItem('token'))
             .then((response) =>{
                 let res_data = response.data;
-                if(res_data.status == 200){
+                console.log("saved",res_data)
+                if(res_data.status){
                      $('#modalCreateTrans').modal('hide');
                        Swal.fire({
                             title: "Add Transaksi sukses",
@@ -450,8 +430,9 @@
         {
             data: "id", className: "text-center", orderable: false, searchable: false,
             render: function(data) {
+                let btn_pencil = `<a href="javascript:;" style="margin-left:5px;margin-right:10px;" data-id="${data}" class="text-primary edit-trans-laba"><i class="ti ti-pencil"></i></a>`;
                 let btn_detail = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-success view-trans-laba"><i class="ti ti-eye"></i></a>`;
-                return btn_detail;
+                return btn_pencil + btn_detail;
             }
         }
     ];
@@ -547,7 +528,38 @@
     });
 
     $("#pangeluaran_package_invoice_web_list").on("click",'.view-trans-laba',function(){
-        $("#DetailPengeluaran").modal('show')
+         let id = $(this).data('id');
+         console.log('aaa',id)//
+        ajaxRequest( `{{ route('t_gbyid_pengeluaran') }}`,'GET',{
+           id : id
+        }, localStorage.getItem('token'))
+        .then(response =>{
+            let res_data = response.data.data
+            let rows = '';
+            $("#name_paket_detail").text(res_data.name_paket);
+            res_data.details.forEach(item => {
+                rows += `
+                    <tr>
+                        <td>${item.nama_pengeluaran}</td>
+                        <td class="text-center">${formatCurrency(item.nominal_idr)}</td>
+                    </tr>
+                `;
+            });
+            console.log('aa',res_data)
+            $("#money_in").text(formatCurrency(res_data.nominal_sales))
+            $("#money_out").text(formatCurrency(res_data.nominal_purchase))
+            $("#money_profit").text(formatCurrency(res_data.nominal_profit))
+            document.getElementById('detail_rows').innerHTML = rows;
+           $("#DetailPengeluaran").modal('show')
+        })
+        .catch((err)=>{
+            console.log('err',err)
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops',
+                text: 'gagal load detail ',
+            })
+        })
     })
 
     $('#invoiceSelect').on('change', function() {
