@@ -9,6 +9,8 @@ use App\Http\Controllers\Web\Config\CurrencyController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
+
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 /*
 |--------------------------------------------------------------------------
@@ -68,3 +70,13 @@ Route::get('/getContact', [ContactController::class, 'getContact']);
 
 Route::get('/list_productAndService', [ProductAndServiceController::class, 'viewProduct']);
 Route::get('/detailInvoiceWeb/{invoiceId}', [InvoicesController::class, 'viewDetailInvoice']);
+
+
+Route::get('/xero/list-transaksi', [XeroTransaksiController::class, 'index'])
+    ->name('xero-list-transaksi');
+
+Route::get('/api/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
+Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
+
+
+

@@ -33,7 +33,11 @@ use App\Http\Controllers\MasterData\LocationVillageController;
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
+
+use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
+
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
+
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -115,8 +119,9 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-select2');
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
+    Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
 
-    Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
+        Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
             Route::prefix('hotel')->group(function () {
                 Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');
@@ -233,7 +238,7 @@ Route::prefix("master-data")->group(function () {
             Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
             Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
         });
-
     });
+    
 });
 
