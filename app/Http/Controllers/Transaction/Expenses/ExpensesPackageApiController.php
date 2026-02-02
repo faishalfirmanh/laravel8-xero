@@ -158,23 +158,19 @@ class ExpensesPackageApiController extends Controller
     }
 
 
-    public function deleteInvoiceReveueHotel(Request $request)
+    public function deletedExpenses(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:invoices_hotels,id'
+            'id'=>'required|exists:package_expenses_xeros,id'
         ]);
+
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
         // dd($request->id);
-        $detail = DetailInvoicesHotel::where('invoice_id', $request->id)->delete();
-        $data = InvoicesHotel::where('id', $request->id)->delete();
-        if ($detail) {
-            return response()->json(['msg' => 'success'], 200);
-        } else {
-            return response()->json(['msg' => 'error'], 500);
-        }
-
+        $detail = $this->repo_detail->deleteWithIdDinamisMultiRow('package_expenses_id',$request->id);
+        $parnet = $this->repo->deleteWithIdDinamisMultiRow('id',$request->id);
+        return $this->autoResponse($parnet);
     }
 
     public function printInvoice(Request $request,$id)

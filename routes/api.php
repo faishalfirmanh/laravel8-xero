@@ -144,6 +144,7 @@ Route::prefix("admin-web")->group(function () {
             Route::prefix("/package-profit")->group(function () {
                 Route::get('/getData', [ExpensesPackageApiController::class, 'getAllPaginate'])->name('t_pp_package_getall');
                 Route::get('/get_by_id', [ExpensesPackageApiController::class, 'getById'])->name('t_gbyid_pengeluaran');
+                Route::post('/delete', [ExpensesPackageApiController::class, 'deletedExpenses'])->name('t_pp_package_delete');
                 Route::post('/save', [ExpensesPackageApiController::class, 'store'])->name('t_pp_package_create');
                 Route::post('/saveDetail', [ExpensesPackageApiController::class, 'storeDetail'])->name('t_pp_package_createdetail');
             });
