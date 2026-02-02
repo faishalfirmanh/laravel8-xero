@@ -1,25 +1,47 @@
 <?php
 
 namespace App\Http\Controllers\Transaction;
-
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Services\XeroService;
+use App\ConfigRefreshXero;
+use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 
 class XeroController extends Controller
 {
+    use ConfigRefreshXero;
+
+    /**
+     * View
+     */
     public function index()
     {
         return view('admin.xero.list-transaksi');
     }
 
+    /**
+     * LIST TRANSAKSI + FILTER + PAGINATION
+     */
     public function listTransaksi(Request $request)
     {
         try {
-            $accessToken = XeroService::getAccessToken();
-            $tenantId = env('XERO_TENANT_ID');
+            // 🔑 Ambil token valid (auto refresh)
+            $tokens = $this->getValidToken();
 
+            if (!$tokens || empty($tokens['access_token'])) {
+                return response()->json([
+                    'error' => 'Token Xero tidak valid, silakan login ulang'
+                ], 401);
+            }
+
+            $accessToken = $tokens['access_token'];
+
+            // 🔑 Ambil tenant ID
+            $tenantId = $this->getTenantId($accessToken);
+            if (!$tenantId) {
+                return response()->json(['error' => 'Tenant ID tidak ditemukan'], 500);
+            }
+
+            // 🔥 Client Xero
             $client = new Client([
                 'base_uri' => 'https://api.xero.com/api.xro/2.0/',
                 'headers' => [
@@ -31,45 +53,78 @@ class XeroController extends Controller
 
             $response = $client->get('Invoices');
             $data = json_decode($response->getBody(), true);
+
             $invoices = $data['Invoices'] ?? [];
 
-            // ✨ Semua status termasuk PAID
-            $activeStatuses = ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'];
-            $invoices = array_filter($invoices, fn($inv) => in_array($inv['Status'], $activeStatuses));
+            // ✅ STATUS YANG DITAMPILKAN
+            $allowedStatus = ['DRAFT', 'SUBMITTED', 'AUTHORISED', 'PAID'];
+            $invoices = array_filter($invoices, fn ($i) =>
+                in_array($i['Status'] ?? '', $allowedStatus)
+            );
 
+            // 🔎 FILTER
             if ($request->contact) {
-                $invoices = array_filter($invoices, fn($inv) => str_contains(strtolower($inv['Contact']['Name'] ?? ''), strtolower($request->contact)));
-            }
-            if ($request->number) {
-                $invoices = array_filter($invoices, fn($inv) => str_contains(strtolower($inv['InvoiceNumber'] ?? ''), strtolower($request->number)));
-            }
-            if ($request->status) {
-                $invoices = array_filter($invoices, fn($inv) => $inv['Status'] === $request->status);
+                $invoices = array_filter($invoices, fn ($i) =>
+                    str_contains(
+                        strtolower($i['Contact']['Name'] ?? ''),
+                        strtolower($request->contact)
+                    )
+                );
             }
 
+            if ($request->number) {
+                $invoices = array_filter($invoices, fn ($i) =>
+                    str_contains(
+                        strtolower($i['InvoiceNumber'] ?? ''),
+                        strtolower($request->number)
+                    )
+                );
+            }
+
+            if ($request->status) {
+                $invoices = array_filter($invoices, fn ($i) =>
+                    ($i['Status'] ?? '') === $request->status
+                );
+            }
+
+            // 📄 PAGINATION MANUAL
             $perPage = 10;
-            $page = $request->page ?? 1;
+            $page = (int) ($request->page ?? 1);
             $total = count($invoices);
-            $invoices = array_slice($invoices, ($page-1)*$perPage, $perPage);
+
+            $invoices = array_slice(
+                array_values($invoices),
+                ($page - 1) * $perPage,
+                $perPage
+            );
 
             return response()->json([
-                'data' => array_values($invoices),
+                'data' => $invoices,
                 'total' => $total,
                 'perPage' => $perPage,
                 'currentPage' => $page,
             ]);
-
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
-    // ✨ Void Invoice (untuk AUTHORISED & PAID)
+    /**
+     * VOID INVOICE
+     * (AUTHORISED & PAID)
+     */
     public function voidInvoice($id)
     {
         try {
-            $accessToken = XeroService::getAccessToken();
-            $tenantId = env('XERO_TENANT_ID');
+            $tokens = $this->getValidToken();
+            if (!$tokens) {
+                return response()->json(['error' => 'Token tidak valid'], 401);
+            }
+
+            $accessToken = $tokens['access_token'];
+            $tenantId = $this->getTenantId($accessToken);
 
             $client = new Client([
                 'base_uri' => 'https://api.xero.com/api.xro/2.0/',
@@ -82,18 +137,30 @@ class XeroController extends Controller
 
             $client->post("Invoices/{$id}/void");
 
-            return response()->json(['message' => 'Invoice berhasil di-void']);
+            return response()->json([
+                'message' => 'Invoice berhasil di-void'
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
-    // ✨ Delete Invoice (untuk DRAFT/SUBMITTED)
+    /**
+     * DELETE INVOICE
+     * (DRAFT & SUBMITTED)
+     */
     public function deleteInvoice($id)
     {
         try {
-            $accessToken = XeroService::getAccessToken();
-            $tenantId = env('XERO_TENANT_ID');
+            $tokens = $this->getValidToken();
+            if (!$tokens) {
+                return response()->json(['error' => 'Token tidak valid'], 401);
+            }
+
+            $accessToken = $tokens['access_token'];
+            $tenantId = $this->getTenantId($accessToken);
 
             $client = new Client([
                 'base_uri' => 'https://api.xero.com/api.xro/2.0/',
@@ -106,9 +173,13 @@ class XeroController extends Controller
 
             $client->delete("Invoices/{$id}");
 
-            return response()->json(['message' => 'Invoice berhasil dihapus']);
+            return response()->json([
+                'message' => 'Invoice berhasil dihapus'
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

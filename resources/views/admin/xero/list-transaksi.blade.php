@@ -106,7 +106,7 @@ $(document).ready(function(){
 
         try {
             const response = await ajaxRequest(
-                "{{ url('/api/xero/list-transaksi') }}",
+                `{{ route('xero-list-invoice') }}`,
                 'GET',
                 filters
             );
@@ -208,8 +208,8 @@ $(document).ready(function(){
         console.log('Invoice Status:', status);
 
         let url = (status === 'AUTHORISED' || status === 'PAID')
-            ? `/api/xero/void/${id}`
-            : `/api/xero/delete/${id}`;
+            ? `xero.void${id}`
+            : `xero.delete${id}`;
 
         let method = (status === 'AUTHORISED' || status === 'PAID') ? 'POST' : 'DELETE';
 
