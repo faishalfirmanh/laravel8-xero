@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Http\Repository\Expenses\DPackageExpensesRepository;
 use App\Http\Repository\MasterData\Finance\ItemPaketAllXeroRepo;
 use App\Http\Repository\MasterData\Finance\InvoiceAllXeroRepo;
+use App\Http\Repository\Expenses\DInvPackageExpensesRepository;
 use App\Http\Repository\Expenses\PackageExpensesRepository;
 use Validator;
 use App\Traits\ApiResponse;
@@ -26,7 +27,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class ExpensesPackageApiController extends Controller
 {
     //
-    protected $repo, $repo_detail, $service_global, $repo_invoice, $repo_item;
+    protected $repo, $repo_detail, $service_global, $repo_invoice, $repo_item, $repo_d_invoice;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
@@ -34,13 +35,15 @@ class ExpensesPackageApiController extends Controller
         DPackageExpensesRepository $repo_detail,
         GlobalService $service_global,
         InvoiceAllXeroRepo $repo_invoice,
-        ItemPaketAllXeroRepo $repo_item
+        ItemPaketAllXeroRepo $repo_item,
+        DInvPackageExpensesRepository $repo_d_invoice
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
         $this->service_global = $service_global;
         $this->repo_invoice = $repo_invoice;
         $this->repo_item = $repo_item;
+        $this->repo_d_invoice = $repo_d_invoice;
     }
 
     //used
@@ -84,6 +87,7 @@ class ExpensesPackageApiController extends Controller
         }
 
        $sum_all_uang_masuk = $this->repo_invoice->sumDataWhereIn($request->invoice_ids,'invoice_total');
+       //ambil dari xero sub total, kalau paid dari AmountPaid
        $get_paket =$this->repo_item->whereData(['uuid_proudct_and_service'=> $request->uuid_paket_item])->first();
 
        $request['name_paket'] = $get_paket->nama_paket;
@@ -94,6 +98,19 @@ class ExpensesPackageApiController extends Controller
         }
         $saved_i = $this->repo->CreateOrUpdate($request->all(), $request->id);
        // $saved_details = $this->repo_detail->CreateOrUpdate($request->all(), $request->id);
+
+        $get_invoice_uuid = $this->repo_invoice->getWhereDataIn($request->invoice_ids);
+        $id_invoice_local_xero = [];
+        foreach ($get_invoice_uuid as $key => $value) {
+
+            $saved_data = [
+                'package_expenses_id'=>$saved_i->id,
+                'invoices_xero_id'=>$value->id,
+                'amount_invoice'=>$value->invoice_total
+            ];
+            $this->repo_d_invoice->CreateOrUpdate($saved_data,null);
+        }
+
         return $this->autoResponse($saved_i);
     }
 
@@ -109,6 +126,7 @@ class ExpensesPackageApiController extends Controller
             //
             'is_idr' => 'required|array',
             'is_idr.*'              => 'boolean',
+            'detail_id'=> 'nullable'
         ]);
 
         if ($validator->fails()) {
@@ -126,13 +144,18 @@ class ExpensesPackageApiController extends Controller
             $dataToSave = [
                 'package_expenses_id' => $request->package_expenses_id[$i],
                 'pengeluaran_id'      => $request->pengeluaran_id[$i],
+                'nominal_currency'=>$request->nominal_currency[$i],
                 'is_idr'              => $request->is_idr[$i],
                 'nominal_idr'         => $convert_sar,
                 'nominal_sar'         => $request->nominal_sar[$i] ?? 0,
                 'combine_id_random'=> $this->service_global->generateUniqueRandomString()
             ];
             $id_parent[] = $request->package_expenses_id[$i];
-            $this->repo_detail->CreateOrUpdate($dataToSave,null);
+            if(isset( $request->detail_id[$i])){
+                $this->repo_detail->CreateOrUpdate($dataToSave, $request->detail_id[$i]);
+            }else{
+                $this->repo_detail->CreateOrUpdate($dataToSave,null);
+            }
             $aa++;
         }
         $sum_detail_pengeluaran = $this->repo_detail->sumDataWhereDinamis(['package_expenses_id'=>$id_parent[0]],'nominal_idr');
@@ -153,10 +176,49 @@ class ExpensesPackageApiController extends Controller
             return $this->error($validator->errors());
         }
        // dd(222);
-        $data = $this->repo->WhereDataWith(['details'], ['id' => $request->id])->first();
+        $data = $this->repo->WhereDataWith(['details','detailsLocalInvoice'], ['id' => $request->id])->first();
         return $this->autoResponse($data);
     }
 
+
+    public function deleteDetail(Request $request)
+    {
+        // 1. Validasi
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|exists:d_package_expenses_xeros,id'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+        //DB::beginTransaction(); // Mulai Transaksi
+        try {
+            $detail = $this->repo_detail->whereData(['id' => $request->id])->first();
+            $parentId = $detail->package_expenses_id;
+
+            $this->repo_detail->deleteWithIdDinamis('id', $request->id);
+            $new_sum_purchase = $this->repo_detail->sumDataWhereDinamis(
+                ['package_expenses_id' => $parentId],
+                'nominal_idr'
+            );
+
+            $data_parent = $this->repo->whereData(['id' => $parentId])->first();
+            $new_profit = $data_parent->nominal_sales - $new_sum_purchase;
+
+            $update_parent = $this->repo->CreateOrUpdate([
+                'nominal_purchase' => $new_sum_purchase,
+                'nominal_profit'   => $new_profit
+            ], $parentId);
+
+           // DB::commit();
+            return $this->autoResponse(true, "Berhasil dihapus");
+
+        } catch (\Exception $e) {
+            //DB::rollBack();
+            return $this->error("Gagal menghapus: " . $e->getMessage());
+        }
+    }
 
     public function deletedExpenses(Request $request)
     {
@@ -169,82 +231,10 @@ class ExpensesPackageApiController extends Controller
         }
         // dd($request->id);
         $detail = $this->repo_detail->deleteWithIdDinamisMultiRow('package_expenses_id',$request->id);
+        $inv_detail =   $this->repo_d_invoice->deleteWithIdDinamisMultiRow('package_expenses_id',$request->id);
         $parnet = $this->repo->deleteWithIdDinamisMultiRow('id',$request->id);
         return $this->autoResponse($parnet);
     }
-
-    public function printInvoice(Request $request,$id)
-    {
-        $invoice = InvoicesHotel::with(['details','payments'])->find($id);
-        //dd(Auth::guard('sanctum')->user());
-
-        $data = [
-            'invoice' => $invoice,
-            'title' => 'Invoice #' . $invoice->no_invoice_hotel,
-            'date' => date('d-m-Y'),
-           // 'cetak_by'=>
-        ];
-        $pdf = Pdf::loadView('pdf.invoice_hotel_print', $data);
-        $pdf->setPaper('A4', 'portrait');
-        //return $pdf->download('Invoice-'.$invoice->no_invoice_hotel.'.pdf');
-        return $pdf->stream('Invoice-'.$invoice->no_invoice_hotel.'.pdf');//tampil
-    }
-
-    public function getTotalAmount(Request $request)
-    {
-         $validator = Validator::make($request->all(), [
-            'date_start' => 'required|date',
-            'date_end'=>  'required|date',
-        ]);
-        if ($validator->fails()) {
-            return $this->error($validator->errors());
-        }
-        $data_sar = $this->repo->sumWhereDateRange(
-            'total_payment',
-            [],
-            [
-                'date_start'=>$request->date_start,
-                'date_end'=>$request->date_end,
-            ],
-            'date_transaction');
-        $data_rp = $this->repo->sumWhereDateRange(
-            'total_payment_rupiah',
-            [],
-            [
-                'date_start'=>$request->date_start,
-                'date_end'=>$request->date_end,
-            ],
-            'date_transaction');
-
-        //UANG DITERIMA
-         $data_rp_paid = $this->repo->sumWhereDateRange(
-            'final_payment_idr',
-            [],
-            [
-                'date_start'=>$request->date_start,
-                'date_end'=>$request->date_end,
-            ],
-            'date_transaction');
-
-        $data_rp_remain = $this->repo->sumWhereDateRange(
-            'less_payment_idr',
-            [],
-            [
-                'date_start'=>$request->date_start,
-                'date_end'=>$request->date_end,
-            ],
-            'date_transaction');
-        $final = [
-            'tanggal_awal'=>$request->date_start,
-            'tanggal_akhir'=>$request->date_end,
-            'sar'=>$data_sar,
-            'rupiah'=> $data_rp,
-            'payment_idr'=>$data_rp_paid,
-            'remaining_idr'=>$data_rp_remain
-        ];
-        return $this->autoResponse($final);
-    }
-
 
 
 
