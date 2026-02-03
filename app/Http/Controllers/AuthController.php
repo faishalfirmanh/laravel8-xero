@@ -27,7 +27,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $expired_at = Carbon::now()->addDay();
+        $expired_at = Carbon::now()->addHours(5);//Carbon::now()->addDay();
         $tokenResult = $user->createToken('auth_token', ['*'], $expired_at);
 
         // Hapus token lama (opsional, agar 1 device 1 token)

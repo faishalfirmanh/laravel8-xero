@@ -68,7 +68,8 @@ class ExpensesPackageApiController extends Controller
         return $this->autoResponse($data);
     }
 
-    //used
+
+    //old
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -81,11 +82,12 @@ class ExpensesPackageApiController extends Controller
             // 'nominal_sales' => 'required|numeric',
             // 'nominal_profit' => 'nullable|numeric',
         ]);
-
+        //dd($request->id);
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
 
+       $request["id"] = ($request->id == 0) ? null : $request->id;
        $sum_all_uang_masuk = $this->repo_invoice->sumDataWhereIn($request->invoice_ids,'invoice_total');
        //ambil dari xero sub total, kalau paid dari AmountPaid
        $get_paket =$this->repo_item->whereData(['uuid_proudct_and_service'=> $request->uuid_paket_item])->first();
@@ -93,6 +95,7 @@ class ExpensesPackageApiController extends Controller
        $request['name_paket'] = $get_paket->nama_paket;
        $request['code_paket'] = $get_paket->code;
        $request['nominal_sales'] = $sum_all_uang_masuk;//penjualan
+       $request['created_by'] = $request->user_login->id;
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
@@ -100,15 +103,32 @@ class ExpensesPackageApiController extends Controller
        // $saved_details = $this->repo_detail->CreateOrUpdate($request->all(), $request->id);
 
         $get_invoice_uuid = $this->repo_invoice->getWhereDataIn($request->invoice_ids);
-        $id_invoice_local_xero = [];
-        foreach ($get_invoice_uuid as $key => $value) {
+        $cek_parent_on_invoice =  $this->repo_d_invoice->whereData(['package_expenses_id'=>$saved_i->id])->get();
 
-            $saved_data = [
-                'package_expenses_id'=>$saved_i->id,
-                'invoices_xero_id'=>$value->id,
-                'amount_invoice'=>$value->invoice_total
-            ];
-            $this->repo_d_invoice->CreateOrUpdate($saved_data,null);
+        if(count($cek_parent_on_invoice)){
+            $this->repo_d_invoice->deleteWithIdDinamisMultiRow('package_expenses_id', $saved_i->id);
+            //dd( $saved_i->id);
+             //foreach ($cek_parent_on_invoice as $key => $value) {//invoice yang suddah di simpan
+            foreach ($get_invoice_uuid as $key_new => $value_new) {
+                    $update_detail = [
+                    'package_expenses_id'=>$saved_i->id,
+                    'invoices_xero_id'=>$value_new->id,
+                    'amount_invoice'=>$value_new->invoice_total
+                ];
+                //var_dump($value_new->invoice_total);
+                $this->repo_d_invoice->CreateOrUpdate($update_detail,null);
+            }
+
+            // }
+        }else{
+            foreach ($get_invoice_uuid as $key => $value) {
+                $saved_data = [
+                    'package_expenses_id'=>$saved_i->id,
+                    'invoices_xero_id'=>$value->id,
+                    'amount_invoice'=>$value->invoice_total
+                ];
+                $this->repo_d_invoice->CreateOrUpdate($saved_data,null);
+            }
         }
 
         return $this->autoResponse($saved_i);
@@ -212,7 +232,8 @@ class ExpensesPackageApiController extends Controller
             ], $parentId);
 
            // DB::commit();
-            return $this->autoResponse(true, "Berhasil dihapus");
+            $data_after_saved = $this->repo->WhereDataWith(['details','detailsLocalInvoice'], ['id' => $parentId])->first();
+            return $this->autoResponse(['success'=>true,'data_after_saved'=>$data_after_saved], "Berhasil dihapus");
 
         } catch (\Exception $e) {
             //DB::rollBack();

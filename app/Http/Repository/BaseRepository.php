@@ -148,6 +148,22 @@ class BaseRepository
         return $data;
     }
 
+    //jika tidak ada hapus
+    public function whereNotInAndDelete(
+        string $column,
+        array $values,
+        array $where = []
+    ) {
+        $query = $this->model->where($where);
+
+        if (!empty($values)) {
+            $query->whereNotIn($column, $values);
+        }
+
+        return $query->delete();
+    }
+
+
     public function sumDataWhereDinamis($where = array(), string $kolom)
     {
         $data = $this->model->where($where)->sum($kolom);
