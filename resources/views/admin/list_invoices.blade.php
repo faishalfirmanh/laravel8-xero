@@ -148,7 +148,7 @@
 
                             <div class="text-right mt-3">
                                 <button type="button" class="btn btn-primary" onclick="goToStep2()">
-                                    Save <i class="fas fa-arrow-right ml-1"></i>
+                                    Simpan Header <i class="fas fa-arrow-right ml-1"></i>
                                 </button>
                             </div>
                         </div>
@@ -193,7 +193,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <button type="submit" class="btn btn-success btn-block">
-                                        <i class="fas fa-save mr-1"></i> Proses Pembayaran
+                                        <i class="fas fa-save mr-1"></i> Simpan Detail
                                     </button>
                                 </div>
                             </div>
@@ -323,7 +323,7 @@
     function goToStep2() {
         let invoice = $('#invoiceSelect').val();
         let paket   = $('#paket_selected').val();
-
+        let id_parent =  $("#id_header_trans").val();
         if (!invoice || invoice.length === 0 || !paket) {
             Swal.fire({
                 icon: 'warning',
@@ -334,7 +334,8 @@
         }
          ajaxRequest( `{{ route('t_pp_package_create') }}`,'POST',{
            invoice_ids : invoice,
-           uuid_paket_item:paket
+           uuid_paket_item:paket,
+           id: id_parent
         }, localStorage.getItem('token'))
         .then(response =>{
            let res_success = response.data;
@@ -547,129 +548,132 @@
         didOpen: () => { Swal.showLoading(); }
     });
 
-    ajaxRequest(`{{ route('t_gbyid_pengeluaran') }}`, 'GET', { id: id }, localStorage.getItem('token'))
-        .then(response => {
-            Swal.close(); // Tutup loading
-            let res_data = response.data.data;
+    loadTransactionData(id).then(() => {
+        $('#modalCreateTrans').modal('show');
+    });
 
-            // --- A. POPULATE PAKET (Select2 AJAX) ---
-            // Kita harus buat Option manual karena datanya belum ada di list AJAX Select2
-            if (res_data.uuid_paket_item && res_data.name_paket) {
-                let paketOption = new Option(res_data.name_paket, res_data.uuid_paket_item, true, true);
-                $('#paket_selected').append(paketOption).trigger('change');
+    // ajaxRequest(`{{ route('t_gbyid_pengeluaran') }}`, 'GET', { id: id }, localStorage.getItem('token'))
+    //     .then(response => {
+    //         Swal.close(); // Tutup loading
+    //         let res_data = response.data.data;
 
-                // Update variable global untuk filter paket
-                uuid_paket_after_change_invoice = [res_data.uuid_paket_item];
-            }
+    //         // --- A. POPULATE PAKET (Select2 AJAX) ---
+    //         // Kita harus buat Option manual karena datanya belum ada di list AJAX Select2
+    //         if (res_data.uuid_paket_item && res_data.name_paket) {
+    //             let paketOption = new Option(res_data.name_paket, res_data.uuid_paket_item, true, true);
+    //             $('#paket_selected').append(paketOption).trigger('change');
 
-            // --- B. POPULATE INVOICE MULTIPLE (Select2 AJAX) ---
-            if (res_data.details_local_invoice && res_data.details_local_invoice.length > 0) {
-                let invoiceIds = [];
-                res_data.details_local_invoice.forEach((x) => {
-                    let rawInv = x.get_invoice_all_xero;
-                    if (rawInv) {
-                        let id = rawInv.invoice_uuid;
-                        // Format text sesuai tampilan Select2 Anda
-                        let text = `${x.inv_number}_${rawInv.contact_name}_${convertStringDate(rawInv.due_date)}`;
+    //             // Update variable global untuk filter paket
+    //             uuid_paket_after_change_invoice = [res_data.uuid_paket_item];
+    //         }
 
-                        let newOption = new Option(text, id, true, true);
-                        $('#invoiceSelect').append(newOption);
-                        invoiceIds.push(id);
-                    }
-                });
-                // Trigger change agar Select2 update UI
-                $('#invoiceSelect').trigger('change');
+    //         // --- B. POPULATE INVOICE MULTIPLE (Select2 AJAX) ---
+    //         if (res_data.details_local_invoice && res_data.details_local_invoice.length > 0) {
+    //             let invoiceIds = [];
+    //             res_data.details_local_invoice.forEach((x) => {
+    //                 let rawInv = x.get_invoice_all_xero;
+    //                 if (rawInv) {
+    //                     let id = rawInv.invoice_uuid;
+    //                     // Format text sesuai tampilan Select2 Anda
+    //                     let text = `${x.inv_number}_${rawInv.contact_name}_${convertStringDate(rawInv.due_date)}`;
 
-                // Update variable global invoice saved
-                invoiceArraySaved = invoiceIds;
-            }
+    //                     let newOption = new Option(text, id, true, true);
+    //                     $('#invoiceSelect').append(newOption);
+    //                     invoiceIds.push(id);
+    //                 }
+    //             });
+    //             // Trigger change agar Select2 update UI
+    //             $('#invoiceSelect').trigger('change');
 
-            // --- C. POPULATE ITEM PENGELUARAN (Dynamic Rows) ---
-            if (res_data.details && res_data.details.length > 0) {
-                res_data.details.forEach((item, index) => {
-                    let uniqueId = Date.now() + index; // Biar ID elemen unik
+    //             // Update variable global invoice saved
+    //             invoiceArraySaved = invoiceIds;
+    //         }
 
-                    // Logic Data dari DB
-                    let namaPengeluaran = item.nama_pengeluaran;
-                    let idPengeluaran   = item.pengeluaran_id;
-                    let isIdr           = item.is_idr == 1; // True jika IDR
+    //         // --- C. POPULATE ITEM PENGELUARAN (Dynamic Rows) ---
+    //         if (res_data.details && res_data.details.length > 0) {
+    //             res_data.details.forEach((item, index) => {
+    //                 let uniqueId = Date.now() + index; // Biar ID elemen unik
 
-                    // Jika IDR ambil nominal_idr, Jika SAR ambil nominal_sar
-                    let nominalVal      = isIdr ? item.nominal_idr : item.nominal_sar;
+    //                 // Logic Data dari DB
+    //                 let namaPengeluaran = item.nama_pengeluaran;
+    //                 let idPengeluaran   = item.pengeluaran_id;
+    //                 let isIdr           = item.is_idr == 1; // True jika IDR
 
-                    // Rate (nominal_currency). Jika IDR biasanya 0, Jika SAR berisi Rate.
-                    let rateVal         = parseFloat(item.nominal_currency);
+    //                 // Jika IDR ambil nominal_idr, Jika SAR ambil nominal_sar
+    //                 let nominalVal      = isIdr ? item.nominal_idr : item.nominal_sar;
 
-                    // Logic Tampilan HTML
-                    let checkedIdr = isIdr ? 'checked' : '';
-                    let checkedSar = !isIdr ? 'checked' : '';
-                    let classHiddenRate = isIdr ? 'd-none' : ''; // Sembunyikan rate jika IDR
-                    let requiredRate    = !isIdr ? 'required' : '';
-                    let idDetail = item.id ? item.id : '';
-                    console.log('detai_id',idDetail)
-                    let htmlRow = `
-                    <div class="row align-items-center mb-2 row-item-pengeluaran">
-                        <input type="hidden" name="detail_id[]" value="${idDetail}">
-                        <div class="col-md-6">
-                            <div class="form-group mb-0">
-                                <label class="small font-weight-bold text-muted mb-1">${namaPengeluaran}</label>
-                                <input type="hidden" name="pengeluaran_id[]" value="${idPengeluaran}">
-                                <div class="input-group input-group-sm">
-                                    <div class="input-group-prepend">
-                                        <span class="input-group-text">Rp/Sar</span>
-                                    </div>
-                                    <input type="number" class="form-control" name="nominal_pengeluaran_dinamis[]" value="${parseFloat(nominalVal)}" placeholder="0" required>
-                                </div>
-                            </div>
-                        </div>
+    //                 // Rate (nominal_currency). Jika IDR biasanya 0, Jika SAR berisi Rate.
+    //                 let rateVal         = parseFloat(item.nominal_currency);
 
-                        <div class="col-md-5">
-                            <div class="form-group mb-0">
-                                <div class="d-flex align-items-center mt-4">
-                                    <label class="small font-weight-bold text-muted mr-2 mb-0">Mata Uang:</label>
+    //                 // Logic Tampilan HTML
+    //                 let checkedIdr = isIdr ? 'checked' : '';
+    //                 let checkedSar = !isIdr ? 'checked' : '';
+    //                 let classHiddenRate = isIdr ? 'd-none' : ''; // Sembunyikan rate jika IDR
+    //                 let requiredRate    = !isIdr ? 'required' : '';
+    //                 let idDetail = item.id ? item.id : '';
+    //                 let htmlRow = `
+    //                 <div class="row align-items-center mb-2 row-item-pengeluaran">
+    //                     <input type="hidden" name="detail_id[]" value="${idDetail}">
+    //                     <div class="col-md-6">
+    //                         <div class="form-group mb-0">
+    //                             <label class="small font-weight-bold text-muted mb-1">${namaPengeluaran}</label>
+    //                             <input type="hidden" name="pengeluaran_id[]" value="${idPengeluaran}">
+    //                             <div class="input-group input-group-sm">
+    //                                 <div class="input-group-prepend">
+    //                                     <span class="input-group-text">Rp/Sar</span>
+    //                                 </div>
+    //                                 <input type="number" class="form-control" name="nominal_pengeluaran_dinamis[]" value="${parseFloat(nominalVal)}" placeholder="0" required>
+    //                             </div>
+    //                         </div>
+    //                     </div>
 
-                                    <div class="form-check form-check-inline mb-0">
-                                        <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" id="radio_idr_${uniqueId}" value="1" ${checkedIdr}>
-                                        <label class="form-check-label small" for="radio_idr_${uniqueId}">IDR</label>
-                                    </div>
+    //                     <div class="col-md-5">
+    //                         <div class="form-group mb-0">
+    //                             <div class="d-flex align-items-center mt-4">
+    //                                 <label class="small font-weight-bold text-muted mr-2 mb-0">Mata Uang:</label>
 
-                                    <div class="form-check form-check-inline mb-0">
-                                        <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" id="radio_sar_${uniqueId}" value="0" ${checkedSar}>
-                                        <label class="form-check-label small" for="radio_sar_${uniqueId}">SAR</label>
-                                    </div>
-                                </div>
+    //                                 <div class="form-check form-check-inline mb-0">
+    //                                     <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" id="radio_idr_${uniqueId}" value="1" ${checkedIdr}>
+    //                                     <label class="form-check-label small" for="radio_idr_${uniqueId}">IDR</label>
+    //                                 </div>
 
-                                <div class="box-currency-nominal ${classHiddenRate} mt-1 animate__animated animate__fadeIn">
-                                    <input type="number" class="form-control form-control-sm" value="${rateVal}" name="currency_nominal[]" placeholder="Masukkan Rate SAR" ${requiredRate}>
-                                </div>
-                            </div>
-                        </div>
+    //                                 <div class="form-check form-check-inline mb-0">
+    //                                     <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" id="radio_sar_${uniqueId}" value="0" ${checkedSar}>
+    //                                     <label class="form-check-label small" for="radio_sar_${uniqueId}">SAR</label>
+    //                                 </div>
+    //                             </div>
 
-                        <div class="col-md-1">
-                            <div class="form-group mb-0 mt-4">
-                                <button type="button" data-id="${idDetail}" class="btn btn-danger btn-sm btn-block btn-remove-edit" title="Hapus">
-                                    <i class="ti ti-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>`;
+    //                             <div class="box-currency-nominal ${classHiddenRate} mt-1 animate__animated animate__fadeIn">
+    //                                 <input type="number" class="form-control form-control-sm" value="${rateVal}" name="currency_nominal[]" placeholder="Masukkan Rate SAR" ${requiredRate}>
+    //                             </div>
+    //                         </div>
+    //                     </div>
 
-                    $('#pengeluaran_container').append(htmlRow);
-                });
-            }
+    //                     <div class="col-md-1">
+    //                         <div class="form-group mb-0 mt-4">
+    //                             <button type="button" data-id="${idDetail}" class="btn btn-danger btn-sm btn-block btn-remove-edit" title="Hapus">
+    //                                 <i class="ti ti-trash"></i>
+    //                             </button>
+    //                         </div>
+    //                     </div>
+    //                 </div>`;
 
-            // Tampilkan Modal
-            $('#modalCreateTrans').modal('show');
-        })
-        .catch((err) => {
-            Swal.close();
-            console.log('err', err);
-            Swal.fire({
-                icon: 'error',
-                title: 'Oops',
-                text: 'Gagal memuat detail transaksi',
-            });
-        });
+    //                 $('#pengeluaran_container').append(htmlRow);
+    //             });
+    //         }
+
+    //         // Tampilkan Modal
+    //         $('#modalCreateTrans').modal('show');
+    //     })
+    //     .catch((err) => {
+    //         Swal.close();
+    //         console.log('err', err);
+    //         Swal.fire({
+    //             icon: 'error',
+    //             title: 'Oops',
+    //             text: 'Gagal memuat detail transaksi',
+    //         });
+    //     });
     });
 
     $("#pangeluaran_package_invoice_web_list").on("click",".delete-trans-laba",function(){
@@ -950,6 +954,97 @@
         };
     }
 
+    // Function untuk me-load data ke modal (Dipakai saat Edit & Setelah Delete)
+    function loadTransactionData(id) {
+        // Tampilkan Loading
+        Swal.fire({ title: 'Memuat Data...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        return ajaxRequest(`{{ route('t_gbyid_pengeluaran') }}`, 'GET', { id: id }, localStorage.getItem('token'))
+            .then(response => {
+                Swal.close();
+                let res_data = response.data.data;
+
+                // 1. Reset Container
+                $('#pengeluaran_container').empty();
+                $('#invoiceSelect').empty();
+                $('#paket_selected').empty();
+
+                // 2. Isi Paket (Select2 Manual)
+                if (res_data.uuid_paket_item) {
+                    let paketOption = new Option(res_data.name_paket, res_data.uuid_paket_item, true, true);
+                    $('#paket_selected').append(paketOption).trigger('change');
+                    uuid_paket_after_change_invoice = [res_data.uuid_paket_item];
+                }
+
+                // 3. Isi Invoice (Select2 Manual)
+                if (res_data.details_local_invoice) {
+                    res_data.details_local_invoice.forEach((x) => {
+                        let rawInv = x.get_invoice_all_xero;
+                        if (rawInv) {
+                            let text = `${x.inv_number}_${rawInv.contact_name}_${convertStringDate(rawInv.due_date)}`;
+                            let newOption = new Option(text, rawInv.invoice_uuid, true, true);
+                            $('#invoiceSelect').append(newOption);
+                        }
+                    });
+                    $('#invoiceSelect').trigger('change');
+                }
+
+                // 4. GENERATE ULANG LIST ITEM
+                if (res_data.details) {
+                    res_data.details.forEach((item, index) => {
+                        let uniqueId = Date.now() + index;
+                        let isIdr = item.is_idr == 1;
+                        let nominalVal = isIdr ? item.nominal_idr : item.nominal_sar;
+                        let rateVal = parseFloat(item.nominal_currency);
+                        let checkedIdr = isIdr ? 'checked' : '';
+                        let checkedSar = !isIdr ? 'checked' : '';
+                        let classHiddenRate = isIdr ? 'd-none' : '';
+                         let idDetail = item.id ? item.id : '';
+
+                        let htmlRow = `
+                        <div class="row align-items-center mb-2 row-item-pengeluaran">
+                            <input type="hidden" name="detail_id[]" value="${idDetail}">
+                            <div class="col-md-6">
+                                <div class="form-group mb-0">
+                                    <label class="small font-weight-bold text-muted mb-1">${item.nama_pengeluaran}</label>
+                                    <input type="hidden" name="pengeluaran_id[]" value="${item.pengeluaran_id}">
+                                    <div class="input-group input-group-sm">
+                                        <div class="input-group-prepend"><span class="input-group-text">Rp/Sar</span></div>
+                                        <input type="number" class="form-control" name="nominal_pengeluaran_dinamis[]" value="${parseFloat(nominalVal)}" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="form-group mb-0">
+                                    <div class="d-flex align-items-center mt-4">
+                                        <div class="form-check form-check-inline mb-0">
+                                            <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" value="1" ${checkedIdr}>
+                                            <label class="form-check-label small">IDR</label>
+                                        </div>
+                                        <div class="form-check form-check-inline mb-0">
+                                            <input class="form-check-input check-currency" type="radio" name="currency_${uniqueId}" value="0" ${checkedSar}>
+                                            <label class="form-check-label small">SAR</label>
+                                        </div>
+                                    </div>
+                                    <div class="box-currency-nominal ${classHiddenRate} mt-1">
+                                        <input type="number" class="form-control form-control-sm" value="${rateVal}" name="currency_nominal[]" placeholder="Rate SAR">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <div class="form-group mb-0 mt-4">
+                                    <button type="button" class="btn btn-danger btn-sm btn-block btn-remove-edit" data-id="${idDetail}" title="Hapus">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                        $('#pengeluaran_container').append(htmlRow);
+                    });
+                }
+            });
+    }
+
     $('#add_tag_html').click(function() {
         let pengeluaranId   = $('#m_pengeluaran_name').val();
         let pengeluaranText = $('#m_pengeluaran_name option:selected').text();
@@ -1046,16 +1141,41 @@
 
     $(document).on('click','.btn-remove-edit',function(){
           let id = $(this).data('id');
-           ajaxRequest(`{{ route('t_pp_package_deleteddetail') }}`, 'POST', { id : id }, localStorage.getItem('token'))
-            .then(response => {
-                 Swal.fire({
-                    title: 'Berhasil!',
-                    text: 'berhasil hapus data',
-                    icon: 'success',
-                    confirmButtonText: 'Mantap'
-                });
-            })
-            .catch((err) => console.log('error currency', err));
+           Swal.fire({
+            title: 'Apakah Anda yakin?',
+            text: `Anda akan menghapus detai . Data yang dihapus tidak dapat dikembalikan!`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33', // Merah untuk bahaya
+            cancelButtonColor: '#3085d6', // Biru untuk batal
+            confirmButtonText: 'Ya, Hapus!',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                 ajaxRequest(`{{ route('t_pp_package_deleteddetail') }}`, 'POST', { id : id }, localStorage.getItem('token'))
+                .then(response => {
+                    let res_success = response.data.data;
+                    if(response.data.status){
+                          Swal.fire({
+                            title: 'Berhasil!',
+                            text: 'berhasil hapus data',
+                            icon: 'success',
+                            confirmButtonText: 'Mantap'
+                        });
+                        loadTransactionData(res_success.data_after_saved.id).then(() => {
+                            Swal.fire('Terhapus!', 'Data berhasil dihapus dan direfresh.', 'success');
+                        });
+                    }else{
+                        console.log('err')
+                    }
+
+
+                    console.log('re',response.data)
+
+                })
+                .catch((err) => console.log('error currency', err));
+                }
+        })
 
     })
 
