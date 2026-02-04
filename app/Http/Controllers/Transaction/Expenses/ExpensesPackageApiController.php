@@ -76,13 +76,14 @@ class ExpensesPackageApiController extends Controller
             'id'=>'nullable|integer',
             'invoice_ids'=>'required|array',
             'uuid_paket_item' => 'required|string',
+            'date_trans'=> 'required|date'
             // 'code_paket' => 'required|string',
             // 'name_paket' => 'required|string',
             // 'nominal_purchase' => 'required|numeric',
             // 'nominal_sales' => 'required|numeric',
             // 'nominal_profit' => 'nullable|numeric',
         ]);
-        //dd($request->id);
+        //dd($request->date_trans);
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }

@@ -59,7 +59,8 @@ Route::prefix("xero")->group(function () {
     Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');
     Route::get('get_contact_byid', [ContactController::class, 'getContactsById'])->name('get-contact-byuuid');
     Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2
-    Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');
+    Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');//pindah invoice, detail dan item xero ke local db
+    Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');
 });
 
 Route::prefix("xero-integrasi")->group(function () {
@@ -98,6 +99,7 @@ Route::prefix("xero-integrasi")->group(function () {
 
     Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);//used
     Route::get('/getDetailInvoice/{idInvoice}', [InvoicesController::class, 'getDetailInvoice']);//used
+    Route::post('/updateDateInv', [InvoicesDuplicateController::class, 'updateHeaderDetailInv']);//used
 
     //invoice
     Route::get('/getInvoiceByIdPaket', [InvoicesController::class, 'getInvoiceByIdPaket']);//used
@@ -110,9 +112,10 @@ Route::prefix("xero-integrasi")->group(function () {
 });
 
 Route::prefix("admin-web")->group(function () {
-    Route::get('/get-invoice-local', [XeroSyncInvoicePaidController::class, 'getAllInvoiceLocal'])->name('list-invoice-select2');
+    Route::get('/get-invoice-local', [XeroSyncInvoicePaidController::class, 'getAllInvoiceLocal'])->name('list-invoice-select2');//untuk select2 approved
     Route::get('/get-item-byinvoice', [XeroSyncInvoicePaidController::class, 'getDetaPaketByInvoice'])->name('get-item-byinvoice');//multi
     Route::get('/get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-select2');
+    //bawah untuk select2 paket by invoice->approve
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 

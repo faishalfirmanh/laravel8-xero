@@ -19,6 +19,7 @@ class PackageExpensesXero extends Model
         'nominal_sales',//jual
         'nominal_profit',
         'created_by',
+        'date_trans'//untuk filter tanggal
     ];
 
 

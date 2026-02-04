@@ -18,12 +18,40 @@
             </span>
         </div>
 
-        <div class="d-flex flex-column align-items-end me-2 mr-2">
+        {{-- <div class="d-flex flex-column align-items-end me-2 mr-2">
             <button onclick="syncData()" type="button" class="btn btn-warning text-dark shadow-sm fw-bold">
                 <i class="fas fa-sync-alt me-1"></i> Synchronization
             </button>
             <span class="text-danger mt-1 small" style="font-size:10px;">
-                (hanya invoice yang sudah paid)
+                (invoice paid 30, hari terakhir)
+            </span>
+        </div> --}}
+        <div class="d-flex flex-column align-items-end me-2 mr-2">
+            <div class="btn-group">
+                <button type="button" class="btn btn-warning text-dark shadow-sm fw-bold dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-sync-alt me-1"></i> Synchronization
+                </button>
+
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" href="javascript:void(0)" onclick="syncItemPaket()">
+                            <i class="fas fa-box-open me-2 text-muted"></i> Sync Paket / Items
+                            <div class="text-muted small" style="font-size: 10px;">(Update data master produk)</div>
+                        </a>
+                    </li>
+
+                    <li><hr class="dropdown-divider"></li>
+                     <li>
+                        <a class="dropdown-item" onclick="syncData()" href="javascript:void(0)" onclick="syncData('invoice')">
+                            <i class="fas fa-file-invoice-dollar me-2 text-muted"></i> Sync Invoice
+                            <div class="text-muted small" style="font-size: 10px;">(Hanya 30 hari terakhir)</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <span class="text-danger mt-1 small" style="font-size:10px;">
+                (Klik panah untuk opsi lainnya)
             </span>
         </div>
 
@@ -84,6 +112,7 @@
                 <th>Uang Masuk</th>
                 <th>Uang Keluar</th>
                 <th>Keuntungan</th>
+                <th>Tanggal Transaksi</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -132,7 +161,7 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label for="invoiceSelect">Pilih Invoice <span class="text-danger">*</span></label>
+                                        <label for="invoiceSelect">Pilih Invoice <span class="text-danger">* (tanggal due date invoice)</span></label>
                                         <select class="form-control select2" id="invoiceSelect" name="invoice_ids[]" multiple style="width: 100%;">
                                             </select>
                                     </div>
@@ -142,6 +171,14 @@
                                         <label for="paket_selected">Pilih Paket <span class="text-danger">*</span></label>
                                         <select class="form-control select2" id="paket_selected" name="paket_selected" style="width: 100%;">
                                             </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="date_trans">Tanggal Transaksi <span class="text-danger">*</span></label>
+                                        <input type="date" name="date_trans" id="date_trans" required/>
                                     </div>
                                 </div>
                             </div>
@@ -281,7 +318,6 @@
                         html: `
                             <div style="text-align: left; font-size: 14px;">
                                 <p class="mb-1">✅ <strong>Invoice:</strong> ${data.pesan_invoice}</p>
-                                <p class="mb-3">📦 <strong>Paket:</strong> ${data.pesan_paket}</p>
                                 <hr>
                                 <p class="mb-0 text-muted"><small>Xero API Limit:</small></p>
                                 <ul class="mb-0 pl-3">
@@ -301,6 +337,42 @@
                 Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 console.log('error select2 invoice',err);
             })
+    }
+
+    function syncItemPaket(){
+          const loader = document.getElementById('fullScreenLoader');
+        loader.style.display = 'flex';
+            ajaxRequest( `{{ route('sync-item-paket') }}`,'GET',{
+            }, null)
+            .then(response =>{
+                loader.style.display = 'none';
+                 const data = response.data ? response.data : response;
+                if(response.status == 200){
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sinkronisasi Selesai!',
+                        html: `
+                            <div style="text-align: left; font-size: 14px;">
+                                <p class="mb-1">✅ <strong>Paket:</strong> ${data.pesan_paket}</p>
+                                <hr>
+                                <p class="mb-0 text-muted"><small>Xero API Limit:</small></p>
+                                <ul class="mb-0 pl-3">
+                                    <li>Sisa Limit Menit: <b>${data.request_min_tersisa_menit}</b></li>
+                                    <li>Sisa Limit Hari: <b>${data.request_min_tersisa_hari}</b></li>
+                                </ul>
+                            </div>
+                        `,
+                        confirmButtonText: 'Mantap'
+                    })
+                }else {
+                    Swal.fire('Gagal!', data.message || 'Terjadi kesalahan.', 'error');
+                }
+            })
+            .catch((err)=>{
+                  loader.style.display = 'none';
+                console.log('errr')
+            })
+
     }
 
     function openModalCreateTrans(){
@@ -335,7 +407,8 @@
          ajaxRequest( `{{ route('t_pp_package_create') }}`,'POST',{
            invoice_ids : invoice,
            uuid_paket_item:paket,
-           id: id_parent
+           id: id_parent,
+           date_trans : $("#date_trans").val()
         }, localStorage.getItem('token'))
         .then(response =>{
            let res_success = response.data;
@@ -350,6 +423,21 @@
         })
         .catch((err)=>{
             console.log('error select2 invoice',err);
+            let pesanTampil = "Terjadi kesalahan saat menyimpan data.";
+            if (err && err.error && err.error.message) {
+                try {
+                    let errorObj = JSON.parse(err.error.message);
+                    pesanTampil = Object.values(errorObj).flat().join('<br>');
+                } catch (e) {
+                    pesanTampil = err.error.message;
+                }
+            }
+             Swal.fire({
+                icon: 'error',
+                title: 'Gagal!',
+                html: pesanTampil,
+                confirmButtonText: 'Tutup'
+            });
         })
 
     }
@@ -363,7 +451,7 @@
         let formData = new FormData(this);
         let data_json = Object.fromEntries(formData);
         let items_dinamis = getFormData();
-        console.log(items_dinamis);
+        console.log('saved',items_dinamis);
          ajaxRequest( `{{ route('t_pp_package_createdetail') }}`,'POST',items_dinamis
          , localStorage.getItem('token'))
             .then((response) =>{
@@ -429,6 +517,13 @@
             }
         },
         {
+            data : 'date_trans',
+            name: 'date_trans',
+            render: function(data){
+                return convertStringDate(data)
+            }
+        },
+        {
             data: "id", className: "text-center", orderable: false, searchable: false,
             render: function(data) {
                 let btn_pencil = `<a href="javascript:;" style="margin-left:10px;margin-right:0px;" data-id="${data}" class="text-primary edit-trans-laba"><i class="ti ti-pencil"></i></a>`;
@@ -466,7 +561,7 @@
                     });
                     ajaxRequest( `{{ route('delete-sync-invoice-paid') }}`,'GET',null, localStorage.getItem('token'))
                     .then(response =>{
-                        console.log('response',response)
+
                         Swal.fire({
                             icon: 'success',
                             title: 'Berhasil!',
@@ -737,7 +832,7 @@
                     </tr>
                 `;
             });
-            console.log('aa',res_data)
+
             $("#money_in").text(formatCurrency(res_data.nominal_sales))
             $("#money_out").text(formatCurrency(res_data.nominal_purchase))
             $("#money_profit").text(formatCurrency(res_data.nominal_profit))
@@ -745,7 +840,7 @@
            $("#DetailPengeluaran").modal('show')
         })
         .catch((err)=>{
-            console.log('err',err)
+
             Swal.fire({
                 icon: 'error',
                 title: 'Oops',
@@ -791,7 +886,6 @@
                 };
             },
             processResults: function (data, params) {
-            console.log('select2 haji',data)
                 var apiDataPaket = data.data.results.map(function(item) {
                     return {
                         id: item.uuid_proudct_and_service,      // Value option
@@ -968,6 +1062,10 @@
                 $('#pengeluaran_container').empty();
                 $('#invoiceSelect').empty();
                 $('#paket_selected').empty();
+
+                if(res_data.date_trans){
+                    $("#date_trans").val(res_data.date_trans)
+                }
 
                 // 2. Isi Paket (Select2 Manual)
                 if (res_data.uuid_paket_item) {
