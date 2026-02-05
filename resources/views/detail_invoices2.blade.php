@@ -408,7 +408,7 @@
         }
 
         let itemOptionsAgent = `<option value="">Select Agent</option>`;
-        console.log("liss",list_agent)
+
         list_agent.forEach(ag => {
             // Cek apakah ID ini sama dengan yang tersimpan
             const isSel = (ag.TrackingOptionID == savedAgentId) ? 'selected' : '';
@@ -499,7 +499,7 @@
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
-                    console.log("detail",response)
+
                     $("#TotalAmountPaidDisplay").text(formatRupiah(response.Invoices[0].AmountPaid))
                     $("#TotalAmountDueDisplay").text(formatRupiah(response.Invoices[0].AmountDue))
                     $("#TotalAmountXero").html(`<strong>${formatRupiah(response.custom.total_xero)}</strong>`)
@@ -566,7 +566,7 @@
                    if(response.data.length >0){
                         const container_local_pay = document.getElementById('history_local_payments');
                         let htmlContent_local = '';
-                        console.log('history',response.data)
+                        // console.log('history',response.data)
                         response.data.forEach(item => {
                             const tanggalFix = formatDateStringToText(item.date);
                             const amountFix = formatRupiah(item.amount);
@@ -684,7 +684,7 @@
         let self = $(this);
         let itemCode = self.val();
         let currentRow = self.closest('tr');
-        console.log("select",self.val())
+        // console.log("select",self.val())
         if (!itemCode) return;
 
         let urlProduct = `${BASE_URL}/api/xero-integrasi/get-by-id/${itemCode}`;
@@ -744,11 +744,11 @@
             // agent & divisi bisa ditambahkan sesuai kebutuhan Controller
         };
 
-        // Validasi Sederhana
-        if(!payload.item_code || payload.qty <= 0) {
-            alert("Harap pilih Item dan isi Quantity");
-            return;
-        }
+        // Validasi Sederhana enable agar bisa tidak pilih item
+        // if(!payload.item_code || payload.qty <= 0) {
+        //     alert("Harap pilih Item dan isi Quantity");
+        //     return;
+        // }
 
         // Tampilan Loading
         let originalHtml = btn.html();
