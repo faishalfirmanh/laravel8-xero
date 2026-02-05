@@ -19,4 +19,10 @@ class InvoiceAllXeroRepo extends BaseRepository{
         return $data;
     }
 
+     public function getWhereDataIn($list_id = array())
+    {
+        $data = $this->model->whereIn('invoice_uuid',$list_id)->get();
+        return $data;
+    }
+
 }

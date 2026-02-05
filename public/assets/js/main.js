@@ -148,6 +148,7 @@ function initGlobalDataTableToken(selector, url, columns, extraParams = {}) {
             recordsFiltered: response.data.total,
             data: response.data.data
           });
+          console.log('sss',response.data.data)
         },
         error: function (data,error, thrown) {
           console.log('Error Load Data:', data);

@@ -63,7 +63,8 @@ Route::prefix("xero")->group(function () {
     Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');
     Route::get('get_contact_byid', [ContactController::class, 'getContactsById'])->name('get-contact-byuuid');
     Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2
-    Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');
+    Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');//pindah invoice, detail dan item xero ke local db
+    Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');
 });
 
 Route::prefix("xero-integrasi")->group(function () {
@@ -102,6 +103,7 @@ Route::prefix("xero-integrasi")->group(function () {
 
     Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);//used
     Route::get('/getDetailInvoice/{idInvoice}', [InvoicesController::class, 'getDetailInvoice']);//used
+    Route::post('/updateDateInv', [InvoicesDuplicateController::class, 'updateHeaderDetailInv']);//used
 
     //invoice
     Route::get('/getInvoiceByIdPaket', [InvoicesController::class, 'getInvoiceByIdPaket']);//used
@@ -114,15 +116,16 @@ Route::prefix("xero-integrasi")->group(function () {
 });
 
 Route::prefix("admin-web")->group(function () {
-    Route::get('/get-invoice-local', [XeroSyncInvoicePaidController::class, 'getAllInvoiceLocal'])->name('list-invoice-select2');
+    Route::get('/get-invoice-local', [XeroSyncInvoicePaidController::class, 'getAllInvoiceLocal'])->name('list-invoice-select2');//untuk select2 approved
     Route::get('/get-item-byinvoice', [XeroSyncInvoicePaidController::class, 'getDetaPaketByInvoice'])->name('get-item-byinvoice');//multi
     Route::get('/get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-select2');
+    //bawah untuk select2 paket by invoice->approve
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
 
-    Route::middleware(['auth:sanctum','xss'])->prefix("transaksi")->group(function () {
+    Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
-            Route::prefix('hotel')->group(function(){
+            Route::prefix('hotel')->group(function () {
                 Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');
                 Route::get('/getTotalAmount', [RHotelApiController::class, 'getTotalAmount'])->name('total-amount-revanue-hotel');
                 Route::post('/store', [RHotelApiController::class, 'savedRhotel'])->name('save-revenue-hotel');
@@ -138,16 +141,18 @@ Route::prefix("admin-web")->group(function () {
         });
 
         Route::prefix('expenses')->group(function () {
-            Route::prefix("/package-profit")->group(function(){
+            Route::prefix("/package-profit")->group(function () {
                 Route::get('/getData', [ExpensesPackageApiController::class, 'getAllPaginate'])->name('t_pp_package_getall');
-                Route::get('/get_by_id', [ExpensesPackageApiController::class, 'getById'])->name('md_gbyid_pengeluaran');
+                Route::get('/get_by_id', [ExpensesPackageApiController::class, 'getById'])->name('t_gbyid_pengeluaran');
+                Route::post('/delete', [ExpensesPackageApiController::class, 'deletedExpenses'])->name('t_pp_package_delete');
                 Route::post('/save', [ExpensesPackageApiController::class, 'store'])->name('t_pp_package_create');
                 Route::post('/saveDetail', [ExpensesPackageApiController::class, 'storeDetail'])->name('t_pp_package_createdetail');
+                Route::post('/deletedRow', [ExpensesPackageApiController::class, 'deleteDetail'])->name('t_pp_package_deleteddetail');
             });
         });
     });
 
-    Route::middleware(['auth:sanctum','xss'])->prefix("master-data")->group(function () {
+    Route::middleware(['auth:sanctum', 'xss'])->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
         Route::prefix("pengeluaran")->group(function () {
@@ -172,10 +177,10 @@ Route::prefix("admin-web")->group(function () {
 
     });
 
-     Route::prefix("config-currency")->group(function () {
+    Route::prefix("config-currency")->group(function () {
         Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
         Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
-     });
+    });
 });
 
 
