@@ -47,12 +47,14 @@ class InvoiceItem2Controller extends Controller
         // 1. Validasi Input
         $request->validate([
             'invoice_id'    => 'required|string',
-            'item_code'     => 'required|string',
+            'item_code'     => 'nullable|string',//nullable item_code
+            'description'   => 'required|string',
             'qty'           => 'required|numeric',
             'price'         => 'required|numeric',
             'disc_amount'   => 'nullable|numeric',
             'agent_id'      => 'nullable|string',
             'divisi_id'     => 'nullable|string',
+            'account_code'  => 'nullable|string',//nullable item_code
             // 'status_invoice' => 'required|string', // Tidak wajib, kita cek langsung dari API Xero
         ]);
 
@@ -118,22 +120,46 @@ class InvoiceItem2Controller extends Controller
                 $tracking[] = ['Name' => 'Divisi', 'Option' => '', 'TrackingOptionID' => $request->divisi_id];
             }
 
-            $response_for_code = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Items/' .  $request->item_code);
-            $data_item_prod = $response_for_code['Items'][0]["Code"];
-            //dd($data_item_prod);
-            $request->item_code =  $data_item_prod;
+            if($request->filled('item_code')) {
+                $response_for_code = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Items/' .  $request->item_code);
+                if (isset($response_for_code['Items'][0]["Code"])) {
+                    $request->merge(['item_code' => $response_for_code['Items'][0]["Code"]]);
+                    //$data_item_prod = $response_for_code['Items'][0]["Code"];
+                } else {
 
-            // Object Line Item Baru
+                }
+            }
+            $response_for_code = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Items/' .  $request->item_code);
+
+            //dd($data_item_prod);
+            //$request->item_code =  $data_item_prod;
+
+            // Object Line Item Baru sebelum set item_code requred
+            // $newLineItem = [
+            //     'ItemCode'      => $request->item_code,
+            //     'Description'   => $request->description,
+            //     'Quantity'      => $request->qty,
+            //     'UnitAmount'    => $request->price,
+            //     'DiscountRate'  => round($discountRate, 4),
+            //     'AccountCode'   => $request->account_code ?? '200',
+            //     'TaxType'       => $request->tax_type ?? 'NONE',
+            //     'Tracking'      => $tracking
+            // ];
+
             $newLineItem = [
-                'ItemCode'      => $request->item_code,
-                'Description'   => $request->description,
+                'Description'   => $request->description, // Wajib jika tanpa item code
                 'Quantity'      => $request->qty,
                 'UnitAmount'    => $request->price,
                 'DiscountRate'  => round($discountRate, 4),
-                'AccountCode'   => $request->account_code ?? '200',
+                'AccountCode'   => $request->account_code ?? '200', // Default Sales jika null
                 'TaxType'       => $request->tax_type ?? 'NONE',
                 'Tracking'      => $tracking
             ];
+
+            //new nullable
+            if ($request->filled('item_code')) {
+                $newLineItem['ItemCode'] = $request->item_code;
+            }
 
             //dd($tracking);
             if ($request->filled('line_item_id')) {
@@ -150,17 +176,34 @@ class InvoiceItem2Controller extends Controller
                     $found = true;
                 } else {
                     // Copy item lama
-                    $updatedLineItems[] = [
+                    // $updatedLineItems[] = [
+                    //     'LineItemID' => $item['LineItemID'],
+                    //     'Quantity'   => $item['Quantity'],
+                    //     'UnitAmount' => $item['UnitAmount'],
+                    //     'ItemCode'   => $item['ItemCode'] ?? null,
+                    //     'Description'=> $item['Description'] ?? null,
+                    //     'AccountCode'=> $item['AccountCode'] ?? null,
+                    //     'TaxType'    => $item['TaxType'] ?? null,
+                    //     'DiscountRate'=> $item['DiscountRate'] ?? 0,
+                    //     'Tracking'   => $item['Tracking'] ?? []
+                    // ];
+
+                    $tempItem = [
                         'LineItemID' => $item['LineItemID'],
                         'Quantity'   => $item['Quantity'],
                         'UnitAmount' => $item['UnitAmount'],
-                        'ItemCode'   => $item['ItemCode'] ?? null,
                         'Description'=> $item['Description'] ?? null,
                         'AccountCode'=> $item['AccountCode'] ?? null,
                         'TaxType'    => $item['TaxType'] ?? null,
                         'DiscountRate'=> $item['DiscountRate'] ?? 0,
                         'Tracking'   => $item['Tracking'] ?? []
                     ];
+
+                    if (isset($item['ItemCode']) && !empty($item['ItemCode'])) {
+                        $tempItem['ItemCode'] = $item['ItemCode'];
+                    }
+
+                    $updatedLineItems[] = $tempItem;
                 }
             }
 
