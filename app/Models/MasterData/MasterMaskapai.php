@@ -18,8 +18,22 @@ class MasterMaskapai extends Model
         'is_active',
     ];
 
+    protected $appends = [
+        'nama_pembuat'
+    ];
+
     // Relasi ke user
     public function creator() {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function userCreate() {
+        return $this->hasOne(User::class, 'id','created_by');
+    }
+
+    public function getNamaPembuatAttribute()
+    {
+        $aa = User::query()->where('id',$this->created_by)->first();
+        return $aa->name;
     }
 }
