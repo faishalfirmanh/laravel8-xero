@@ -26,9 +26,18 @@ class MasterPengeluaranPaket extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    // ✅ ACCESSOR AMAN
     public function getNamaPembuatAttribute()
     {
-        return $this->creator?->name ?? '-';
+    if($this->creator){
+
+    if($this->creator->name){
+
+    return $this->creator->name;
     }
-}
+    else{
+    return 'nama kosong';}
+    }
+    else{
+    return '-';}
+    }
+    }

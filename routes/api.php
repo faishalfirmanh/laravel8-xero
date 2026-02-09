@@ -31,6 +31,7 @@ use App\Http\Controllers\MasterData\LocationCityController;
 use App\Http\Controllers\MasterData\LocationDistrictController;
 use App\Http\Controllers\MasterData\LocationProvinceController;
 use App\Http\Controllers\MasterData\LocationVillageController;
+use App\Http\Controllers\MasterData\RoleUserController;
 //location
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
@@ -182,8 +183,12 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/get-data', [MasterMaskapaiController::class, 'getData'])->name('maskapai.getdata');
             Route::get('/get-by-id', [MasterMaskapaiController::class, 'getById'])->name('maskapai.getbyid');
             Route::post('/save', [MasterMaskapaiController::class, 'store'])->name('maskapai.save');
-
-    });
+         });
+         Route::prefix("role-user")->group(function(){
+            Route::get('/get-data', [RoleUserController::class, 'getData'])->name('role-user.getdata');
+            Route::get('/get-by-id', [RoleUserController::class, 'getById'])->name('role-user.getbyid');
+            Route::post('/save', [RoleUserController::class, 'store'])->name('role-user.save');
+         });
         });
 
     });

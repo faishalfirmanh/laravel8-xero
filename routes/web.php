@@ -11,6 +11,7 @@ use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 use App\Http\Controllers\MasterData\MasterMaskapaiController;
+use App\Http\Controllers\MasterData\RoleUserController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 /*
 |--------------------------------------------------------------------------
@@ -81,6 +82,6 @@ Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice
 Route::prefix('admin/master-data')->group(function () {
 
 Route::get('/maskapai', [MasterMaskapaiController::class, 'index'])->name('maskapai.index');
-
+Route::get('/role-user', [RoleUserController::class, 'index'])->name('role-user.index');
 });
 

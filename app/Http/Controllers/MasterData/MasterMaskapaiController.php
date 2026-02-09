@@ -20,18 +20,11 @@ class MasterMaskapaiController extends Controller
         $this->repo = $repo;
     }
 
-    // =========================
-    // VIEW
-    // =========================
     public function index()
     {
         return view('admin.master.maskapai');
     }
 
-    // =========================
-    // GET DATA (SEARCH + PAGINATE)
-    // POLA SAMA DENGAN HOTEL
-    // =========================
 public function getData(Request $request)
 {
     $validator = Validator::make($request->all(), [
@@ -96,9 +89,6 @@ public function store(Request $request)
         return $this->autoResponse($saved);
     }
 
-    // =========================
-    // GET BY ID
-    // =========================
     public function getById(Request $request)
     {
         $validator = Validator::make($request->all(), [
