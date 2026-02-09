@@ -22,6 +22,8 @@ use App\Http\Controllers\Xero\BankController;
 //master data
 use App\Http\Controllers\MasterData\PengeluaranNameController;
 use App\Http\Controllers\MasterData\DataApiJamaahController;
+use App\Http\Controllers\MasterData\MasterMaskapaiController;
+
 //master data
 //location
 
@@ -29,11 +31,16 @@ use App\Http\Controllers\MasterData\LocationCityController;
 use App\Http\Controllers\MasterData\LocationDistrictController;
 use App\Http\Controllers\MasterData\LocationProvinceController;
 use App\Http\Controllers\MasterData\LocationVillageController;
+use App\Http\Controllers\MasterData\RoleUserController;
 //location
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
+
+use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
+
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
+
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -118,6 +125,8 @@ Route::prefix("admin-web")->group(function () {
     //bawah untuk select2 paket by invoice->approve
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
+    Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
+    Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
 
     Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
@@ -170,6 +179,17 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/get', [DataApiJamaahController::class, 'getAllPaginate'])->name('getAllContactApi');
             Route::get('/get_by_id', [DataApiJamaahController::class, 'getById'])->name('getByIdContact');
         });
+        Route::prefix("maskapai")->group(function(){
+            Route::get('/get-data', [MasterMaskapaiController::class, 'getData'])->name('maskapai.getdata');
+            Route::get('/get-by-id', [MasterMaskapaiController::class, 'getById'])->name('maskapai.getbyid');
+            Route::post('/save', [MasterMaskapaiController::class, 'store'])->name('maskapai.save');
+         });
+         Route::prefix("role-user")->group(function(){
+            Route::get('/get-data', [RoleUserController::class, 'getData'])->name('role-user.getdata');
+            Route::get('/get-by-id', [RoleUserController::class, 'getById'])->name('role-user.getbyid');
+            Route::post('/save', [RoleUserController::class, 'store'])->name('role-user.save');
+         });
+        });
 
     });
 
@@ -177,7 +197,6 @@ Route::prefix("admin-web")->group(function () {
         Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
         Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
     });
-});
 
 
 Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
@@ -236,7 +255,15 @@ Route::prefix("master-data")->group(function () {
             Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
             Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
         });
+// // List transaksi Xero
+// Route::get('admin/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
 
-    });
+// // Delete invoice (DRAFT / SUBMITTED)
+// Route::post('admin/xero/delete/{id}', [XeroTransaksiController::class, 'deleteInvoice']);
+
+// // Void invoice (AUTHORISED)
+// Route::post('admin/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
+});
+    
 });
 

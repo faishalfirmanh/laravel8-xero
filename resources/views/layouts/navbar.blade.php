@@ -6,6 +6,7 @@
         <div class="collapse" id="transaksiSub">
              <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
             <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
+            <a href="{{ route('xero-list-transaksi') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">List Transaksi Xero</a>
         </div>
 
 
@@ -22,6 +23,9 @@
             <a href="{{ route('admin-list-pengeluaran') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Pengeluaran</a>
             {{-- <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a>
             <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a> --}}
+            <a href="{{ route('maskapai.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Maskapai</a>
+            <a href="{{ route('role-user.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Role User</a>
+
         </div>
 
         <a href="#config_global" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Setting</a>

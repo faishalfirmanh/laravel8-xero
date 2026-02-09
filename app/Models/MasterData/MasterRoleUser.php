@@ -6,21 +6,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 
-class MasterPengeluaranPaket extends Model
+class MasterRoleUser extends Model
 {
     use HasFactory;
 
+    protected $table = 'master_role_users';
+
     protected $fillable = [
-        'nama_pengeluaran',
+        'nama_role',
         'is_active',
         'created_by'
     ];
 
-    protected $appends = [
-        'nama_pembuat'
-    ];
+    protected $appends = ['nama_pembuat'];
 
-    // ✅ RELASI RESMI
+    // RELASI
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

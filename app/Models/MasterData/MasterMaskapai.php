@@ -6,24 +6,28 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 
-class MasterPengeluaranPaket extends Model
+class MasterMaskapai extends Model
 {
     use HasFactory;
 
+    protected $table = 'master_maskapais';
+
     protected $fillable = [
-        'nama_pengeluaran',
+        'nama_maskapai',
+        'created_by',
         'is_active',
-        'created_by'
     ];
 
     protected $appends = [
         'nama_pembuat'
     ];
 
-    // ✅ RELASI RESMI
-    public function creator()
-    {
+    public function creator() {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function userCreate() {
+        return $this->hasOne(User::class, 'id','created_by');
     }
 
     public function getNamaPembuatAttribute()
