@@ -260,5 +260,6 @@ Route::prefix("master-data")->group(function () {
         Route::get('/log-history/get-data',[LogHistoryController::class, 'getData'])->name('log-history.getdata');
 });
 
+
 });
 
