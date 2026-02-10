@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\ConfigRefreshXero;
 use App\Models\InvoicesAllFromXero;
+use Validator;
+use App\Traits\ApiResponse;
 use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\ItemsPaketAllFromXero;
 use Illuminate\Support\Str;
@@ -18,6 +20,7 @@ use PhpParser\Node\Stmt\TryCatch;
 
 class XeroSyncInvoicePaidController extends Controller
 {
+    use ApiResponse;
     protected $rateLimiter;
     use ConfigRefreshXero;
     protected $global;
@@ -522,6 +525,18 @@ class XeroSyncInvoicePaidController extends Controller
         ini_set('max_execution_time', 0);
         set_time_limit(0);
 
+        $validator = Validator::make($request->all(), [
+            'startDate' => 'required|date',
+            'endDate' => 'required|date|after_or_equal:startDate',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+       $startStr = Carbon::parse($request->startDate)->format('Y,m,d');
+       $endStr   = Carbon::parse($request->endDate)->format('Y,m,d');
+
         $tokenData = $this->getValidToken();
         if (!$tokenData) {
             return response()->json(['message' => 'Token kosong/invalid.'], 401);
@@ -539,8 +554,9 @@ class XeroSyncInvoicePaidController extends Controller
         } else {
             // Format Xero untuk Date filtering: DateTime(YYYY,MM,DD)
             $dateStr = $startDate->format('Y,m,d');
-            $whereClause = 'Status=="PAID" AND Date >= DateTime(' . $dateStr . ')';
-            Log::info("Melakukan Partial Sync Invoice Xero mulai dari: " . $startDate->toDateString());
+            //$whereClause = 'Status=="PAID" AND Date >= DateTime(' . $dateStr . ')';
+            $whereClause = 'Status=="PAID" AND Date >= DateTime(' . $startStr . ') AND Date <= DateTime(' . $endStr . ')';
+            Log::info("Melakukan Partial Sync Invoice Xero mulai dari: " . $startStr . " => ".$endStr);
         }
 
         $page = 1;
@@ -654,7 +670,7 @@ class XeroSyncInvoicePaidController extends Controller
             }
 
             $view_req = $this->global->getDataAvailabeRequestXero();
-
+            Log::info("Berhasil Melakukan Partial Sync Invoice");
             return response()->json([
                 // 'status' => 'success',
                 // 'pesan' => 'Sync Invoice (Filter: '. ($request->force_all ? 'ALL' : 'Last 30 Days') .') selesai.',

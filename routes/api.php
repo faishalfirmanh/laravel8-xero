@@ -66,7 +66,7 @@ Route::prefix("xero")->group(function () {
     Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');
     Route::get('get_contact_byid', [ContactController::class, 'getContactsById'])->name('get-contact-byuuid');
     Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2
-    Route::get('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');//pindah invoice, detail dan item xero ke local db
+    Route::post('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');//pindah invoice, detail dan item xero ke local db
     Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');
 });
 
@@ -264,6 +264,6 @@ Route::prefix("master-data")->group(function () {
 // // Void invoice (AUTHORISED)
 // Route::post('admin/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
 });
-    
+
 });
 

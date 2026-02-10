@@ -42,9 +42,9 @@
 
                     <li><hr class="dropdown-divider"></li>
                      <li>
-                        <a class="dropdown-item" onclick="syncData()" href="javascript:void(0)" onclick="syncData('invoice')">
+                        <a class="dropdown-item" onclick="syncData()" href="javascript:void(0)">
                             <i class="fas fa-file-invoice-dollar me-2 text-muted"></i> Sync Invoice
-                            <div class="text-muted small" style="font-size: 10px;">(Hanya 30 hari terakhir)</div>
+                            <div class="text-muted small" style="font-size: 10px;">(Max 20 hari)</div>
                         </a>
                     </li>
                 </ul>
@@ -293,6 +293,42 @@
     </div>
   </div>
 </div>
+
+
+<div class="modal fade" id="dateModal" tabindex="-1" aria-labelledby="dateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dateModalLabel">Form Input Tanggal</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="inv_sync_date">
+                    <div class="form-group">
+                        <label for="startDate">Date Start <span class="text-danger">*</span></label>
+                        <input type="date" required class="form-control" name="startDate" id="startDate" placeholder="Pilih tanggal mulai">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="endDate">Date End <span class="text-danger">*</span></label>
+                        <input type="date" required class="form-control" name="endDate" id="endDate" placeholder="Pilih tanggal akhir">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="numDays">Number of Days (Selisih Hari)</label>
+                        <input type="number" disabled class="form-control" id="numDays" readonly placeholder="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                <button type="submit" form="inv_sync_date" class="btn btn-success">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -302,13 +338,50 @@
     let isLoading = false;
     let invoiceArraySaved = $('#invoiceSelect').val() || [];
     let uuid_paket_after_change_invoice = [];
-    function syncData(){
+
+    function calculateDays() {
+        var startVal = $('#startDate').val();
+        var endVal = $('#endDate').val();
+
+        if (startVal && endVal) {
+            var date1 = new Date(startVal);
+            var date2 = new Date(endVal);
+            var timeDiff = date2.getTime() - date1.getTime();
+            var dayDiff = timeDiff / (1000 * 3600 * 24);
+            dayDiff = Math.round(dayDiff);
+
+            if(dayDiff >= 20){
+                Swal.fire('Gagal!', 'selisih hari tidak boleh lebih dari 20 hari' || 'Terjadi kesalahan.', 'error');
+                $('#startDate').val('')
+                $('#endDate').val('')
+                return
+            }
+
+            $('#numDays').val(dayDiff);
+        } else {
+            // Kosongkan jika salah satu tanggal dihapus
+            $('#numDays').val('');
+        }
+    }
+
+    $('#startDate, #endDate').on('change', function() {
+        calculateDays();
+    });
+
+
+    $("#inv_sync_date").on("submit",function(e){
+        e.preventDefault();
+         $('#dateModal').modal('hide');
         const loader = document.getElementById('fullScreenLoader');
         loader.style.display = 'flex';
-            ajaxRequest( `{{ route('sync-invoice-paid') }}`,'GET',{
-            }, null)
-            .then(response =>{
-                console.log('sync',response)
+        let formData = new FormData(this);
+        let data_json = Object.fromEntries(formData);
+        let item_date_inv = getFormData();
+        console.log(item_date_inv)
+         ajaxRequest( `{{ route('sync-invoice-paid') }}`,'POST',
+         {startDate : $("#startDate").val(),endDate:$("#endDate").val()}
+         , null)
+            .then((response) =>{
                 loader.style.display = 'none';
                 const data = response.data ? response.data : response;
                 if(response.status == 200){
@@ -329,14 +402,73 @@
                         confirmButtonText: 'Mantap'
                     })
                 }else {
+                    loader.style.display = 'none';
                     Swal.fire('Gagal!', data.message || 'Terjadi kesalahan.', 'error');
                 }
-            })
-            .catch((err)=>{
+            }).catch((err)=>{
                 loader.style.display = 'none';
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-                console.log('error select2 invoice',err);
+                let errorMsg = 'Terjadi kesalahan pada sistem.';
+                if(err.responseJSON && err.responseJSON.message) {
+                    errorMsg = err.responseJSON.message;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal!',
+                    text: errorMsg
+                });
             })
+    })
+
+    function syncData(){
+        $('#dateModal').modal('show');
+        // const loader = document.getElementById('fullScreenLoader');
+        // loader.style.display = 'flex';
+        // ajaxRequest( `{{ route('sync-invoice-paid') }}`,'GET',{
+        // }, null)
+        // .then(response =>{
+        //     console.log('sync',response)
+        //     loader.style.display = 'none';
+        //     const data = response.data ? response.data : response;
+        //     if(response.status == 200){
+        //         Swal.fire({
+        //             icon: 'success',
+        //             title: 'Sinkronisasi Selesai!',
+        //             html: `
+        //                 <div style="text-align: left; font-size: 14px;">
+        //                     <p class="mb-1">✅ <strong>Invoice:</strong> ${data.pesan_invoice}</p>
+        //                     <hr>
+        //                     <p class="mb-0 text-muted"><small>Xero API Limit:</small></p>
+        //                     <ul class="mb-0 pl-3">
+        //                         <li>Sisa Limit Menit: <b>${data.request_min_tersisa_menit}</b></li>
+        //                         <li>Sisa Limit Hari: <b>${data.request_min_tersisa_hari}</b></li>
+        //                     </ul>
+        //                 </div>
+        //             `,
+        //             confirmButtonText: 'Mantap'
+        //         })
+        //     }else {
+        //         Swal.fire('Gagal!', data.message || 'Terjadi kesalahan.', 'error');
+        //     }
+        // })
+        // .catch((err)=>{
+        //     loader.style.display = 'none';
+        //     let pesanTampil = "Terjadi kesalahan saat sync data.";
+        //     if (err && err.error && err.error.message) {
+        //         try {
+        //             let errorObj = JSON.parse(err.error.message);
+        //             pesanTampil = Object.values(errorObj).flat().join('<br>');
+        //         } catch (e) {
+        //             pesanTampil = err.error.message;
+        //         }
+        //     }
+        //     Swal.fire({
+        //         icon: 'error',
+        //         title: 'Gagal!',
+        //         html: pesanTampil,
+        //         confirmButtonText: 'Tutup'
+        //     });
+        // })
     }
 
     function syncItemPaket(){

@@ -78,7 +78,7 @@
                     email: $('input[name="email"]').val(),
                     password: $('input[name="password"]').val()
                 };
-                console.log('login--',$(this).serialize())
+                //console.log('login--',$(this).serialize())
             ajaxRequest( `{{ route('login') }}`,'POST',param_send, null)
                 .then(response =>{
                     //console.log('sss',response)
