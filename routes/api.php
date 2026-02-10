@@ -40,6 +40,7 @@ use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
+use App\Http\Controllers\LogHistoryController;
 
 
 use Illuminate\Http\Request;
@@ -200,6 +201,7 @@ Route::prefix("admin-web")->group(function () {
 
 
 Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
+Route::get('/log-history', [LogHistoryController::class, 'list']);
 
 
 
@@ -255,14 +257,7 @@ Route::prefix("master-data")->group(function () {
             Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
             Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
         });
-// // List transaksi Xero
-// Route::get('admin/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
-
-// // Delete invoice (DRAFT / SUBMITTED)
-// Route::post('admin/xero/delete/{id}', [XeroTransaksiController::class, 'deleteInvoice']);
-
-// // Void invoice (AUTHORISED)
-// Route::post('admin/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
+        Route::get('/log-history/get-data',[LogHistoryController::class, 'getData'])->name('log-history.getdata');
 });
 
 });

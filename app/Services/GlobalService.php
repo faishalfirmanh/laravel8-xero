@@ -10,6 +10,8 @@ use DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
+use App\Models\LogHistory;
+use Illuminate\Http\Request;
 class GlobalService
 {
 
@@ -129,4 +131,19 @@ class GlobalService
         return $data;
     }
 
+    public function saveLogHistory($idUserLogin,string $action, $bowser, $ip_address)
+        {
+            try {
+                LogHistory::create([
+                    'user_id'    => $idUserLogin,
+                    'ip_address' => $ip_address,
+                    'browser'    => $bowser,
+                    'action'     => $action
+                ]);
+            } catch (\Throwable $th) {
+                Log::error('Gagal simpan log history: '.$th->getMessage());
+            }
+        }
+
 }
+
