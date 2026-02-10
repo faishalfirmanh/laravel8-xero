@@ -13,6 +13,7 @@ use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 use App\Http\Controllers\MasterData\MasterMaskapaiController;
 use App\Http\Controllers\MasterData\RoleUserController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
+use App\Http\Controllers\LogHistoryController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -83,5 +84,6 @@ Route::prefix('admin/master-data')->group(function () {
 
 Route::get('/maskapai', [MasterMaskapaiController::class, 'index'])->name('maskapai.index');
 Route::get('/role-user', [RoleUserController::class, 'index'])->name('role-user.index');
-});
+
+Route::get('/log-history',[LogHistoryController::class, 'index'])->name('log-history.index');});
 
