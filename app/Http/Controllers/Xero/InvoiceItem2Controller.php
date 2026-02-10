@@ -81,6 +81,20 @@ class InvoiceItem2Controller extends Controller
 
             // Jika ada pembayaran, lakukan Backup & Void (Delete) Payment
             //dd($payments);
+            if (!empty($invoiceData['CreditNotes'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Gagal Update: Invoice ini sudah dipotong Credit Note. Mohon lakukan "Remove Allocation" manual di Xero terlebih dahulu sebelum edit via sistem.'
+                ], 400);
+            }
+
+            if (!empty($invoiceData['Prepayments'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Gagal Update: Invoice ini menggunakan Prepayment. Mohon edit manual di Xero.'
+                ], 400);
+            }
+
             if (!empty($payments)) {
                 foreach ($payments as $pay) {
                     $payId = $pay['PaymentID'];
@@ -510,6 +524,20 @@ class InvoiceItem2Controller extends Controller
         $payments = $invoiceData['Payments'] ?? [];
         $paymentBackups = [];
         //dd($payments);
+
+        if (!empty($invoiceData['CreditNotes'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal Update: Invoice ini sudah dipotong Credit Note. Mohon lakukan "Remove Allocation" manual di Xero terlebih dahulu sebelum edit via sistem.'
+            ], 400);
+        }
+
+        if (!empty($invoiceData['Prepayments'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal Update: Invoice ini menggunakan Prepayment. Mohon edit manual di Xero.'
+            ], 400);
+        }
         // 2. Backup & Void Payment (Jika Status PAID/Partial)
         //dd($payments);
         if (!empty($payments)) {

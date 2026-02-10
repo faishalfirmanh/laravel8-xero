@@ -28,7 +28,7 @@ class ProductAndServiceController extends Controller
     //     return $tenantId;
     // }
 
-    public function getProductNoSame(Request $request,XeroAuthService $xeroService)
+    public function getProductNoSame(Request $request)
     {
           try {
              $tokenData = $this->getValidToken();
@@ -48,7 +48,10 @@ class ProductAndServiceController extends Controller
             $list_item_rows = $responseInvoice->json()["Invoices"][0]["LineItems"];
             $code_item = [];
             foreach ($list_item_rows as $key => $value) {
-              $code_item[] = $value["ItemCode"];
+              if(isset($value["ItemCode"])){ //jika tidak selected item
+                  $code_item[] = $value["ItemCode"];
+              }
+
             }
 
             $response = Http::withHeaders([
@@ -59,7 +62,8 @@ class ProductAndServiceController extends Controller
             ])->get('https://api.xero.com/api.xro/2.0/Items')->json()['Items'];
 
             $filtered_items = array_values(array_filter($response, function ($item) use ($code_item) {
-                return isset($item['Code']) && !in_array($item['Code'], $code_item);
+                //return isset($item['Code']) && !in_array($item['Code'], $code_item);//fiter tidak duplicate
+                return isset($item['Code']); //tampil semua
             }));
             return response()->json([
                 'status' => 'success',

@@ -723,6 +723,28 @@
     $(document).on('click', '.save-row', function() {
         let btn = $(this);
         let row = btn.closest('tr');
+        let accountVal = row.find('.account').val();
+        if (!accountVal) {
+            Swal.fire({
+                title: 'Erros!',
+                text: `Account hari di isi`,
+                icon: 'error',
+                confirmButtonText: 'Ok'
+            })
+            return;
+        }
+
+        let harga_per_item = parseFloat(row.find('.price').val());
+        if (harga_per_item < 1) {
+            Swal.fire({
+                title: 'Erros!',
+                text: `Price harus di isi`,
+                icon: 'error',
+                confirmButtonText: 'Ok'
+            })
+            return;
+        }
+
         //console.log('saved',row.find('.item-select').val())
         // Ambil Data dari Input
         let payload = {
