@@ -86,7 +86,7 @@ Route::prefix("xero-integrasi")->group(function () {
     //proudct
     Route::get('/get-data-product', [ProductAndServiceController::class, 'getProduct'])->name('xero-list-product-paging');//used
     Route::get('/get-data-no-limit', [ProductAndServiceController::class, 'getProductAllNoBearer']);//used
-    Route::get('/get-product-withoutsame', [ProductAndServiceController::class, 'getProductNoSame']);
+    Route::get('/get-product-withoutsame', [ProductAndServiceController::class, 'getProductNoSame']);//used change become same item
     Route::get('/get-by-id/{id}', [ProductAndServiceController::class, 'getProductById'])->name('xero-product-by-id');//used
 
     //kategory (tracking)
@@ -104,6 +104,8 @@ Route::prefix("xero-integrasi")->group(function () {
 
     //local insert yang sudah paid saja.
     Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory'])->name('cron-insert-history-payment-local');//used  //dibikin button saja
+    //local insert invoice singel
+    Route::get('/insert-payment-inv/{invoiceId}', [PaymentHistoryController::class, 'insertToHistoryByuuidInvoice'])->name('cron-insert-payment');//single invoice
 
     Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);//used
     Route::get('/getDetailInvoice/{idInvoice}', [InvoicesController::class, 'getDetailInvoice']);//used

@@ -484,11 +484,11 @@ class InvoicesController extends Controller
             $invoice_id = $response_detail['Payments'][0]["Invoice"]["InvoiceID"];
            // dd($invoice_id);
             $reference_id ="$invoice_id update harga otomatis xero paid";
-            self::insertToDb($amount,$account_code,$date, $invoice_id, $reference_id);
+            //self::insertToDb($amount,$account_code,$date, $invoice_id, $reference_id);
             //dd($invoice_id);
            // $account_code =
            //  self::insertToDb();
-           // return response()->json($response_detail->json() ?: ['message' => 'Xero API Error'], $response_detail->status());
+            return response()->json($response_detail->json() ?: ['message' => 'Xero API Error'], $response_detail->status());
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error insert db get detail payment : ' . $e->getMessage()], $e->getCode());
         }

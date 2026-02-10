@@ -35,7 +35,7 @@ class PaymentHistoryController extends Controller
 
     public function getHistoryInvoice($invoice_id)
     {
-        $getData = PaymentsHistoryFix::select('invoice_number','invoice_uuid','date','amount')->where('invoice_uuid',$invoice_id)->orderBy('date','asc')->get();
+        $getData = PaymentsHistoryFix::select('invoice_number','invoice_uuid','date','amount','reference','name_bank_transfer')->where('invoice_uuid',$invoice_id)->orderBy('date','asc')->get();
         return response()->json([
             'data'=>$getData
         ], 200);
@@ -140,6 +140,15 @@ class PaymentHistoryController extends Controller
 
                         foreach ($invoice['Payments'] as $payment) {
                             if (isset($payment["Reference"]) && $this->cekKataPertama($payment["Reference"])) {
+                            $payment_uuid_nya =  $payment["PaymentID"];
+                             $detail_payment = Http::withHeaders([
+                                        'Authorization' => 'Bearer ' . $tokenData["access_token"],
+                                        'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+                                        'Content-Type' => 'application/json',
+                                        'Accept' => 'application/json',
+                                    ])->get("https://api.xero.com/api.xro/2.0/Payments/$payment_uuid_nya");
+                               $account_bank = data_get($detail_payment->json(), 'Payments.0.Account.Name', 'no name bank');
+
                                 DB::beginTransaction();
                                 try {
                                     PaymentsHistoryFix::updateOrCreate(
@@ -152,6 +161,7 @@ class PaymentHistoryController extends Controller
                                             'amount'         => $payment["Amount"],
                                             'reference'      => $payment["Reference"],
                                             'payment_uuid' => $payment["PaymentID"],
+                                            'name_bank_transfer' => $account_bank
                                         ]
                                     );
                                     DB::commit();
@@ -210,6 +220,156 @@ class PaymentHistoryController extends Controller
 
         } catch (\Exception $e) {
             Log::error("Cron Job Error Global: " . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
+     public function insertToHistoryByuuidInvoice($invoiceId = null)
+    {
+        if (!$invoiceId) {
+            $invoiceId = request('invoice_id');
+        }
+
+        if (!$invoiceId) {
+            return response()->json(['message' => 'Invoice ID wajib diisi.'], 400);
+        }
+
+        set_time_limit(0); // Unlimited execution time (opsional untuk single request)
+        ini_set('memory_limit', '512M');
+
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                Log::error('Sync Invoice: Token Invalid');
+                return response()->json(['message' => 'Token kosong/invalid.'], 401);
+            }
+
+            $tenantId = $this->getTenantId($tokenData['access_token']);
+            $headers = [
+                'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => $tenantId,
+                'Content-Type'   => 'application/json',
+                'Accept'         => 'application/json',
+            ];
+
+            Log::info("Sync Invoice: Mulai sinkronisasi untuk ID $invoiceId...");
+
+            $response = Http::withHeaders($headers)
+                ->get("https://api.xero.com/api.xro/2.0/Invoices/$invoiceId");
+
+            if ($response->status() == 429) {
+                $retryAfter = (int) $response->header('Retry-After');
+                $waitTime = $retryAfter > 0 ? $retryAfter : 65;
+                Log::warning("Kena Limit 429 Xero saat sync invoice $invoiceId. Retry after $waitTime sec.");
+                return response()->json(['message' => 'Rate Limit Reached', 'retry_after' => $waitTime], 429);
+            }
+
+            if ($response->failed()) {
+                Log::error("Gagal Sync Invoice $invoiceId: " . $response->body());
+                return response()->json(['message' => 'Gagal mengambil data dari Xero', 'error' => $response->body()], $response->status());
+            }
+
+            // --- UPDATE LIMIT INFO ---
+            $av_min = (int) $response->header('X-MinLimit-Remaining');
+            $av_day = (int) $response->header('X-DayLimit-Remaining');
+            $this->globalService->requestCalculationXero($av_min, $av_day);
+
+            // Ambil data Invoice (Array Invoices index 0 karena Xero selalu return array list walau single get)
+            $invoicesData = $response->json()['Invoices'];
+
+            if (empty($invoicesData)) {
+                return response()->json(['message' => 'Invoice tidak ditemukan di Xero.'], 404);
+            }
+
+            $invoice = $invoicesData[0]; // Ambil elemen pertama
+
+            // --- 1. PROSES PAYMENT HISTORY ---
+            if (!empty($invoice['Payments'])) {
+                $contact_name = $invoice['Contact']['Name'] ?? "-";
+                $invoice_number = $invoice['InvoiceNumber'];
+                $invoice_id_xero = $invoice['InvoiceID']; // Pastikan pakai ID dari response
+
+                foreach ($invoice['Payments'] as $payment) {
+                    // Filter referensi (logic Anda)
+                    if (isset($payment["Reference"]) && $this->cekKataPertama($payment["Reference"])) {
+
+                        // Detail payment perlu request lagi ke endpoint Payments?
+                        // Jika data detail bank (Account Name) tidak ada di invoice response, maka request lagi.
+                        // Request detail payment
+                        $payment_uuid = $payment["PaymentID"];
+
+                        // Cek limit safety sebelum request detail
+                        if ($av_min < 5) {
+                            sleep(2); // Sleep singkat saja
+                        }
+
+                        $detail_payment_res = Http::withHeaders($headers)
+                            ->get("https://api.xero.com/api.xro/2.0/Payments/$payment_uuid");
+
+                        // Update limit lagi dari response detail
+                        if ($detail_payment_res->successful()) {
+                            $av_min = (int) $detail_payment_res->header('X-MinLimit-Remaining');
+                            $av_day = (int) $detail_payment_res->header('X-DayLimit-Remaining');
+                            $this->globalService->requestCalculationXero($av_min, $av_day);
+                        }
+
+                        $account_bank = data_get($detail_payment_res->json(), 'Payments.0.Account.Name', 'no name bank');
+
+                        DB::beginTransaction();
+                        try {
+                            PaymentsHistoryFix::updateOrCreate(
+                                ['payment_uuid' => $payment["PaymentID"]],
+                                [
+                                    'invoice_uuid'       => $invoice_id_xero,
+                                    'contact_name'       => $contact_name,
+                                    'invoice_number'     => $invoice_number,
+                                    'date'               => $this->parseXeroDate($payment["Date"]),
+                                    'amount'             => $payment["Amount"],
+                                    'reference'          => $payment["Reference"],
+                                    'payment_uuid'       => $payment["PaymentID"],
+                                    'name_bank_transfer' => $account_bank
+                                ]
+                            );
+                            DB::commit();
+                        } catch (\Exception $e) {
+                            DB::rollBack();
+                            Log::error("Gagal save payment $invoice_number ($payment_uuid): " . $e->getMessage());
+                        }
+                    }
+                }
+            }
+
+            try {
+                $total_xero = $invoice['Total'];
+                $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoice['InvoiceID']);
+                $hasil_selisih = $this->globalService->hitungSelisih($total_xero, $local_total_payment, 2);
+
+                $this->globalService->SavedInvoiceValue(
+                    $invoice['InvoiceID'],
+                    $invoice['InvoiceNumber'],
+                    $invoice['Contact']['Name'] ?? 'null-name',
+                    $total_xero,
+                    $local_total_payment,
+                    $hasil_selisih
+                );
+
+            } catch (\Throwable $th) {
+                Log::error("Gagal hitung gap inv " . $invoice['InvoiceNumber'] . ": " . $th->getMessage());
+            }
+
+            Log::info("Sync Invoice $invoiceId Selesai.");
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Sync Invoice Selesai',
+                'invoice_number' => $invoice['InvoiceNumber'],
+                'request_min_tersisa_hari' => $av_day,
+                'request_min_tersisa_menit' => $av_min,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Sync Invoice Error: " . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

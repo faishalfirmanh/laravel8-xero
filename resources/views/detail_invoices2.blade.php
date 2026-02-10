@@ -571,15 +571,27 @@
                             const tanggalFix = formatDateStringToText(item.date);
                             const amountFix = formatRupiah(item.amount);
                                 htmlContent_local += `
-                                <div class="row mt-2">
-                                    <div class="col-8"><strong class="text-dark"><i class="fas fa-calendar-alt"></i> ${tanggalFix}</strong></div>
-                                    <div class="col-4">
-                                        <span class="" style="font-size: 0.9em;">
-                                            ${amountFix}
-                                        </span>
+                                <div class="row mb-2 pb-2" style="border-bottom: 1px solid #eee;">
+                                    <div class="col-7">
+                                        <div class="text-dark font-weight-bold" style="font-size: 14px;">
+                                            ${item.reference}
+                                        </div>
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar-alt mr-1"></i> ${tanggalFix}
+                                        </small>
                                     </div>
-                                </div>
-                                `;
+
+                                    <div class="col-5 text-right">
+
+                                        <div class="font-weight-bold text-success" style="font-size: 14px;">
+                                            ${amountFix}
+                                        </div>
+
+                                        <div class="text-muted" style="font-size: 11px; margin-top: 2px;">
+                                            <i class="fas fa-university mr-1"></i>${item.name_bank_transfer || '-'}
+                                        </div>
+                                    </div>
+                                </div>`;
                         });
                         container_local_pay.innerHTML = htmlContent_local;
                    }
