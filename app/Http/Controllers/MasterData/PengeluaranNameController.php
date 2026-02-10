@@ -117,10 +117,6 @@ public function store(Request $request)
 
     return $this->autoResponse($data);
 }
-    // =========================
-    // SELECT2 / DROPDOWN (LOCAL)
-    // TETAP DIPAKAI – TIDAK DIUBAH BANYAK
-    // =========================
     public function getAllNamePengeluaranLocal(Request $request)
     {
         $page   = max((int) $request->get('page', 1), 1);
