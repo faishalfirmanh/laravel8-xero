@@ -461,9 +461,11 @@
     }
 
     function syncPayment(){//cron-insert-history-payment-local
+        // console.log('uuid',code_invoice)
          $('#loadingIndicator').toggle(true);
          $.ajax({
-              url: `{{ route('cron-insert-history-payment-local') }}`,
+            //   url: `{{ route('cron-insert-history-payment-local') }}`,
+                url: "/api/xero-integrasi/insert-payment-inv/" + code_invoice,
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
@@ -472,7 +474,7 @@
 
                         Swal.fire({
                             title: "success",
-                            text: `berhasil \n singkronise sisa request ke xero perhari ${response.request_min_tersisa_hari}`,
+                            text: `berhasil \n singkronise ${response.invoice_number} \n sisa request ke xero perhari ${response.request_min_tersisa_hari}`,
                             icon: "success"
                         });
                     }
