@@ -493,7 +493,7 @@
          })
     }
 
-    function fetchDataDummy() {
+    function fetchDataDummy() {//errors
        // $('#fullPageLoader').removeClass('d-none');
         let urlTarget = `${BASE_URL}/api/xero-integrasi/getDetailInvoice/${code_invoice}`;
           $.ajax({

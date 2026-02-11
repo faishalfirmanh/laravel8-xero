@@ -1219,12 +1219,12 @@ collection:
                 store: true
               rebuildPath: true
           - url: "{{ _.local_url_xero
-              }}getDetailInvoice/e85420a8-53e0-44d9-a80f-5ce351ae0b7a"
+              }}getDetailInvoice/d64a62bd-e0c2-403f-9c6e-39fd136ca02c"
             name: 1.get-detail-invoices-byIdInvoice
             meta:
               id: req_18a7b21d1e4946768f3f2758ed04e06c
               created: 1764747457935
-              modified: 1768619582467
+              modified: 1770024904767
               isPrivate: false
               description: ""
               sortKey: -1764383404085.25
@@ -1461,6 +1461,49 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
+          - url: "{{ _.local_url }}xero-integrasi/updateDateInv"
+            name: 3. update header row inv
+            meta:
+              id: req_22ead1a3eace4167925eaa31f19a437a
+              created: 1770105235148
+              modified: 1770105787704
+              isPrivate: false
+              description: ""
+              sortKey: -1764383249833.125
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"invoice_id":"1b69726c-63f5-463e-8f2a-70301cc6bd19",
+                	"new_date":"2026-04-04"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+              - name: xero-tenant-id
+                value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                description: ""
+                disabled: false
+              - name: Accept
+                value: application/json
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: "{{ _.refresh_token }}"
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
           - name: invoice paid
             meta:
               id: fld_cf8b9dfc1e864a62bc062f659edf3e7c
@@ -1469,12 +1512,14 @@ collection:
               sortKey: -1764820683816
               description: ""
             children:
-              - url: "{{ _.local_url }}updateDeletedPayment/{{ _.payment_id }}/DELETED"
+              - url: "{{ _.local_url
+                  }}updateDeletedPayment/510a0859-465f-4c04-b778-2ac8f072fa6b/D\
+                  ELETED"
                 name: 1. update to deleted
                 meta:
                   id: req_10efbfe751404205a7a8af2fbe35b0b2
                   created: 1764820700010
-                  modified: 1765186297740
+                  modified: 1770284505255
                   isPrivate: false
                   description: ""
                   sortKey: -1764820709140
@@ -1499,7 +1544,7 @@ collection:
                     disabled: false
                 authentication:
                   type: bearer
-                  token: "{{ _.barer_token }}"
+                  token: "{{ _.refresh_token }}"
                 settings:
                   renderRequestBody: true
                   encodeUrl: true
@@ -1508,12 +1553,12 @@ collection:
                     send: true
                     store: true
                   rebuildPath: true
-              - url: "{{ _.local_url }}getDetailPayment/0ed39b60-3f38-46b5-8daa-d5e07386cc91"
+              - url: "{{ _.local_url }}getDetailPayment/d99674aa-de4a-450f-a596-d85bb2d38346"
                 name: 2. GET Payment
                 meta:
                   id: req_1784f5b4bb0d49f1b44667e3bc43116c
                   created: 1764821505732
-                  modified: 1765859263781
+                  modified: 1770714364338
                   isPrivate: false
                   description: ""
                   sortKey: -1764777001973.5
@@ -1538,7 +1583,7 @@ collection:
                     disabled: false
                 authentication:
                   type: bearer
-                  token: "{{ _.barer_token }}"
+                  token: "{{ _.refresh_token }}"
                 settings:
                   renderRequestBody: true
                   encodeUrl: true
@@ -1635,6 +1680,52 @@ collection:
                 authentication:
                   type: bearer
                   token: i7e1eNf_zzA8qwVzGnTvncUiV6rzYyTmNn0cXQFmGa8
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url_xero }}create-payment"
+                name: 3.local- create payment by invoice
+                meta:
+                  id: req_bebbc1e57f5b43d1a7698946ffdb5775
+                  created: 1770794472271
+                  modified: 1770795931202
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1764766075106.875
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                      "invoice_id": "ff7022bf-8387-4491-9d82-4ac3788352ed",
+                    	"account_code": "btest1",
+                    	"date":"2026-02-01",
+                    	"reference":"-man cobak api",
+                    	"amount":7200
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.refresh_token }}"
                 settings:
                   renderRequestBody: true
                   encodeUrl: true
@@ -1808,13 +1899,13 @@ collection:
                     store: true
                   rebuildPath: true
               - url: "{{ _.local_url_xero
-                  }}delete-creditnote-byuuid/99a74fb0-9762-44fe-8f68-6d26c71690\
-                  e7"
+                  }}delete-creditnote-byuuid/56807ebe-3122-46df-8238-8cba75a703\
+                  5e"
                 name: delete creditNote (byUUID)
                 meta:
                   id: req_6558508429624b42bd1ecccf54660f58
                   created: 1768288482467
-                  modified: 1768293543039
+                  modified: 1770283044069
                   isPrivate: false
                   description: ""
                   sortKey: -1765164738033
@@ -1849,13 +1940,13 @@ collection:
                     store: true
                   rebuildPath: true
               - url: "{{ _.local_url_xero
-                  }}delete-overpayment-byuuid/976c64fb-334d-4634-9d47-f886ec6d5\
-                  edd"
+                  }}delete-overpayment-byuuid/510a0859-465f-4c04-b778-2ac8f072f\
+                  a6b"
                 name: delete overpayment (byUUID)
                 meta:
                   id: req_fd97a3f7fe61422bb313cc1c041a26df
                   created: 1768288934347
-                  modified: 1768289666673
+                  modified: 1770285521775
                   isPrivate: false
                   description: ""
                   sortKey: -1765164738020.5
@@ -2895,11 +2986,11 @@ collection:
                     store: true
                   rebuildPath: true
               - url: "{{ _.local_url }}admin-web/transaksi/expenses/package-profit/save"
-                name: saved
+                name: saved_header
                 meta:
                   id: req_ef0e083f5c684c3fb1f4bcdfe0d41bc6
                   created: 1769759999706
-                  modified: 1769760389064
+                  modified: 1769999065010
                   isPrivate: false
                   description: ""
                   sortKey: -1769750935021.5
@@ -2938,7 +3029,7 @@ collection:
                 meta:
                   id: req_d804a618546d4f7795f9dcee968d6f7d
                   created: 1769844951356
-                  modified: 1769845809085
+                  modified: 1770010768842
                   isPrivate: false
                   description: ""
                   sortKey: -1769755303641.25
@@ -2947,7 +3038,45 @@ collection:
                   mimeType: application/json
                   text: |-
                     {
-                    	"id":19
+                    	"id":37
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.3.0
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: 18|C6BQU65iunmmIcsV9BGAC8cVl2wSlgWditkRDxfG
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url }}admin-web/transaksi/expenses/package-profit/saveDetail"
+                name: create_detail
+                meta:
+                  id: req_8ecc14c7e6d24a2eb8e077e4637af420
+                  created: 1769999094429
+                  modified: 1769999292566
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1769746566401.75
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                    	[
+                    		"package_expenses_id":18,
+                    		"pengeluaran_id" : 21,
+                    	  "is_idr" : true
+                    	]
                     }
                 headers:
                   - name: Content-Type
@@ -4180,7 +4309,7 @@ collection:
         meta:
           id: req_841d079e20764d4b86bfe4ab4b3290c6
           created: 1765524099733
-          modified: 1769408654717
+          modified: 1770345847582
           isPrivate: false
           description: ""
           sortKey: -1765480047715.5
@@ -4189,7 +4318,7 @@ collection:
           mimeType: application/json
           text: |-
             {
-            	"code":"eAvRwLk422lYmhD62McHVrzoOCJRZA3GmVE3DL1b-xc"
+            	"code":"jofKImQjudFgBwzbALuvegGXHOLZgImuVMDVciQXjrw"
             }
         headers:
           - name: Content-Type

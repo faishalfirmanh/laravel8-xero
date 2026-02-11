@@ -11,7 +11,7 @@ class InvoicesDuplicateControllerOld extends Controller
      function xeroDateToPhp($xeroDate, $format = 'Y-m-d') {
         if (empty($xeroDate)) return null;
         preg_match('/\/Date\((-?\d+)/', $xeroDate, $matches);
-    
+
         if (!isset($matches[1])) return null;
         return date($format, $matches[1] / 1000);
     }
@@ -35,7 +35,7 @@ class InvoicesDuplicateControllerOld extends Controller
                     if($value["status"] == "PAID"){
                       self::updateInvoicePaidPerRows($value['no_payment']);
                     }
-                  
+
                 }
 
                 // 2. Update Item/Harga Invoice
@@ -94,7 +94,7 @@ class InvoicesDuplicateControllerOld extends Controller
         }
 
         $data = $response_detail->json();
-        
+
         // Validasi apakah array Payments ada isinya
         if (empty($data['Payments'])) {
              throw new \Exception("Data Payment kosong dari Xero");
@@ -141,7 +141,7 @@ class InvoicesDuplicateControllerOld extends Controller
                         "InvoiceID" => $invoice_id
                     ],
                     "Account" => [
-                        "Code" => 200,//$invoice_table->account_code 
+                        "Code" => 200,//$invoice_table->account_code
                     ],
                     "Date" => $invoice_table->date,
                     "Amount" => (float)$invoice_table->amount, // Cast ke float/number
@@ -149,7 +149,7 @@ class InvoicesDuplicateControllerOld extends Controller
                 ]
             ]
         ];
-      
+
         // HAPUS SPASI di depan URL
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('BARER_TOKEN'),
@@ -184,7 +184,7 @@ class InvoicesDuplicateControllerOld extends Controller
     public function updateInvoicePerRows($parent_id, $amount_input, $line_item_id, $status_invoice)
     {
         $cleanId = str_replace('"', '', $parent_id);
-        
+
         $response_detail = Http::withHeaders([
             'Authorization' => 'Bearer ' . env('BARER_TOKEN'),
             'Xero-Tenant-Id' => '90a3a97b-3d70-41d3-aa77-586bb1524beb',
@@ -200,10 +200,10 @@ class InvoicesDuplicateControllerOld extends Controller
 
         foreach ($data['Invoices'] as $value) {
             foreach ($value['LineItems'] as $value2) {
-                
+
                 // Logika Cek Update
                 $cek_is_update_Amount = ($value2['LineItemID'] == $line_item_id) ? $amount_input : $value2['UnitAmount'];
-                
+
                 $itemPayload = [
                     'LineItemID' => $value2['LineItemID'],
                     'Description' => isset($value2['Item']['Name']) ? 'update harga paket ' . $value2['Item']['Name'] : $value2['Description'],
@@ -220,7 +220,7 @@ class InvoicesDuplicateControllerOld extends Controller
                 $all_itemm[] = $itemPayload;
             }
         }
-        
+
         $parent_wrap = ['InvoiceID' => $parent_id, 'LineItems' => $all_itemm];
 
         $update_tiap_row_invoices = Http::withHeaders([

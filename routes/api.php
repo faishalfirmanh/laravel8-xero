@@ -119,6 +119,9 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::post('/delete-invoice-byuuid/{uuid_inv}', [InvoicesController::class, 'forceDeleteInvoice'])->name('delete_invoice_uuid');
     Route::post('/delete-creditnote-byuuid/{creditNoteId}', [InvoicesController::class, 'forceDeleteCreditNote'])->name('delete_creditnote_uuid');
     Route::post('/delete-overpayment-byuuid/{overpaymentId}', [InvoicesController::class, 'forceVoidOverpayment'])->name('delete_overpayment_uuid');
+
+    //create payment unutk testing
+    Route::post('/create-payment', [InvoicesDuplicateController::class, 'apiNewPayment']);
 });
 
 Route::prefix("admin-web")->group(function () {

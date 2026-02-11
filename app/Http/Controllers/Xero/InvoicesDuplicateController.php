@@ -7,13 +7,15 @@ use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use App\Models\PaymentParams;
 use Illuminate\Support\Facades\Log;
+use Validator;
+use App\Traits\ApiResponse;
 use App\ConfigRefreshXero;
 use App\Services\GlobalService;
 class InvoicesDuplicateController extends Controller
 {
 
      use ConfigRefreshXero;
-
+     use ApiResponse;
      protected $globalService;
 
     public function __construct(GlobalService $globalService)
@@ -26,6 +28,81 @@ class InvoicesDuplicateController extends Controller
         preg_match('/\/Date\((-?\d+)/', $xeroDate, $matches);
         if (!isset($matches[1])) return null;
         return date($format, $matches[1] / 1000);
+    }
+
+
+     public function apiNewPayment(Request $request)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'invoice_id' => 'required|string',
+            'account_code' => 'required|string',
+            'date' => 'required|date',
+            'amount' => 'required|numeric',
+            'reference' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $validated = $validator->validated();
+
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) {
+            return response()->json(['message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'], 401);
+        }
+
+        $form = [
+            "Payments" => [
+                [
+                    "Invoice" => [
+                        "InvoiceID" => $request->invoice_id
+                    ],
+                    "Account" => [
+                        "Code" => $request->account_code,//$invoice_table->account_code
+                    ],
+                    "Date" => $request->date,
+                    "Amount" => (float)$request->amount, // Cast ke float/number
+                    "Reference" => $request->reference ?? "Payment via API",
+                ]
+            ]
+        ];
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' .  $tokenData["access_token"],
+            'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ])->post('https://api.xero.com/api.xro/2.0/Payments', $form);
+
+        if ($response->failed()) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Terjadi kesalahan internal sistem.',
+                'error'   =>$response->json()
+            ], $response->status());
+            // Tampilkan pesan error langsung dari Xero
+            // Jika bentuknya API, ganti dd() dengan return response()->json(...)
+        }
+
+        $responseData = $response->json();
+        $paymentData = $responseData['Payments'][0] ?? null;
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Payment berhasil ditambahkan ke Xero.',
+            'data'    => [
+                'payment_id'   => $paymentData['PaymentID'] ?? null,
+                'invoice_id'   => $validated['invoice_id'],
+                'amount'       => $validated['amount'],
+                'status_xero'  => $paymentData['Status'] ?? 'AUTHORISED'
+            ]
+        ], 201);
+
+        if ($response->failed()) {
+            throw new \Exception("Gagal Create Payment Baru: " . $response->body());
+        }
     }
 
 
