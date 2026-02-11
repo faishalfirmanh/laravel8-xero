@@ -56,12 +56,12 @@ class PaymentHistoryController extends Controller
         set_time_limit(0);
         ini_set('memory_limit', '512M');
 
-        $this->globalService->saveLogHistory(
-            $request->user_login->id,
-            $request->user_login->name .' sync history invoice xero',
-            $request->userAgent(),
-            $request->ip()
-        );
+        // $this->globalService->saveLogHistory(
+        //     $request->user_login->id,
+        //     $request->user_login->name .' sync history invoice xero',
+        //     $request->userAgent(),
+        //     $request->ip()
+        // );
 
         try {
             $tokenData = $this->getValidToken();
