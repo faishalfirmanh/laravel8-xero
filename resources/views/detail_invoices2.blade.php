@@ -501,7 +501,7 @@
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
-
+                     console.log('detail',response)
                     $("#TotalAmountPaidDisplay").text(formatRupiah(response.Invoices[0].AmountPaid))
                     $("#TotalAmountDueDisplay").text(formatRupiah(response.Invoices[0].AmountDue))
                     $("#TotalAmountXero").html(`<strong>${formatRupiah(response.custom.total_xero)}</strong>`)

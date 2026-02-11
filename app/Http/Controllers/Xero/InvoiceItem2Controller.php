@@ -95,6 +95,8 @@ class InvoiceItem2Controller extends Controller
                 ], 400);
             }
 
+            // dd($payments);
+            //save
             if (!empty($payments)) {
                 foreach ($payments as $pay) {
                     $payId = $pay['PaymentID'];
@@ -299,7 +301,18 @@ class InvoiceItem2Controller extends Controller
     {
         $response = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . "/Payments/$paymentId");
 
-        if ($response->failed()) throw new \Exception("Gagal Backup Payment: " . $response->body());
+        //BELUM SELESAI
+        if ($response->failed()) {//payment kemungkinan sudah di hapus
+            $cek_payment_sebelumnya =  PaymentParams::query('payments_id',$paymentId)->first();
+            $all_payemnt =  PaymentParams::query('invoice_id',$cek_payment_sebelumnya->invoice_id)->get();
+            dd(count($all_payemnt));
+            //1. AMBIL PaymentsHistoryFix BY $cek_payment_sebelumnya->invoice_id
+            //2. Create pAYMENT dari data di atas
+            //3. hapus PaymentParams -> jika ada
+            //payment sudah di hapus
+            //cari di backup local
+            throw new \Exception("Gagal Backup Payment: " . $response->body() ." id payments $paymentId");
+        }
 
         $data = $response->json();
         if (empty($data['Payments'])) return;
@@ -320,7 +333,7 @@ class InvoiceItem2Controller extends Controller
                 'account_id' => $payment['Account']['AccountID'] ?? null,
                 'date' => $date,
                 'amount' => $payment["Amount"],
-                'reference' => "Re-payment API detail baris ".$payment["Reference"],
+                'reference' => "Re-payment API ".$payment["Reference"],
                 'bank_account_id'=>$this->getBankAccountFromPayment($paymentId)
             ]
         );
@@ -541,7 +554,7 @@ class InvoiceItem2Controller extends Controller
         // 2. Backup & Void Payment (Jika Status PAID/Partial)
         //dd($payments);
         if (!empty($payments)) {
-            Log::info("Menghapus item dari Paid Invoice: $invoiceId");
+            Log::info("muali Menghapus item dari Paid Invoice: $invoiceId");
 
             foreach ($payments as $pay) {
                 $payId = $pay['PaymentID'];
@@ -604,6 +617,7 @@ class InvoiceItem2Controller extends Controller
                 // Hapus data backup dari DB agar tidak menumpuk
                 //PaymentParams::where('payments_id', $oldPayId)->delete();
             }
+            PaymentParams::where('invoice_id', $invoiceId)->delete();
         }
         //update
         $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoiceId);

@@ -215,6 +215,11 @@ Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xe
 
 
 //payment
+//new
+Route::get('/getPaidPayment/{idPayment}', [PaymentController::class, 'getPaidPayment']);
+Route::get('/getCreditNotePayment/{idPayment}', [PaymentController::class, 'getCreditNoteByPaymentId']);
+Route::get('/getPrepaymentByPaymentId/{idPayment}', [PaymentController::class, 'getPrepaymentByPaymentId']);
+//new
 Route::post('/updateDeletedPayment/{payment_id}/{status}', [PaymentController::class, 'updatePaymentStatus']);
 Route::get('/getDetailPayment/{idPayment}', [InvoicesController::class, 'getDetailPayment']);
 Route::post('/createPayments', [PaymentController::class, 'createPayments']);
