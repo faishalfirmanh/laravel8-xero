@@ -19,18 +19,21 @@ use App\ConfigRefreshXero;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
+
 class RPaymentHotelApiController extends Controller
 {
     //
-    protected $repo, $repo_payment, $service_global, $repo_jamaah;
+    protected $repo, $repo_payment, $repo_jamaah, $service_global;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
         HotelInvoicesRepository $repo,
-        HotelPaymentRepository $repo_payment
+        HotelPaymentRepository $repo_payment,
+        GlobalService $service_global
     ) {
         $this->repo = $repo;
         $this->repo_payment = $repo_payment;
+        $this->service_global = $service_global;
     }
 
 
@@ -96,6 +99,13 @@ class RPaymentHotelApiController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
+
+         $this->service_global->saveLogHistory(
+            $request->user_login->id,
+            $request->user_login->name .' create save pembayaran hotel',
+            $request->userAgent(),
+            $request->ip()
+        );
 
         $saved_details = $this->repo_payment->CreateOrUpdate($request->all(), null);
         $parent = $this->repo->whereData(['id' => $request->invoices_id])->first();
@@ -174,6 +184,13 @@ class RPaymentHotelApiController extends Controller
             return $this->error($validator->errors());
         }
 
+         $this->service_global->saveLogHistory(
+            $request->user_login->id,
+            $request->user_login->name .' update save pembayaran hotel',
+            $request->userAgent(),
+            $request->ip()
+        );
+
         $saved_details = $this->repo_payment->CreateOrUpdate($request->all(), $request->id);
         $parent = $this->repo->whereData(['id' => $request->invoices_id])->first();
         //parent
@@ -216,6 +233,14 @@ class RPaymentHotelApiController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
+
+
+         $this->service_global->saveLogHistory(
+            $request->user_login->id,
+            $request->user_login->name .' deleted save pembayaran hotel',
+            $request->userAgent(),
+            $request->ip()
+        );
 
         $row_payment = $this->repo_payment->find($request->id);
         $parent = $this->repo->whereData(['id' => $row_payment->invoices_id])->first();

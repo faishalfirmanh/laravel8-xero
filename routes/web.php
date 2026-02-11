@@ -13,7 +13,7 @@ use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 use App\Http\Controllers\MasterData\MasterMaskapaiController;
 use App\Http\Controllers\MasterData\RoleUserController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
-use App\Http\Controllers\LogHistoryController;
+use App\Http\Controllers\Report\LogHistoryController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -54,6 +54,10 @@ Route::prefix('admin')->group(function () {
         Route::get('/config_currency', [DashboardController::class, 'getConfigCurrency'])->name('config-currency-web');
     });
 
+    Route::prefix('report')->group(function(){
+        Route::get('/log-history',[LogHistoryController::class, 'index'])->name('web-log-history-list');
+    });
+
 });
 
 //print-pdf
@@ -81,9 +85,6 @@ Route::get('/api/xero/list-transaksi', [XeroTransaksiController::class, 'listTra
 Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
 
 Route::prefix('admin/master-data')->group(function () {
-
-Route::get('/maskapai', [MasterMaskapaiController::class, 'index'])->name('maskapai.index');
-Route::get('/role-user', [RoleUserController::class, 'index'])->name('role-user.index');
-
-Route::get('/log-history',[LogHistoryController::class, 'index'])->name('log-history.index');});
-
+    Route::get('/maskapai', [MasterMaskapaiController::class, 'index'])->name('maskapai.index');
+    Route::get('/role-user', [RoleUserController::class, 'index'])->name('role-user.index');
+});

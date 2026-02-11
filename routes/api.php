@@ -40,7 +40,7 @@ use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
-use App\Http\Controllers\LogHistoryController;
+use App\Http\Controllers\Report\LogHistoryController;
 
 
 use Illuminate\Http\Request;
@@ -160,6 +160,10 @@ Route::prefix("admin-web")->group(function () {
         });
     });
 
+    Route::middleware(['auth:sanctum', 'xss'])->prefix("report")->group(function () {
+        Route::get('/log-history', [LogHistoryController::class, 'getData'])->name('list-log-history');
+    });
+
     Route::middleware(['auth:sanctum', 'xss'])->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
@@ -203,7 +207,7 @@ Route::prefix("admin-web")->group(function () {
 
 
 Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
-Route::get('/log-history', [LogHistoryController::class, 'list']);
+
 
 
 
