@@ -320,9 +320,9 @@ class PaymentHistoryController extends Controller
                             $av_day = (int) $detail_payment_res->header('X-DayLimit-Remaining');
                             $this->globalService->requestCalculationXero($av_min, $av_day);
                         }
-
+                        $account_id_or_bank = data_get($detail_payment_res->json(), 'Payments.0.Account.AccountID', 'no id bank account');
                         $account_bank = data_get($detail_payment_res->json(), 'Payments.0.Account.Name', 'no name bank');
-
+                        //dd( data_get($detail_payment_res->json(), 'Payments.0', 'no id bank account'));
                         DB::beginTransaction();
                         try {
                             PaymentsHistoryFix::updateOrCreate(
@@ -335,7 +335,8 @@ class PaymentHistoryController extends Controller
                                     'amount'             => $payment["Amount"],
                                     'reference'          => $payment["Reference"],
                                     'payment_uuid'       => $payment["PaymentID"],
-                                    'name_bank_transfer' => $account_bank
+                                    'name_bank_transfer' => $account_bank,
+                                    'account_uuid_or_bank'=> $account_id_or_bank
                                 ]
                             );
                             DB::commit();

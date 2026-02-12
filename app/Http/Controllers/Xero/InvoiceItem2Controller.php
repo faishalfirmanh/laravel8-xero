@@ -9,6 +9,7 @@ use App\Models\PaymentParams; // Pastikan model ini ada
 use Carbon\Carbon;
 use App\ConfigRefreshXero;
 use App\Services\GlobalService;
+use App\Models\PaymentsHistoryFix;
 class InvoiceItem2Controller extends Controller
 {
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
@@ -95,13 +96,13 @@ class InvoiceItem2Controller extends Controller
                 ], 400);
             }
 
-            // dd($payments);
+            // dd($invoiceData);
             //save
             if (!empty($payments)) {
                 foreach ($payments as $pay) {
                     $payId = $pay['PaymentID'];
                     // Backup data payment detail dari Xero ke DB Lokal
-                    $this->backupPaymentData($payId);
+                    $this->backupPaymentData($currentLineItems,$payId, $invoiceId);//jika ada errors berhenti disini
                     // Simpan ID untuk direstore nanti
                     $paymentBackups[] = $payId;
                     // Hapus Payment di Xero agar Invoice bisa diedit
@@ -147,20 +148,6 @@ class InvoiceItem2Controller extends Controller
             }
             $response_for_code = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Items/' .  $request->item_code);
 
-            //dd($data_item_prod);
-            //$request->item_code =  $data_item_prod;
-
-            // Object Line Item Baru sebelum set item_code requred
-            // $newLineItem = [
-            //     'ItemCode'      => $request->item_code,
-            //     'Description'   => $request->description,
-            //     'Quantity'      => $request->qty,
-            //     'UnitAmount'    => $request->price,
-            //     'DiscountRate'  => round($discountRate, 4),
-            //     'AccountCode'   => $request->account_code ?? '200',
-            //     'TaxType'       => $request->tax_type ?? 'NONE',
-            //     'Tracking'      => $tracking
-            // ];
 
             $newLineItem = [
                 'Description'   => $request->description, // Wajib jika tanpa item code
@@ -191,19 +178,7 @@ class InvoiceItem2Controller extends Controller
                     $updatedLineItems[] = $newLineItem;
                     $found = true;
                 } else {
-                    // Copy item lama
-                    // $updatedLineItems[] = [
-                    //     'LineItemID' => $item['LineItemID'],
-                    //     'Quantity'   => $item['Quantity'],
-                    //     'UnitAmount' => $item['UnitAmount'],
-                    //     'ItemCode'   => $item['ItemCode'] ?? null,
-                    //     'Description'=> $item['Description'] ?? null,
-                    //     'AccountCode'=> $item['AccountCode'] ?? null,
-                    //     'TaxType'    => $item['TaxType'] ?? null,
-                    //     'DiscountRate'=> $item['DiscountRate'] ?? 0,
-                    //     'Tracking'   => $item['Tracking'] ?? []
-                    // ];
-
+                    //copy item lama
                     $tempItem = [
                         'LineItemID' => $item['LineItemID'],
                         'Quantity'   => $item['Quantity'],
@@ -297,24 +272,45 @@ class InvoiceItem2Controller extends Controller
     /**
      * Ambil detail payment dari Xero dan simpan ke DB Lokal
      */
-    private function backupPaymentData($paymentId)
+
+
+
+
+    //function ini di jalankan didalam array
+    private function backupPaymentData($before_lineItems,$paymentId, $invoice_id)
     {
         $response = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . "/Payments/$paymentId");
 
-        //BELUM SELESAI
+        //jika payment di xero tidak di temukan ->pembayaran ulang via backup db alhidayah
         if ($response->failed()) {//payment kemungkinan sudah di hapus
-            $cek_payment_sebelumnya =  PaymentParams::query('payments_id',$paymentId)->first();
-            $all_payemnt =  PaymentParams::query('invoice_id',$cek_payment_sebelumnya->invoice_id)->get();
-            dd(count($all_payemnt));
-            //1. AMBIL PaymentsHistoryFix BY $cek_payment_sebelumnya->invoice_id
-            //2. Create pAYMENT dari data di atas
-            //3. hapus PaymentParams -> jika ada
-            //payment sudah di hapus
-            //cari di backup local
-            throw new \Exception("Gagal Backup Payment: " . $response->body() ." id payments $paymentId");
-        }
+            $cek_payment_sebelumnya =  PaymentParams::query()->where('payments_id',$paymentId)->first();
+            $cek_payment_history = PaymentsHistoryFix::where('payment_uuid',$paymentId)->first();
+            if($cek_payment_sebelumnya != null){
+               Log::info("pembayaran id di xero tidak ada, coba insert dari data db paymentparams InvoiceItem2Controller line 289");
+               $this->restorePayment($invoice_id, $paymentId);
+               //PaymentParams::where('payments_id',$paymentId)->delete();
+            }
 
+            if($cek_payment_history != null){
+                //foreach ($cek_payment_history as $key => $value) {
+                    if($cek_payment_history->account_uuid_or_bank != 'no id bank account' ||$cek_payment_history->account_uuid_or_bank != null ){
+                        $this->insertLocalPaymentParams(
+                            $cek_payment_history->payment_uuid,
+                            $invoice_id,
+                            $cek_payment_history->account_uuid_or_bank,
+                            $cek_payment_history->date,
+                            $cek_payment_history->amount,
+                            $cek_payment_history->reference);
+
+                        $this->restorePayment($invoice_id, $cek_payment_history->payment_uuid);
+                        Log::info("pembayaran id di xero tidak ada, coba insert dari data db paymentparams InvoiceItem2Controller line 306");
+                    }
+                //}
+            }
+            //throw new \Exception("Gagal Backup Payment: " . $response->body() ." id payments $paymentId");
+        }
         $data = $response->json();
+        //dd($data);
         if (empty($data['Payments'])) return;
 
         $payment = $data['Payments'][0];
@@ -333,7 +329,29 @@ class InvoiceItem2Controller extends Controller
                 'account_id' => $payment['Account']['AccountID'] ?? null,
                 'date' => $date,
                 'amount' => $payment["Amount"],
-                'reference' => "Re-payment API ".$payment["Reference"],
+                'reference' => "Re-payment uang lebih  ".$payment["Reference"],
+                'bank_account_id'=>$this->getBankAccountFromPayment($paymentId)
+            ]
+        );
+    }
+
+    public function insertLocalPaymentParams(
+        $paymentId,
+        $inv_id,
+        $account_code,
+        $date,
+        $amount,
+        $reff
+    ){
+         PaymentParams::updateOrCreate(
+            ['payments_id' => $paymentId],
+            [
+                'invoice_id' => $inv_id,
+                'account_code' => $account_code,
+                'account_id' => $account_code ?? null,
+                'date' => $date,
+                'amount' => $amount,
+                'reference' => $reff,
                 'bank_account_id'=>$this->getBankAccountFromPayment($paymentId)
             ]
         );
@@ -342,13 +360,24 @@ class InvoiceItem2Controller extends Controller
     /**
      * Hapus (Void) Payment di Xero
      */
+
+    public function cekPaymentAda($paymentId){
+        $responsePayment = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Payments/' . $paymentId);
+        $res = $responsePayment->json('Payments.0');
+        if($res != null){
+            return true;
+        }else{
+            return false;
+        }
+    }
     private function voidPaymentInXero($paymentId)
     {
-        $response = Http::withHeaders($this->getHeaders())
+        if(self::cekPaymentAda($paymentId)){
+            $response = Http::withHeaders($this->getHeaders())
             ->post($this->xeroBaseUrl . "/Payments/$paymentId", ["Status" => "DELETED"]);
-
-        if ($response->failed() && $response->status() != 404) {
-             throw new \Exception("Gagal Void Payment: " . $response->body());
+            if ($response->failed() && $response->status() != 404) {
+                 throw new \Exception("Gagal Void Payment: " . $response->body());
+            }
         }
     }
 
@@ -369,7 +398,15 @@ class InvoiceItem2Controller extends Controller
     /**
      * Buat Ulang (Restore) Payment di Xero setelah Invoice diedit
      */
-   private function restorePayment($invoiceId, $oldPaymentId)
+
+    //fungsi ini diletakkan didalam array,
+    //1. cek payment id pada PaymentParams
+    //2. ambil invoice terbaru setelah perubahan harga atau item
+    //3. cek apakah terjadi overpayemnt
+    //4. restore payemnt & jika ada overpayment add overpayments
+    //5. dibawah fungsi yang manggil ini harusnya hapus tabel
+    //   PaymentParams
+    private function restorePayment($invoiceId, $oldPaymentId)
     {
         // Ambil data backup dari DB Lokal
         // Kita gunakan first() karena PaymentID Xero itu unik
@@ -434,8 +471,14 @@ class InvoiceItem2Controller extends Controller
             $payToInvoice = 0;
             $payToOverpayment = $originalPaymentAmount;
         }
-
         // Siapkan Data Umum
+        if($backup->account_code == 'no id bank account' || $backup->account_code == null){
+            Log::error("Gagal Restore Payment ke Invoice: InvoiceItem2Controller line 476 ");
+            return response()->json([
+                'status' => 'error',
+                'message' => 'invoice ini terjadi overpayment bank tujuan tidak di ketahui'
+            ], 400);
+        }
         $payDate = $backup->date;
         $accId   = $backup->account_id ?? $backup->account_code; // Utamakan ID,
         $ref     = $backup->reference;
@@ -451,7 +494,7 @@ class InvoiceItem2Controller extends Controller
                     "Account"   => ["AccountID" => $accId], // Pastikan AccountID Bank valid
                     "Date"      => $payDate,
                     "Amount"    => $payToInvoice,
-                    "Reference" => "re payment by system item detail ".$ref
+                    "Reference" => " by system item detail ".$ref
                 ]]
             ];
 
@@ -463,7 +506,7 @@ class InvoiceItem2Controller extends Controller
             $this->globalService->requestCalculationXero($avP_min, $avP_day);
 
             if ($resPay->failed()) {
-                Log::error("Gagal Restore Payment ke Invoice: " . $resPay->body());
+                Log::error("Gagal Restore Payment ke Invoice: InvoiceItem2Controller line 506 " . $resPay->body());
                 // Jangan throw exception di sini agar logic Overpayment tetap jalan jika perlu
             } else {
                 Log::info("Sukses Restore Payment Invoice: $payToInvoice");
@@ -520,6 +563,7 @@ class InvoiceItem2Controller extends Controller
     }
 
 
+    //kemungkinan masih errors
     public function deleteItem(Request $request, $lineId)
     {
         $invoiceId = $request->invoice_id;
@@ -535,6 +579,9 @@ class InvoiceItem2Controller extends Controller
 
         $invoiceData = $response->json()['Invoices'][0];
         $payments = $invoiceData['Payments'] ?? [];
+         // 3. Filter Item (Hapus Item dari Array)
+        $currentLineItems = $invoiceData['LineItems'] ?? [];
+        $newLineItems = [];
         $paymentBackups = [];
         //dd($payments);
 
@@ -558,7 +605,7 @@ class InvoiceItem2Controller extends Controller
 
             foreach ($payments as $pay) {
                 $payId = $pay['PaymentID'];
-                $this->backupPaymentData($payId); // Backup ke DB
+                $this->backupPaymentData($currentLineItems,$payId,$invoiceId); // Backup ke DB
                 $paymentBackups[] = $payId;       // Simpan ID untuk restore
                 $this->voidPaymentInXero($payId); // Hapus di Xero
             }
@@ -570,9 +617,7 @@ class InvoiceItem2Controller extends Controller
             $this->globalService->requestCalculationXero($a_min, $a_day);
         }
 
-        // 3. Filter Item (Hapus Item dari Array)
-        $currentLineItems = $invoiceData['LineItems'] ?? [];
-        $newLineItems = [];
+
 
         foreach ($currentLineItems as $item) {
             // Masukkan item ke array baru HANYA JIKA ID-nya TIDAK SAMA dengan yang mau dihapus
@@ -612,10 +657,10 @@ class InvoiceItem2Controller extends Controller
         // 5. Restore Payment (Jika tadi ada payment)
         if (!empty($paymentBackups)) {
             Log::info("Mengembalikan Payment untuk Invoice: $invoiceId");
-            foreach ($paymentBackups as $oldPayId) {
+            foreach ($paymentBackups as $oldPayId) {//oldPayId = list id payment array
                 $this->restorePayment($invoiceId, $oldPayId);
                 // Hapus data backup dari DB agar tidak menumpuk
-                //PaymentParams::where('payments_id', $oldPayId)->delete();
+                PaymentParams::where('payments_id', $oldPayId)->delete();
             }
             PaymentParams::where('invoice_id', $invoiceId)->delete();
         }

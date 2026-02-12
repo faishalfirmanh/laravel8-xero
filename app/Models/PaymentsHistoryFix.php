@@ -16,6 +16,7 @@ class PaymentsHistoryFix extends Model
         'date',
         'amount',
         'reference',
-        'name_bank_transfer'
+        'name_bank_transfer',
+        'account_uuid_or_bank'
     ];
 }
