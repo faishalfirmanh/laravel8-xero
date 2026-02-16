@@ -180,8 +180,8 @@ $(document).ready(function(){
             let tbody = '';
             res.data.forEach((inv, index) => {
                 //console.log('inv',inv)
-                let button_update_issue = inv.Status == 'PAID' ?
-                            `<button class="btn-success btn-sm btn-modal-update-inv"
+                let button_update_issue = inv.Status == 'PAID' || inv.Status == 'AUTHORISED' ?
+                            `<button style="margin-top:5px; margin-left:10px;" class="btn-success btn-sm btn-modal-update-inv"
                                 data-id="${inv.InvoiceID}"
                                 data-status="${inv.Status}"
                                 data-invnumber="${inv.InvoiceNumber}">
