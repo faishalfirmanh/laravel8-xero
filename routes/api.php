@@ -190,6 +190,8 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/get-by-id', [RoleUserController::class, 'getById'])->name('role-user.getbyid');
             Route::post('/save', [RoleUserController::class, 'store'])->name('role-user.save');
          });
+         Route::get('/log-history', [LogHistoryController::class, 'list']);
+
         });
 
     });
@@ -200,9 +202,7 @@ Route::prefix("admin-web")->group(function () {
     });
 
 
-Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
-Route::get('/log-history', [LogHistoryController::class, 'list']);
-
+    Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
 
 
 //payment

@@ -22,6 +22,7 @@
                     <th>Browser</th>
                     <th>Action</th>
                     <th>Created By</th>
+                    <th>Create At</th>
                 </tr>
             </thead>
         </table>
@@ -74,6 +75,10 @@ $(document).ready(function () {
                 name: 'created_by',
                 render: d => d ?? '-'
             },
+            {   
+                data: 'created_at', 
+                name: 'created_at' 
+             },
         ],
         { kolom_name: 'action' }
     );

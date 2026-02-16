@@ -9,7 +9,7 @@
             <a href="{{ route('xero-list-transaksi') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">List Transaksi Xero</a>
         </div>
 
-
+        
         <a href="#report_trans" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Report</a>
         <div class="collapse" id="report_trans">
             <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
