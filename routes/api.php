@@ -36,7 +36,7 @@ use App\Http\Controllers\MasterData\RoleUserController;
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
-
+use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
 use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
@@ -81,6 +81,7 @@ Route::prefix("xero-integrasi")->group(function () {
     //Route::get('/xero/callback', [ConfigController::class, 'callback']);
     Route::post('/create-data', [ContactController::class, 'createContact']);
 
+    Route::post('/update-isue-date',[InvoiceXeroLocalController::class,'updateInvoiceDate'])->name('update-invoice-date');
     //
     Route::post('/save-data-product', [ProductAndServiceController::class, 'updateProduct']);//used
     //proudct
@@ -133,6 +134,12 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
     Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
+
+
+    Route::prefix('xero-local')->group(function(){
+        Route::get('list-invoice',[InvoiceXeroLocalController::class, 'getListInvoice'])->name('xero-invoice-local');
+
+    });
 
     Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {

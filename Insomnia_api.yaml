@@ -1504,6 +1504,49 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
+          - url: "{{ _.local_url_xero }}update-isue-date"
+            name: 1. update issue date invoice
+            meta:
+              id: req_11817263b5284544a21a3b7f35886aeb
+              created: 1771032175481
+              modified: 1771221244462
+              isPrivate: false
+              description: ""
+              sortKey: -1764383275541.8125
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"invoice_uuid":"28583368-210c-4d28-b14e-cef767d2038e",
+                	"issue_date":"2025-09-10"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+              - name: xero-tenant-id
+                value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                description: ""
+                disabled: false
+              - name: Accept
+                value: application/json
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: eyJhbGciOiJSUzI1NiIsImtpZCI6IjFDQUY4RTY2NzcyRDZEQzAyOEQ2NzI2RkQwMjYxNTgxNTcwRUZDMTkiLCJ0eXAiOiJKV1QiLCJ4NXQiOiJISy1PWm5jdGJjQW8xbkp2MENZVmdWY09fQmsifQ.eyJuYmYiOjE3NzEyMjExMTAsImV4cCI6MTc3MTIyMjkxMCwiaXNzIjoiaHR0cHM6Ly9pZGVudGl0eS54ZXJvLmNvbSIsImF1ZCI6Imh0dHBzOi8vaWRlbnRpdHkueGVyby5jb20vcmVzb3VyY2VzIiwiY2xpZW50X2lkIjoiN0E3Qjk5Njg4RkNCNDc3MzgwRTNGMjBERUYzOTJCMjUiLCJzdWIiOiJkNGNlNTcyODk2YTc1YzJiODVhZWJmNWI4YTkyZjk4YiIsImF1dGhfdGltZSI6MTc3MTIxOTg0MCwieGVyb191c2VyaWQiOiJhMmM3NDU4Ni1iZTY5LTQ2MzUtODczNi0yNjBkMzhmNDM5MGEiLCJnbG9iYWxfc2Vzc2lvbl9pZCI6ImRmNDZiNDFhNDI1MjRiYWE5YzQ5MWI2ODAzN2NjMzYyIiwic2lkIjoiZGY0NmI0MWE0MjUyNGJhYTljNDkxYjY4MDM3Y2MzNjIiLCJhdXRoZW50aWNhdGlvbl9ldmVudF9pZCI6ImY4OTFkMGM2LTcwNzgtNDU0Yi05ZTlmLTRlNzFhMjA1ZTQwZSIsImp0aSI6IjU1MTUxMjI4RkVBMTU5NjkyQUY3ODQxMzA1OTE0Nzg2Iiwic2NvcGUiOlsiYWNjb3VudGluZy5jb250YWN0cyIsImFjY291bnRpbmcuY29udGFjdHMucmVhZCIsImFjY291bnRpbmcuc2V0dGluZ3MiLCJhY2NvdW50aW5nLnNldHRpbmdzLnJlYWQiLCJhY2NvdW50aW5nLnRyYW5zYWN0aW9ucyIsImFjY291bnRpbmcudHJhbnNhY3Rpb25zLnJlYWQiLCJvZmZsaW5lX2FjY2VzcyJdLCJhbXIiOlsicHdkIl19.m7m9CIGC1CLBTuPxcCYY8JahFJ-1vUsbeqJaoHWbzMiUQJ9U6zCPdnfeo9QyIyLC1gyhtlOulD5i0W3LBsFLmHGUTDgFrHKZEZ8rg4ZrztFaBtY26TJnaPmIC7fYWn0Tykwm8N04dYJSHNkw3Nw-NUWM3Mqx9GFCzTaE_xSGWH-fHYXwt-pDOl_uSUuLxczROpai86-44cclCbf_AqIYZ7XPaqH0cDHDqFLU0_3rkrNSYWxMoUPI5rJQxJYal0XX8jI9-qsk6xSwY27B6Bbi-eIme3yjmB8fdjZ5nSLY4LXgctTwmJt_VvwHsxsBhxXws7TmFhBzYg96cWr_U00Dqw
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
           - name: invoice paid
             meta:
               id: fld_cf8b9dfc1e864a62bc062f659edf3e7c
@@ -1553,12 +1596,12 @@ collection:
                     send: true
                     store: true
                   rebuildPath: true
-              - url: "{{ _.local_url }}getDetailPayment/d99674aa-de4a-450f-a596-d85bb2d38346"
-                name: 2. GET Payment
+              - url: "{{ _.local_url }}getPaidPayment/db44f031-88b8-4755-acd4-f3b4d1cec8a1"
+                name: 2.1 GET Payment
                 meta:
                   id: req_1784f5b4bb0d49f1b44667e3bc43116c
                   created: 1764821505732
-                  modified: 1770714364338
+                  modified: 1771207080811
                   isPrivate: false
                   description: ""
                   sortKey: -1764777001973.5
@@ -1693,7 +1736,7 @@ collection:
                 meta:
                   id: req_bebbc1e57f5b43d1a7698946ffdb5775
                   created: 1770794472271
-                  modified: 1770795931202
+                  modified: 1771212605766
                   isPrivate: false
                   description: ""
                   sortKey: -1764766075106.875
@@ -1704,10 +1747,91 @@ collection:
                     {
                       "invoice_id": "ff7022bf-8387-4491-9d82-4ac3788352ed",
                     	"account_code": "btest1",
-                    	"date":"2026-02-01",
-                    	"reference":"-man cobak api",
-                    	"amount":7200
+                    	"date":"2026-01-12",
+                    	"reference":"-man lunas",
+                    	"amount": 26398700
                     }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.refresh_token }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url
+                  }}getCreditNotePayment/dbd083f1-e763-402a-b56a-ff449e6f3c6c"
+                name: 2.2 GET Credit Note
+                meta:
+                  id: req_26b8c95478fd4501b1c5e8fc7ee1580e
+                  created: 1770799742503
+                  modified: 1770867784499
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1764777001923.5
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: ""
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.refresh_token }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url
+                  }}getPrepaymentByPaymentId/dbd083f1-e763-402a-b56a-ff449e6f3c\
+                  6c"
+                name: 2.3 GET prepayments
+                meta:
+                  id: req_1a7af88ca872481da902742feb8d78b8
+                  created: 1770799812670
+                  modified: 1770867796421
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1764777001898.5
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: ""
                 headers:
                   - name: Content-Type
                     value: application/json
@@ -4309,7 +4433,7 @@ collection:
         meta:
           id: req_841d079e20764d4b86bfe4ab4b3290c6
           created: 1765524099733
-          modified: 1770345847582
+          modified: 1771221505410
           isPrivate: false
           description: ""
           sortKey: -1765480047715.5
@@ -4318,7 +4442,7 @@ collection:
           mimeType: application/json
           text: |-
             {
-            	"code":"jofKImQjudFgBwzbALuvegGXHOLZgImuVMDVciQXjrw"
+            	"code":"qxzoLXObi_4QBToxvj-DJWcStQsx6yycG0nD-6u5ZcM"
             }
         headers:
           - name: Content-Type
