@@ -71,6 +71,60 @@
     </div>
 </div>
 
+<div class="modal fade" id="formUpdateData" tabindex="-1" role="dialog" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content shadow-lg border-0">
+
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title font-weight-bold" id="paymentModalLabel">
+                    <i class="fa fa-calendar-alt mr-2"></i> Update Issue Date
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <div class="modal-body p-4">
+
+                <div class="alert alert-light border rounded mb-4 shadow-sm d-flex align-items-center">
+                    <div class="mr-3">
+                        <i class="fa fa-file-invoice fa-2x text-primary"></i>
+                    </div>
+                    <div>
+                        <small class="text-muted">No Invoice: <span id="no_invoice_display" class="font-weight-bold text-primary">...</span></small>
+                    </div>
+                </div>
+
+                <form id="formDateUpdate">
+                    <div class="form-group">
+                        <label for="new_issue_date" class="font-weight-bold text-secondary">
+                            <i class="fa fa-edit mr-1"></i> Pilih Tanggal Baru
+                        </label>
+                        <input type="hidden" id="invoice_uuid" name="invoice_uuid"/>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text bg-white border-right-0"><i class="fa fa-calendar"></i></span>
+                            </div>
+                            <input type="date" class="form-control border-left-0" id="issue_date" name="issue_date" required>
+                        </div>
+                        <small class="form-text text-muted">Pastikan tanggal sesuai dengan periode akuntansi.</small>
+                    </div>
+                </form>
+
+            </div>
+
+            <div class="modal-footer bg-light">
+                <button type="button" id="close_modal_payment" class="btn btn-outline-secondary px-4" data-dismiss="modal">
+                    Batal
+                </button>
+                <button type="submit" form="formDateUpdate" id="save_update" class="btn btn-primary px-4 shadow-sm">
+                    <i class="fa fa-save mr-1"></i> Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -125,6 +179,15 @@ $(document).ready(function(){
 
             let tbody = '';
             res.data.forEach((inv, index) => {
+                //console.log('inv',inv)
+                let button_update_issue = inv.Status == 'PAID' ?
+                            `<button class="btn-success btn-sm btn-modal-update-inv"
+                                data-id="${inv.InvoiceID}"
+                                data-status="${inv.Status}"
+                                data-invnumber="${inv.InvoiceNumber}">
+                                Update Issue Date
+                            </button>` : '';
+
                 tbody += `
                     <tr>
                         <td>${(res.currentPage - 1) * res.perPage + index + 1}</td>
@@ -151,6 +214,8 @@ $(document).ready(function(){
                                 data-status="${inv.Status}">
                                 Delete
                             </button>
+
+                            ${button_update_issue}
                         </td>
                     </tr>
                 `;
@@ -159,35 +224,35 @@ $(document).ready(function(){
             $('#xero-table tbody').html(tbody);
 
             let totalPages = Math.ceil(res.total / res.perPage);
-let html = '';
-let maxVisible = 5;
+            let html = '';
+            let maxVisible = 5;
 
-// hitung range halaman
-let start = Math.max(1, res.currentPage - 2);
-let end   = Math.min(totalPages, start + maxVisible - 1);
+            // hitung range halaman
+            let start = Math.max(1, res.currentPage - 2);
+            let end   = Math.min(totalPages, start + maxVisible - 1);
 
-// tombol prev
-html += `
-<li class="page-item ${res.currentPage === 1 ? 'disabled' : ''}">
-    <a class="page-link" href="#" data-page="${res.currentPage - 1}">&laquo;</a>
-</li>`;
+            // tombol prev
+            html += `
+            <li class="page-item ${res.currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${res.currentPage - 1}">&laquo;</a>
+            </li>`;
 
-// angka halaman
-for(let i = start; i <= end; i++){
-    html += `
-    <li class="page-item ${i === res.currentPage ? 'active' : ''}">
-        <a class="page-link" href="#" data-page="${i}">${i}</a>
-    </li>
-    `;
-}
+            // angka halaman
+            for(let i = start; i <= end; i++){
+                html += `
+                <li class="page-item ${i === res.currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="${i}">${i}</a>
+                </li>
+                `;
+            }
 
-// tombol next
-html += `
-<li class="page-item ${res.currentPage === totalPages ? 'disabled' : ''}">
-    <a class="page-link" href="#" data-page="${res.currentPage + 1}">&raquo;</a>
-</li>`;
+            // tombol next
+            html += `
+            <li class="page-item ${res.currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${res.currentPage + 1}">&raquo;</a>
+            </li>`;
 
-$('#pagination').html(html);
+            $('#pagination').html(html);
 
         } catch (error) {
             hideLoading();
@@ -226,6 +291,61 @@ $(document).on('click','.page-link',function(e){
     loadXero();
 });
 
+$(document).on('click','.btn-modal-update-inv',function(){
+    let uuid_inv = $(this).data('id');
+    let status = $(this).data('status');
+    let inv_label = $(this).data('invnumber')
+   // console.log('uuiv id',uuid_inv)
+    $("#invoice_uuid").val(uuid_inv)
+    $("#formUpdateData").modal('show')
+    $("#no_invoice_display").text(inv_label)
+})
+
+$('#formDateUpdate').on('submit', function(e) {
+    $("#formUpdateData").modal('hide')
+     showLoading();
+    e.preventDefault();
+    let formData = new FormData(this);
+    let data_json = Object.fromEntries(formData);
+    //console.log('json',data_json)
+    $.ajax({
+        url: `{{ route('update-invoice-date') }}`,
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        data:data_json,
+        success: function(res){
+            hideLoading();
+            console.log('resss',res)
+            if(res.status == 'success'){
+                 Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: 'berhasil update invoice issue date '
+                });
+                 loadXero();
+            }
+
+        },
+        error: function(xhr){
+            hideLoading();
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: xhr.responseJSON?.error ?? 'Gagal memproses invoice'
+            });
+             loadXero();
+        }
+    });
+})
+//  $("#tableHotel").on('click','.payment-hotel',function(){
+//           let idnya = $(this).data('id');
+//           $("#invoices_id_parent").val(idnya)
+//            $('#formSubmitPayment')[0].reset();
+//             loadListPayment(idnya)
+//         $('#formUpdateData').modal('show');
+//     })
     // DELETE / VOID (TIDAK DIUBAH)
 $(document).on('click','.void-btn',function(){
     let uuid = $(this).data('id');

@@ -98,6 +98,13 @@ class RHotelApiController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
+
+        $this->service_global->saveLogHistory(
+            $request->user_login->id,
+            $request->user_login->name .' hapus invoice hotel',
+            $request->userAgent(),
+            $request->ip()
+        );
         // dd($request->id);
         $detail = DetailInvoicesHotel::where('invoice_id', $request->id)->delete();
         $data = InvoicesHotel::where('id', $request->id)->delete();
@@ -216,6 +223,13 @@ class RHotelApiController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
+
+         $this->service_global->saveLogHistory(
+            $request->user_login->id,
+            $request->user_login->name .' save revenue hotel',
+            $request->userAgent(),
+            $request->ip()
+        );
 
         $tokenData = $this->getValidToken();
 

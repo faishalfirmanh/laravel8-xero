@@ -39,7 +39,7 @@ $(document).ready(function () {
 
     table = initGlobalDataTableToken(
         '#tableLogHistory',
-        `{{ route('log-history.getdata') }}`,
+        `{{ route('list-log-history') }}`,
         [
             {
                 data: null,

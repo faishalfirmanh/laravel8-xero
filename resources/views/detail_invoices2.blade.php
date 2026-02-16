@@ -461,9 +461,11 @@
     }
 
     function syncPayment(){//cron-insert-history-payment-local
+        // console.log('uuid',code_invoice)
          $('#loadingIndicator').toggle(true);
          $.ajax({
-              url: `{{ route('cron-insert-history-payment-local') }}`,
+            //   url: `{{ route('cron-insert-history-payment-local') }}`,
+                url: "/api/xero-integrasi/insert-payment-inv/" + code_invoice,
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
@@ -472,7 +474,7 @@
 
                         Swal.fire({
                             title: "success",
-                            text: `berhasil \n singkronise sisa request ke xero perhari ${response.request_min_tersisa_hari}`,
+                            text: `berhasil \n singkronise ${response.invoice_number} \n sisa request ke xero perhari ${response.request_min_tersisa_hari}`,
                             icon: "success"
                         });
                     }
@@ -491,7 +493,7 @@
          })
     }
 
-    function fetchDataDummy() {
+    function fetchDataDummy() {//errors
        // $('#fullPageLoader').removeClass('d-none');
         let urlTarget = `${BASE_URL}/api/xero-integrasi/getDetailInvoice/${code_invoice}`;
           $.ajax({
@@ -499,7 +501,7 @@
                 type: 'GET',
                 dataType: 'json',
                 success: function (response) {
-
+                     console.log('detail',response)
                     $("#TotalAmountPaidDisplay").text(formatRupiah(response.Invoices[0].AmountPaid))
                     $("#TotalAmountDueDisplay").text(formatRupiah(response.Invoices[0].AmountDue))
                     $("#TotalAmountXero").html(`<strong>${formatRupiah(response.custom.total_xero)}</strong>`)
@@ -571,15 +573,27 @@
                             const tanggalFix = formatDateStringToText(item.date);
                             const amountFix = formatRupiah(item.amount);
                                 htmlContent_local += `
-                                <div class="row mt-2">
-                                    <div class="col-8"><strong class="text-dark"><i class="fas fa-calendar-alt"></i> ${tanggalFix}</strong></div>
-                                    <div class="col-4">
-                                        <span class="" style="font-size: 0.9em;">
-                                            ${amountFix}
-                                        </span>
+                                <div class="row mb-2 pb-2" style="border-bottom: 1px solid #eee;">
+                                    <div class="col-7">
+                                        <div class="text-dark font-weight-bold" style="font-size: 14px;">
+                                            ${item.reference}
+                                        </div>
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar-alt mr-1"></i> ${tanggalFix}
+                                        </small>
                                     </div>
-                                </div>
-                                `;
+
+                                    <div class="col-5 text-right">
+
+                                        <div class="font-weight-bold text-success" style="font-size: 14px;">
+                                            ${amountFix}
+                                        </div>
+
+                                        <div class="text-muted" style="font-size: 11px; margin-top: 2px;">
+                                            <i class="fas fa-university mr-1"></i>${item.name_bank_transfer || '-'}
+                                        </div>
+                                    </div>
+                                </div>`;
                         });
                         container_local_pay.innerHTML = htmlContent_local;
                    }
@@ -745,66 +759,71 @@
             return;
         }
 
-        //console.log('saved',row.find('.item-select').val())
-        // Ambil Data dari Input
-        let payload = {
-            invoice_id: code_invoice, // Wajib ada
-            line_item_id: row.attr('data-id'), // Kosong jika baris baru
+        Swal.fire({
+            title: 'harap Synchronize Dulu',
+            text: "Apakah Anda yakin Sudah Synchronize?",
+            icon: 'warning', // Biasanya confirmation pakai icon warning/question
+            showCancelButton: true, // INI KUNCINYA (Menampilkan tombol batal)
+            confirmButtonColor: '#3085d6', // Warna tombol konfirmasi (Opsional)
+            cancelButtonColor: '#d33',     // Warna tombol batal (Opsional)
+            confirmButtonText: 'Ya, Sudah!',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                let payload = {
+                    invoice_id: code_invoice, // Wajib ada
+                    line_item_id: row.attr('data-id'), // Kosong jika baris baru
 
-            item_code: row.find('.item-select').val(),
-            description: row.find('.description').val(),
-            qty: row.find('.qty').val(),
-            price: row.find('.price').val(),
-            disc_amount: row.find('.disc').val(), // Nominal
+                    item_code: row.find('.item-select').val(),
+                    description: row.find('.description').val(),
+                    qty: row.find('.qty').val(),
+                    price: row.find('.price').val(),
+                    disc_amount: row.find('.disc').val(), // Nominal
+                    account_code: row.find('.account').val(),
+                    tax_type: row.find('.tax-rate').val(),
 
-            account_code: row.find('.account').val(),
-            tax_type: row.find('.tax-rate').val(),
+                    agent_id: row.find('.agent').val(),   // Kirim ID Agent
+                    divisi_id: row.find('.devisi').val(),
+                    status_invoice : $("#val_status").val()
+                    // agent & divisi bisa ditambahkan sesuai kebutuhan Controller
+                };
+                // Tampilan Loading
+                let originalHtml = btn.html();
+                btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+                //console.log("payload ",payload)
+                // AJAX CALL KE CONTROLLER SAVE
+                $.ajax({
+                    url: "{{ route('invoice.item.save') }}", // Panggil Route Laravel
+                    type: "POST",
+                    data: payload,
+                    success: function(response) {
+                        if(response.status === 'success') {
+                            // Beri feedback Sukses
+                            btn.removeClass('btn-success').addClass('btn-primary').html('<i class="fas fa-check"></i>');
 
-            agent_id: row.find('.agent').val(),   // Kirim ID Agent
-            divisi_id: row.find('.devisi').val(),
-            status_invoice : $("#val_status").val()
-            // agent & divisi bisa ditambahkan sesuai kebutuhan Controller
-        };
+                            setTimeout(() => {
+                                fetchDataDummy();
+                            }, 1000);
 
-        // Validasi Sederhana enable agar bisa tidak pilih item
-        // if(!payload.item_code || payload.qty <= 0) {
-        //     alert("Harap pilih Item dan isi Quantity");
-        //     return;
-        // }
+                        } else {
+                            alert("Gagal: " + response.message);
+                            btn.html(originalHtml).prop('disabled', false);
+                        }
+                    },
+                    error: function(xhr) {
+                        let msg = xhr.responseJSON ? xhr.responseJSON.message : "Terjadi kesalahan server";
+                        console.error(xhr);
+                        alert("Error: " + msg);
+                        btn.html(originalHtml).prop('disabled', false);
+                    }
+                });
 
-        // Tampilan Loading
-        let originalHtml = btn.html();
-        btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
-        //console.log("payload ",payload)
-        // AJAX CALL KE CONTROLLER SAVE
-        $.ajax({
-            url: "{{ route('invoice.item.save') }}", // Panggil Route Laravel
-            type: "POST",
-            data: payload,
-            success: function(response) {
-                if(response.status === 'success') {
-                    // Beri feedback Sukses
-                    btn.removeClass('btn-success').addClass('btn-primary').html('<i class="fas fa-check"></i>');
-
-                    // PENTING: Refresh tabel data dari Xero.
-                    // Kenapa? Karena saat Create New, Xero akan membuat LineItemID baru (UUID).
-                    // Kita harus mengambil UUID itu agar kalau user klik save lagi, sistem tahu itu Edit, bukan Create baru.
-                    setTimeout(() => {
-                        fetchDataDummy();
-                    }, 1000);
-
-                } else {
-                    alert("Gagal: " + response.message);
-                    btn.html(originalHtml).prop('disabled', false);
-                }
-            },
-            error: function(xhr) {
-                let msg = xhr.responseJSON ? xhr.responseJSON.message : "Terjadi kesalahan server";
-                console.error(xhr);
-                alert("Error: " + msg);
-                btn.html(originalHtml).prop('disabled', false);
+            } else {
+                // User memilih Batal
+                console.log('User membatalkan');
             }
         });
+
     });
 
 
@@ -823,36 +842,52 @@
             calculateGrandTotal();
             return;
         }
+        //if(!confirm("Anda yakin ingin menghapus baris ini dari Xero?")) return;
 
-        if(!confirm("Anda yakin ingin menghapus baris ini dari Xero?")) return;
+         Swal.fire({
+            title: 'harap Synchronize Dulu Sebelum Hapus',
+            text: "Apakah Anda yakin Sudah Synchronize?",
+            icon: 'warning', // Biasanya confirmation pakai icon warning/question
+            showCancelButton: true, // INI KUNCINYA (Menampilkan tombol batal)
+            confirmButtonColor: '#3085d6', // Warna tombol konfirmasi (Opsional)
+            cancelButtonColor: '#d33',     // Warna tombol batal (Opsional)
+            confirmButtonText: 'Ya, Sudah!',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                 // AJAX CALL KE CONTROLLER DELETE
+                let originalHtml = btn.html();
+                btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+                $.ajax({
+                    url: `${BASE_URL}/api/xero-integrasi/invoice/item/${lineItemId}`,
+                    type: "DELETE",
+                    data: { invoice_id: code_invoice }, // Kirim Invoice ID juga (diperlukan controller)
+                    success: function (response) {
+                        if(response.status === 'success') {
+                            row.fadeOut(300, function() {
+                                $(this).remove();
+                                calculateGrandTotal();
+                            });
+                            setTimeout(() => {
+                                fetchDataDummy();
+                                btn.removeClass('btn-outline-danger').addClass('btn-primary').html('<i class="fas fa-check"></i>');
+                            }, 1000);
+                        } else {
+                            alert("Gagal menghapus: " + response.message);
+                            btn.html(originalHtml).prop('disabled', false);
+                        }
+                    },
+                    error: function (xhr) {
+                        alert("Gagal menghapus data.");
+                        btn.html(originalHtml).prop('disabled', false);
+                    }
+                });
 
-        // AJAX CALL KE CONTROLLER DELETE
-        let originalHtml = btn.html();
-        btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
-        $.ajax({
-            url: `${BASE_URL}/api/xero-integrasi/invoice/item/${lineItemId}`,
-            type: "DELETE",
-            data: { invoice_id: code_invoice }, // Kirim Invoice ID juga (diperlukan controller)
-            success: function (response) {
-                if(response.status === 'success') {
-                    row.fadeOut(300, function() {
-                        $(this).remove();
-                        calculateGrandTotal();
-                    });
-                    setTimeout(() => {
-                        fetchDataDummy();
-                        btn.removeClass('btn-outline-danger').addClass('btn-primary').html('<i class="fas fa-check"></i>');
-                    }, 1000);
-                } else {
-                    alert("Gagal menghapus: " + response.message);
-                    btn.html(originalHtml).prop('disabled', false);
-                }
-            },
-            error: function (xhr) {
-                alert("Gagal menghapus data.");
-                btn.html(originalHtml).prop('disabled', false);
+            }else {
+                console.log('User membatalkan');
             }
-        });
+        })
+
     });
 </script>
 

@@ -36,11 +36,11 @@ use App\Http\Controllers\MasterData\RoleUserController;
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
-
+use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
 use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
-use App\Http\Controllers\LogHistoryController;
+use App\Http\Controllers\Report\LogHistoryController;
 
 
 use Illuminate\Http\Request;
@@ -81,12 +81,13 @@ Route::prefix("xero-integrasi")->group(function () {
     //Route::get('/xero/callback', [ConfigController::class, 'callback']);
     Route::post('/create-data', [ContactController::class, 'createContact']);
 
+    Route::post('/update-isue-date',[InvoiceXeroLocalController::class,'updateInvoiceDate'])->name('update-invoice-date');
     //
     Route::post('/save-data-product', [ProductAndServiceController::class, 'updateProduct']);//used
     //proudct
     Route::get('/get-data-product', [ProductAndServiceController::class, 'getProduct'])->name('xero-list-product-paging');//used
     Route::get('/get-data-no-limit', [ProductAndServiceController::class, 'getProductAllNoBearer']);//used
-    Route::get('/get-product-withoutsame', [ProductAndServiceController::class, 'getProductNoSame']);
+    Route::get('/get-product-withoutsame', [ProductAndServiceController::class, 'getProductNoSame']);//used change become same item
     Route::get('/get-by-id/{id}', [ProductAndServiceController::class, 'getProductById'])->name('xero-product-by-id');//used
 
     //kategory (tracking)
@@ -104,6 +105,8 @@ Route::prefix("xero-integrasi")->group(function () {
 
     //local insert yang sudah paid saja.
     Route::get('/tes-cron', [PaymentHistoryController::class, 'insertToHistory'])->name('cron-insert-history-payment-local');//used  //dibikin button saja
+    //local insert invoice singel
+    Route::get('/insert-payment-inv/{invoiceId}', [PaymentHistoryController::class, 'insertToHistoryByuuidInvoice'])->name('cron-insert-payment');//single invoice
 
     Route::get('/get-history-invoice/{invoice_id}', [PaymentHistoryController::class, 'getHistoryInvoice']);//used
     Route::get('/getDetailInvoice/{idInvoice}', [InvoicesController::class, 'getDetailInvoice']);//used
@@ -117,6 +120,9 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::post('/delete-invoice-byuuid/{uuid_inv}', [InvoicesController::class, 'forceDeleteInvoice'])->name('delete_invoice_uuid');
     Route::post('/delete-creditnote-byuuid/{creditNoteId}', [InvoicesController::class, 'forceDeleteCreditNote'])->name('delete_creditnote_uuid');
     Route::post('/delete-overpayment-byuuid/{overpaymentId}', [InvoicesController::class, 'forceVoidOverpayment'])->name('delete_overpayment_uuid');
+
+    //create payment unutk testing
+    Route::post('/create-payment', [InvoicesDuplicateController::class, 'apiNewPayment']);
 });
 
 Route::prefix("admin-web")->group(function () {
@@ -128,6 +134,12 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
     Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
+
+
+    Route::prefix('xero-local')->group(function(){
+        Route::get('list-invoice',[InvoiceXeroLocalController::class, 'getListInvoice'])->name('xero-invoice-local');
+
+    });
 
     Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
@@ -156,6 +168,10 @@ Route::prefix("admin-web")->group(function () {
                 Route::post('/deletedRow', [ExpensesPackageApiController::class, 'deleteDetail'])->name('t_pp_package_deleteddetail');
             });
         });
+    });
+
+    Route::middleware(['auth:sanctum', 'xss'])->prefix("report")->group(function () {
+        Route::get('/log-history', [LogHistoryController::class, 'getData'])->name('list-log-history');
     });
 
     Route::middleware(['auth:sanctum', 'xss'])->prefix("master-data")->group(function () {
@@ -202,10 +218,17 @@ Route::prefix("admin-web")->group(function () {
     });
 
 
-    Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
+Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
+Route::get('/log-history', [LogHistoryController::class, 'list']);
+
 
 
 //payment
+//new
+Route::get('/getPaidPayment/{idPayment}', [PaymentController::class, 'getPaidPayment']);
+Route::get('/getCreditNotePayment/{idPayment}', [PaymentController::class, 'getCreditNoteByPaymentId']);
+Route::get('/getPrepaymentByPaymentId/{idPayment}', [PaymentController::class, 'getPrepaymentByPaymentId']);
+//new
 Route::post('/updateDeletedPayment/{payment_id}/{status}', [PaymentController::class, 'updatePaymentStatus']);
 Route::get('/getDetailPayment/{idPayment}', [InvoicesController::class, 'getDetailPayment']);
 Route::post('/createPayments', [PaymentController::class, 'createPayments']);

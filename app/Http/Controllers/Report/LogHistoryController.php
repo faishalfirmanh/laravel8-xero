@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Report;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Repository\LogHistoryRepository;
 use App\Traits\ApiResponse;
@@ -20,7 +21,7 @@ class LogHistoryController extends Controller
 
     public function index()
     {
-        return view('log_history');
+        return view('admin.report.log_history');
     }
 
     public function getData(Request $request)

@@ -685,7 +685,7 @@ $(document).ready(function() {
                    // console.log('ss',payment_conculsion)
                    $("#sum_paid_rp").text(formatCurrency(Number(payment_conculsion.final_payment_idr),"IDR"))
                    $("#sum_pem_rp").text(formatCurrency(Number(payment_conculsion.less_payment_idr),"IDR"))
-                    let i = 0;
+                    let i = 1;
                     date_get.forEach((item)=>{
                     let get_edit = `<a href="javascript:;" style="margin-left:5px;" data-id="${item.id}" class="text-success get-edit-pay"><i class="ti ti-pencil"></i></a>`;
                     let delete_payment = `<a href="javascript:;" style="margin-left:5px;" data-id="${item.id}" class="text-info delete-pay"><i class="ti ti-trash"></i></a>`;

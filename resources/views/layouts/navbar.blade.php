@@ -14,7 +14,7 @@
         <div class="collapse" id="report_trans">
             <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
             <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
-            <a href="{{ route('log-history.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Log History</a>
+            <a href="{{ route('web-log-history-list') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Log History</a>
 
         </div>
 
