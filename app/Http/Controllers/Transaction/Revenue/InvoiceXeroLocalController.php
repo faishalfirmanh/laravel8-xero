@@ -60,7 +60,7 @@ class InvoiceXeroLocalController extends Controller {
             return response()->json(['message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'], 401);
         }
 
-        $user_name_xero = $this->getUserNameXeroFromToken($tokenData["access_token"]);
+        //$user_name_xero = $this->getUserNameXeroFromToken($tokenData["access_token"]);
         //dd($user_name_xero);
 
         $response = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Invoices/' . $request->invoice_uuid);

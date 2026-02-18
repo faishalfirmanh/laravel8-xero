@@ -168,6 +168,8 @@ $(document).ready(function(){
             hideLoading();
             const res = response.data;
 
+            console.log('ress',res.data);
+
             if (!res.data || res.data.length === 0) {
                 $('#xero-table tbody').html(`
                     <tr>
@@ -180,6 +182,10 @@ $(document).ready(function(){
             let tbody = '';
             res.data.forEach((inv, index) => {
                 //console.log('inv',inv)
+                console.log('pay',inv);
+                let cek_over_pay = inv.Overpayments.length > 0 ? '<span class="badge badge-danger">ada overpayment</span>' : '';
+                let cek_pre_pay = inv.Prepayments.length > 0 ? '<span class="badge badge-danger">ada prepayments</span>' : '';
+
                 let button_update_issue = inv.Status == 'PAID' || inv.Status == 'AUTHORISED' ?
                             `<button style="margin-top:5px; margin-left:10px;" class="btn-success btn-sm btn-modal-update-inv"
                                 data-id="${inv.InvoiceID}"
@@ -207,6 +213,7 @@ $(document).ready(function(){
                                 default: return `<span class="badge badge-dark">${inv.Status}</span>`;
                             }
                         })()}
+                        ${cek_over_pay} - ${cek_pre_pay}
                         </td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-void void-btn"
