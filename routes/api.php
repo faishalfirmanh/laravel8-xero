@@ -39,6 +39,9 @@ use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
 use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
+use App\Http\Controllers\Transaction\Sales\InvXeroController;
+
+
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
 use App\Http\Controllers\Report\LogHistoryController;
 
@@ -156,6 +159,10 @@ Route::prefix("admin-web")->group(function () {
                 Route::post('/savedRowCreate', [RPaymentHotelApiController::class, 'store'])->name('create-by-row-payment-hotel');
                 Route::post('/updateRowPayment', [RPaymentHotelApiController::class, 'updated_row'])->name('updated-by-row-payment-hotel');
             });
+        });
+
+        Route::prefix('sales')->group(function(){
+            Route::get('/invoice-local',[InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
         });
 
         Route::prefix('expenses')->group(function () {

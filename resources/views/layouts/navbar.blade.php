@@ -2,20 +2,35 @@
     <div class="sidebar-heading p-3 text-center"><h5>An namiroh</h5></div>
     <div class="list-group list-group-flush">
 
-        <a href="#transaksiSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Transaksi</a>
+        <a href="#transaksiSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">
+            Transaksi
+        </a>
         <div class="collapse" id="transaksiSub">
-             <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
+            <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
             <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
             <a href="{{ route('xero-list-transaksi') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">List Transaksi Xero</a>
-        </div>
 
+            <a href="#salesSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small dropdown-toggle">
+                Sales
+            </a>
 
+            <div class="collapse" id="salesSub">
+                <a href="{{route('admin-list-inv-xero-web')}}" class="list-group-item list-group-item-action text-white pl-5 small" style="background-color: #5a6268;">
+                    Invoices
+                </a>
+                <a href="#" class="list-group-item list-group-item-action text-white pl-5 small" style="background-color: #5a6268;">
+                    Quotes
+                </a>
+                <a href="#" class="list-group-item list-group-item-action text-white pl-5 small" style="background-color: #5a6268;">
+                    Customers
+                </a>
+            </div>
+            </div>
         <a href="#report_trans" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Report</a>
         <div class="collapse" id="report_trans">
             <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
             <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
             <a href="{{ route('web-log-history-list') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Log History</a>
-
         </div>
 
         <a href="#masterSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Master Data</a>
@@ -23,11 +38,8 @@
             <a href="{{ route('admin-master-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Hotel</a>
             <a href="{{ route('admin-master-jamaah') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Jamaah / Mitra</a>
             <a href="{{ route('admin-list-pengeluaran') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Pengeluaran</a>
-            {{-- <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Paket</a> --}}
             <a href="{{ route('maskapai.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Maskapai</a>
             <a href="{{ route('role-user.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Role User</a>
-
         </div>
 
         <a href="#config_global" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Setting</a>
@@ -40,38 +52,6 @@
             <a data-toggle="modal" data-target="#loginModal" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Login</a>
             <a href="#" id="logout_btn" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Logout</a>
         </div>
-        {{-- <a href="#transaksiSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Transaksi</a>
-        <div class="collapse" id="transaksiSub">
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pembayaran</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pelunasan</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Refund</a>
-        </div>
-
-        <a href="#invSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Inventory</a>
-        <div class="collapse" id="invSub">
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Stok Perlengkapan</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengadaan Barang</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Distribusi</a>
-        </div>
-
-        <a href="#reportSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Laporan</a>
-        <div class="collapse" id="reportSub">
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Laporan Harian</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Laporan Bulanan</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Laporan Tahunan</a>
-        </div>
-
-        <a href="#settingSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Pengaturan</a>
-        <div class="collapse" id="settingSub">
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Manajemen User</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Hak Akses (Roles)</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Konfigurasi Sistem</a>
-        </div> --}}
-         {{-- <div class="collapse" id="settingSub">
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Manajemen User</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Hak Akses (Roles)</a>
-            <a href="#" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Konfigurasi Sistem</a>
-        </div> --}}
 
     </div>
 </div>

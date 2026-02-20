@@ -22,6 +22,11 @@ class DashboardController extends Controller
         return view('admin.dashboard', $data);
     }
 
+    public function viewListInvXeroLocal()
+    {
+       return view('admin.transaksi.sales.list_inv_from_xero');
+    }
+
 
     public function getWebListInvoice()
     {
