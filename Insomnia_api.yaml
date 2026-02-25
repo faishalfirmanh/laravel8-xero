@@ -1219,12 +1219,12 @@ collection:
                 store: true
               rebuildPath: true
           - url: "{{ _.local_url_xero
-              }}getDetailInvoice/d64a62bd-e0c2-403f-9c6e-39fd136ca02c"
+              }}getDetailInvoice/59cd212e-3c91-443c-9de4-525c69b5a17f"
             name: 1.get-detail-invoices-byIdInvoice
             meta:
               id: req_18a7b21d1e4946768f3f2758ed04e06c
               created: 1764747457935
-              modified: 1770024904767
+              modified: 1771233704047
               isPrivate: false
               description: ""
               sortKey: -1764383404085.25
@@ -1509,7 +1509,7 @@ collection:
             meta:
               id: req_11817263b5284544a21a3b7f35886aeb
               created: 1771032175481
-              modified: 1771221244462
+              modified: 1771233349086
               isPrivate: false
               description: ""
               sortKey: -1764383275541.8125
@@ -1518,8 +1518,8 @@ collection:
               mimeType: application/json
               text: |-
                 {
-                	"invoice_uuid":"28583368-210c-4d28-b14e-cef767d2038e",
-                	"issue_date":"2025-09-10"
+                	"invoice_uuid":"59cd212e-3c91-443c-9de4-525c69b5a17f",
+                	"issue_date":"2026-01-01"
                 }
             headers:
               - name: Content-Type
@@ -1736,7 +1736,7 @@ collection:
                 meta:
                   id: req_bebbc1e57f5b43d1a7698946ffdb5775
                   created: 1770794472271
-                  modified: 1771212605766
+                  modified: 1772002289080
                   isPrivate: false
                   description: ""
                   sortKey: -1764766075106.875
@@ -1745,11 +1745,11 @@ collection:
                   mimeType: application/json
                   text: |-
                     {
-                      "invoice_id": "ff7022bf-8387-4491-9d82-4ac3788352ed",
+                      "invoice_id": "da3dd80e-8e9c-4917-93be-4c25ea1e48e5",
                     	"account_code": "btest1",
-                    	"date":"2026-01-12",
-                    	"reference":"-man lunas",
-                    	"amount": 26398700
+                    	"date":"2026-01-05",
+                    	"reference":"-man pembayaran ke 3",
+                    	"amount": 11700
                     }
                 headers:
                   - name: Content-Type
@@ -1832,6 +1832,137 @@ collection:
                 body:
                   mimeType: application/json
                   text: ""
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.refresh_token }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url_xero }}create-apply-prepayment"
+                name: 3.local- create-apply-prepayment-by invoice
+                meta:
+                  id: req_6011ce4c019947b6977ffd3478c1f3d5
+                  created: 1771906620141
+                  modified: 1772003574656
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1764760611723.5625
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                      "prepayment_id": "95d9f4cf-e3cf-4ca8-8789-7778eedc77bf",
+                    	"invoice_id": "da3dd80e-8e9c-4917-93be-4c25ea1e48e5",
+                    	"date":"2026-02-02",
+                    	"amount":7219
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.refresh_token }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url_xero }}delete-apply-prepayment"
+                name: 3.local- deleted-apply-prepayment-by invoice
+                meta:
+                  id: req_b0891a3e96274f2496c024d6be0629dc
+                  created: 1771922215968
+                  modified: 1772001357589
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1764757880031.9062
+                method: POST
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                      "prepayment_id": "95d9f4cf-e3cf-4ca8-8789-7778eedc77bf",
+                    	"allocation_id": "79eaaf15-6a30-4b50-90db-c782b30c6c68"
+                    	
+                    }
+                headers:
+                  - name: Content-Type
+                    value: application/json
+                  - name: User-Agent
+                    value: insomnia/12.1.0
+                    description: ""
+                    disabled: false
+                  - name: xero-tenant-id
+                    value: 90a3a97b-3d70-41d3-aa77-586bb1524beb
+                    description: ""
+                    disabled: false
+                  - name: Accept
+                    value: application/json
+                    description: ""
+                    disabled: false
+                authentication:
+                  type: bearer
+                  token: "{{ _.refresh_token }}"
+                settings:
+                  renderRequestBody: true
+                  encodeUrl: true
+                  followRedirects: global
+                  cookies:
+                    send: true
+                    store: true
+                  rebuildPath: true
+              - url: "{{ _.local_url_xero }}get-prepayment"
+                name: 3.get-history-prepayemnt
+                meta:
+                  id: req_b3f777978b4c465ca61e7f6f2fb36eb7
+                  created: 1771980564888
+                  modified: 1771980939066
+                  isPrivate: false
+                  description: ""
+                  sortKey: -1764756514186.0781
+                method: GET
+                body:
+                  mimeType: application/json
+                  text: |-
+                    {
+                      "prepayment_id": "95d9f4cf-e3cf-4ca8-8789-7778eedc77bf"
+                    }
                 headers:
                   - name: Content-Type
                     value: application/json
