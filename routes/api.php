@@ -39,6 +39,9 @@ use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
 use App\Http\Controllers\Transaction\Revenue\XeroTransaksiController;
 
+use App\Http\Controllers\Transaction\Sales\InvXeroController;
+
+
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
 use App\Http\Controllers\Report\LogHistoryController;
 
@@ -122,7 +125,12 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::post('/delete-overpayment-byuuid/{overpaymentId}', [InvoicesController::class, 'forceVoidOverpayment'])->name('delete_overpayment_uuid');
 
     //create payment unutk testing
-    Route::post('/create-payment', [InvoicesDuplicateController::class, 'apiNewPayment']);
+    //
+    Route::post('/create-payment', [InvoicesDuplicateController::class, 'apiNewPayment']);//apiDeletePrepaymentAllocation(
+    Route::post('/create-apply-prepayment', [InvoicesDuplicateController::class, 'apiApplyPrepayment'])->name('apply-credit');
+    Route::post('/delete-apply-prepayment', [InvoicesDuplicateController::class, 'apiDeletePrepaymentAllocation'])->name('delete-apply-credit');
+    Route::get('/get-prepayment', [InvoicesDuplicateController::class, 'apiGetPrepaymentAllocation'])->name('get-apply-credit');
+
 });
 
 Route::prefix("admin-web")->group(function () {
@@ -156,6 +164,10 @@ Route::prefix("admin-web")->group(function () {
                 Route::post('/savedRowCreate', [RPaymentHotelApiController::class, 'store'])->name('create-by-row-payment-hotel');
                 Route::post('/updateRowPayment', [RPaymentHotelApiController::class, 'updated_row'])->name('updated-by-row-payment-hotel');
             });
+        });
+
+        Route::prefix('sales')->group(function(){
+            Route::get('/invoice-local',[InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
         });
 
         Route::prefix('expenses')->group(function () {

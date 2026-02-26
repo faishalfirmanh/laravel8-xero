@@ -516,6 +516,7 @@
                         loadInvoiceToForm(data_invoice);
                         $("#val_status").val(data_invoice.Status)
                         loadHistoryPaymentLocal()
+                        // loadHistoryPrepayment(data_invoice.Prepayments)
                         //$('#fullPageLoaderInv').addClass('d-none');
                     }
                     //console.log(response.Invoices)
@@ -537,6 +538,25 @@
                                 </div>
                                 `;
                         });
+
+                        if(response.Invoices[0].Prepayments.length > 0){
+                            response.Invoices[0].Prepayments.forEach(item => {
+                            const tanggalFix = formatJsonDate(item.Date);
+                            const amountFix = formatRupiah(item.AppliedAmount);
+                                htmlContent += `
+                                <div class="row mt-2" style="">
+                                    <div class="col-8"><strong class="text-danger" style="color:red;"><i class="fas fa-calendar-alt"></i>
+                                    (prepayment)- ${tanggalFix}</strong></div>
+                                    <div class="col-4">
+                                        <span class="" style="font-size: 0.9em;">
+                                            ${amountFix}
+                                        </span>
+                                    </div>
+                                </div>
+                                `;
+                            });
+                        }
+
                         container.innerHTML = htmlContent;
                     }
                 },
@@ -556,6 +576,7 @@
                 }
             });
     }
+
 
     function loadHistoryPaymentLocal(){
           let val_invoice = $("#invoiceCodeParent").val();

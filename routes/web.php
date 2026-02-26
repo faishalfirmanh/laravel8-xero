@@ -45,6 +45,11 @@ Route::prefix('admin')->group(function () {
     Route::get('/list-invoice', [DashboardController::class, 'getWebListInvoice'])->name('admin-list-invoice');
     Route::get('/hotel-sales-list', [DashboardController::class, 'getHotelSalesList'])->name('admin-list-invoice-sales-hotel');
 
+
+    Route::prefix('transaction')->group(function(){
+        Route::get('inv-local',[DashboardController::class, 'viewListInvXeroLocal'])->name('admin-list-inv-xero-web');
+    });
+
     Route::prefix('master_data')->group(function () {
         Route::get('/list-hotel', [HotelController::class, 'index'])->name('admin-master-hotel');
         Route::get('/list-jamaah', [DashboardController::class, 'getJamaah'])->name('admin-master-jamaah');//semua client

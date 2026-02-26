@@ -1,5 +1,6 @@
 <?php
-namespace App\Http\Controllers\Transaction\Revenue;
+namespace App\Http\Controllers\Transaction\Sales;
+
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
@@ -19,7 +20,7 @@ use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
 use Barryvdh\DomPDF\Facade\Pdf;
 
-class InvoiceXeroLocalController extends Controller {
+class InvXeroController extends Controller {
 
    private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
     protected $repo, $repo_detail, $service_global, $repo_jamaah;
@@ -35,7 +36,11 @@ class InvoiceXeroLocalController extends Controller {
        $this->repo_jamaah = $repo_jamaah;
     }
 
-    public function getListInvoice(Request $request) { }
+    public function getListInvoice(Request $request)
+    {
+
+
+    }
 
     function filterPaymentString($string) {
         $keyword = "-man";
@@ -166,6 +171,81 @@ class InvoiceXeroLocalController extends Controller {
         //dd($invoiceData['Payments']);
     }
 
+
+    public function SearchHotel(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'keyword' => 'nullable|string'
+        ]);
+        $where = [];
+        $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
+        return $this->autoResponse($data);
+
+    }
+
+    public function getAllPaginate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'page' => 'required|integer',
+            'keyword' => 'nullable|string',
+            'kolom_name' => 'required|string',
+            'limit' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+        $where = [];
+        if ($request->keyword != null) {
+            $data = $this->repo->searchData($where, $request->limit, $request->page, 'contact_name', strtoupper($request->keyword));
+        } else {
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'contact_name', 'ASC');//getDataPaginate("name",10,$request->keyword);
+        }
+        return $this->autoResponse($data);
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => [
+                'required',
+                'string',
+                Rule::unique('hotels', 'name')->ignore($request->id)
+            ],
+            'type_location_hotel' => 'integer|between:1,5',
+            'id' => 'nullable|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+        $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
+        return $this->autoResponse($saved);
+    }
+
+    public function delete(Request $request)
+    {
+        $id = $request->id;
+
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|numeric|exists:hotels,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+        $blog = $this->repo->find($id);
+
+        if ($blog) {
+            $data = $this->repo->delete($id);
+            return $this->autoResponse($data);
+        }
+
+        return $this->error('hotel not found', 404);
+    }
+
+
     public function parseXeroDate($xeroDate)
     {
        if (preg_match('/\/Date\((-?\d+)([+-]\d+)?\)\//', $xeroDate, $matches)) {
@@ -216,26 +296,7 @@ class InvoiceXeroLocalController extends Controller {
     }
 
 
-    public function getAllPaginate(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'page' => 'required|integer',
-            'keyword' => 'nullable|string',
-            'kolom_name' => 'required|string',
-            'limit' => 'required|integer',
-        ]);
 
-        if ($validator->fails()) {
-            return $this->error($validator->errors(), 404);
-        }
-        $where = [];
-        if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, 'nama_pemesan', strtoupper($request->keyword));
-        } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'nama_pemesan', 'ASC');//getDataPaginate("name",10,$request->keyword);
-        }
-        return $this->autoResponse($data);
-    }
 
 
 

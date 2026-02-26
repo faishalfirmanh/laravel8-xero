@@ -6,8 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\PaymentParams; // Pastikan model ini ada
+use App\Models\PrepaymentInvoice; // Pastikan model ini ada
 use Carbon\Carbon;
 use App\ConfigRefreshXero;
+use Illuminate\Support\Facades\DB;
 use App\Services\GlobalService;
 use App\Models\PaymentsHistoryFix;
 class InvoiceItem2Controller extends Controller
@@ -38,6 +40,251 @@ class InvoiceItem2Controller extends Controller
             'Accept' => 'application/json',
         ];
     }
+
+
+
+     public function createAlocationPrepayment($inv_uuid)
+    {
+        $data =  PrepaymentInvoice::query()->where('invoice_uuid',$inv_uuid)->get();
+
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) {
+            return response()->json(['message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'], 401);
+        }
+        if(count($data) > 0){
+            foreach ($data as $key => $value) {
+                $form = [
+                    "Allocations" => [
+                        [
+                            "Amount" => $value->amount,
+                            "Date"          =>  $value->date,
+                            "Invoice"       => [
+                                "InvoiceID" => $inv_uuid
+                            ]
+                        ]
+                    ]
+                ];
+
+                $url = 'https://api.xero.com/api.xro/2.0/Prepayments/' . $value->prepayment_uuid . '/Allocations';
+
+                $response = Http::withHeaders([
+                    'Authorization'  => 'Bearer ' . $tokenData["access_token"],
+                    'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+                    'Content-Type'   => 'application/json',
+                    'Accept'         => 'application/json',
+                ])->put($url, $form);
+
+                if ($response->failed()) {
+                    Log::info("create re prepayment allocation gagal " .$inv_uuid ." | ".$value->invoice_number);
+                }
+            }
+        }
+    }
+
+
+    public function getHistoryPrepayment($prepayment_id, $invoice_uuid)
+    {
+        $url = 'https://api.xero.com/api.xro/2.0/Prepayments/' . $prepayment_id;
+        $tokenData = $this->getValidToken();
+        $response = Http::withHeaders([
+            'Authorization'  => 'Bearer ' . $tokenData["access_token"],
+            'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+            'Accept'         => 'application/json',
+        ])->get($url);
+
+        // 5. Handle Response Error
+        if ($response->failed()) {
+                Log::info('gagal load list prepayment untuk alocation id');
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal mengambil detail prepayment.',
+                'error'   => $response->json()
+            ], $response->status());
+        }
+
+        $data = $response->json()['Prepayments'][0]['Allocations'];
+        $filteredAllocations = collect($data)
+        ->where('Invoice.InvoiceID', $invoice_uuid) // Mencari ke dalam nested array
+        ->values() // Reset index array agar kembali dimulai dari 0 (opsional tapi disarankan untuk API)
+        ->all();
+        return $filteredAllocations;
+
+    }
+
+
+      public function deletePrepaymentXero($inv_uuid,$prepayment_id, $data)
+    {
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) return false;
+
+        $aa = 0;
+        foreach ($data as $value) {
+            // Xero: Menghapus alokasi dilakukan dengan POST Status DELETED
+            //dd($value["AllocationID"]);
+        // $url = 'https://api.xero.com/api.xro/2.0/Prepayments/' . $prepayment_id . '/Allocations';
+
+            $url =  'https://api.xero.com/api.xro/2.0/Prepayments/'
+            . $prepayment_id
+            . '/Allocations/'
+            . $value["AllocationID"];
+
+            $form = [
+                "Allocations" => [
+                    [
+                        "AllocationID" => $value['AllocationID'],
+                        "Status"       => "DELETED"
+                    ]
+                ]
+            ];
+
+            $response = Http::withHeaders([
+                'Authorization'  => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+                'Content-Type'   => 'application/json',
+                'Accept'         => 'application/json',
+            ])->delete($url);
+
+            if ($response->failed()) {
+                Log::error("Gagal hapus alokasi Xero: " . $response->body());
+            } else {
+                $aa++;
+                Log::info("Berhasil hapus alocation: " . $value['AllocationID']);
+            }
+        }
+
+        // if($aa > 0){
+        //     self::createAlocationPrepayment($inv_uuid);
+        // }
+    }
+
+       public function addPrepaymentXero($inv_uuid,$prepayment_uuid,$data)
+       {
+          Log::info('--- Mulai proses sinkronisasi alokasi prepayment ---');
+
+        // 1. Keamanan: Pastikan $inv_uuid tidak kosong untuk mencegah terhapusnya semua data di tabel
+        if (empty($inv_uuid)) {
+            Log::error("Gagal sinkronisasi: invoice_uuid kosong atau tidak valid.");
+            return false;
+        }
+
+        try {
+            // 2. Hapus alokasi di Xero (Panggil SATU KALI saja, JANGAN di dalam loop)
+            // Lakukan ini sebelum mengubah database lokal
+            // 3. Gunakan DB Transaction agar jika ada yang gagal, database lokal tetap aman (tidak setengah-setengah)
+            DB::transaction(function () use ($inv_uuid, $prepayment_uuid, $data) {
+
+                // A. Hapus semua data lokal terkait invoice_uuid tersebut (Langsung Eksekusi)
+                $deletedCount = PrepaymentInvoice::where('invoice_uuid', $inv_uuid)->delete();
+                if ($deletedCount > 0) {
+                    Log::info("DB Lokal: Berhasil menghapus $deletedCount record lama untuk UUID: $inv_uuid");
+                }
+
+                // B. Create ulang data baru
+                foreach ($data as $value) {
+                    PrepaymentInvoice::create([
+                        'prepayment_uuid' => $prepayment_uuid,
+                        'date'            => $this->parseXeroDate($value["Date"]),
+                        'amount'          => $value['Amount'],
+                        'invoice_number'  => $value['Invoice']['InvoiceNumber'] ?? '-',
+                        'contact_name'    => '---',
+                        // Gunakan fallback $inv_uuid jika di JSON tidak ada
+                        'invoice_uuid'    => $value['Invoice']['InvoiceID'] ?? $inv_uuid,
+                    ]);
+                }
+
+                Log::info("DB Lokal: Berhasil menyimpan " . count($data) . " alokasi baru.");
+            });
+
+            Log::info('--- Selesai sinkronisasi alokasi prepayment ---');
+
+            if (!empty($data)) {
+                self::deletePrepaymentXero($inv_uuid, $prepayment_uuid, $data);
+                Log::info("Berhasil mengirim request hapus alokasi ke Xero.");
+            }
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error("Terjadi kesalahan saat memproses Prepayment: " . $e->getMessage());
+            return false;
+        }
+
+       }
+
+
+     public function apiGetPrepaymentAllocations(Request $request)
+    {
+        // 1. Validasi Input
+        $validator = Validator::make($request->all(), [
+            'prepayment_id' => 'required|string', // ID dari Prepayment yang ingin dicek
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $validated = $validator->validated();
+
+        // 2. Cek Token Xero
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) {
+            return response()->json(['message' => 'Token invalid. Silakan re-connect Xero.'], 401);
+        }
+
+        // 3. Kirim Request ke Xero (GET Method)
+        $url = 'https://api.xero.com/api.xro/2.0/Prepayments/' . $validated['prepayment_id'];
+
+        $response = Http::withHeaders([
+            'Authorization'  => 'Bearer ' . $tokenData["access_token"],
+            'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+            'Accept'         => 'application/json',
+        ])->get($url);
+
+        // 4. Handle Error Response
+        if ($response->failed()) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Gagal mengambil data Prepayment dari Xero.',
+                'error'   => $response->json()
+            ], $response->status());
+        }
+
+        // 5. Ekstrak Data Alokasi
+        $prepaymentData = $response->json()['Prepayments'][0] ?? null;
+
+        if (!$prepaymentData) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Data Prepayment tidak ditemukan.'
+            ], 404);
+        }
+
+        // Ambil array Allocations (jika ada)
+        $allocations = $prepaymentData['Allocations'] ?? [];
+
+        // Map data agar responsenya lebih bersih dan mudah dibaca oleh Frontend
+        $formattedAllocations = collect($allocations)->map(function ($allocation) {
+            return [
+                'allocation_id'  => $allocation['AllocationID'] ?? null,
+                'invoice_id'     => $allocation['Invoice']['InvoiceID'] ?? null,
+                'invoice_number' => $allocation['Invoice']['InvoiceNumber'] ?? null,
+                'amount_applied' => $allocation['Amount'] ?? 0,
+                'date_applied'   => $allocation['Date'] ?? null,
+            ];
+        });
+
+        // 6. Return Response
+        return response()->json([
+            'status'  => true,
+            'message' => 'Berhasil mengambil data alokasi Prepayment.',
+            'data'    => [
+                'prepayment_id'    => $prepaymentData['PrepaymentID'],
+                'total_amount'     => $prepaymentData['Total'] ?? 0,
+                'remaining_credit' => $prepaymentData['RemainingCredit'] ?? 0,
+                'allocations'      => $formattedAllocations
+            ]
+        ], 200);
+    }
+
 
     /**
      * MAIN FUNCTION: SAVE ITEM (Add/Edit Row)
@@ -90,10 +337,20 @@ class InvoiceItem2Controller extends Controller
             }
 
             if (!empty($invoiceData['Prepayments'])) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Gagal Update: Invoice ini menggunakan Prepayment. Mohon edit manual di Xero.'
-                ], 400);
+                Log::info("--start proses prepayment--");
+                $get_his = self::getHistoryPrepayment(
+                   // $invoiceData['Prepayments'],//data asli
+                    $invoiceData['Prepayments'][0]['PrepaymentID'],//semua alokasi dari prepayment tersebut
+                    $invoiceId);
+                //dd($get_his);
+                self::addPrepaymentXero($invoiceId,$invoiceData['Prepayments'][0]['PrepaymentID'], $get_his);
+                //self::deletePrepaymentXero($invoiceId,$get_his);
+
+                Log::info("--end proeses prepayment--");
+                // return response()->json([
+                //     'status' => 'error',
+                //     'message' => 'Gagal Update: Invoice ini menggunakan Prepayment. Mohon edit manual di Xero.'
+                // ], 400);
             }
 
             // dd($invoiceData);
@@ -236,7 +493,7 @@ class InvoiceItem2Controller extends Controller
                 }
                 PaymentParams::where('invoice_id', $invoiceId)->delete();
             }
-
+            self::createAlocationPrepayment($invoiceId);
             //update
             $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoiceId);
             $total_xero = $updatedInvoice['Total'];//['AmountPaid'];
@@ -593,10 +850,16 @@ class InvoiceItem2Controller extends Controller
         }
 
         if (!empty($invoiceData['Prepayments'])) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Gagal Update: Invoice ini menggunakan Prepayment. Mohon edit manual di Xero.'
-            ], 400);
+                Log::info("--start proeses prepayment--");
+                $get_his = self::getHistoryPrepayment(
+                    $invoiceData['Prepayments'][0]['PrepaymentID'],//semua alokasi dari prepayment tersebut
+                    $invoiceId);
+                self::addPrepaymentXero($invoiceId,$invoiceData['Prepayments'][0]['PrepaymentID'], $get_his);
+                Log::info("--end proeses prepayment--");
+            // return response()->json([
+            //     'status' => 'error',
+            //     'message' => 'Gagal Update: Invoice ini menggunakan Prepayment. Mohon edit manual di Xero.'
+            // ], 400);
         }
         // 2. Backup & Void Payment (Jika Status PAID/Partial)
         //dd($payments);
@@ -664,6 +927,7 @@ class InvoiceItem2Controller extends Controller
             }
             PaymentParams::where('invoice_id', $invoiceId)->delete();
         }
+        self::createAlocationPrepayment($invoiceId);
         //update
         $local_total_payment = $this->globalService->getTotalLocalPaymentByuuidInvoice($invoiceId);
         $total_xero = $updateResponse['Invoices'][0]['Total'];//['AmountPaid'];
