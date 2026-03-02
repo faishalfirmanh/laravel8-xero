@@ -9,10 +9,9 @@
 .table-responsive { margin-top: 1rem; }
 </style>
 
-<div class="container-fluid">
-    <div class="card shadow mb-5">
-        <div class="card-header bg-white py-3">
-            <h5 class="mb-0 font-weight-bold text-primary">List Transaksi Xero</h5>
+<div class="card shadow mb-5">
+    <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">List Transaksi Xero</h5>
         </div>
 
         <div class="card-body">
@@ -40,13 +39,13 @@
             </form>
 
             <!-- Loader -->
-            <div id="loadingIndicator" class="text-center my-4 d-none">
-                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
-                <div class="mt-2 text-muted font-weight-bold">Memuat data...</div>
+            <div id="loadingIndicator" class="text-center my-3 d-none">
+                <div class="spinner-border text-primary"></div>
+                <div>Memuat data...</div>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-hover table-striped table-bordered w-100" id="xero-table">
+    <div class="table-responsive p-3">
+                <table class="table table-bordered" id="xero-table">
                     <thead class="thead-dark">
                         <tr>
                             <th>No</th>
