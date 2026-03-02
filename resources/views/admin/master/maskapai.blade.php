@@ -1,7 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Daftar Nama Maskapai</h5>

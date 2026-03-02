@@ -9,11 +9,9 @@
             <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
             <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
             <a href="{{ route('xero-list-transaksi') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">List Transaksi Xero</a>
-
             <a href="#salesSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small dropdown-toggle">
                 Sales
             </a>
-
             <div class="collapse" id="salesSub">
                 <a href="{{route('admin-list-inv-xero-web')}}" class="list-group-item list-group-item-action text-white pl-5 small" style="background-color: #5a6268;">
                     Invoices
@@ -26,6 +24,7 @@
                 </a>
             </div>
             </div>
+
         <a href="#report_trans" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Report</a>
         <div class="collapse" id="report_trans">
             <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
@@ -40,13 +39,13 @@
             <a href="{{ route('admin-list-pengeluaran') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Pengeluaran</a>
             <a href="{{ route('maskapai.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Maskapai</a>
             <a href="{{ route('role-user.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Role User</a>
+            <a href="{{ route('master-coa.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Chart Of Accounts</a>
         </div>
 
         <a href="#config_global" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Setting</a>
         <div class="collapse" id="config_global">
             <a href="{{ route('config-currency-web') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Setting Curency</a>
         </div>
-
         <a href="#accountSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Account</a>
         <div class="collapse" id="accountSub">
             <a data-toggle="modal" data-target="#loginModal" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Login</a>

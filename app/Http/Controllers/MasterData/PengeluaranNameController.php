@@ -152,5 +152,4 @@ public function store(Request $request)
             ]
         ], 200);
     }
-    
 }

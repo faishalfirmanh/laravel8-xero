@@ -23,6 +23,8 @@ use App\Http\Controllers\Xero\BankController;
 use App\Http\Controllers\MasterData\PengeluaranNameController;
 use App\Http\Controllers\MasterData\DataApiJamaahController;
 use App\Http\Controllers\MasterData\MasterMaskapaiController;
+use App\Http\Controllers\MasterData\MasterCoaController;
+
 
 //master data
 //location
@@ -182,6 +184,8 @@ Route::prefix("admin-web")->group(function () {
         });
     });
 
+
+
     Route::middleware(['auth:sanctum', 'xss'])->prefix("report")->group(function () {
         Route::get('/log-history', [LogHistoryController::class, 'getData'])->name('list-log-history');
     });
@@ -218,6 +222,16 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/get-by-id', [RoleUserController::class, 'getById'])->name('role-user.getbyid');
             Route::post('/save', [RoleUserController::class, 'store'])->name('role-user.save');
          });
+        Route::prefix("master-coa")->group(function () {
+            Route::get('/get-data', [MasterCoaController::class, 'getData'])->name('master-coa.getdata');
+            Route::post('/sync-xero', [MasterCoaController::class, 'syncXero'])->name('master-coa.sync');
+            Route::get('/live-xero', [MasterCoaController::class, 'getCoaFromXeroLive'])->name('master-coa.live-xero');
+            Route::put('/save', [MasterCoaController::class, 'store'])->name('master-coa.save');
+            Route::post('/update/{id}', [MasterCoaController::class, 'update'])->name('master-coa.update');
+            Route::get('/get-by-id', [MasterCoaController::class, 'getById'])->name('master-coa.getbyid');
+            Route::post('master-coa/store-local', [MasterCoaController::class, 'storeLocal'])->name('master-coa.store-local');
+            Route::put('master-coa/update-local/{id}', [MasterCoaController::class, 'updateLocal'])->name('master-coa.update-local');
+        });
         });
 
     });
@@ -229,7 +243,7 @@ Route::prefix("admin-web")->group(function () {
 
 
 Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
-
+Route::get('/log-history', [LogHistoryController::class, 'list']);
 
 
 

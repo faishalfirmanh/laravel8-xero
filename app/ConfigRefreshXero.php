@@ -23,7 +23,7 @@ trait ConfigRefreshXero
             'client_id'     => env('XERO_PROD_CLIENT_ID'),
             'redirect_uri'  => env('XERO_REDIRECT_URL_PROD'),
             'scope'         => $scope,
-            'state'         => 'SAFD2142432' // Sebaiknya generate string acak dinamis (Str::random)
+            'state'         => 'SAFD2142432', // Sebaiknya generate string acak dinamis (Str::random)
         ]);
 
         return redirect($url);

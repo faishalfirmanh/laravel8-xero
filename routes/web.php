@@ -14,6 +14,8 @@ use App\Http\Controllers\MasterData\MasterMaskapaiController;
 use App\Http\Controllers\MasterData\RoleUserController;
 use App\Http\Controllers\Transaction\Revenue\RHotelApiController;
 use App\Http\Controllers\Report\LogHistoryController;
+use App\Http\Controllers\MasterData\MasterCoaController;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -83,8 +85,7 @@ Route::get('/list_productAndService', [ProductAndServiceController::class, 'view
 Route::get('/detailInvoiceWeb/{invoiceId}', [InvoicesController::class, 'viewDetailInvoice']);
 
 
-Route::get('/xero/list-transaksi', [XeroTransaksiController::class, 'index'])
-    ->name('xero-list-transaksi');
+Route::get('/xero/list-transaksi', [XeroTransaksiController::class, 'index'])->name('xero-list-transaksi');
 
 Route::get('/api/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
 Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
@@ -92,4 +93,10 @@ Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice
 Route::prefix('admin/master-data')->group(function () {
     Route::get('/maskapai', [MasterMaskapaiController::class, 'index'])->name('maskapai.index');
     Route::get('/role-user', [RoleUserController::class, 'index'])->name('role-user.index');
+    Route::get('/master-coa',[MasterCoaController::class, 'index'])->name('master-coa.index');
 });
+// // Route::prefix('admin/master-data')->group(function () {
+// //     Route::get('/master-coa',[MasterCoaController::class, 'index'])->name('master-coa.index');
+// //     Route::get('/get-data',[MasterCoaController::class, 'getData'])->name('master-coa.get-data');
+
+// });
