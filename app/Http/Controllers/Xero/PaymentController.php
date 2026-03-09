@@ -53,31 +53,53 @@ class PaymentController extends Controller
         // Filter: Status harus ACTIVE
     }
 
-   public function updatePaymentStatus($payment_id, $status = "DELETED")
-    {
+public function updatePaymentStatus($payment_id, $status = "DELETED")
+{
+    try {
+
         $payload = [
-            "Status" => $status,
+            "Payments" => [
+                [
+                    "PaymentID" => $payment_id,
+                    "Status" => $status
+                ]
+            ]
         ];
 
-        $inv = [];
-        $update_payment = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('BARER_TOKEN'), // Sebaiknya ganti ke config('xero.token') nanti
-            'Xero-Tenant-Id' => '90a3a97b-3d70-41d3-aa77-586bb1524beb',
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
-        ])->post("https://api.xero.com/api.xro/2.0/Payments/$payment_id", $payload);
-
-        // Cek error handling agar lebih detail di log jika gagal
-        if ($update_payment->failed()) {
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) {
             return response()->json([
-                'error' => true,
-                'message' => 'Gagal Void Payment',
-                'details' => $update_payment->json()
-            ], $update_payment->status());
+                'message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'
+            ], 401);
         }
 
-        return response()->json($update_payment->json(), $update_payment->status());
+        $response = Http::withHeaders([
+            'Authorization'  => 'Bearer ' . $tokenData["access_token"],
+            'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json'
+        ])->post('https://api.xero.com/api.xro/2.0/Payments', $payload);
+
+        if ($response->failed()) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Gagal update status Payment',
+                'details' => $response->json()
+            ], $response->status());
+        }
+
+        return response()->json($response->json(), $response->status());
+
+    } catch (\Exception $e) {
+
+        $statusCode = ($e->getCode() >= 100 && $e->getCode() < 600) ? $e->getCode() : 500;
+
+        return response()->json([
+            'status'  => false,
+            'message' => 'Error sistem saat update payment: ' . $e->getMessage()
+        ], $statusCode);
     }
+}
 
 
     public function getDetailInvoice($id_invoice){

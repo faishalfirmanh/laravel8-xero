@@ -239,7 +239,7 @@ Route::get('/getPaidPayment/{idPayment}', [PaymentController::class, 'getPaidPay
 Route::get('/getCreditNotePayment/{idPayment}', [PaymentController::class, 'getCreditNoteByPaymentId']);
 Route::get('/getPrepaymentByPaymentId/{idPayment}', [PaymentController::class, 'getPrepaymentByPaymentId']);
 //new
-Route::post('/updateDeletedPayment/{payment_id}/{status}', [PaymentController::class, 'updatePaymentStatus']);
+Route::post('/updateDeletedPayment/{payment_id}/{status}', [PaymentController::class, 'updatePaymentStatus']);//hapus payment
 Route::get('/getDetailPayment/{idPayment}', [InvoicesController::class, 'getDetailPayment']);
 Route::post('/createPayments', [PaymentController::class, 'createPayments']);
 Route::get('/getInvoiceByIdPaketPaging/{itemCode}', [InvoicesController::class, 'getInvoiceByIdPaketPaging']);
