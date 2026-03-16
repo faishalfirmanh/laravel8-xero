@@ -52,6 +52,72 @@ class TrackingController extends Controller
     }
 
 
+
+      public function createBulkAgents()
+    {
+        try {
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                return response()->json(['message' => 'Token invalid.'], 401);
+            }
+
+            $headers = [
+                'Authorization' => 'Bearer ' . $tokenData["access_token"],
+                'Xero-Tenant-Id' => env("XERO_TENANT_ID"),
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ];
+
+            // --- LANGKAH 1: Cari TrackingCategoryID untuk nama "Agen" ---
+            $getCategories = Http::withHeaders($headers)->get("https://api.xero.com/api.xro/2.0/TrackingCategories");
+
+            $trackingCategoryId = null;
+            foreach ($getCategories["TrackingCategories"] as $cat) {
+                // Sesuaikan: "Agen" atau "Agent"
+                if ($cat["Name"] == "Agen") {
+                    $trackingCategoryId = $cat["TrackingCategoryID"];
+                    break;
+                }
+            }
+
+            if (!$trackingCategoryId) {
+                return response()->json(['message' => 'Kategori "Agen" tidak ditemukan di Xero.'], 404);
+            }
+
+            // --- LANGKAH 2: Siapkan 120 data (Agen 1 sampai Agen 120) ---
+            $options = [];
+            for ($i = 1; $i <= 120; $i++) {
+                $options[] = [
+                    'Name' => 'Agen ' . $i
+                ];
+            }
+
+            // --- LANGKAH 3: Push ke Xero ---
+            $url = "https://api.xero.com/api.xro/2.0/TrackingCategories/{$trackingCategoryId}/Options";
+            $response = Http::withHeaders($headers)->put($url, [
+                'Options' => $options
+            ]);
+
+            if ($response->failed()) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'Gagal insert ke Xero',
+                    'details' => $response->json()
+                ], $response->status());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => '120 Agent berhasil ditambahkan ke kategori Agen',
+                'total' => count($options)
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+
     public function getKategory()
     {
 

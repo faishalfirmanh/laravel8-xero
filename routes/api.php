@@ -11,6 +11,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Xero\TrackingController;
 use App\Http\Controllers\Xero\WebhookController;
 use App\Http\Controllers\Xero\PaymentController;
+use App\Http\Controllers\GlobalExternal\ImageController;
 use App\Http\Controllers\InvoiceItemController;
 use App\Http\Controllers\Config\ConfigCurrencyApiController;
 use App\Http\Controllers\Xero\XeroSyncInvoicePaidController;
@@ -60,7 +61,7 @@ Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logo
 
 //local contact-cron-job contact
 
-
+Route::post('/extract-text', [ImageController::class, 'extractText']);
 
 //xero refresh token
 // 1. Route untuk inisiasi login (Jalankan ini saat xero_token.json masih kosong)
@@ -96,6 +97,7 @@ Route::prefix("xero-integrasi")->group(function () {
     //kategory (tracking)
     Route::get('/get_divisi', [TrackingController::class, 'getKategory']);//used
     Route::get('/get_agent', [TrackingController::class, 'getAgent']);//used
+    Route::post('/save_agent', [TrackingController::class, 'createBulkAgents']);
 
     //save per rows
     Route::post('/invoice/item/save', [InvoiceItem2Controller::class, 'saveItem'])->name('invoice.item.save');//used
@@ -130,6 +132,10 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::post('/create-apply-prepayment', [InvoicesDuplicateController::class, 'apiApplyPrepayment'])->name('apply-credit');
     Route::post('/delete-apply-prepayment', [InvoicesDuplicateController::class, 'apiDeletePrepaymentAllocation'])->name('delete-apply-credit');
     Route::get('/get-prepayment', [InvoicesDuplicateController::class, 'apiGetPrepaymentAllocation'])->name('get-apply-credit');
+
+
+    //api update local data xero
+    //
 
 });
 
