@@ -920,6 +920,47 @@ collection:
             send: true
             store: true
           rebuildPath: true
+      - url: "{{ _.local_url }}extract-text"
+        name: New Request
+        meta:
+          id: req_0f8faa0b8c094490a29896e495dd2b30
+          created: 1773390354346
+          modified: 1773391973014
+          isPrivate: false
+          description: ""
+          sortKey: -1773390354346
+        method: POST
+        body:
+          mimeType: multipart/form-data
+          params:
+            - name: image
+              value: ""
+              description: ""
+              disabled: false
+              fileName: C:\Users\LENOVO\Pictures\ktp\7d9f0-whatsapp-image-2025-09-21-at-14.51.28.jpeg
+              type: file
+        parameters:
+          - name: image
+            value: ""
+            description: ""
+            disabled: true
+            type: text
+            multiline: true
+        headers:
+          - name: Content-Type
+            value: multipart/form-data
+          - name: User-Agent
+            value: insomnia/12.4.0
+            description: ""
+            disabled: false
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
       - name: produkc & service
         meta:
           id: fld_8d260dd97b8d49e9a8609b2df659adf0
@@ -2407,7 +2448,7 @@ collection:
         meta:
           id: fld_64e340c2a03b41c4af7aca8f07fa9a31
           created: 1766121563437
-          modified: 1766121563437
+          modified: 1773712684161
           sortKey: -1766121563437
           description: ""
         children:
@@ -2655,7 +2696,7 @@ collection:
         meta:
           id: fld_41c4d0fcba7c4471b5c12b6ebc66309d
           created: 1766983708942
-          modified: 1766983708942
+          modified: 1773712668599
           sortKey: -1766983708942
           description: ""
         children:
@@ -2663,7 +2704,7 @@ collection:
             meta:
               id: fld_4c7dd8d8cc644e8cbf9d90ab39a4294f
               created: 1769226977607
-              modified: 1769226977607
+              modified: 1773712675704
               sortKey: -1769226977607
               description: ""
             children:
@@ -2739,7 +2780,7 @@ collection:
             meta:
               id: fld_e5ff50c47512464e808f1c5fcd7766d0
               created: 1769480345392
-              modified: 1769480345392
+              modified: 1773712670173
               sortKey: -1769480345392
               description: ""
             children:
@@ -2909,7 +2950,7 @@ collection:
             meta:
               id: req_81a6ba078adf4a28aae39d674f97e982
               created: 1769135139079
-              modified: 1769135213281
+              modified: 1773712750199
               isPrivate: false
               description: ""
               sortKey: -1769135152968
@@ -2919,7 +2960,7 @@ collection:
               text: |-
                 {
                 	"email":"isal@gmail.com",
-                	"password":"isal1234"
+                	"password":"isal1234w"
                 }
             headers:
               - name: Content-Type
@@ -2978,7 +3019,7 @@ collection:
             meta:
               id: req_5d8d5c23b79647278f308260d1f01865
               created: 1769135251137
-              modified: 1769135299222
+              modified: 1773712767532
               isPrivate: false
               description: ""
               sortKey: -1767521807658
@@ -4523,6 +4564,70 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
+      - name: tracking kategory
+        meta:
+          id: fld_dc8e351cb2e34f99b52a27a991d66d26
+          created: 1773219287088
+          modified: 1773219287088
+          sortKey: -1773219287088
+          description: ""
+        children:
+          - url: "{{ _.local_url_xero }}get_agent"
+            name: get agen
+            meta:
+              id: req_8a896275393743fd901e11e0830225f8
+              created: 1773219376556
+              modified: 1773219452118
+              isPrivate: false
+              description: ""
+              sortKey: -1773219376556
+            method: GET
+            body:
+              mimeType: application/json
+              text: ""
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.4.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url_xero }}save_agent"
+            name: crete agen
+            meta:
+              id: req_c5546a3a355648e0b7c06b726931aa21
+              created: 1773219458979
+              modified: 1773219469239
+              isPrivate: false
+              description: ""
+              sortKey: -1771489524408.5
+            method: POST
+            body:
+              mimeType: application/json
+              text: ""
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.4.0
+                description: ""
+                disabled: false
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
   - name: refresh_token
     meta:
       id: fld_211c2265d96448ff9baeb0717dfc8598
@@ -5045,6 +5150,322 @@ collection:
                     send: true
                     store: true
                   rebuildPath: true
+  - name: local-xero-db
+    meta:
+      id: fld_5f4a374b8fb640c4834b60f1cd04b031
+      created: 1773628224488
+      modified: 1773628224488
+      sortKey: -1773628224488
+      description: ""
+    children:
+      - name: master-bank
+        meta:
+          id: fld_41d4544cd6554a9aa4d36bef5c6892ea
+          created: 1773636101512
+          modified: 1773636748221
+          sortKey: -1773636101512
+          description: ""
+        children:
+          - url: "{{ _.local_url }}get-all-bank"
+            name: get-All
+            meta:
+              id: req_231c0113c6c247bc9abfe15a1c1afd18
+              created: 1773636760805
+              modified: 1773642268402
+              isPrivate: false
+              description: ""
+              sortKey: -1773636767722
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"keyword":"",
+                	"page":1,
+                	"limit":10,
+                	"kolom_name":"full_name"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/create-bank"
+            name: create-bank
+            meta:
+              id: req_f67526429c9341edadeebb03c797bf89
+              created: 1773648936012
+              modified: 1773720639574
+              isPrivate: false
+              description: ""
+              sortKey: -1773513561034
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"id":1,
+                	"account_id":"kasfkjasfkj32423424",
+                	"code":"oiewx",
+                	"name":"cobak 5",
+                	"status":1,
+                	"type":"3",
+                	"currency_code":"klsaklf",
+                	"account_number":"323323"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/delete-bank"
+            name: delete-bank
+            meta:
+              id: req_f99c76e4b0e742a9a7cf4ebea43cdec4
+              created: 1773713837638
+              modified: 1773716748900
+              isPrivate: false
+              description: ""
+              sortKey: -1773451957690
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"id":3
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/find-bank"
+            name: find-bank
+            meta:
+              id: req_3bc6bfcdd608402e95f000b5d8f19d4b
+              created: 1773715788976
+              modified: 1773715817732
+              isPrivate: false
+              description: ""
+              sortKey: -1773421156018
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"id":3
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/update-spend/1"
+            name: update-spend-money
+            meta:
+              id: req_111bded3290f4c14aa8464f78e2130d6
+              created: 1773720688025
+              modified: 1773730910916
+              isPrivate: false
+              description: ""
+              sortKey: -1773405755182
+            method: PUT
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	  "id":1,
+                    "to": "PT. berkah jaya solusindo",
+                    "date": "2026-03-17",
+                    "reference": "INV-2026-001",
+                    "currency_code": "IDR",
+                    "lines": [
+                        {
+                            "item": "spedah motor listrinya boss",
+                            "description": " spedah listrikn0ya ",
+                            "qty": 1,
+                            "unit_price": 1250000,
+                            "account": "600",
+                            "tax_rate": "0",
+                            "nama_pa": "Divisi Operasional",
+                            "divisi": "Finance",
+                            "amount_idr": 1250000
+                        }
+                    ],
+                    "subtotal": 1950000,
+                    "tax": 77000,
+                    "total": 2027000,
+                    "status": 1
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/delete-spend"
+            name: delete-speend-money
+            meta:
+              id: req_dd38a4c769ae4276878057856152ea61
+              created: 1773723069485
+              modified: 1773723076279
+              isPrivate: false
+              description: ""
+              sortKey: -1773398054764
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"id":3
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/create-spend"
+            name: create-spend-money
+            meta:
+              id: req_9d6d9b4e68c849919d3079e9870740a0
+              created: 1773729916047
+              modified: 1773729937103
+              isPrivate: false
+              description: ""
+              sortKey: -1773401904973
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                    "to": "PT. ABC Supplier",
+                    "date": "2026-03-17",
+                    "reference": "INV-2026-001",
+                    "currency_code": "IDR",
+                    "lines": [
+                        {
+                            "item": "1",
+                            "description": "Biaya Konsultasi IT",
+                            "qty": 1,
+                            "unit_price": 1250000,
+                            "account": "600",
+                            "tax_rate": "0",
+                            "nama_pa": "Divisi Operasional",
+                            "divisi": "Finance",
+                            "amount_idr": 1250000
+                        },
+                        {
+                            "item": "2",
+                            "description": "Biaya Transportasi",
+                            "qty": 2,
+                            "unit_price": 350000,
+                            "account": "620",
+                            "tax_rate": "11",
+                            "nama_pa": "PT. XYZ Logistik",
+                            "divisi": "Logistik",
+                            "amount_idr": 700000
+                        }
+                    ],
+                    "subtotal": 1950000,
+                    "tax": 77000,
+                    "total": 2027000,
+                    "status": 1
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
 cookieJar:
   name: Default Jar
   meta:

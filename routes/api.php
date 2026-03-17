@@ -33,6 +33,10 @@ use App\Http\Controllers\MasterData\LocationDistrictController;
 use App\Http\Controllers\MasterData\LocationProvinceController;
 use App\Http\Controllers\MasterData\LocationVillageController;
 use App\Http\Controllers\MasterData\RoleUserController;
+use App\Http\Controllers\MasterData\BankXeroController;
+
+
+
 //location
 //transaction
 use App\Http\Controllers\Transaction\Revenue\RPaymentHotelApiController;
@@ -151,7 +155,19 @@ Route::prefix("admin-web")->group(function () {
 
 
     Route::prefix('xero-local')->group(function(){
-        Route::get('list-invoice',[InvoiceXeroLocalController::class, 'getListInvoice'])->name('xero-invoice-local');
+        Route::get('list-bank',[BankXeroController::class, 'getListInvoice'])->name('bank-list');
+
+
+        Route::post('create-bank',[BankXeroController::class, 'store'])->name('create-bank');
+        Route::post('delete-bank',[BankXeroController::class, 'destroy'])->name('delete-bank');
+        Route::post('find-bank',[BankXeroController::class, 'detail'])->name('find-bank');
+
+
+        Route::post('create-spend',[BankXeroController::class, 'storeTrans'])->name('create-spend');
+        Route::post('delete-spend',[BankXeroController::class, 'destroyTrans'])->name('delete-spend');
+        Route::get('find-spend',[BankXeroController::class, 'detailTrans'])->name('find-spend');
+
+        Route::put('update-spend/{id}',[BankXeroController::class, 'updateTrans'])->name('update-spend');
 
     });
 
@@ -209,6 +225,18 @@ Route::prefix("admin-web")->group(function () {
             Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
             Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
         });
+
+
+        Route::prefix('bank-xero')->group(function () {
+            Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+            Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
+            Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
+            Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+        });
+
+
+
+
 
         Route::prefix("contact-xero")->group(function () {
             Route::get('/get', [DataApiJamaahController::class, 'getAllPaginate'])->name('getAllContactApi');

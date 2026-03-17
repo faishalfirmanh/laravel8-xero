@@ -22,7 +22,7 @@ class MasterMaskapaiController extends Controller
 
     public function index()
     {
-        return view('admin.master.maskapai');
+        return view('admin.master.bank');
     }
 
 public function getData(Request $request)
