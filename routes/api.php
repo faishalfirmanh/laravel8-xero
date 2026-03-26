@@ -34,8 +34,8 @@ use App\Http\Controllers\MasterData\LocationProvinceController;
 use App\Http\Controllers\MasterData\LocationVillageController;
 use App\Http\Controllers\MasterData\RoleUserController;
 use App\Http\Controllers\MasterData\BankXeroController;
-
-
+use App\Http\Controllers\MasterData\TrackingController as TrackingLocalController;
+use App\Http\Controllers\MasterData\CoaController;
 
 //location
 //transaction
@@ -165,9 +165,27 @@ Route::prefix("admin-web")->group(function () {
 
         Route::post('create-spend',[BankXeroController::class, 'storeTrans'])->name('create-spend');
         Route::post('delete-spend',[BankXeroController::class, 'destroyTrans'])->name('delete-spend');
-        Route::get('find-spend',[BankXeroController::class, 'detailTrans'])->name('find-spend');
+        Route::get('detail-spend',[BankXeroController::class, 'detailTrans'])->name('find-spend');
 
         Route::put('update-spend/{id}',[BankXeroController::class, 'updateTrans'])->name('update-spend');
+
+        Route::prefix('coa')->group(function(){
+            Route::get('list',[CoaController::class,'getAllPaginate'])->name('ge-all-coa');
+            Route::post('save',[CoaController::class,'store'])->name('save-coa');
+            Route::get('detail',[CoaController::class,'detail'])->name('find-coa');
+            Route::post('delete',[CoaController::class,'delete'])->name('delete-coa');
+        });
+
+
+        Route::prefix('tracking-category')->group(function(){
+            Route::get('list',[TrackingLocalController::class,'getAllPaginate'])->name('ge-all-track');
+            Route::post('save',[TrackingLocalController::class,'store'])->name('save-track');
+            Route::get('detail',[TrackingLocalController::class,'detail'])->name('find-track');
+            Route::post('delete',[TrackingLocalController::class,'delete'])->name('delete-track');
+        });
+
+
+
 
     });
 

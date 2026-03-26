@@ -5367,21 +5367,21 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
-          - url: "{{ _.local_url }}admin-web/xero-local/delete-spend"
-            name: delete-speend-money
+          - url: "{{ _.local_url }}admin-web/xero-local/detail-spend"
+            name: get-speend-money
             meta:
               id: req_dd38a4c769ae4276878057856152ea61
               created: 1773723069485
-              modified: 1773723076279
+              modified: 1773736467183
               isPrivate: false
               description: ""
               sortKey: -1773398054764
-            method: POST
+            method: GET
             body:
               mimeType: application/json
               text: |-
                 {
-                	"id":3
+                	"id":1
                 }
             headers:
               - name: Content-Type
@@ -5406,7 +5406,7 @@ collection:
             meta:
               id: req_9d6d9b4e68c849919d3079e9870740a0
               created: 1773729916047
-              modified: 1773729937103
+              modified: 1774497562849
               isPrivate: false
               description: ""
               sortKey: -1773401904973
@@ -5415,31 +5415,31 @@ collection:
               mimeType: application/json
               text: |-
                 {
-                    "to": "PT. ABC Supplier",
+                    "to": "PT. sumber kopi",
                     "date": "2026-03-17",
                     "reference": "INV-2026-001",
                     "currency_code": "IDR",
                     "lines": [
                         {
-                            "item": "1",
+                            "item": "627182",
                             "description": "Biaya Konsultasi IT",
                             "qty": 1,
                             "unit_price": 1250000,
-                            "account": "600",
+                            "account": "6",
                             "tax_rate": "0",
                             "nama_pa": "Divisi Operasional",
-                            "divisi": "Finance",
+                            "divisi": "21a",
                             "amount_idr": 1250000
                         },
                         {
-                            "item": "2",
+                            "item": "627184",
                             "description": "Biaya Transportasi",
                             "qty": 2,
                             "unit_price": 350000,
-                            "account": "620",
+                            "account": "5",
                             "tax_rate": "11",
                             "nama_pa": "PT. XYZ Logistik",
-                            "divisi": "Logistik",
+                            "divisi": "21b",
                             "amount_idr": 700000
                         }
                     ],
@@ -5466,14 +5466,369 @@ collection:
                 send: true
                 store: true
               rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/delete-spend"
+            name: delete-speend-money
+            meta:
+              id: req_055c6ff2641f49e5953fc40ce87cc999
+              created: 1773736484336
+              modified: 1773736503194
+              isPrivate: false
+              description: ""
+              sortKey: -1773394204555
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"id":1
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+      - name: Master Coa
+        meta:
+          id: fld_ac53302002b9405790e42e7be3022b71
+          created: 1774488413636
+          modified: 1774488413636
+          sortKey: -1774488413636
+          description: ""
+        children:
+          - url: "{{ _.local_url }}admin-web/xero-local/coa/list"
+            name: get-All-coa
+            meta:
+              id: req_7cf4ed1338ac4471a95abb0e6a0e9750
+              created: 1774491240133
+              modified: 1774492523780
+              isPrivate: false
+              description: ""
+              sortKey: -1774491247984
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"keyword":"",
+                	"page":1,
+                	"limit":10,
+                	"kolom_name":"name"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/coa/save"
+            name: saved
+            meta:
+              id: req_9693544e2bfb48e981ec28c9d0b89a9d
+              created: 1774491809490
+              modified: 1774492879713
+              isPrivate: false
+              description: ""
+              sortKey: -1774064007853
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"account_type":"fixed_asset",
+                	"code":"111",
+                	"name":"account beli asset",
+                	"desc":"penjelasan account type"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/coa/detail"
+            name: find
+            meta:
+              id: req_6bed2bf5521e4fe7a2eb5e48c0d3a208
+              created: 1774492336876
+              modified: 1774492387294
+              isPrivate: false
+              description: ""
+              sortKey: -1773850387787.5
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                  "id":2
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/coa/delete"
+            name: deleted
+            meta:
+              id: req_10bdc7b2ae674d81ad31d46f7a1a9e99
+              created: 1774492395694
+              modified: 1774492542335
+              isPrivate: false
+              description: ""
+              sortKey: -1773850387687.5
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"id":2
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+      - name: tracking-category
+        meta:
+          id: fld_1add6b9a71594023b4f99077ebe2342c
+          created: 1774495230303
+          modified: 1774495230303
+          sortKey: -1774062257574
+          description: ""
+        children:
+          - url: "{{ _.local_url }}admin-web/xero-local/tracking-category/list"
+            name: get-All-coa
+            meta:
+              id: req_5035851d29fe4ff7b0944882f7ff6a8c
+              created: 1774495230310
+              modified: 1774496389944
+              isPrivate: false
+              description: ""
+              sortKey: -1774491247984
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"keyword":"",
+                	"page":1,
+                	"limit":10,
+                	"kolom_name":"name_parent_category"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/tracking-category/save"
+            name: saved
+            meta:
+              id: req_77d436c5845047c5b29c1c86561487a1
+              created: 1774495230314
+              modified: 1774497687473
+              isPrivate: false
+              description: ""
+              sortKey: -1774064007853
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"name_parent_category":"cobak tesss",
+                	"id":1,
+                  "lines_category": [
+                        {
+                            "id_parent": "21",
+                            "item_name_category": "paket rihlah",
+                            "item_uuid_category": "21a"
+                        },
+                        {
+                            "id_parent": "21",
+                            "item_name_category": "paket haji furoda",
+                            "item_uuid_category": "21b"
+                        },
+                		    {
+                            "id_parent": "21",
+                            "item_name_category": "paket haji plus",
+                            "item_uuid_category": "21p"
+                        },
+                	    	{
+                            "id_parent": "21",
+                            "item_name_category": "paket haji mujamalah",
+                            "item_uuid_category": "21xl"
+                        }
+                		
+                    ]
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/tracking-category/detail"
+            name: find
+            meta:
+              id: req_c373ab5bffaa44a1ba59a0d9c23b4041
+              created: 1774495230315
+              modified: 1774497595740
+              isPrivate: false
+              description: ""
+              sortKey: -1773850387787.5
+            method: GET
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                  "id":1
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.local_url }}admin-web/xero-local/tracking-category/delete"
+            name: deleted
+            meta:
+              id: req_1dd686401e514b34988c642d45fb01b2
+              created: 1774495230317
+              modified: 1774495263822
+              isPrivate: false
+              description: ""
+              sortKey: -1773850387687.5
+            method: POST
+            body:
+              mimeType: application/json
+              text: |-
+                {
+                	"id":2
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: User-Agent
+                value: insomnia/12.1.0
+                description: ""
+                disabled: false
+            authentication:
+              type: bearer
+              token: 8|bSRhZt47eDESbzxpBEo4plzY6H4R59ZkdHDdskIK
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
 cookieJar:
   name: Default Jar
   meta:
     id: jar_6acb5b1d99e14e16a91eeade956be264
     created: 1763783221519
-    modified: 1773023266083
+    modified: 1773736051968
   cookies:
-    - id: b3760a24-e28d-4921-a60c-5467a242f8f7
+    - id: fb7488be-5ad4-43ff-bae6-90dce4a4a2a5
       key: ak_bmsc
       value: D8809745059D87008AD21B4B373ACCA8~000000000000000000000000000000~YAAQLz7VjDAhvbacAQAAGwRs0B+DmVnCsm3LyVBXFMgi2UCgxY2EUAngf72jh8Vxn5EqmNqrszRR31qLt5t9MfymQXU5yVB3/sUphRSjf4TjsEOnm2o4kFNc4tiDqoxufmDqVrCAaDALVIWGUB/C0f8KRw5MvJY0au7z1GpN44UXGVvaxMRaOxxq5P68hwg1TaP8kN22m39zeKqPyicn9WUS4KQpDmCmbZYuUyg5EVq/KA+tGv01ALngqvtIPIRLzQcu/gmukLFaIYiwdTIFviPBaSu7KLXgkCzj3KK+SBvgSH3BGyvI+DQCkWbNQpYz/Q0vnHh7Kdxoec1OxTx7zQOGcojcNzh3ooAsG/YfQFWb6CwFdLjlxdqd2jubvqJUY33lR8zzoNkw8F3L
       domain: xero.com
@@ -5481,7 +5836,7 @@ cookieJar:
       secure: true
       httpOnly: true
       hostOnly: false
-    - id: 0a9ef14d-0ce1-45cd-8886-b1418d1631bc
+    - id: f1856e08-3f1a-46cb-a0e4-da1fa7601d13
       key: bm_sv
       value: 4FE35FFEC4183926F7FF7102B5223D7D~YAAQtinOdJdw36SaAQAAOBNI/R6h7sujy7g+gqM91jntff5QNxfYxpwSaAkvOSAwY7ktgZLI8axRZlmybejKX4G9EMZ4V9lXFPCggIdMf+MrFRvaiLx3mnjzNPFRT4KZ5Vxii3ESU7fL25/Aq1CkYZqJqBAe1X0mzsRkwSWK//N9aqvobT8aNhCXtrVfn1TQ40n+EK/UVyOJmkvZAovRPxfvK9reQbwqF2XfSkvEpr3nxTserdZEGg1xqKj0CQ==~1
       domain: xero.com
@@ -5489,7 +5844,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: false
-    - id: 41f570cc-aa8c-4547-94e9-33a3bffba115
+    - id: 7df7ddb9-faea-4e0f-9fb0-2f67a1ec8fc3
       key: Device
       value: 0a0dd8c3-c5ac-419a-8d34-e3ab42a846e2
       domain: xero.com
@@ -5497,7 +5852,7 @@ cookieJar:
       secure: true
       httpOnly: true
       hostOnly: false
-    - id: 82346b10-b98a-4010-b81a-cd03fb3c987d
+    - id: 3b0a7594-5572-45e8-9eea-6b71802bf2b5
       key: _abck
       value: 648CDAF68C5A8B81810FFB4DEAEF8D7C~-1~YAAQxinOdFWkqKSaAQAA/sFS4g4lywLwy00uHWRS9Hx+jD41xHxJ8A+sywcM6ZdpFfZp3lOqlr7x8szLBbUh5Nmh8963g6HdoYrVuAtBxAd8tBpHNdyZqLNwmQqmydGEYBNbOdX4DZi9fwpbXbLqD9pxHmdMn9N66Z4aXqL5n/F8ryD/ij3Hik378t1iA2Vq3TfSSbvRu7xs8qZaCMHCJR4YNzvT9CqXl88XjI+DdC/jUF8H0B4nPNY+SNPJnP5PHP7eiQ4ZoSE9B2f4DN8ma3j+cnhSy/bTixpJKAa5jv2XwMZ78Bb//5Sz4WGMmngyL2kIOckC4RcQRrwgO7ofV0VOLa+9GWNARirJ2xo1hJ3Tr5zvtK6OQm3/CryP9HS4SupyLTmF93rBcxIjne+0lQxqHRtXS3YtQ8e5o2g7cbWvdDfUtcrh+lA5PYukhn3SbeQHL1LDY6KtkaydJz7sy/g=~-1~-1~-1~-1~-1
       domain: xero.com
@@ -5505,7 +5860,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: false
-    - id: 1b85d060-6738-49c7-a459-08ab3c7c80d2
+    - id: dce7cb78-1085-4919-9bb4-20effe501d00
       key: bm_sz
       value: 91C74FF2E5775FBA5DEE32D70F09A231~YAAQxinOdFakqKSaAQAA/sFS4h6X1xcSLf9tW9X+Gj0Aji/QIVoEEOtJWaR7bTTPbxpvivYGDt4ShFMj251B2dBqtrVt6/O/1qiW0PBpMV48NBMOjHZQ6sB4hDYGbua4h9PbTmDJjAN5TetXBKjtpSmwhSOIPU82AIz7FJW2J/n8FfNjTBgO7wg7ZIRBAtY2CDiDBGpkqzYaN/VnayebH5zUd+Of/a4H7orBshqG6nWriOhxv6+4OaGUBNGYwjubd4HcrceaYCr7q6rosulOrq7RrZuoywOEFBd5B5btHpDa7fc+KnxE5ipjZgazgSo36LZViDuS3xYswB2X8J/18/Fe6UkdE91ccTWngnYG/JeRV4o=~3621937~3487792
       domain: xero.com
@@ -5513,7 +5868,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: false
-    - id: 67b41875-55a4-4ab8-9df0-fc7a775a726c
+    - id: 704d2abd-5f8e-4d40-93e9-5f1d16b14436
       key: laravel-session
       value: eyJpdiI6IjlISi9Ia053cllJWjBlUmRQeGV5Wmc9PSIsInZhbHVlIjoiNlFGMmtpRW9XL1hhUERheVVuRVZQbGRTeFhFYnBFWG9HKy9NMm5tRlRqbXJNUHFqNnFkTzBHKysrc0xPR1BvQWFoaGZhd01XYTRodDBEVzFRb0ZQUy9YRU5waVo2YTkwbHNtTldOZUtDMXAveW1zanZ2TWVPbmZaYXBUbVJHbW4iLCJtYWMiOiI5MjZhODE4ZTYzYWZmYzA3NTJjMTVlZjQ2MDViMGExOTQ0ODZhZjQ1ZmM0OTI4YjMwZGIwYjk4ODJiZTk3NzU4IiwidGFnIjoiIn0%3D
       domain: 127.0.0.1
@@ -5521,7 +5876,7 @@ cookieJar:
       secure: false
       httpOnly: true
       hostOnly: true
-    - id: 2f7fd7c7-e2cd-4fe2-9e7c-da144b60550e
+    - id: 8d52da0d-6a52-4bf9-a730-873a74c14a76
       key: laravel_session
       value: VGihr3yFfh6GDjkvyoCj00RhUhMsY1bM4WpTlM55
       domain: 127.0.0.1
@@ -5529,7 +5884,7 @@ cookieJar:
       secure: false
       httpOnly: true
       hostOnly: true
-    - id: 484f2638-b014-40b2-877a-9e0367390e34
+    - id: dd23a2d8-723e-4a71-b748-11f1eebd1d81
       key: XSRF-TOKEN
       value: eyJpdiI6IktSeGlkMGlkVEdmaXhkNlk0OFVxWlE9PSIsInZhbHVlIjoid0JXUUFGZ3MwRTJ5eFdHOXhjVHhZZ2ZSRnB6VlAvbmljMnEyMHBtZ1cvRVhjY1o5QWNkbGJNR3R0K1lvOWo1YjlXK0xnOThBOWFLVDlRMldzYmVXa250RmgydHRaVTlLaVptT3ZXb1RBVDVJWnFnYWhycDV6S0wxblNTUEFUb3giLCJtYWMiOiI4NmI0M2VjZTU3NzY3ZWEyM2RjYTI5ODBjNDJkMjViZTJkMjI2ODgzYmIwZGM1NmMyODY3NjMzOGMyNWE2ODJhIiwidGFnIjoiIn0%3D
       domain: 127.0.0.1
@@ -5537,7 +5892,7 @@ cookieJar:
       secure: false
       httpOnly: false
       hostOnly: true
-    - id: e36bd751-269a-4f77-90b8-8c840afadaff
+    - id: f9938723-cbc8-4155-bb52-96101d0bc92f
       key: AWSALBTG
       value: DKQi4zFAhQwUw67SgB7mxIEGXrGauDlPOwupRLI4dN5IdMOdbAJRfr83OE6W1lKXNdz+dONZroR6asQiMQfqhB1FJkD3uBGHpZcAsjSDhZ3o65c1oFi8+pntfTZD4BBT1rqnu8W3LB75CIuieseM1Ku96AyZbTL+CGc4/Rli3MJ3qub/VVc=
       domain: api.xero.com
@@ -5545,7 +5900,7 @@ cookieJar:
       secure: false
       httpOnly: false
       hostOnly: true
-    - id: da5dd96e-1d7f-4b86-a205-2e14d5b0f86f
+    - id: 989b1726-5ecc-4537-9cb9-fd791093ea29
       key: AWSALBTGCORS
       value: DKQi4zFAhQwUw67SgB7mxIEGXrGauDlPOwupRLI4dN5IdMOdbAJRfr83OE6W1lKXNdz+dONZroR6asQiMQfqhB1FJkD3uBGHpZcAsjSDhZ3o65c1oFi8+pntfTZD4BBT1rqnu8W3LB75CIuieseM1Ku96AyZbTL+CGc4/Rli3MJ3qub/VVc=
       domain: api.xero.com
@@ -5553,7 +5908,7 @@ cookieJar:
       secure: true
       httpOnly: false
       hostOnly: true
-    - id: a73eda3c-6eee-4f48-af49-e559df8721fe
+    - id: e6050b21-dfe7-457b-9255-8e467fbc81cf
       key: .AspNetCore.Antiforgery.C9aXng5w_sY
       value: CfDJ8DpjPcFVBJdEhyuAqPej6PkkyQV8zdG4Vbh0a_PSDG-GmM80TAJjY95Hk5s0zHQNevVAm_X0drNN0j3nyaQeDCugSlKOd1E1ZbyOe_FNWSIt-5x81pC6dW4WXw-BCVjmj54lgpUDvWwQkJSUB-9BBdQ
       domain: login.xero.com

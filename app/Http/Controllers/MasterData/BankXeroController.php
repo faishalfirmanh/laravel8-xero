@@ -58,15 +58,16 @@ public function updateTrans(Request $request, $id)
             'reference'           => 'nullable|string|max:255',
             'currency_code'       => 'required|string|in:IDR',
             'lines'               => 'required|array|min:1',
-            'lines.*.item'        => 'nullable|string',
+            'lines.*.item'        => 'nullable|string|exists:items_paket_all_from_xeros,id',
             'lines.*.description' => 'required|string',
             'lines.*.qty'         => 'required|numeric|min:0',
-            'lines.*.unit_price'  => 'required|numeric|min:0',
-            'lines.*.account'     => 'required|string',
+            'lines.*.unit_price'  => 'required|numeric|min:0',//ambil dari get item
+            'lines.*.account'     =>  'nullable|string|exists:coas,id',
             'lines.*.tax_rate'    => 'nullable|string',
             'lines.*.nama_pa'     => 'nullable|string',     // Nama Pa... (Partner / Pemasok)
-            'lines.*.divisi'      => 'nullable|string',
-            'lines.*.amount_idr'  => 'required|numeric|min:0',
+            //'lines.*.divisi'      => 'nullable|string',//tracking kategory
+            'lines.*.divisi' => ['nullable', 'string', new \App\Rules\DivisiExistsInTracking()],
+            //'lines.*.amount_idr'  => 'required|numeric|min:0',//set otomatis
             'subtotal'            => 'required|numeric|min:0',
             'tax'                 => 'required|numeric|min:0',
             'total'               => 'required|numeric|min:0',
@@ -81,7 +82,31 @@ public function updateTrans(Request $request, $id)
             ], 422);
         }
 
-        $saved = $this->repo_trans->createFromXeroForm($request->all(),$request->id);
+
+    $data = $request->all();
+    $lines = $data['lines'] ?? [];
+    $subtotal = 0;
+    foreach ($lines as $key => $line) {
+        // Hitung amount_idr = qty * unit_price
+        $amountIdr = (float)($line['qty'] ?? 0) * (float)($line['unit_price'] ?? 0);
+
+        $lines[$key]['amount_idr'] = $amountIdr;   // override nilai
+
+        $subtotal += $amountIdr;
+    }
+
+
+    $data['lines'] = $lines;
+
+    $tax   = (float)($data['tax'] ?? 0);
+    $total = $subtotal + $tax;
+
+    $data['subtotal'] = $subtotal;
+    $data['tax']      = $tax;
+    $data['total']    = $total;
+
+
+        $saved = $this->repo_trans->createFromXeroForm($data,$request->id);
 
         return $this->autoResponse($saved);
     }
