@@ -53,9 +53,16 @@ class DashboardController extends Controller
         return view('admin.master.jamaah');
     }
 
-     public function getHotelSalesList()
-    {
+      public function getHotelSalesList()
+     {
         return view('admin.master.hotel_sales');
-    }
+     }
+
+      public function getTrackingKategoryist()
+     {
+        return view('admin.master.tracking');
+     }
+
+
 
 }

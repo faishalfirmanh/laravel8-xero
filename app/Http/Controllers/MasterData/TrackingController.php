@@ -23,7 +23,7 @@ use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\Rule;
-
+use Illuminate\Support\Str;
 
 
 class TrackingController extends Controller
@@ -44,21 +44,28 @@ class TrackingController extends Controller
         $validator = Validator::make($request->all(), [
             'name_parent_category'=> 'required|string',
             'lines_category'               => 'required|array|min:1',
-            'lines_category.*.id_parent'        => 'required|string',
+           // 'lines_category.*.id_parent'        => 'required|string',
             'lines_category.*.item_name_category'        => 'required|string|max:255',
-            'lines_category.*.item_uuid_category'        => 'required|string|max:100',
+           // 'lines_category.*.item_uuid_category'        => 'required|string|max:100',
 
         ]);
 
-if ($validator->fails()) {
-    return response()->json([
-        'status'  => 'error',
-        'message' => 'Validasi Gagal',
-        'errors'  => $validator->errors()->toArray()
-    ], 422);
-}
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validasi Gagal',
+                'errors'  => $validator->errors()->toArray()
+            ], 422);
+        }
 
+       $linesCategory = $request->input('lines_category', []);
+        foreach ($linesCategory as &$line) {
+            $line['id_parent'] = $request->id ? $request->id : $this->repo->getLastIdPlusOne();//
+            $line['item_uuid_category'] = self::generateRandom4Digit();
+        }
+        $request->merge(['lines_category' => $linesCategory]);
 
+        //dd($request->all());
 
         $request['created_by']=1;// $request->user_login->id;
         $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
@@ -66,6 +73,11 @@ if ($validator->fails()) {
     }
 
 
+
+    function generateRandom4Digit()
+    {
+        return str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+    }
 
 
     public function getAllPaginate(Request $request)

@@ -5,6 +5,7 @@ namespace App\Models\MasterData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Models\MasterData\Menu;
 
 class MasterRoleUser extends Model
 {
@@ -25,6 +26,19 @@ class MasterRoleUser extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+
+    public function users()
+    {
+        return $this->hasMany(User::class, 'role_id');
+    }
+
+    public function menus()
+    {
+        return $this->belongsToMany(Menu::class, 'role_menus', 'role_id', 'menu_id');
+    }
+
+
 
     public function getNamaPembuatAttribute()
     {

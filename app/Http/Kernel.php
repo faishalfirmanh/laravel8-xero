@@ -64,5 +64,6 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'xero.limit' => \App\Http\Middleware\XeroRateLimit::class,
         'xss' => \App\Http\Middleware\XssSanitization::class,
+        'role.menu' => \App\Http\Middleware\CheckRoleMenuAccess::class,
     ];
 }

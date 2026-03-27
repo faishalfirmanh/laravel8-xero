@@ -4,7 +4,7 @@
 
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Daftar Jmaah Mitra pesan hotel</h5>
+        <h5 class="mb-0">Daftar Jamah Mitra pesan hotel</h5>
 
         {{-- <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
             <i class="ti ti-plus me-1"></i> Tambah Hotel
