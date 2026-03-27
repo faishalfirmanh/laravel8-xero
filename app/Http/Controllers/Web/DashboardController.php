@@ -63,6 +63,11 @@ class DashboardController extends Controller
         return view('admin.master.tracking');
      }
 
+      public function getCoaList()
+     {
+        return view('admin.master.coa');
+     }
+
 
 
 }

@@ -23,7 +23,7 @@ use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\Rule;
-
+use Illuminate\Support\Str;
 
 
 class CoaController extends Controller
@@ -38,6 +38,11 @@ class CoaController extends Controller
 
     }
 
+     function generateRandom4Digit()
+    {
+        return str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+    }
+
 
     public function store(Request $request)
     {
@@ -48,11 +53,11 @@ class CoaController extends Controller
                 'string',
                 'regex:/^(current_asset|fixed_asset|revenue|inventory|non_current_asset|prepayment|equity|description|direct_cost|expense|overhead|current_liability|liability|non_current_liability|other_income|sales)$/i'
             ],
-            'code' => [
-                'required',
-                'string',
-                 Rule::unique('coas', 'code')->ignore($request->id)
-            ],
+            // 'code' => [
+            //     'required',
+            //     'string',
+            //      Rule::unique('coas', 'code')->ignore($request->id)
+            // ],
             'name'=> 'required|string',
             'desc'=> 'nullable|string'
 
@@ -60,6 +65,10 @@ class CoaController extends Controller
 
         if ($validator->fails()) {
             return $this->error($validator->errors());
+        }
+
+        if($request->id == NULL){
+            $request->merge(['code' => self::generateRandom4Digit()]);
         }
 
         $request['created_by']=1;// $request->user_login->id;

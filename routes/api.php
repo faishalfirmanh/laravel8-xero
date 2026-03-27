@@ -154,7 +154,7 @@ Route::prefix("admin-web")->group(function () {
     Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
 
 
-    Route::prefix('xero-local')->group(function(){
+    Route::middleware(['auth:sanctum', 'xss'])->prefix('xero-local')->group(function(){
         Route::get('list-bank',[BankXeroController::class, 'getListInvoice'])->name('bank-list');
 
 
@@ -170,7 +170,7 @@ Route::prefix("admin-web")->group(function () {
         Route::put('update-spend/{id}',[BankXeroController::class, 'updateTrans'])->name('update-spend');
 
         Route::prefix('coa')->group(function(){
-            Route::get('list',[CoaController::class,'getAllPaginate'])->name('ge-all-coa');
+            Route::get('list',[CoaController::class,'getAllPaginate'])->name('get-all-coa');
             Route::post('save',[CoaController::class,'store'])->name('save-coa');
             Route::get('detail',[CoaController::class,'detail'])->name('find-coa');
             Route::post('delete',[CoaController::class,'delete'])->name('delete-coa');

@@ -54,6 +54,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/list-hotel', [HotelController::class, 'index'])->name('admin-master-hotel');
         Route::get('/list-jamaah', [DashboardController::class, 'getJamaah'])->name('admin-master-jamaah');//semua client
         Route::get('/list-tracking', [DashboardController::class, 'getTrackingKategoryist'])->name('admin-master-tracking');
+        Route::get('/list-coa', [DashboardController::class, 'getCoaList'])->name('admin-master-coa');
     });
 
     Route::prefix('config')->group(function () {
