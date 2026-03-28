@@ -154,7 +154,7 @@ Route::prefix("admin-web")->group(function () {
     Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
 
 
-    Route::middleware(['auth:sanctum', 'xss'])->prefix('xero-local')->group(function(){
+    Route::prefix('xero-local')->group(function(){
         Route::get('list-bank',[BankXeroController::class, 'getListInvoice'])->name('bank-list');
 
 
@@ -166,6 +166,7 @@ Route::prefix("admin-web")->group(function () {
         Route::post('create-spend',[BankXeroController::class, 'storeTrans'])->name('create-spend');
         Route::post('delete-spend',[BankXeroController::class, 'destroyTrans'])->name('delete-spend');
         Route::get('detail-spend',[BankXeroController::class, 'detailTrans'])->name('find-spend');
+        Route::get('get_tracking',[BankXeroController::class, 'getTracking'])->name('tracking-spend');
 
         Route::put('update-spend/{id}',[BankXeroController::class, 'updateTrans'])->name('update-spend');
 

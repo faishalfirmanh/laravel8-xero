@@ -3,6 +3,7 @@ namespace App\Http\Controllers\MasterData;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
+use App\Http\Repository\MasterData\TrackingRepo;
 use App\Http\Repository\MasterData\BankXeroRepo;
 
 use App\Http\Repository\Transaction\SpendMoneyRepo;
@@ -28,13 +29,14 @@ class BankXeroController extends Controller {
     use ConfigRefreshXero;
     use ApiResponse;
 
-    protected $repo_trans;
+    protected $repo_trans, $repo_tracking;
 
 
-    public function __construct(BankXeroRepo $repo, SpendMoneyRepo $repo_trans)
+    public function __construct(BankXeroRepo $repo, SpendMoneyRepo $repo_trans, TrackingRepo $repo_tracking)
     {
         $this->repo = $repo;
         $this->repo_trans = $repo_trans;
+        $this->repo_tracking = $repo_tracking;
     }
 
 public function updateTrans(Request $request, $id)
@@ -42,6 +44,32 @@ public function updateTrans(Request $request, $id)
     $request->merge(['id' => $id]); // supaya CreateOrUpdate tahu ID-nya
     return $this->storeTrans($request);  // reuse validator + logic
 }
+
+
+
+    public function getTracking(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name_parent_category' => 'required|string|in:divisi,paket',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $cekSudahAdaData = $this->repo_tracking->whereData(['name_parent_category'=>strtolower($request->name_parent_category)])->first();
+
+        if($cekSudahAdaData == NULL){
+             return response()->json([
+                'status'  => 'error',
+                'message' => 'data dengan tracking_name '. $request->name_parent_category   ." tidak ada",
+                'errors'  => $validator->errors()
+            ], 404);
+        }
+
+        $data = $this->repo_tracking->whereData(['name_parent_category'=>strtolower($request->name_parent_category )])->first();
+        return $this->autoResponse($data);
+    }
 
     public function storeTrans(Request $request)
     {
@@ -53,7 +81,11 @@ public function updateTrans(Request $request, $id)
 
 
         $validator = Validator::make($request->all(), [
+            'contact_id'          => 'required|integer|exists:data_jamaah_xeros,id',//dari tabel jamaah_xero atau data jamaah
             'to'                  => 'required|string|max:255',
+            'bank_id'             =>'required|numeric|exists:bank_xeros,id',
+            'tax_type'            => 'required|numeric|between:1,3',//1=no tax, 2, tax inclusive, 3, tax exclusive
+            'type_trans'          => 'required|numeric|between:1,2',//1 spend money, 2 receive money
             'date'                => 'required|date_format:Y-m-d',
             'reference'           => 'nullable|string|max:255',
             'currency_code'       => 'required|string|in:IDR',
@@ -64,7 +96,7 @@ public function updateTrans(Request $request, $id)
             'lines.*.unit_price'  => 'required|numeric|min:0',//ambil dari get item
             'lines.*.account'     =>  'nullable|string|exists:coas,id',
             'lines.*.tax_rate'    => 'nullable|string',
-            'lines.*.nama_pa'     => 'nullable|string',     // Nama Pa... (Partner / Pemasok)
+            'lines.*.tracking_paket'     =>  ['nullable', 'string', new \App\Rules\DivisiExistsInTracking()],//'nullable|string',     // Nama Pa... (Partner / Pemasok)
             //'lines.*.divisi'      => 'nullable|string',//tracking kategory
             'lines.*.divisi' => ['nullable', 'string', new \App\Rules\DivisiExistsInTracking()],
             //'lines.*.amount_idr'  => 'required|numeric|min:0',//set otomatis

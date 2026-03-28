@@ -42,7 +42,11 @@ class TrackingController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name_parent_category'=> 'required|string',
+            'name_parent_category'=> [
+                'required',
+                'string',
+                Rule::unique('tracking_categories', 'name_parent_category')->ignore($request->id)
+            ],
             'lines_category'               => 'required|array|min:1',
            // 'lines_category.*.id_parent'        => 'required|string',
             'lines_category.*.item_name_category'        => 'required|string|max:255',
@@ -63,6 +67,7 @@ class TrackingController extends Controller
             $line['id_parent'] = $request->id ? $request->id : $this->repo->getLastIdPlusOne();//
             $line['item_uuid_category'] = self::generateRandom4Digit();
         }
+        $request->merge(['name_parent_category'=> strtolower($request->name_parent_category)]);
         $request->merge(['lines_category' => $linesCategory]);
 
         //dd($request->all());
