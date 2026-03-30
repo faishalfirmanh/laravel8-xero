@@ -1,59 +1,92 @@
 <div class="bg-dark border-right text-white" id="sidebar-wrapper" style="width: 250px; min-height: 100vh;">
     <div class="sidebar-heading p-3 text-center"><h5>An namiroh</h5></div>
-    <div class="list-group list-group-flush">
+    <div class="list-group list-group-flush" id="dynamic-menu">
 
-        <a href="#transaksiSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">
-            Transaksi
-        </a>
-        <div class="collapse" id="transaksiSub">
-            <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
-            <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
-            <a href="{{ route('xero-list-transaksi') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">List Transaksi Xero</a>
-
-            <a href="#salesSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small dropdown-toggle">
-                Sales
-            </a>
-
-            <div class="collapse" id="salesSub">
-                <a href="{{route('admin-list-inv-xero-web')}}" class="list-group-item list-group-item-action text-white pl-5 small" style="background-color: #5a6268;">
-                    Invoices
-                </a>
-                <a href="#" class="list-group-item list-group-item-action text-white pl-5 small" style="background-color: #5a6268;">
-                    Quotes
-                </a>
-                <a href="#" class="list-group-item list-group-item-action text-white pl-5 small" style="background-color: #5a6268;">
-                    Customers
-                </a>
-            </div>
-            </div>
-        <a href="#report_trans" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Report</a>
-        <div class="collapse" id="report_trans">
-            <a href="{{ route('admin-list-pembelian-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Penjualan Hotel</a>
-            <a href="{{ route('admin-list-invoice') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Pengeluaran Paket</a>
-            <a href="{{ route('web-log-history-list') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Log History</a>
-        </div>
-
-        <a href="#masterSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Master Data</a>
-        <div class="collapse" id="masterSub">
-            <a href="{{ route('admin-master-hotel') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Hotel</a>
-            <a href="{{ route('admin-master-jamaah') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Data Jamaah / Mitra</a>
-            <a href="{{ route('admin-list-pengeluaran') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Pengeluaran</a>
-            <a href="{{ route('maskapai.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Maskapai</a>
-            <a href="{{ route('role-user.index') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Role User</a>
-            <a href="{{ route('admin-master-tracking') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Tracking Kategory</a>
-            <a href="{{ route('admin-master-coa') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Master Coa</a>
-        </div>
-
-        <a href="#config_global" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Setting</a>
-        <div class="collapse" id="config_global">
-            <a href="{{ route('config-currency-web') }}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Setting Curency</a>
-        </div>
-
-        <a href="#accountSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Account</a>
+    </div>
+    <div>
+         <a href="#accountSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Account</a>
         <div class="collapse" id="accountSub">
             <a data-toggle="modal" data-target="#loginModal" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Login</a>
             <a href="#" id="logout_btn" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Logout</a>
         </div>
-
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Ambil data dari localStorage
+        const rawData = localStorage.getItem('user_menu');
+        const menuContainer = document.getElementById('dynamic-menu');
+        const baseUrl = window.location.origin; // Ambil base URL (misal: http://127.0.0.1:8000)
+
+        if (rawData) {
+            try {
+                const menuData = JSON.parse(rawData);
+                let menuHtml = '';
+
+                menuData.forEach(parent => {
+                    // ID unik untuk collapse (agar tidak bentrok antar menu)
+                    const collapseId = `menu_collapse_${parent.id}`;
+
+                    // Cek apakah punya anak (children)
+                    const hasChildren = parent.children && parent.children.length > 0;
+
+                    // Render Parent Menu
+                    menuHtml += `
+                        <a href="${hasChildren ? '#' + collapseId : (parent.slug ? baseUrl + '/' + parent.slug : '#')}"
+                           ${hasChildren ? 'data-toggle="collapse"' : ''}
+                           class="list-group-item list-group-item-action bg-dark text-white ${hasChildren ? 'dropdown-toggle' : ''} text-capitalize">
+                            ${parent.nama_menu}
+                        </a>
+                    `;
+
+                    // Render Child Menu jika ada
+                    if (hasChildren) {
+                        menuHtml += `<div class="collapse" id="${collapseId}">`;
+
+                        parent.children.forEach(child => {
+                            // Gabungkan Base URL dengan Slug
+                            const childUrl = child.slug ? `${baseUrl}/${child.slug}` : '#';
+
+                            menuHtml += `
+                                <a href="${childUrl}" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small text-capitalize">
+                                    ${child.nama_menu}
+                                </a>
+                            `;
+                        });
+
+                        menuHtml += `</div>`;
+                    }
+                });
+
+                // Tambahkan menu Account statis di paling bawah (opsional)
+                // menuHtml += `
+                //     <a href="#accountSub" data-toggle="collapse" class="list-group-item list-group-item-action bg-dark text-white dropdown-toggle">Account</a>
+                //     <div class="collapse" id="accountSub">
+                //         <a href="#" id="logout_btn" class="list-group-item list-group-item-action bg-secondary text-white pl-4 small">Logout</a>
+                //     </div>
+                // `;
+
+                menuContainer.innerHTML = menuHtml;
+
+            } catch (e) {
+                console.error("Gagal parsing JSON menu:", e);
+                menuContainer.innerHTML = '<div class="p-3 text-danger">Gagal memuat menu.</div>';
+            }
+        } else {
+            // Jika data menu kosong di localStorage
+            menuContainer.innerHTML = '<div class="p-3 text-warning">Silakan login kembali.</div>';
+        }
+
+        // Handle Logout secara manual
+        const logoutBtn = document.getElementById('logout_btn');
+        if(logoutBtn) {
+            logoutBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                localStorage.removeItem('user_menu');
+                localStorage.removeItem('access_token');
+                window.location.href = '/'; // Sesuaikan route login Anda
+            });
+        }
+    });
+</script>

@@ -5,12 +5,12 @@ namespace App\Models\Config;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class RoleMenus extends Model
+class RoleUsers extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'role_id',//master_role_users
-        'menu_id'
+     protected $fillable = [
+        'role_id',//tabel master_role_users
+        'user_id'
     ];
 }

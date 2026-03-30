@@ -8,6 +8,11 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use App\Models\Config\RoleUsers;
+use App\Models\Config\RoleMenus;
+use App\Models\MasterData\Menu;
+use Illuminate\Support\Facades\Session;
+
 class AuthController extends Controller
 {
     public function login(Request $request)
@@ -36,13 +41,28 @@ class AuthController extends Controller
         // Buat Token Baru
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        $role_users = RoleUsers::where('user_id', $user->id)->pluck('role_id');
+        $roles_menu = RoleMenus::whereIn('role_id',$role_users)->pluck('menu_id');
+        $view_menu = Menu::with('children')->whereIn('id',$roles_menu)
+            ->where('is_active',1)
+            ->where('parent_id',null)
+            ->orderBy('urutan','asc')->get();
+
+
+        Session::put('user_menu', $view_menu->toArray());
+        Session::put('user_profile', $user);
+        Session::save();
+
+        //dd($view_menu);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Login Berhasil',
             'access_token' => $token,
             'token_type' => 'Bearer',
             'expires_at' => $expired_at->toDateTimeString(),
-            'user' => $user
+            'user' => $user,
+            'menu'=>$view_menu
         ]);
     }
 
@@ -97,6 +117,19 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Logout dari semua device berhasil'
+        ]);
+    }
+
+
+     public function myaccount(Request $request)
+    {
+
+        $data = User::find($request->user_login->id);
+
+        return response()->json([
+            'status' => 'success',
+            'user' => $data,
+            'menu'=>$request->menu
         ]);
     }
 }

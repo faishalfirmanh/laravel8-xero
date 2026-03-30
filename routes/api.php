@@ -58,8 +58,12 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+Route::prefix('account')->group(function(){
+
+});
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register'])->name('register');
+Route::middleware(['auth:sanctum','xss'])->post('/me', [AuthController::class, 'myaccount'])->name('me-auth');
 //Route::post('/logout', [AuthController::class, 'logout']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -154,20 +158,20 @@ Route::prefix("admin-web")->group(function () {
     Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
 
 
-    Route::prefix('xero-local')->group(function(){
-        Route::get('list-bank',[BankXeroController::class, 'getListInvoice'])->name('bank-list');
+    Route::middleware(['auth:sanctum', 'xss','role.menu'])->prefix('xero-local')->group(function(){
 
-
-        Route::post('create-bank',[BankXeroController::class, 'store'])->name('create-bank');
-        Route::post('delete-bank',[BankXeroController::class, 'destroy'])->name('delete-bank');
-        Route::post('find-bank',[BankXeroController::class, 'detail'])->name('find-bank');
+        Route::prefix('bank-xero')->group(function(){
+            Route::get('list-bank',[BankXeroController::class, 'getListInvoice'])->name('bank-list');
+            Route::post('create-bank',[BankXeroController::class, 'store'])->name('create-bank');
+            Route::post('delete-bank',[BankXeroController::class, 'destroy'])->name('delete-bank');
+            Route::post('find-bank',[BankXeroController::class, 'detail'])->name('find-bank');
+        });
 
 
         Route::post('create-spend',[BankXeroController::class, 'storeTrans'])->name('create-spend');
         Route::post('delete-spend',[BankXeroController::class, 'destroyTrans'])->name('delete-spend');
         Route::get('detail-spend',[BankXeroController::class, 'detailTrans'])->name('find-spend');
         Route::get('get_tracking',[BankXeroController::class, 'getTracking'])->name('tracking-spend');
-
         Route::put('update-spend/{id}',[BankXeroController::class, 'updateTrans'])->name('update-spend');
 
         Route::prefix('coa')->group(function(){
@@ -246,12 +250,12 @@ Route::prefix("admin-web")->group(function () {
         });
 
 
-        Route::prefix('bank-xero')->group(function () {
-            Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
-            Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
-            Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
-            Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
-        });
+        // Route::prefix('bank-xero')->group(function () {
+        //     Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+        //     Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
+        //     Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
+        //     Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+        // });
 
 
 

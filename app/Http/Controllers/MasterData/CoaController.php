@@ -91,13 +91,16 @@ class CoaController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
+        //dd($request->menu);
         $where = [];
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
         } else {
             $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'name', 'ASC');//getDataPaginate("name",10,$request->keyword);
         }
+        //$data['menu']= $request->menu;
         return $this->autoResponse($data);
+        //return $this->success($data);
     }
 
 

@@ -13,13 +13,25 @@ class Menu extends Model
 
     protected $fillable = [
        'nama_menu',
-       'slug',
-       'route_menu',
+       'slug',//untuk url web
+       'route_name',//prefix
        'module',
        'parent_id',
        'order',
        'is_active'
     ];
+
+    // protected $appends = [
+    //     'nama_parent'
+    // ];
+
+    // public function getNamaParentAttribute()
+    // {
+    //    if ($this->parent) {
+    //         return $this->parent->nama_menu;
+    //     }
+    //    return '-';
+    // }
 
 
 public function parent()
@@ -32,10 +44,15 @@ public function children()
     return $this->hasMany(Menu::class, 'parent_id');
 }
 
-public function roles()
-{
-    return $this->belongsToMany(MasterRoleUser::class, 'role_menus', 'menu_id', 'role_id');
-}
+    public function roles()
+    {
+        return $this->belongsToMany(
+            MasterRoleUser::class,
+            'route_name',     // nama pivot table
+            'menu_id',        // foreign key di pivot
+            'role_id'         // foreign key di pivot
+        );
+    }
 
 
 }

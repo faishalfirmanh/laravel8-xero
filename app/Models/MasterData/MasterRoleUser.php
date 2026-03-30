@@ -16,6 +16,7 @@ class MasterRoleUser extends Model
     protected $fillable = [
         'nama_role',
         'is_active',
+        'guard_name',
         'created_by'
     ];
 
@@ -27,31 +28,35 @@ class MasterRoleUser extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-
-    public function users()
+   public function users()
     {
-        return $this->hasMany(User::class, 'role_id');
+        return $this->belongsToMany(
+            User::class,
+            'role_users',      // nama pivot table
+            'role_id',         // foreign key di pivot
+            'user_id'          // foreign key di pivot
+        )->withTimestamps();
     }
 
     public function menus()
     {
-        return $this->belongsToMany(Menu::class, 'role_menus', 'role_id', 'menu_id');
+        return $this->belongsToMany(Menu::class, 'role_menuses', 'role_id', 'menu_id');
     }
 
 
 
     public function getNamaPembuatAttribute()
     {
-    if($this->creator){
+        if($this->creator){
 
-    if($this->creator->name){
-
-    return $this->creator->name;
-    }
-    else{
-    return 'nama kosong';}
-    }
-    else{
-    return '-';}
-    }
+            if($this->creator->name){
+                return $this->creator->name;
+            }
+            else{
+                return 'nama kosong';
+            }
+        }
+        else{
+            return '-';}
+        }
     }

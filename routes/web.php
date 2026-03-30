@@ -38,7 +38,7 @@ Route::get('/cek-path', function () {
         'storage_path' => storage_path(),
     ];
 });
-Route::get('/', [DashboardController::class, 'index']);
+Route::get('/', [DashboardController::class, 'index'])->name('home.index');
 Route::prefix('admin')->group(function () {
     Route::get('/list-pembelian-hotel', [DashboardController::class, 'getWebListPembelianHotel'])->name('admin-list-pembelian-hotel');
     Route::get('/list-pengeluaran', [DashboardController::class, 'getWebListPengeluaran'])->name('admin-list-pengeluaran');
@@ -50,11 +50,11 @@ Route::prefix('admin')->group(function () {
         Route::get('inv-local',[DashboardController::class, 'viewListInvXeroLocal'])->name('admin-list-inv-xero-web');
     });
 
-    Route::prefix('master_data')->group(function () {
-        Route::get('/list-hotel', [HotelController::class, 'index'])->name('admin-master-hotel');
-        Route::get('/list-jamaah', [DashboardController::class, 'getJamaah'])->name('admin-master-jamaah');//semua client
-        Route::get('/list-tracking', [DashboardController::class, 'getTrackingKategoryist'])->name('admin-master-tracking');
-        Route::get('/list-coa', [DashboardController::class, 'getCoaList'])->name('admin-master-coa');
+    Route::prefix('master-data')->group(function () {
+        Route::get('/hotel', [HotelController::class, 'index'])->name('admin-master-hotel');
+        Route::get('/jamaah', [DashboardController::class, 'getJamaah'])->name('admin-master-jamaah');//semua client
+        Route::get('/tracking-category', [DashboardController::class, 'getTrackingKategoryist'])->name('admin-master-tracking');
+        Route::get('/coa', [DashboardController::class, 'getCoaList'])->name('admin-master-coa');
     });
 
     Route::prefix('config')->group(function () {

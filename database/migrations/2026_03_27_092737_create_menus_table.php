@@ -16,7 +16,7 @@ class CreateMenusTable extends Migration
         Schema::create('menus', function (Blueprint $table) {
             $table->id();
             $table->string('nama_menu');
-            $table->string('slug')->unique();
+            $table->string('slug')->unique();//url
             $table->string('route_name')->nullable();           // untuk pengecekan route API
             $table->string('module')->nullable();               // "keuangan", "hrd", dll
             $table->unsignedBigInteger('parent_id')->nullable();

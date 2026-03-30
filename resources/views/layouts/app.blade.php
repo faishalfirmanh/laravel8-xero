@@ -85,11 +85,13 @@
                     if(response.status == 200){
                         //console.log(response.access_token)
                         localStorage.setItem('token', response.data.access_token);
+                        localStorage.setItem('user_menu', JSON.stringify(response.data.menu));
                         Swal.fire({
                             title: "Login sukses",
                             text: "Berhasil Login",
                             icon: "success"
                         });
+                        window.location.reload();
                     }else{
                           Swal.fire('Gagal!', response.statusText || 'Terjadi kesalahan.', 'error');
                     }
@@ -113,6 +115,8 @@
                 success: function (response) {
                     //console.log(response);
                     if(response.status == "success"){
+                         localStorage.removeItem("token");
+                          localStorage.removeItem("user_menu");
                         Swal.fire({
                             title: "Logout sukses",
                             text: "Berhasil logout",

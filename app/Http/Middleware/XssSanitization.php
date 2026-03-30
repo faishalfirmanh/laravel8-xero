@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use stdClass;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Config\RoleUsers;
+use App\Models\Config\RoleMenus;
+use App\Models\MasterData\Menu;
 class XssSanitization
 {
     /**
@@ -26,6 +29,14 @@ class XssSanitization
             }
         });
         $request->merge(['user_login'=>$user]);
+        $role_users = RoleUsers::where('user_id', $user->id)->pluck('role_id');
+        $roles_menu = RoleMenus::whereIn('role_id',$role_users)->pluck('menu_id');
+        $view_menu = Menu::with('children')->whereIn('id',$roles_menu)
+            ->where('is_active',1)
+            ->where('parent_id',null)
+            ->orderBy('urutan','asc')->get();
+
+        $request->merge(['menu'=>$view_menu]);
         $request->merge($input);
         return $next($request);
     }
