@@ -4,9 +4,9 @@
 
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Daftar Role User</h5>
+        <h5 class="mb-0">Daftar Trevel</h5>
         <button class="btn btn-primary" id="btnTambah">
-            <i class="ti ti-plus"></i> Tambah Role
+            <i class="ti ti-plus"></i> Tambah Trevel
         </button>
     </div>
 
@@ -20,7 +20,7 @@
             <thead class="table-dark">
                 <tr>
                     <th width="5%">No</th>
-                    <th>Nama Role</th>
+                    <th>Nama</th>
                     <th>Status</th>
                     <th>Created By</th>
                     <th width="10%">Action</th>
@@ -38,7 +38,7 @@
                 @csrf
 
                 <div class="modal-header">
-                    <h5 class="modal-title">Form Role User</h5>
+                    <h5 class="modal-title">Form Trevel</h5>
                     <button type="button" class="close" data-dismiss="modal">
                         &times;
                     </button>
@@ -48,7 +48,7 @@
                     <input type="hidden" id="id_role_user" name="id">
 
                     <div class="form-group">
-                        <label>Nama Role</label>
+                        <label>Nama Trevel</label>
                         <input
                             type="text"
                             class="form-control"
@@ -56,24 +56,6 @@
                             name="nama_role"
                             required
                         >
-                    </div>
-                   <div class="form-group">
-                        <label>Lini Usaha <span class="text-danger">*</span></label><br>
-                        <select class="form-control select2"
-                                id="busines_line_id"
-                                name="busines_line_id"
-                                style="width: 100%;"
-                                required>
-
-                            <option value="">-- Pilih Lini Usaha --</option>
-
-                            @foreach($biss as $bis)
-                                <option value="{{ $bis->id }}">
-                                    {{ $bis->name_business ?? 'Tanpa Nama' }}
-                                </option>
-                            @endforeach
-
-                        </select>
                     </div>
 
                     <div class="form-group">
@@ -112,7 +94,7 @@ $(document).ready(function () {
     // =====================
     table = initGlobalDataTableToken(
         '#tableRoleUser',
-        `{{ route('role-user.getdata') }}`,
+        `{{ route('get-all-travel') }}`,
         [
             {
                 data: null,
@@ -121,7 +103,7 @@ $(document).ready(function () {
                     return m.row + m.settings._iDisplayStart + 1;
                 }
             },
-            { data: 'nama_role', name: 'nama_role' },
+            { data: 'name', name: 'name' },
             {
                 data: 'is_active',
                 name: 'is_active',
@@ -150,9 +132,20 @@ $(document).ready(function () {
             }
         }
     ],
-        { kolom_name: 'nama_role' }
+        { kolom_name: 'name' }
     );
 
+    //  $('#tableRoleUser').on('click', '.ti-pencil', function () {
+    //     const id = $(this).data('id');
+    //     ajaxRequest(`{{ route('find-track') }}`, 'GET', { id: id }, localStorage.getItem("token"))
+    //         .then(response => {
+    //             if (response.data.status === true) {
+
+    //             }
+    //  }) .catch(err => {
+    //             Swal.fire('Gagal!', err.message || 'Tidak dapat memuat data', 'error');
+    //         });
+    // });
     // =====================
     // TAMBAH
     // =====================
@@ -170,11 +163,7 @@ $(document).ready(function () {
         let data = table.row($(this).closest('tr')).data();
 
         $('#id_role_user').val(data.id);
-        $('#nama_role').val(data.nama_role);//busines_line_id
-        if(data.busines_line_id){
-             $("#busines_line_id").val(data.busines_line_id)
-        }
-
+        $('#nama_role').val(data.name);
 
         $('input[name="is_active"]').prop('checked', false);
         $(`input[name="is_active"][value="${data.is_active}"]`)
@@ -193,13 +182,12 @@ $(document).ready(function () {
 
         let payload = {
             id: $('#id_role_user').val() || null,
-            nama_role: $('#nama_role').val(),
-            is_active: $('input[name="is_active"]:checked').val(),
-            busines_line_id: $('#busines_line_id').val()
+            name : $('#nama_role').val(),
+            is_active: $('input[name="is_active"]:checked').val()
         };
 
         ajaxRequest(
-            `{{ route('role-user.save') }}`,
+            `{{ route('save-travel') }}`,
             'POST',
             payload,
             localStorage.getItem('token')

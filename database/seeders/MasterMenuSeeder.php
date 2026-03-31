@@ -47,10 +47,16 @@ class MasterMenuSeeder extends Seeder
             $masterDataParent = Menu::where('nama_menu', 'master data')->first();
 
             if ($masterDataParent) {
-                $child_menus = ['hotel', 'jamaah/mitra', 'tracking-category', 'coa','bank-xero','role-user'];
-                $slug_web = ['admin/master-data/hotel', 'admin/master-data/jamaah',
-                'admin/master-data/tracking-category', 'admin/master-data/coa','admin/master-data/bank-xero',
-                'admin/master-data/role-user'];
+                $child_menus = ['hotel', 'jamaah/mitra', 'tracking-category', 'coa','bank-xero','role-user','business-line','travel'];
+                $slug_web = [
+                'travel/admin/master-data/hotel',
+                'travel/admin/master-data/jamaah',
+                'travel/admin/master-data/tracking-category',
+                'travel/admin/master-data/coa',
+                'travel/admin/master-data/bank-xero',
+                'travel/admin/master-data/role-user',
+                'travel/admin/master-data/business-line',
+                'travel/admin/master-data/travel'];
                 $i=0;
                 foreach ($child_menus as $name) {
                     Menu::firstOrCreate(

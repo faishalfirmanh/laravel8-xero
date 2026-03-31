@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Repository\MasterData\RoleUserRepository;
 use Validator;
+use App\Models\MasterData\BusinessLine;
 use Illuminate\Validation\Rule;
 use App\Traits\ApiResponse;
 
@@ -21,7 +22,8 @@ class RoleUserController extends Controller
     }
     public function index()
     {
-        return view('admin.master.role_user');
+        $line_bis = BusinessLine::where(['is_active'=>true])->get();
+        return view('admin.master.role_user',['biss'=>$line_bis]);
     }
     public function getData(Request $request)
     {
@@ -92,6 +94,7 @@ class RoleUserController extends Controller
                     ->ignore($request->id),
             ],
             'is_active' => 'required|in:0,1',
+            'busines_line_id'=> 'required|numeric|exists:business_lines,id',
             'id' => 'nullable|integer',
 
         ]);
@@ -104,6 +107,7 @@ class RoleUserController extends Controller
             'nama_role' => $request->nama_role,
             'is_active'     => $request->is_active,
             'created_by'    => $request->user_login->id ?? null,
+            'busines_line_id'=>$request->busines_line_id
         ];
 
         $saved = $this->repo->CreateOrUpdate($payload, $request->id);

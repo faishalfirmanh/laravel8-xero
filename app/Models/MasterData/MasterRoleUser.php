@@ -17,7 +17,8 @@ class MasterRoleUser extends Model
         'nama_role',
         'is_active',
         'guard_name',
-        'created_by'
+        'created_by',
+        'busines_line_id'
     ];
 
     protected $appends = ['nama_pembuat'];

@@ -18,10 +18,12 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
           $this->call([
-                ConfigCurrencySeeder::class,
-                SeederMasterPengeluaran::class,
-                HotelSeeder::class,
-                UserRegisterSeeder::class
+                // ConfigCurrencySeeder::class,
+                // SeederMasterPengeluaran::class,
+                // HotelSeeder::class,
+                // UserRegisterSeeder::class
+
+
           ]);
     }
 }

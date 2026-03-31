@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-
+use App\Models\MasterData\BusinessLine;
 use Validator;
 use App\Traits\ApiResponse;
 
@@ -68,6 +68,15 @@ class DashboardController extends Controller
         return view('admin.master.coa');
      }
 
+     public function getBusiness()
+     {
+          return view('admin.master.business');
+     }
+
+      public function getTravel()
+     {
+        return view('admin.master.travel');
+     }
 
 
 }

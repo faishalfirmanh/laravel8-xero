@@ -25,6 +25,8 @@ use App\Http\Controllers\MasterData\PengeluaranNameController;
 use App\Http\Controllers\MasterData\DataApiJamaahController;
 use App\Http\Controllers\MasterData\MasterMaskapaiController;
 
+use App\Http\Controllers\MasterData\BusinessLineController;
+use App\Http\Controllers\MasterData\TravelController;
 //master data
 //location
 
@@ -158,7 +160,31 @@ Route::prefix("admin-web")->group(function () {
     Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
 
 
-    Route::middleware(['auth:sanctum', 'xss','role.menu'])->prefix('xero-local')->group(function(){
+    //base xero data
+    Route::middleware(['auth:sanctum', 'xss','role.menu'])->prefix('travel')->group(function(){
+
+
+
+        Route::prefix('business-line')->group(function(){
+            Route::get('list',[BusinessLineController::class,'getAllPaginate'])->name('get-all-business');
+            Route::post('save',[BusinessLineController::class,'store'])->name('save-business');
+            Route::get('detail',[BusinessLineController::class,'detail'])->name('find-business');
+            Route::post('delete',[BusinessLineController::class,'delete'])->name('delete-business');
+        });
+
+
+        Route::prefix('travel')->group(function(){
+            Route::get('list',[TravelController::class,'getAllPaginate'])->name('get-all-travel');
+            Route::post('save',[TravelController::class,'store'])->name('save-travel');
+            Route::get('detail',[TravelController::class,'detail'])->name('find-travel');
+            Route::post('delete',[TravelController::class,'delete'])->name('delete-travel');
+        });
+
+
+
+
+
+
 
         Route::prefix('bank-xero')->group(function(){
             Route::get('list-bank',[BankXeroController::class, 'getListInvoice'])->name('bank-list');
@@ -189,10 +215,10 @@ Route::prefix("admin-web")->group(function () {
             Route::post('delete',[TrackingLocalController::class,'delete'])->name('delete-track');
         });
 
-
-
-
     });
+
+    //spbu
+    //mbg
 
     Route::middleware(['auth:sanctum', 'xss'])->prefix("transaksi")->group(function () {
         Route::prefix('revenue')->group(function () {
@@ -231,7 +257,7 @@ Route::prefix("admin-web")->group(function () {
         Route::get('/log-history', [LogHistoryController::class, 'getData'])->name('list-log-history');
     });
 
-    Route::middleware(['auth:sanctum', 'xss'])->prefix("master-data")->group(function () {
+    Route::middleware(['auth:sanctum', 'xss','role.menu'])->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
         Route::prefix("pengeluaran")->group(function () {
