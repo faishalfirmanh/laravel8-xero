@@ -4,8 +4,10 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\MasterData\Menu;
+use App\Models\MasterData\TravelName;
 use App\Models\MasterData\MasterRoleUser;
 use App\Models\Config\RoleMenus;
+use App\Models\Config\TravelUser;
 use App\Models\Config\RoleUsers;
 use App\Models\User;
 use Illuminate\Support\Facades\DB; // Tambahkan ini
@@ -77,6 +79,36 @@ class MasterMenuSeeder extends Seeder
                 }
             }
 
+
+            $ConfigParent = Menu::where('nama_menu', 'pengaturan')->first();
+            if($ConfigParent){
+                $child_menu_config = ['config-currency', 'config-role-user'];
+                $slug_web_config = [
+                'travel/admin/config/currency',
+                'travel/admin/config/role-user'];
+
+                $pp = 0;
+                foreach ($child_menu_config as $name) {
+                    Menu::firstOrCreate(
+                        [
+                            'nama_menu' =>$name, //str_replace('/', '-', $name),
+                            'route_name' => $name,
+                        ],
+                        [
+                            'nama_menu'  => $name, //str_replace('/', '-', $name),
+                            'slug'       =>$slug_web_config[$pp],
+                            'module'     => NULL,
+                            'parent_id'  => $ConfigParent->id,
+                            'is_active'  => 1
+                        ]
+                    );
+                    //$pp++;
+                    $this->command->info('Berhasil simpan menu config : ' . $name."-".$pp);
+
+                    $pp++;
+                }
+
+            }
 
             //jika it insert role
             $cek_role_it = MasterRoleUser::where('nama_role','it')->first();

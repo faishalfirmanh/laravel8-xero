@@ -22,7 +22,8 @@ class MasterRoleSeeder extends Seeder
             ], [
                 'is_active' => 1,
                 'created_by' => 1,
-                'guard_name'=>'api'
+                'guard_name'=>'api',
+                'busines_line_id'=>2
             ]);
             $this->command->info('berhasil insert data. '.$value);
       }

@@ -5,6 +5,7 @@ namespace App\Models\MasterData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Models\MasterData\BusinessLine;
 use App\Models\MasterData\Menu;
 
 class MasterRoleUser extends Model
@@ -21,12 +22,25 @@ class MasterRoleUser extends Model
         'busines_line_id'
     ];
 
-    protected $appends = ['nama_pembuat'];
+    protected $appends = ['nama_pembuat','lini_usaha'];
+
+
+    public function getLiniUsahaAttribute()
+    {
+        return '-';
+    }
+
 
     // RELASI
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+
+     public function liniUsaha()
+    {
+        return $this->belongsTo(BusinessLine::class, 'busines_line_id');
     }
 
    public function users()

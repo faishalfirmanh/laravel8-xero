@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Config\TravelUser;
 use App\Models\MasterData\MasterRoleUser;
+use App\Models\Config\RoleUsers;
 use App\Models\MasterData\Menu;
 class User extends Authenticatable
 {
@@ -34,6 +36,52 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    protected $appends = [
+        'list_travel',
+        'list_role'
+    ];
+
+    public function getListTravelAttribute()
+    {
+        if ($this->relationLoaded('travelUsers')) {
+            return $this->travelUsers
+                        ->pluck('travel.name')
+                        ->toArray();
+        }
+        return $this->travelUsers()
+                    ->leftJoin('travel_names', 'travel_users.travel_id', '=', 'travel_names.id')
+                    ->pluck('travel_names.name')
+                    ->toArray();
+
+    }
+
+
+    public function getListRoleAttribute()
+    {
+        if ($this->relationLoaded('userRoles')) {
+            return $this->userRoles
+                        ->pluck('masterRole.nama_role')
+                        ->toArray();
+        }
+
+        return $this->userRoles()
+                    ->leftJoin('master_role_users', 'role_users.role_id', '=', 'master_role_users.id')
+                    ->pluck('master_role_users.nama_role')
+                    ->toArray();
+    }
+
+    public function travelUsers()
+    {
+      return $this->hasMany(TravelUser::class, 'user_id', 'id');
+    }
+
+
+     public function userRoles()
+    {
+      return $this->hasMany(RoleUsers::class, 'user_id', 'id');
+    }
+
 
     /**
      * The attributes that should be cast to native types.

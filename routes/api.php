@@ -20,6 +20,8 @@ use App\Http\Controllers\GlobalExternal\CurrencyController;
 use App\Http\Controllers\Xero\InvoiceItem2Controller;
 use App\Http\Controllers\Xero\PaymentHistoryController;
 use App\Http\Controllers\Xero\BankController;
+
+use App\Http\Controllers\UserController;
 //master data
 use App\Http\Controllers\MasterData\PengeluaranNameController;
 use App\Http\Controllers\MasterData\DataApiJamaahController;
@@ -215,6 +217,21 @@ Route::prefix("admin-web")->group(function () {
             Route::post('delete',[TrackingLocalController::class,'delete'])->name('delete-track');
         });
 
+
+
+        //Config
+         Route::prefix("config-currency")->group(function () {
+            Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
+            Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
+         });
+
+          Route::prefix("config-role-user")->group(function () {
+            Route::get('list',[UserController::class,'getAllPaginate'])->name('get-all-user');
+            Route::get('/detail-user', [UserController::class, 'detail'])->name('find-user');
+            Route::post('/save-user', [UserController::class, 'store'])->name('save-user');
+         });
+
+
     });
 
     //spbu
@@ -305,10 +322,6 @@ Route::prefix("admin-web")->group(function () {
 
     });
 
-    Route::prefix("config-currency")->group(function () {
-        Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
-        Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
-    });
 
 
 Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');

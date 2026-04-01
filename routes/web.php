@@ -65,7 +65,9 @@ Route::prefix('travel')->group(function () {
         });
 
         Route::prefix('config')->group(function () {
-            Route::get('/config_currency', [DashboardController::class, 'getConfigCurrency'])->name('config-currency-web');
+
+            Route::get('/currency', [DashboardController::class, 'getConfigCurrency'])->name('config-currency-web');
+            Route::get('/role-user', [DashboardController::class, 'getConfigRoleUser'])->name('config-role-user');
         });
 
         Route::prefix('report')->group(function(){

@@ -78,5 +78,9 @@ class DashboardController extends Controller
         return view('admin.master.travel');
      }
 
+     public function getConfigRoleUser()
+     {
+        return view('admin.config.config_role');
+     }
 
 }
