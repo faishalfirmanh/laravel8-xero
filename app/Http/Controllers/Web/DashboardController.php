@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\MasterData\Menu;
+use App\Models\MasterData\MasterRoleUser;
+use App\Models\MasterData\TravelName;
 use App\Models\MasterData\BusinessLine;
 use Validator;
 use App\Traits\ApiResponse;
@@ -80,7 +83,10 @@ class DashboardController extends Controller
 
      public function getConfigRoleUser()
      {
-        return view('admin.config.config_role');
+        $get_menu = Menu::orderBy('urutan','asc')->get();
+        $get_divisi = MasterRoleUser::orderBy('id','desc')->get();
+        $get_all_travel = TravelName::orderBy('id','desc')->get();
+        return view('admin.config.config_role',['menu_list'=>$get_menu,'get_divisi'=>$get_divisi,'travel'=>$get_all_travel]);
      }
 
 }

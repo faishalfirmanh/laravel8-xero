@@ -32,31 +32,143 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" id="modalConfigRole" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
+        <div class="modal-content" style="min-height: 80vh;min-width:100vh">
             <div class="modal-header">
-                <h5 class="modal-title">Tambah User Baru</h5>
+                <h5 class="modal-title">Config Menu Role</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form id="formCreateHotel">
+            <form id="formConfigUser">
                 @csrf
                 <div class="modal-body">
                     <input type="hidden" name="idHotelInput" id="idHotelInput">
-                    <div class="form-group"> <label for="nameHotel">Nama Hotel</label>
+                    <div class="form-group">
+                        <label style="font-size:24px;font-weight:bold" for="nameHotel">Nama User</label>
                         <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Hotel Hilton" required>
+                    </div>
+                    <div class="form-group mt-3">
+                        <label style="font-size: 24px;"><strong>Daftar Akses Menu</strong></label>
+                        <p class="text-muted small mb-2">Pilih menu apa saja yang dapat diakses oleh user ini. (Centang untuk memberikan akses)</p>
+                        <div class="row mt-2">
+                            @php
+                                $totalMenu = $menu_list->count();
+                                $half      = ceil($totalMenu / 2);
+
+                                $kolomKiri  = $menu_list->take($half);
+                                $kolomKanan = $menu_list->slice($half);
+                            @endphp
+                            <!-- Kolom Kiri -->
+                            <div class="col-6">
+                                @foreach ($kolomKiri as $menu)
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input"
+                                            type="checkbox"
+                                            id="menu_{{ $menu->id }}"
+                                            name="menus[]"
+                                            value="{{ $menu->id }}">
+
+                                        <label class="form-check-label {{ $menu->parent_id === null ? 'font-weight-bold' : '' }}"
+                                            for="menu_{{ $menu->id }}">
+                                            {{ $menu->nama_menu }}
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <!-- Kolom Kanan -->
+                            <div class="col-6">
+                                @foreach ($kolomKanan as $menu)
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input"
+                                            type="checkbox"
+                                            id="menu_{{ $menu->id }}"
+                                            name="menus[]"
+                                            value="{{ $menu->id }}">
+
+                                        <label class="form-check-label {{ $menu->parent_id === null ? 'font-weight-bold' : '' }}"
+                                            for="menu_{{ $menu->id }}">
+                                            {{ $menu->nama_menu }}
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                       <label style="font-size: 24px;"><strong>Role User</strong></label>
+                        <p class="text-muted small mb-2">Pilih role user</p>
+                        <div class="row mt-2">
+                            @php
+                                $totalRole = $get_divisi->count();
+                                $halfRole     = ceil($totalRole / 2);
+
+                                $kolomKiriRole  = $get_divisi->take($halfRole);
+                                $kolomKananRole = $get_divisi->slice($halfRole);
+                            @endphp
+
+                            <!-- Kolom Kiri -->
+                            <div class="col-6">
+                                @foreach ($kolomKiriRole as $rol)
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input"
+                                            type="checkbox"
+                                            id="role_{{ $rol->id }}"
+                                            name="roles[]"
+                                            value="{{ $rol->id }}">
+
+                                        <label class="form-check-label {{ $rol->id === null ? 'font-weight-bold' : '' }}"
+                                            for="role_{{ $rol->id }}">
+                                            {{ $rol->nama_role."-".$rol->nama_lini_usaha }}
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <!-- Kolom Kanan -->
+                            <div class="col-6">
+                                @foreach ($kolomKananRole as $rol_kan)
+
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input"
+                                            type="checkbox"
+                                            id="rol_{{ $rol_kan->id }}"
+                                            name="roles[]"
+                                            value="{{ $rol_kan->id }}">
+
+                                        <label class="form-check-label {{ $rol_kan->id === null ? 'font-weight-bold' : '' }}"
+                                            for="role_{{ $rol_kan->id }}">
+                                            {{ $rol_kan->nama_role."-".$rol_kan->nama_lini_usaha }}
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="typeLocation">Lokasi</label>
-                        <select class="form-control" id="typeLocation" name="type_location_hotel" required> <option value="" selected disabled>Pilih Lokasi...</option>
-                            <option value="0">PIlih Lokasi</option>
-                            <option value="1">Makkah</option>
-                            <option value="2">Madinah</option>
-                        </select>
+                        <label style="font-size: 24px;"><strong>Trevel</strong></label>
+                        <div class="col-6">
+                            @foreach ($travel as $trev)
+
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input"
+                                        type="checkbox"
+                                        id="trevel_{{ $trev->id }}"
+                                        name="travel[]"
+                                        value="{{ $trev->id }}">
+
+                                    <label class="form-check-label {{ $trev->id === null ? 'font-weight-bold' : '' }}"
+                                        for="role_{{ $rol_kan->id }}">
+                                        {{ $trev->name }}
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
@@ -72,7 +184,7 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    //console.log("token",localStorage.getItem("token"))
+    console.log("token",localStorage.getItem("token"))
     var table;
     // --- 1. DATATABLE ---
     let columnUser = [
@@ -92,6 +204,7 @@ $(document).ready(function() {
             data: 'list_role',
             name: 'list_role',
             render: function(data,type,row) {
+                console.log('dat',row);
                 if (data.length === 0) {
                     return '<span class="badge badge-secondary">-</span>';
                 }
@@ -120,27 +233,66 @@ $(document).ready(function() {
             render: function(data, type, row) {
 
                 // Di sini saya asumsikan Edit juga pakai Modal, jadi nanti pakai data-toggle="modal" juga
-                let btnEdit = `<a href="javascript:;" onclick="${loadDataHotel(data)}" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
+                let btnEdit = `<a href="javascript:;" onclick="${loadDataConfigUser(data)}" data-id="${data}" class="text-primary edit-data-user mr-2"><i class="ti ti-pencil"></i></a>`;
                 let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
                 return btnEdit + btnHapus;
             },
         }
     ];
 
-    $('#tableUserRole').on('click', '.edit-hotel', function() {
+    $('#tableUserRole').on('click', '.edit-data-user', function() {
         let id = $(this).data('id');
-        let rowData = table.row($(this).parents('tr')).data(); // Ambil data baris tersebut
+        ajaxRequest( `{{ route('find-user') }}`,'get',{id : id}, localStorage.getItem("token"))
+            .then(response =>{
+                if(response.data.status){
+                    console.log('re',response.data.data)
+                    const data = response.data.data;
+                    const userMenus = data.menu;
+                    const user_select_role = data.role_user;
 
-        $('#idHotelInput').val(id);
-        $('#nameHotel').val(rowData.name);
-        $('#typeLocation').val(rowData.type_location_hotel).change(); // .change() untuk memicu update jika pakai select2
+                      // --- 1. RESET SEMUA CHECKBOX ---
+                    $('input[name="menus[]"]').prop('checked', false);
+                    $('input[name="roles[]"]').prop('checked', false);
 
-        // Ubah Judul Modal dan Tampilkan
-        $('.modal-title').text('Edit Hotel ' +rowData.name);
-        $('#modalCreateHotel').modal('show');
+                    // --- 2. AMBIL SEMUA ID DARI RESPONSE (FLATTEN) ---
+                    let accessibleIds = [];
+
+                    function collectIds(menus) {
+                        menus.forEach(m => {
+                            accessibleIds.push(m.id);
+                            if (m.children && m.children.length > 0) {
+                                collectIds(m.children);
+                            }
+                        });
+                    }
+
+                    collectIds(userMenus);
+
+                    let allValues = $('input[name="roles[]"]').map(function() {
+                        return $(this).val();
+                    }).get();
+
+                    user_select_role.forEach(role_id =>{
+                        $(`#rol_${role_id}`).prop('checked', true);
+                    })
+
+                    // --- 3. CENTANG CHECKBOX YANG COCOK ---
+                    accessibleIds.forEach(menuId => {
+                        $(`#menu_${menuId}`).prop('checked', true);
+                    });
+                        $('#modalConfigRole').modal('show');
+                    }
+
+
+
+            })
+            .catch((err)=>{
+                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                //console.log('error select2 invoice',err);
+            })
     });
 
-    function loadDataHotel(id){
+    function loadDataConfigUser(id){
         $("#idHotelInput").val(id)
 
     }
@@ -199,7 +351,7 @@ $(document).ready(function() {
     );
 
     // --- 2. AJAX SUBMIT ---
-    $('#formCreateHotel').on('submit', function(e) {
+    $('#formConfigUser').on('submit', function(e) {
         e.preventDefault();
 
         let formData = $(this).serialize();

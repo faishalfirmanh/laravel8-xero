@@ -22,12 +22,12 @@ class MasterRoleUser extends Model
         'busines_line_id'
     ];
 
-    protected $appends = ['nama_pembuat','lini_usaha'];
+    protected $appends = ['nama_pembuat','nama_lini_usaha'];
 
 
-    public function getLiniUsahaAttribute()
+    public function getNamaLiniUsahaAttribute()
     {
-        return '-';
+        return $this->liniUsaha->name_business ?? '-';
     }
 
 
@@ -40,7 +40,7 @@ class MasterRoleUser extends Model
 
      public function liniUsaha()
     {
-        return $this->belongsTo(BusinessLine::class, 'busines_line_id');
+        return $this->belongsTo(BusinessLine::class,'busines_line_id');
     }
 
    public function users()

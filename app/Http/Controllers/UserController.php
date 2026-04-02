@@ -23,11 +23,15 @@ use App\ConfigRefreshXero;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
+
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
-
+use App\Models\Config\RoleUsers;
+use App\Models\Config\RoleMenus;
+use App\Models\MasterData\Menu;
 class UserController extends Controller
 {
 
@@ -116,7 +120,18 @@ class UserController extends Controller
 
      public function detail(Request $request)
     {
+        //$data = $this->repo->find($request->id);
+        $role_users = RoleUsers::where('user_id', $request->id)->pluck('role_id');
+        $roles_menu = RoleMenus::whereIn('role_id',$role_users)->pluck('menu_id');
+        $view_menu = Menu::with('children')->whereIn('id',$roles_menu)
+            ->where('is_active',1)
+            ->where('parent_id',null)
+            ->orderBy('urutan','asc')->get();
+
         $data = $this->repo->find($request->id);
+        $data['menu']= $view_menu;
+        $data['role_user'] =$role_users;
+        //$data['travel'] = $this->repo->WhereDataWith('travelUsers',['id'=>$request->id])->first();// User::with('')->where()->first();
         return $this->autoResponse($data);
     }
 

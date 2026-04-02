@@ -19,6 +19,37 @@
         const menuContainer = document.getElementById('dynamic-menu');
         const baseUrl = window.location.origin; // Ambil base URL (misal: http://127.0.0.1:8000)
 
+        function cekLogin(){
+             ajaxRequest( `{{ route('me-auth') }}`,'POST',{}, null)
+                .then(response =>{
+                    console.log('sss',response)
+                   // if(response.status == 200){
+                        //console.log(response.access_token)
+                     //   localStorage.setItem('token', response.data.access_token);
+                       // localStorage.setItem('user_menu', JSON.stringify(response.data.menu));
+                       // Swal.fire({
+                     //       title: "Login sukses",
+                         //   text: "Berhasil Login",
+                       //     icon: "success"
+                       // });
+                       // window.location.reload();
+                    //}else{
+                     //     Swal.fire('Gagal!', response.statusText || 'Terjadi kesalahan.', 'error');
+                   // }
+                    //$("#loginModal").modal("hide")
+                })
+                .catch((err)=>{
+                    localStorage.setItem('user_menu',null)
+                    Swal.fire('Gagal!', err.error.message || 'Terjadi kesalahan.', 'error');
+                    console.log('error api me ',err);
+                   // window.location.reload();
+                    //$("#loginModal").modal("hide")
+                })
+        }
+
+
+       // cekLogin();
+
         if (rawData) {
             try {
                 const menuData = JSON.parse(rawData);

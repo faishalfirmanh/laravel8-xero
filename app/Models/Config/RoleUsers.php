@@ -14,11 +14,24 @@ class RoleUsers extends Model
         'user_id'
      ];
 
+    // protected $appends = [
+    //     'lini_usaha'
+    // ];
 
     public function role()
     {
         return $this->belongsTo(MasterRoleUser::class, 'role_id');
     }
+
+
+    // public function getLiniUsahaAttribute()
+    // {
+    //     // if ($this->relationLoaded('role') && $this->role) {
+        //     return $this->role->lini_usaha ?? '-';   // pakai accessor dari MasterRoleUser
+        // }
+
+    //     return $this->role;
+    // }
 
 
 

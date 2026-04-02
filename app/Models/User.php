@@ -57,18 +57,27 @@ class User extends Authenticatable
     }
 
 
+
+
+
     public function getListRoleAttribute()
     {
-        if ($this->relationLoaded('userRoles')) {
-            return $this->userRoles
-                        ->pluck('masterRole.nama_role')
-                        ->toArray();
-        }
-
-        return $this->userRoles()
-                    ->leftJoin('master_role_users', 'role_users.role_id', '=', 'master_role_users.id')
-                    ->pluck('master_role_users.nama_role')
-                    ->toArray();
+       return $this->userRoles()
+            ->join('master_role_users', 'role_users.role_id', '=', 'master_role_users.id')
+            ->leftJoin('business_lines', 'master_role_users.busines_line_id', '=', 'business_lines.id')
+            ->select([
+                'master_role_users.nama_role',
+                'business_lines.name_business'
+            ])
+            ->get()
+            ->map(function ($item) {
+                // Gabungan role dengan lini usaha
+                if ($item->name_business) {
+                    return $item->nama_role . ' - ' . $item->name_business;
+                }
+                return $item->nama_role;
+            })
+            ->toArray();
     }
 
     public function travelUsers()
@@ -105,8 +114,8 @@ class User extends Authenticatable
 
     public function menus()
     {
-        return $this->belongsToMany(Menu::class, 'role_menu', 'role_id', 'menu_id')
+        return $this->belongsToMany(Menu::class, 'role_menuses', 'role_id', 'menu_id')
                     ->where('menus.is_active', true)
-                    ->orderBy('menus.order');
+                    ->orderBy('menus.urutan');
     }
 }
