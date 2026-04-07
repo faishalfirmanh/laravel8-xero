@@ -14,6 +14,7 @@ class TrackingRepo extends BaseRepository
 
     public function getLastIdPlusOne()
     {
-        return $this->model->latest()->first()->id + 1;
+        $no = $this->model->latest()->first() == null ? 1 : $this->model->latest()->first()->id + 1;
+        return $no;
     }
 }

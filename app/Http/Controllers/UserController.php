@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\MasterData\CoaRepo;
-
+use App\Models\Config\TravelUser;
 use App\Http\Repository\Transaction\SpendMoneyRepo;
 use App\Http\Repository\Config\TravelUserRepository;
 use App\Http\Repository\UserRepository;
@@ -131,6 +131,7 @@ class UserController extends Controller
         $data = $this->repo->find($request->id);
         $data['menu']= $view_menu;
         $data['role_user'] =$role_users;
+        $data['travel_user_all'] = TravelUser::where('user_id',$request->id)->get();
         //$data['travel'] = $this->repo->WhereDataWith('travelUsers',['id'=>$request->id])->first();// User::with('')->where()->first();
         return $this->autoResponse($data);
     }

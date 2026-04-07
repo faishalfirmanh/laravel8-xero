@@ -115,13 +115,12 @@
                                     <div class="form-check mb-3">
                                         <input class="form-check-input"
                                             type="checkbox"
-                                            id="role_{{ $rol->id }}"
+                                            id="rolkir_{{ $rol->id }}"
                                             name="roles[]"
                                             value="{{ $rol->id }}">
-
                                         <label class="form-check-label {{ $rol->id === null ? 'font-weight-bold' : '' }}"
                                             for="role_{{ $rol->id }}">
-                                            {{ $rol->nama_role."-".$rol->nama_lini_usaha }}
+                                            {{  $rol->nama_role."-".$rol->nama_lini_usaha }}
                                         </label>
                                     </div>
                                 @endforeach
@@ -134,7 +133,7 @@
                                     <div class="form-check mb-3">
                                         <input class="form-check-input"
                                             type="checkbox"
-                                            id="rol_{{ $rol_kan->id }}"
+                                            id="rolkan_{{ $rol_kan->id }}"
                                             name="roles[]"
                                             value="{{ $rol_kan->id }}">
 
@@ -156,12 +155,12 @@
                                 <div class="form-check mb-3">
                                     <input class="form-check-input"
                                         type="checkbox"
-                                        id="trevel_{{ $trev->id }}"
+                                        id="trevel_id_{{ $trev->id }}"
                                         name="travel[]"
                                         value="{{ $trev->id }}">
 
                                     <label class="form-check-label {{ $trev->id === null ? 'font-weight-bold' : '' }}"
-                                        for="role_{{ $rol_kan->id }}">
+                                        for="trevel_{{ $rol_kan->id }}">
                                         {{ $trev->name }}
                                     </label>
                                 </div>
@@ -249,6 +248,7 @@ $(document).ready(function() {
                     const data = response.data.data;
                     const userMenus = data.menu;
                     const user_select_role = data.role_user;
+                    
 
                       // --- 1. RESET SEMUA CHECKBOX ---
                     $('input[name="menus[]"]').prop('checked', false);
@@ -256,6 +256,8 @@ $(document).ready(function() {
 
                     // --- 2. AMBIL SEMUA ID DARI RESPONSE (FLATTEN) ---
                     let accessibleIds = [];
+                    let roles_user_id = [];
+                    let list_travelss = [];
 
                     function collectIds(menus) {
                         menus.forEach(m => {
@@ -273,7 +275,14 @@ $(document).ready(function() {
                     }).get();
 
                     user_select_role.forEach(role_id =>{
-                        $(`#rol_${role_id}`).prop('checked', true);
+                        $(`#rolkan_${role_id}`).prop('checked', true);
+                        $(`#rolkir_${role_id}`).prop('checked', true);
+                    })
+
+                    console.log(user_select_role)
+
+                    data.travel_user_all.forEach(boss =>{
+                         $(`#trevel_id_${boss.travel_id}`).prop('checked', true);
                     })
 
                     // --- 3. CENTANG CHECKBOX YANG COCOK ---
