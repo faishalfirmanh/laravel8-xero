@@ -62,12 +62,12 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::prefix('account')->group(function(){
+Route::prefix('account')->group(function () {
 
 });
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register'])->name('register');
-Route::middleware(['auth:sanctum','xss'])->post('/me', [AuthController::class, 'myaccount'])->name('me-auth');
+Route::middleware(['auth:sanctum', 'xss'])->post('/me', [AuthController::class, 'myaccount'])->name('me-auth');
 //Route::post('/logout', [AuthController::class, 'logout']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -97,7 +97,7 @@ Route::prefix("xero-integrasi")->group(function () {
     //Route::get('/xero/callback', [ConfigController::class, 'callback']);
     Route::post('/create-data', [ContactController::class, 'createContact']);
 
-    Route::post('/update-isue-date',[InvoiceXeroLocalController::class,'updateInvoiceDate'])->name('update-invoice-date');
+    Route::post('/update-isue-date', [InvoiceXeroLocalController::class, 'updateInvoiceDate'])->name('update-invoice-date');
     //
     Route::post('/save-data-product', [ProductAndServiceController::class, 'updateProduct']);//used
     //proudct
@@ -163,23 +163,23 @@ Route::prefix("admin-web")->group(function () {
 
 
     //base xero data
-    Route::middleware(['auth:sanctum', 'xss','role.menu'])->prefix('travel')->group(function(){
+    Route::middleware(['auth:sanctum', 'xss', 'role.menu'])->prefix('travel')->group(function () {
 
 
 
-        Route::prefix('business-line')->group(function(){
-            Route::get('list',[BusinessLineController::class,'getAllPaginate'])->name('get-all-business');
-            Route::post('save',[BusinessLineController::class,'store'])->name('save-business');
-            Route::get('detail',[BusinessLineController::class,'detail'])->name('find-business');
-            Route::post('delete',[BusinessLineController::class,'delete'])->name('delete-business');
+        Route::prefix('business-line')->group(function () {
+            Route::get('list', [BusinessLineController::class, 'getAllPaginate'])->name('get-all-business');
+            Route::post('save', [BusinessLineController::class, 'store'])->name('save-business');
+            Route::get('detail', [BusinessLineController::class, 'detail'])->name('find-business');
+            Route::post('delete', [BusinessLineController::class, 'delete'])->name('delete-business');
         });
 
 
-        Route::prefix('travel')->group(function(){
-            Route::get('list',[TravelController::class,'getAllPaginate'])->name('get-all-travel');
-            Route::post('save',[TravelController::class,'store'])->name('save-travel');
-            Route::get('detail',[TravelController::class,'detail'])->name('find-travel');
-            Route::post('delete',[TravelController::class,'delete'])->name('delete-travel');
+        Route::prefix('travel')->group(function () {
+            Route::get('list', [TravelController::class, 'getAllPaginate'])->name('get-all-travel');
+            Route::post('save', [TravelController::class, 'store'])->name('save-travel');
+            Route::get('detail', [TravelController::class, 'detail'])->name('find-travel');
+            Route::post('delete', [TravelController::class, 'delete'])->name('delete-travel');
         });
 
 
@@ -188,48 +188,54 @@ Route::prefix("admin-web")->group(function () {
 
 
 
-        Route::prefix('bank-xero')->group(function(){
-            Route::get('list-bank',[BankXeroController::class, 'getListInvoice'])->name('bank-list');
-            Route::post('create-bank',[BankXeroController::class, 'store'])->name('create-bank');
-            Route::post('delete-bank',[BankXeroController::class, 'destroy'])->name('delete-bank');
-            Route::post('find-bank',[BankXeroController::class, 'detail'])->name('find-bank');
+        Route::prefix('bank-xero')->group(function () {
+            Route::get('list-bank', [BankXeroController::class, 'getListInvoice'])->name('bank-list');
+            Route::post('create-bank', [BankXeroController::class, 'store'])->name('create-bank');
+            Route::post('delete-bank', [BankXeroController::class, 'destroy'])->name('delete-bank');
+            Route::post('find-bank', [BankXeroController::class, 'detail'])->name('find-bank');
         });
 
 
-        Route::post('create-spend',[BankXeroController::class, 'storeTrans'])->name('create-spend');
-        Route::post('delete-spend',[BankXeroController::class, 'destroyTrans'])->name('delete-spend');
-        Route::get('detail-spend',[BankXeroController::class, 'detailTrans'])->name('find-spend');
-        Route::get('get_tracking',[BankXeroController::class, 'getTracking'])->name('tracking-spend');
-        Route::put('update-spend/{id}',[BankXeroController::class, 'updateTrans'])->name('update-spend');
+        Route::post('create-spend', [BankXeroController::class, 'storeTrans'])->name('create-spend');
+        Route::post('delete-spend', [BankXeroController::class, 'destroyTrans'])->name('delete-spend');
+        Route::get('detail-spend', [BankXeroController::class, 'detailTrans'])->name('find-spend');
+        Route::get('get_tracking', [BankXeroController::class, 'getTracking'])->name('tracking-spend');
+        Route::put('update-spend/{id}', [BankXeroController::class, 'updateTrans'])->name('update-spend');
 
-        Route::prefix('coa')->group(function(){
-            Route::get('list',[CoaController::class,'getAllPaginate'])->name('get-all-coa');
-            Route::post('save',[CoaController::class,'store'])->name('save-coa');
-            Route::get('detail',[CoaController::class,'detail'])->name('find-coa');
-            Route::post('delete',[CoaController::class,'delete'])->name('delete-coa');
+        Route::prefix('coa')->group(function () {
+            Route::get('list', [CoaController::class, 'getAllPaginate'])->name('get-all-coa');
+            Route::post('save', [CoaController::class, 'store'])->name('save-coa');
+            Route::get('detail', [CoaController::class, 'detail'])->name('find-coa');
+            Route::post('delete', [CoaController::class, 'delete'])->name('delete-coa');
         });
 
 
-        Route::prefix('tracking-category')->group(function(){
-            Route::get('list',[TrackingLocalController::class,'getAllPaginate'])->name('get-all-track');
-            Route::post('save',[TrackingLocalController::class,'store'])->name('save-track');
-            Route::get('detail',[TrackingLocalController::class,'detail'])->name('find-track');
-            Route::post('delete',[TrackingLocalController::class,'delete'])->name('delete-track');
+        Route::prefix('tracking-category')->group(function () {
+            Route::get('list', [TrackingLocalController::class, 'getAllPaginate'])->name('get-all-track');
+            Route::post('save', [TrackingLocalController::class, 'store'])->name('save-track');
+            Route::get('detail', [TrackingLocalController::class, 'detail'])->name('find-track');
+            Route::post('delete', [TrackingLocalController::class, 'delete'])->name('delete-track');
         });
 
 
 
         //Config
-         Route::prefix("config-currency")->group(function () {
+        Route::prefix("config-currency")->group(function () {
             Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
             Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
-         });
+        });
 
-          Route::prefix("config-role-user")->group(function () {
-            Route::get('list',[UserController::class,'getAllPaginate'])->name('get-all-user');
+        Route::prefix("config-role-menu")->group(function () {
+            Route::get('list', [RoleUserController::class, 'getData'])->name('get-all-roles');
+            Route::get('/detail-roles-menu', [RoleUserController::class, 'getById'])->name('find-roles-menu');
+            Route::post('/save-roles-menu', [RoleUserController::class, 'saveConfig'])->name('save-config-roles-menu');
+        });
+
+        Route::prefix("config-role-user")->group(function () {
+            Route::get('list', [UserController::class, 'getAllPaginate'])->name('get-all-user');
             Route::get('/detail-user', [UserController::class, 'detail'])->name('find-user');
-            Route::post('/save-user', [UserController::class, 'store'])->name('save-user');
-         });
+            Route::post('/save-user', [UserController::class, 'saveConfig'])->name('save-config-menu-user');
+        });
 
 
     });
@@ -254,8 +260,8 @@ Route::prefix("admin-web")->group(function () {
             });
         });
 
-        Route::prefix('sales')->group(function(){
-            Route::get('/invoice-local',[InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
+        Route::prefix('sales')->group(function () {
+            Route::get('/invoice-local', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
         });
 
         Route::prefix('expenses')->group(function () {
@@ -274,7 +280,7 @@ Route::prefix("admin-web")->group(function () {
         Route::get('/log-history', [LogHistoryController::class, 'getData'])->name('list-log-history');
     });
 
-    Route::middleware(['auth:sanctum', 'xss','role.menu'])->prefix("master-data")->group(function () {
+    Route::middleware(['auth:sanctum', 'xss', 'role.menu'])->prefix("master-data")->group(function () {
 
         //keterangna pengeluaran
         Route::prefix("pengeluaran")->group(function () {
@@ -304,23 +310,23 @@ Route::prefix("admin-web")->group(function () {
 
 
 
-        Route::prefix("contact-xero")->group(function () {
+        Route::prefix("jamaah")->group(function () {
             Route::get('/get', [DataApiJamaahController::class, 'getAllPaginate'])->name('getAllContactApi');
             Route::get('/get_by_id', [DataApiJamaahController::class, 'getById'])->name('getByIdContact');
         });
-        Route::prefix("maskapai")->group(function(){
+        Route::prefix("maskapai")->group(function () {
             Route::get('/get-data', [MasterMaskapaiController::class, 'getData'])->name('maskapai.getdata');
             Route::get('/get-by-id', [MasterMaskapaiController::class, 'getById'])->name('maskapai.getbyid');
             Route::post('/save', [MasterMaskapaiController::class, 'store'])->name('maskapai.save');
-         });
-         Route::prefix("role-user")->group(function(){
+        });
+        Route::prefix("role-user")->group(function () {
             Route::get('/get-data', [RoleUserController::class, 'getData'])->name('role-user.getdata');
             Route::get('/get-by-id', [RoleUserController::class, 'getById'])->name('role-user.getbyid');
             Route::post('/save', [RoleUserController::class, 'store'])->name('role-user.save');
-         });
         });
-
     });
+
+});
 
 
 
@@ -386,8 +392,8 @@ Route::prefix("master-data")->group(function () {
             Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
             Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
         });
-        Route::get('/log-history/get-data',[LogHistoryController::class, 'getData'])->name('log-history.getdata');
-});
+        Route::get('/log-history/get-data', [LogHistoryController::class, 'getData'])->name('log-history.getdata');
+    });
 
 
 });

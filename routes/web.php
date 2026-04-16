@@ -41,7 +41,7 @@ Route::get('/cek-path', function () {
 Route::get('/', [DashboardController::class, 'index'])->name('home.index');
 Route::prefix('travel')->group(function () {
 
-    Route::prefix('admin')->group(function(){
+    Route::prefix('admin')->group(function () {
 
         Route::get('/list-pembelian-hotel', [DashboardController::class, 'getWebListPembelianHotel'])->name('admin-list-pembelian-hotel');
         Route::get('/list-pengeluaran', [DashboardController::class, 'getWebListPengeluaran'])->name('admin-list-pengeluaran');
@@ -49,8 +49,8 @@ Route::prefix('travel')->group(function () {
         Route::get('/hotel-sales-list', [DashboardController::class, 'getHotelSalesList'])->name('admin-list-invoice-sales-hotel');
 
 
-        Route::prefix('transaction')->group(function(){
-            Route::get('inv-local',[DashboardController::class, 'viewListInvXeroLocal'])->name('admin-list-inv-xero-web');
+        Route::prefix('transaction')->group(function () {
+            Route::get('inv-local', [DashboardController::class, 'viewListInvXeroLocal'])->name('admin-list-inv-xero-web');
         });
 
         Route::prefix('master-data')->group(function () {
@@ -68,16 +68,17 @@ Route::prefix('travel')->group(function () {
 
             Route::get('/currency', [DashboardController::class, 'getConfigCurrency'])->name('config-currency-web');
             Route::get('/role-user', [DashboardController::class, 'getConfigRoleUser'])->name('config-role-user');
+            Route::get('/role-menu', [DashboardController::class, 'getConfigRolesMenu'])->name('config-role-menu');//nama prefix di api
         });
 
-        Route::prefix('report')->group(function(){
-            Route::get('/log-history',[LogHistoryController::class, 'index'])->name('web-log-history-list');
+        Route::prefix('report')->group(function () {
+            Route::get('/log-history', [LogHistoryController::class, 'index'])->name('web-log-history-list');
         });
     });
 });
 
 //print-pdf
- Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
+Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
 
 Route::get('/coba_redirect', function () {
     return "aaa";

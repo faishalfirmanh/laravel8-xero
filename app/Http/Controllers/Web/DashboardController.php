@@ -27,7 +27,7 @@ class DashboardController extends Controller
 
     public function viewListInvXeroLocal()
     {
-       return view('admin.transaksi.sales.list_inv_from_xero');
+        return view('admin.transaksi.sales.list_inv_from_xero');
     }
 
 
@@ -56,37 +56,46 @@ class DashboardController extends Controller
         return view('admin.master.jamaah');
     }
 
-      public function getHotelSalesList()
-     {
+    public function getHotelSalesList()
+    {
         return view('admin.master.hotel_sales');
-     }
+    }
 
-      public function getTrackingKategoryist()
-     {
+    public function getTrackingKategoryist()
+    {
         return view('admin.master.tracking');
-     }
+    }
 
-      public function getCoaList()
-     {
+    public function getCoaList()
+    {
         return view('admin.master.coa');
-     }
+    }
 
-     public function getBusiness()
-     {
-          return view('admin.master.business');
-     }
+    public function getBusiness()
+    {
+        return view('admin.master.business');
+    }
 
-      public function getTravel()
-     {
+    public function getTravel()
+    {
         return view('admin.master.travel');
-     }
+    }
 
-     public function getConfigRoleUser()
-     {
-        $get_menu = Menu::orderBy('urutan','asc')->get();
-        $get_divisi = MasterRoleUser::orderBy('id','desc')->get();
-        $get_all_travel = TravelName::orderBy('id','desc')->get();
-        return view('admin.config.config_role',['menu_list'=>$get_menu,'get_divisi'=>$get_divisi,'travel'=>$get_all_travel]);
-     }
+
+    public function getConfigRolesMenu()
+    {
+        $get_menu = Menu::orderBy('urutan', 'asc')->get();
+        $get_divisi = MasterRoleUser::orderBy('id', 'desc')->get();
+        $get_all_travel = TravelName::orderBy('id', 'desc')->get();
+        return view('admin.config.config_role', ['menu_list' => $get_menu, 'get_divisi' => $get_divisi, 'travel' => $get_all_travel]);
+    }
+
+    public function getConfigRoleUser()
+    {
+        $get_menu = Menu::orderBy('urutan', 'asc')->get();
+        $get_divisi = MasterRoleUser::orderBy('id', 'desc')->get();
+        $get_all_travel = TravelName::orderBy('id', 'desc')->get();
+        return view('admin.config.config_role_user', ['menu_list' => $get_menu, 'get_divisi' => $get_divisi, 'travel' => $get_all_travel]);
+    }
 
 }
