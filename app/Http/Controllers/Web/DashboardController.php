@@ -98,4 +98,21 @@ class DashboardController extends Controller
         return view('admin.config.config_role_user', ['menu_list' => $get_menu, 'get_divisi' => $get_divisi, 'travel' => $get_all_travel]);
     }
 
+    public function getTransInvoice()
+    {
+
+        return view('admin.master.travel');
+    }
+
+
+    public function getTransPurchaseOrder()
+    {
+        return view('admin.transaksi.purchase.list_po');
+    }
+    //
+
+    public function getTransPurchaseBill()
+    {
+        return view('admin.transaksi.purchase.list_bill');
+    }
 }

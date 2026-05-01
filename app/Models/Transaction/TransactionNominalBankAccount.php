@@ -10,7 +10,7 @@ class TransactionNominalBankAccount extends Model
     use HasFactory;
 
 
-    $fillable = [
+    protected $fillable = [
         'uuid_bank',
         'account_transaction',
         'nominal',

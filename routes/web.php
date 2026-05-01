@@ -71,6 +71,15 @@ Route::prefix('travel')->group(function () {
             Route::get('/role-menu', [DashboardController::class, 'getConfigRolesMenu'])->name('config-role-menu');//nama prefix di api
         });
 
+
+        Route::prefix('transaksi')->group(function () {
+            Route::get('sales-invoice', [DashboardController::class, 'getTransInvoice'])->name('web-sales-inv');
+            Route::get('purchase-orders', [DashboardController::class, 'getTransPurchaseOrder'])->name('web-purchase-or');
+            Route::get('purchase-bills', [DashboardController::class, 'getTransPurchaseBill'])->name('web-purchase-bill');
+        });
+
+
+
         Route::prefix('report')->group(function () {
             Route::get('/log-history', [LogHistoryController::class, 'index'])->name('web-log-history-list');
         });

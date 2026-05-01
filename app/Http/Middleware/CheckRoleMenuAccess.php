@@ -9,7 +9,7 @@ class CheckRoleMenuAccess
 {
     public function handle(Request $request, Closure $next)
     {
-       $user = auth()->user();
+        $user = auth()->user();
 
         // Jika belum login
         if (!$user) {
@@ -19,7 +19,7 @@ class CheckRoleMenuAccess
         }
 
         // Ambil nama route yang sedang diakses
-       // $currentRouteName = $request->route() ? $request->route()->getName() : null;
+        // $currentRouteName = $request->route() ? $request->route()->getName() : null;
         //( $request->route());//full url dari api/....
         // Jika route tidak punya nama, lewati pengecekan (biasanya untuk route public)
 
@@ -29,7 +29,7 @@ class CheckRoleMenuAccess
         // Jika Anda ingin memastikan tidak ada error saat route tidak punya prefix sama sekali:
         $currentRouteName = $fullPrefix ? Str::afterLast($fullPrefix, '/') : null;//ambil prefixnya, prefix tidak boleh sama
 
-
+        // dd($currentRouteName);
         if (empty($currentRouteName)) {
             return $next($request);
         }
@@ -39,7 +39,7 @@ class CheckRoleMenuAccess
         $hasAccess = $user->roles()
             ->whereHas('menus', function ($query) use ($currentRouteName) {
                 $query->where('route_name', $currentRouteName)
-                      ->where('is_active', 1);
+                    ->where('is_active', 1);
             })
             ->exists();
 

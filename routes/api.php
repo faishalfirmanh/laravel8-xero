@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MasterData\HotelApiController;
+use App\Http\Controllers\Transaction\Expenses\BillXeroController;
 use App\Http\Controllers\Xero\ConfigController;
 use App\Http\Controllers\Xero\ContactController;
 use App\Http\Controllers\Xero\InvoicesController;
@@ -184,6 +185,21 @@ Route::prefix("admin-web")->group(function () {
 
 
 
+        Route::prefix('transaksi')->group(function () {
+            Route::prefix('sales')->group(function () {
+                Route::get('invoice', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
+            });
+
+            Route::prefix('purchase')->group(function () {
+                Route::prefix('bills')->group(function () {
+                    Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('purchase-bills');
+                });
+
+                Route::get('orders', [InvXeroController::class, 'getAllPaginate'])->name('list-po-xero');
+            });
+
+        });
+
 
 
 
@@ -261,7 +277,7 @@ Route::prefix("admin-web")->group(function () {
         });
 
         Route::prefix('sales')->group(function () {
-            Route::get('/invoice-local', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
+            //Route::get('/invoice-local', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
         });
 
         Route::prefix('expenses')->group(function () {

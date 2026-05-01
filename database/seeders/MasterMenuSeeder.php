@@ -113,6 +113,49 @@ class MasterMenuSeeder extends Seeder
 
             }
 
+            $transParent = Menu::where('nama_menu', 'transaksi')->first();
+            if ($transParent) {
+
+                $child_trans = [
+                    'sales-invoice',
+                    'sales-overview',
+                    'sales-productAndService',
+                    'purchase-overview',
+                    'bills',
+                    'purchase-orders',
+                    'purchase-suppliers'
+                ];
+                $slug_trans = [
+                    'travel/admin/transaksi/sales-invoice',
+                    'travel/admin/transaksi/sales-overview',
+                    'travel/admin/transaksi/sales-productAndService',
+                    'travel/admin/transaksi/purchase-purchase',
+                    'travel/admin/transaksi/purchase-bills',
+                    'travel/admin/transaksi/purchase-orders',
+                    'travel/admin/transaksi/purchase-suppliers',
+                ];
+
+                $tp = 0;
+                foreach ($child_trans as $name) {
+                    Menu::firstOrCreate([
+                        'nama_menu' => str_replace('-', ' ', $name),
+                        'route_name' => $name
+                    ], [
+                        'nama_menu' => str_replace('-', ' ', $name),
+                        'slug' => $slug_trans[$tp],
+                        'parent_id' => $transParent->id,
+                        'is_active' => 1
+                    ]);
+
+
+                    $this->command->info('Berhasil simpan menu transaksi : ' . $name . "-" . $tp);
+                    $tp++;
+                }
+
+            }
+
+
+
             //jika it insert role
             $cek_role_it = MasterRoleUser::where('nama_role', 'it')->first();
             if ($cek_role_it) {
