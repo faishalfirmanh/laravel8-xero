@@ -17,4 +17,9 @@ class JamaahXeroRepository extends BaseRepository
         $this->model = $model;
     }
 
+    public function firstCreate($req)
+    {
+
+        return $this->model->firstOrCreate(['uuid_contact' => $req['uuid_contact']], $req);
+    }
 }

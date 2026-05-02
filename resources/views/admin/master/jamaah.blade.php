@@ -9,6 +9,22 @@
         {{-- <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
             <i class="ti ti-plus me-1"></i> Tambah Hotel
         </button> --}}
+          <div class="d-flex gap-2">
+
+            <!-- Button Tambah COA -->
+          
+                <div class="d-flex flex-column align-items-end">
+                    <button onclick="syncContactFromXero()" 
+                            type="button" 
+                            class="btn btn-success shadow-sm fw-bold">
+                        <i class="fas fa-sync-alt me-1"></i> Sync dari Xero
+                    </button>
+                    <span class="text-muted mt-1 small" style="font-size: 11px;">
+                        Sinkronisasi 100 Contact Xero
+                    </span>
+                </div>
+
+            </div>
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
@@ -154,5 +170,52 @@ $(document).ready(function() {
     // --- 2. AJAX SUBMIT ---
 
 });
+
+function syncContactFromXero(){
+    Swal.fire({
+            title: 'Sinkronisasi contact dari Xero?',
+            html: 'Apakah Anda yakin ingin mengambil <strong>semua contact </strong> dari Xero?<br><br>Proses ini akan memperbarui contact lokal Anda.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',   // hijau
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Sync Sekarang',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                Swal.fire({
+                    title: 'Sedang Sinkronisasi...',
+                    text: 'Mohon tunggu sebentar',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                ajaxRequest( `{{ route('list-contact-xero') }}`,'GET',{ is_sync: 1 }, localStorage.getItem("token"))
+                .then(response =>{
+                    Swal.close();
+                        if (response.status === 200) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: `Berhasil sinkronisasi ${response.total_saved} data COA`,
+                                timer: 2000
+                            });
+                            $('#table_jamaah').DataTable().ajax.reload();
+                        } else {
+                            Swal.fire('Gagal', response.data.data.message, 'error');
+                        }
+                })
+                .catch((err)=>{
+                    Swal.close();
+                    Swal.fire('Error', 'Terjadi kesalahan saat sinkronisasi', 'error');
+                    console.error(xhr.responseText);
+                })
+            }
+        })
+}
 </script>
 @endpush

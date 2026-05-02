@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MasterData\HotelApiController;
+use App\Http\Controllers\MasterData\JamaahApiXeroController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
 use App\Http\Controllers\Xero\CoaXeroController;
 use App\Http\Controllers\Xero\ConfigController;
@@ -148,7 +149,13 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::get('/get-prepayment', [InvoicesDuplicateController::class, 'apiGetPrepaymentAllocation'])->name('get-apply-credit');
 
     Route::prefix('coa')->group(function () {
-        Route::get('/get-coa-xero', [CoaXeroController::class, 'getAllCoa'])->name('list-coa-xero');
+        Route::get('/get-coa-xero', [CoaXeroController::class, 'getAllCoa'])->name('list-coa-xero');//sync
+        Route::get('list', [CoaController::class, 'getAllPaginateSelect2'])->name('get-all-coa-select2');
+    });
+
+    Route::prefix('contact')->group(function () {
+        Route::get('/get-all', [JamaahApiXeroController::class, 'getAllContact'])->name('list-contact-xero');//sync
+        Route::get('/select2', [JamaahApiXeroController::class, 'getAllSelect2'])->name('list-contact-select2');
     });
     //api update local data xero
     //
