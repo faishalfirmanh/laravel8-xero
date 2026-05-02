@@ -116,7 +116,7 @@ class MasterMenuSeeder extends Seeder
             $transParent = Menu::where('nama_menu', 'transaksi')->first();
             if ($transParent) {
 
-                $child_trans = [
+                $child_trans = [ //nama routenya 
                     'sales-invoice',
                     'sales-overview',
                     'sales-productAndService',

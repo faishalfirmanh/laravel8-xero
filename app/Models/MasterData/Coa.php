@@ -15,6 +15,9 @@ class Coa extends Model
         'account_type',//string tidak bebas
         'name',
         'created_by',
-       'desc'
+        'desc',
+        'account_uuid',
+        'is_active',
+        'currency_code'
     ];
 }

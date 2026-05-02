@@ -12,4 +12,10 @@ class CoaRepo extends BaseRepository
         $this->model = $model;
     }
 
-  }
+    public function firstCreate($req)
+    {
+
+        return $this->model->firstOrCreate(['account_uuid' => $req['account_uuid']], $req);
+    }
+
+}

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
+use App\Http\Controllers\Xero\CoaXeroController;
 use App\Http\Controllers\Xero\ConfigController;
 use App\Http\Controllers\Xero\ContactController;
 use App\Http\Controllers\Xero\InvoicesController;
@@ -146,7 +147,9 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::post('/delete-apply-prepayment', [InvoicesDuplicateController::class, 'apiDeletePrepaymentAllocation'])->name('delete-apply-credit');
     Route::get('/get-prepayment', [InvoicesDuplicateController::class, 'apiGetPrepaymentAllocation'])->name('get-apply-credit');
 
-
+    Route::prefix('coa')->group(function () {
+        Route::get('/get-coa-xero', [CoaXeroController::class, 'getAllCoa'])->name('list-coa-xero');
+    });
     //api update local data xero
     //
 

@@ -6,9 +6,26 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Daftar Coa</h5>
 
-        <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
-            <i class="ti ti-plus me-1"></i> Tambah Coa
-        </button>
+        <div class="d-flex gap-2">
+
+        <!-- Button Tambah COA -->
+             <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel" style="height:42px;">
+                Tambah Coa
+             </button>
+
+            <!-- Button Sync dari Xero -->
+            <div class="d-flex flex-column align-items-end">
+                <button onclick="syncCoaFromXero()" 
+                        type="button" 
+                        class="btn btn-success shadow-sm fw-bold">
+                    <i class="fas fa-sync-alt me-1"></i> Sync dari Xero
+                </button>
+                <span class="text-muted mt-1 small" style="font-size: 11px;">
+                    Sinkronisasi semua Chart of Account dari Xero
+                </span>
+            </div>
+
+        </div>
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
@@ -184,6 +201,7 @@ $(document).ready(function() {
         $('#idHotelInput').val(0);
         $('#nameHotel').val('');
         $('#typeLocation').val(0).change();
+        $("#desc").val('')
     });
 
     function tambahDataHotel(){
@@ -241,5 +259,55 @@ $(document).ready(function() {
     });
 
 });
+
+
+ function syncCoaFromXero(){
+
+        Swal.fire({
+            title: 'Sinkronisasi COA dari Xero?',
+            html: 'Apakah Anda yakin ingin mengambil <strong>semua Chart of Account</strong> dari Xero?<br><br>Proses ini akan memperbarui data COA lokal Anda.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',   // hijau
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Sync Sekarang',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                Swal.fire({
+                    title: 'Sedang Sinkronisasi...',
+                    text: 'Mohon tunggu sebentar',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                ajaxRequest( `{{ route('list-coa-xero') }}`,'GET',{ is_sync: 1 }, localStorage.getItem("token"))
+                .then(response =>{
+                    Swal.close();
+                        if (response.status === 200) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: `Berhasil sinkronisasi ${response.total_saved} data COA`,
+                                timer: 2000
+                            });
+                            // Refresh table
+                            $('#tableCoa').DataTable().ajax.reload();
+                        } else {
+                            Swal.fire('Gagal', response.data.data.message, 'error');
+                        }
+                })
+                .catch((err)=>{
+                    Swal.close();
+                    Swal.fire('Error', 'Terjadi kesalahan saat sinkronisasi', 'error');
+                    console.error(xhr.responseText);
+                })
+            }
+        })
+    }
 </script>
 @endpush
