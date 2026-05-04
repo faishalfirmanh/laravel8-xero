@@ -66,69 +66,60 @@ class BillXeroController extends Controller
 
 
     //old
-    public function store(Request $request)
+    public function storeParent(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
-            'invoice_ids' => 'required|array',
-            'uuid_paket_item' => 'required|string',
-            'date_trans' => 'required|date'
-            // 'code_paket' => 'required|string',
-            // 'name_paket' => 'required|string',
-            // 'nominal_purchase' => 'required|numeric',
-            // 'nominal_sales' => 'required|numeric',
-            // 'nominal_profit' => 'nullable|numeric',
+            'uuid_from' => 'required|string',
+            'date_req' => 'required|date',
+            'due_date' => 'required|date',
+            'reference' => 'required|string',
+            'currency' => 'required|string',
+            'account_id' => 'required|array|min:1',
+
+            'desc' => 'required|array|min:1',
+            'qty' => 'required|array|min:1',
+            'unit_price' => 'required|array|min:1',
+            'paket_tracking_uuid' => 'nullable|array|min:0',
+            'divisi_travel_tracking_uuid' => 'nullable|array|min:0',
         ]);
-        //dd($request->date_trans);
+
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
 
-        $request["id"] = ($request->id == 0) ? null : $request->id;
-        $sum_all_uang_masuk = $this->repo_invoice->sumDataWhereIn($request->invoice_ids, 'invoice_total');
-        //ambil dari xero sub total, kalau paid dari AmountPaid
-        $get_paket = $this->repo_item->whereData(['uuid_proudct_and_service' => $request->uuid_paket_item])->first();
+        $request['status'] = 0;
+        $request['reference'] = strtolower($request->reference);
 
-        $request['name_paket'] = $get_paket->nama_paket;
-        $request['code_paket'] = $get_paket->code;
-        $request['nominal_sales'] = $sum_all_uang_masuk;//penjualan
-        $request['created_by'] = $request->user_login->id;
-        if ($validator->fails()) {
-            return $this->error($validator->errors());
-        }
-        $saved_i = $this->repo->CreateOrUpdate($request->all(), $request->id);
-        // $saved_details = $this->repo_detail->CreateOrUpdate($request->all(), $request->id);
+        DB::beginTransaction();
+        try {
+            $saveP = $this->repo->CreateOrUpdate($request->except(['account_id', 'desc', 'qty', 'unit_price', 'tax_rate', 'nama_paket', 'divisi']), $request->id);
 
-        $get_invoice_uuid = $this->repo_invoice->getWhereDataIn($request->invoice_ids);
-        $cek_parent_on_invoice = $this->repo_d_invoice->whereData(['package_expenses_id' => $saved_i->id])->get();
-
-        if (count($cek_parent_on_invoice)) {
-            $this->repo_d_invoice->deleteWithIdDinamisMultiRow('package_expenses_id', $saved_i->id);
-            //dd( $saved_i->id);
-            //foreach ($cek_parent_on_invoice as $key => $value) {//invoice yang suddah di simpan
-            foreach ($get_invoice_uuid as $key_new => $value_new) {
-                $update_detail = [
-                    'package_expenses_id' => $saved_i->id,
-                    'invoices_xero_id' => $value_new->id,
-                    'amount_invoice' => $value_new->invoice_total
+            // Save Details
+            foreach ($request->account_id as $key => $accountId) {
+                // Build the specific detail array using the current $key index
+                $detailData = [
+                    'bills_parent_id' => $saveP->id,
+                    'account_id_coa' => $accountId,
+                    'desc' => $request->desc[$key] ?? null,
+                    'qty' => $request->qty[$key] ?? 0,
+                    'unit_price' => $request->unit_price[$key] ?? 0,
+                    'amount' => ($request->qty[$key] ?? 0) * ($request->unit_price[$key] ?? 0),
+                    'paket_tracking_uuid' => $request->paket_tracking_uuid[$key] ?? NULL,
+                    'divisi_travel_tracking_uuid' => $request->divisi_travel_tracking_uuid[$key] ?? NULL,
                 ];
-                //var_dump($value_new->invoice_total);
-                $this->repo_d_invoice->CreateOrUpdate($update_detail, null);
+                // Assuming CreateOrUpdate accepts the array of data to insert
+                $this->repo_detail->CreateOrUpdate($detailData, null);
             }
-
-            // }
-        } else {
-            foreach ($get_invoice_uuid as $key => $value) {
-                $saved_data = [
-                    'package_expenses_id' => $saved_i->id,
-                    'invoices_xero_id' => $value->id,
-                    'amount_invoice' => $value->invoice_total
-                ];
-                $this->repo_d_invoice->CreateOrUpdate($saved_data, null);
-            }
+            $sumD = $this->repo_detail->sumDataWhereDinamis(['bills_parent_id' => $saveP->id], 'amount');
+            $this->repo->CreateOrUpdate(['total' => $sumD], $saveP->id);
+            DB::commit();
+            return $this->autoResponse($saveP);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error($th->getMessage(), 500);
         }
 
-        return $this->autoResponse($saved_i);
     }
 
     //used

@@ -42,37 +42,37 @@ class TrackingController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name_parent_category'=> [
+            'name_parent_category' => [
                 'required',
                 'string',
                 Rule::unique('tracking_categories', 'name_parent_category')->ignore($request->id)
             ],
-            'lines_category'               => 'required|array|min:1',
-           // 'lines_category.*.id_parent'        => 'required|string',
-            'lines_category.*.item_name_category'        => 'required|string|max:255',
-           // 'lines_category.*.item_uuid_category'        => 'required|string|max:100',
+            'lines_category' => 'required|array|min:1',
+            // 'lines_category.*.id_parent'        => 'required|string',
+            'lines_category.*.item_name_category' => 'required|string|max:255',
+            // 'lines_category.*.item_uuid_category'        => 'required|string|max:100',
 
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Validasi Gagal',
-                'errors'  => $validator->errors()->toArray()
+                'errors' => $validator->errors()->toArray()
             ], 422);
         }
 
-       $linesCategory = $request->input('lines_category', []);
+        $linesCategory = $request->input('lines_category', []);
         foreach ($linesCategory as &$line) {
             $line['id_parent'] = $request->id ? $request->id : $this->repo->getLastIdPlusOne();//
             $line['item_uuid_category'] = self::generateRandom4Digit();
         }
-        $request->merge(['name_parent_category'=> strtolower($request->name_parent_category)]);
+        $request->merge(['name_parent_category' => strtolower($request->name_parent_category)]);
         $request->merge(['lines_category' => $linesCategory]);
 
         //dd($request->all());
 
-        $request['created_by']=1;// $request->user_login->id;
+        $request['created_by'] = 1;// $request->user_login->id;
         $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
         return $this->autoResponse($saved);
     }
@@ -102,14 +102,14 @@ class TrackingController extends Controller
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'name_parent_category', strtoupper($request->keyword));
         } else {
             $data =
-            $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'name_parent_category', 'ASC');//getDataPaginate("name",10,$request->keyword);
+                $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'name_parent_category', 'ASC');//getDataPaginate("name",10,$request->keyword);
         }
         return $this->autoResponse($data);
     }
 
 
 
-      public function delete(Request $request)
+    public function delete(Request $request)
     {
         $id = $request->id;
 
@@ -131,11 +131,29 @@ class TrackingController extends Controller
     }
 
 
-     public function detail(Request $request)
+    public function detail(Request $request)
     {
         $data = $this->repo->find($request->id);
         return $this->autoResponse($data);
     }
 
-//
+    public function trackByParent(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name_parent_category' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 402);
+        }
+        $data = $this->repo->whereData(['name_parent_category' => $request->name_parent_category])->first();
+
+        $convert_nya = $data->lines_category;
+        $linesCategory = is_string($data->lines_category) ? json_decode($convert_nya, true) : $data->lines_category;
+        $data->lines_category = $linesCategory;
+
+        return $this->autoResponse($data);
+    }
+
+    //
 }

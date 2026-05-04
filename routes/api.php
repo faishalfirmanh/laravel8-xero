@@ -157,6 +157,8 @@ Route::prefix("xero-integrasi")->group(function () {
         Route::get('/get-all', [JamaahApiXeroController::class, 'getAllContact'])->name('list-contact-xero');//sync
         Route::get('/select2', [JamaahApiXeroController::class, 'getAllSelect2'])->name('list-contact-select2');
     });
+
+    Route::get('get-track-category', [TrackingLocalController::class, 'trackByParent'])->name('tracking-by-parent');
     //api update local data xero
     //
 
@@ -203,6 +205,7 @@ Route::prefix("admin-web")->group(function () {
             Route::prefix('purchase')->group(function () {
                 Route::prefix('bills')->group(function () {
                     Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('purchase-bills');
+                    Route::post('saveP', [BillXeroController::class, 'storeParent'])->name('save-p-bills');
                 });
 
                 Route::get('orders', [InvXeroController::class, 'getAllPaginate'])->name('list-po-xero');

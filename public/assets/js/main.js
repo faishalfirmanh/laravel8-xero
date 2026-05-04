@@ -30,32 +30,32 @@ function convertStringDate(dateStr) {
 }
 
 function formatCurrency(value, currency = 'IDR', decimals = 0) {
-    let number = 0;
-    if (value !== null && value !== undefined && value !== '') {
-        number = Number(value);
-        if (isNaN(number)) number = 0;
-    }
-    let locale = 'id-ID'; // Default Indonesia
+  let number = 0;
+  if (value !== null && value !== undefined && value !== '') {
+    number = Number(value);
+    if (isNaN(number)) number = 0;
+  }
+  let locale = 'id-ID'; // Default Indonesia
 
-    switch (currency) {
-        case 'USD':
-            locale = 'en-US'; // Format Amerika (1,000.00)
-            break;
-        case 'SAR':
-            locale ='id-ID'; //'ar-SA';
-            break;
-        default:
-            locale = 'id-ID'; // Default Rupiah (1.000,00)
-            break;
-    }
+  switch (currency) {
+    case 'USD':
+      locale = 'en-US'; // Format Amerika (1,000.00)
+      break;
+    case 'SAR':
+      locale = 'ar-SA'; //'ar-SA';
+      break;
+    default:
+      locale = 'id-ID'; // Default Rupiah (1.000,00)
+      break;
+  }
 
-    // 3. Format
-    return number.toLocaleString(locale, {
-        style: 'currency',
-        currency: currency,
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-    });
+  // 3. Format
+  return number.toLocaleString(locale, {
+    style: 'currency',
+    currency: currency,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
 }
 
 
@@ -148,12 +148,12 @@ function initGlobalDataTableToken(selector, url, columns, extraParams = {}) {
             recordsFiltered: response.data.total,
             data: response.data.data
           });
-          console.log('sss',response.data.data)
+          console.log('sss', response.data.data)
         },
-        error: function (data,error, thrown) {
+        error: function (data, error, thrown) {
           console.log('Error Load Data:', data);
           $(selector + '_processing').hide();
-          $( ".dt-empty" ).addClass( "d-none" );
+          $(".dt-empty").addClass("d-none");
           let pesan = "Terjadi kesalahan pada server";
           if (data.responseJSON && (data.responseJSON.msg || data.responseJSON.message)) {
             pesan = data.responseJSON.msg || data.responseJSON.message;

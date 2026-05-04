@@ -12,7 +12,7 @@ class PBill extends Model
     use HasFactory;
 
     protected $fillable = [
-        'uuid_from',
+        'uuid_from',//id dari tabel jamaah
         'date_req',
         'due_date',
         'reference',
@@ -22,7 +22,8 @@ class PBill extends Model
         'tax',
         'nominal_paid',
         'nominal_due',
-        'status'//0=draft,1=awaiting,  2=paid,
+        'status',//0=draft,1=awaiting,  2=paid,
+        'currency'
     ];
 
     public function getContactFrom()
