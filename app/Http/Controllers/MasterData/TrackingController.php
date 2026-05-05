@@ -137,6 +137,26 @@ class TrackingController extends Controller
         return $this->autoResponse($data);
     }
 
+    public function detailItem(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name_parent_category' => 'required|string|in:nama paket,divisi',
+            'id' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 402);
+        }
+        $data = $this->repo->whereData(['name_parent_category' => $request->name_parent_category])->first();
+        $aaa = is_string($data->lines_category) ? json_decode($data->lines_category, true) : $data->lines_category;
+
+        $index = array_search($request->id, array_column($aaa, 'item_uuid_category'));
+
+        $final_result = $index !== false ? $aaa[$index] : null;
+
+        return $this->autoResponse($final_result);
+    }
+
     public function trackByParent(Request $request)
     {
         $validator = Validator::make($request->all(), [

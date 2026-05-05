@@ -151,6 +151,7 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::prefix('coa')->group(function () {
         Route::get('/get-coa-xero', [CoaXeroController::class, 'getAllCoa'])->name('list-coa-xero');//sync
         Route::get('list', [CoaController::class, 'getAllPaginateSelect2'])->name('get-all-coa-select2');
+        Route::get('coaDetail', [CoaController::class, 'detail'])->name('coaDetail');
     });
 
     Route::prefix('contact')->group(function () {
@@ -159,6 +160,7 @@ Route::prefix("xero-integrasi")->group(function () {
     });
 
     Route::get('get-track-category', [TrackingLocalController::class, 'trackByParent'])->name('tracking-by-parent');
+    Route::get('get-track-category-detail', [TrackingLocalController::class, 'detailItem'])->name('tracking-detail');
     //api update local data xero
     //
 
@@ -206,6 +208,7 @@ Route::prefix("admin-web")->group(function () {
                 Route::prefix('bills')->group(function () {
                     Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('purchase-bills');
                     Route::post('saveP', [BillXeroController::class, 'storeParent'])->name('save-p-bills');
+                    Route::get('detailBill', [BillXeroController::class, 'detailBill'])->name('detail-bills');
                 });
 
                 Route::get('orders', [InvXeroController::class, 'getAllPaginate'])->name('list-po-xero');

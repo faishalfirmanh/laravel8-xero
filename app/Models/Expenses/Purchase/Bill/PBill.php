@@ -26,9 +26,23 @@ class PBill extends Model
         'currency'
     ];
 
+    protected $appends = [
+        'name_contact'
+    ];
+
+    public function getNameContactAttribute()
+    {
+        return optional($this->getContactFrom)->full_name ?? 'no name';
+    }
+
     public function getContactFrom()
     {
-        return $this->belongsTo(DataJamaahXero::class, 'contact_uuid', 'uuid_from');
+        return $this->hasOne(DataJamaahXero::class, 'id', 'uuid_from');
+    }
+
+    public function getDetail()
+    {
+        return $this->hasMany(DBill::class, 'bills_parent_id');
     }
 
 }

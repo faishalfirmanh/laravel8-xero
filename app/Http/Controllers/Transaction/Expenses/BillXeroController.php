@@ -82,6 +82,7 @@ class BillXeroController extends Controller
             'unit_price' => 'required|array|min:1',
             'paket_tracking_uuid' => 'nullable|array|min:0',
             'divisi_travel_tracking_uuid' => 'nullable|array|min:0',
+            'id_detail' => 'nullable|array'
         ]);
 
         if ($validator->fails()) {
@@ -95,9 +96,18 @@ class BillXeroController extends Controller
         try {
             $saveP = $this->repo->CreateOrUpdate($request->except(['account_id', 'desc', 'qty', 'unit_price', 'tax_rate', 'nama_paket', 'divisi']), $request->id);
 
+            $all = $this->repo_detail->whereData(['bills_parent_id' => $saveP->id])->pluck('id')->toArray();
+            $except = $this->repo_detail->wherenDataIn('id', $request->id_detail)->pluck('id')->toArray();
+            $deleted_array = array_diff($all, $except);
+
+
+
+
             // Save Details
             foreach ($request->account_id as $key => $accountId) {
                 // Build the specific detail array using the current $key index
+                // dd($request->id_detail[$key]);
+                $this->repo_detail->wherenDataIn('id', $deleted_array)->delete();
                 $detailData = [
                     'bills_parent_id' => $saveP->id,
                     'account_id_coa' => $accountId,
@@ -109,7 +119,11 @@ class BillXeroController extends Controller
                     'divisi_travel_tracking_uuid' => $request->divisi_travel_tracking_uuid[$key] ?? NULL,
                 ];
                 // Assuming CreateOrUpdate accepts the array of data to insert
-                $this->repo_detail->CreateOrUpdate($detailData, null);
+                $this->repo_detail->CreateOrUpdate($detailData, $request->id_detail[$key] ?? NULL);
+                if ($request->id_detail[$key]) {
+                    $cariD = $this->repo_detail->whereData(['bills_parent_id' => $saveP->id, 'id' => $request->id_detail[$key]])->first();
+
+                }
             }
             $sumD = $this->repo_detail->sumDataWhereDinamis(['bills_parent_id' => $saveP->id], 'amount');
             $this->repo->CreateOrUpdate(['total' => $sumD], $saveP->id);
@@ -123,130 +137,18 @@ class BillXeroController extends Controller
     }
 
     //used
-    public function storeDetail(Request $request)
+    public function detailBill(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'package_expenses_id' => 'required|array',
-            'package_expenses_id.*' => 'exists:package_expenses_xeros,id',
-            //
-            'pengeluaran_id' => 'required|array',
-            'pengeluaran_id.*' => 'exists:master_pengeluaran_pakets,id',
-            //
-            'is_idr' => 'required|array',
-            'is_idr.*' => 'boolean',
-            'detail_id' => 'nullable'
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error($validator->errors());
-        }
-
-        $totalRow = count($request->package_expenses_id);
-        $aa = 0;
-        $id_parent = [];
-        for ($i = 0; $i < $totalRow; $i++) {
-            // dd( $request->package_expenses_id[$i]);
-            $convert_sar = $request->is_idr[$i] == 0 ?
-                $request->nominal_sar[$i] * $request->nominal_currency[$i]
-                : $request->nominal_idr[$i];
-            $dataToSave = [
-                'package_expenses_id' => $request->package_expenses_id[$i],
-                'pengeluaran_id' => $request->pengeluaran_id[$i],
-                'nominal_currency' => $request->nominal_currency[$i],
-                'is_idr' => $request->is_idr[$i],
-                'nominal_idr' => $convert_sar,
-                'nominal_sar' => $request->nominal_sar[$i] ?? 0,
-                'combine_id_random' => $this->service_global->generateUniqueRandomString()
-            ];
-            $id_parent[] = $request->package_expenses_id[$i];
-            if (isset($request->detail_id[$i])) {
-                $this->repo_detail->CreateOrUpdate($dataToSave, $request->detail_id[$i]);
-            } else {
-                $this->repo_detail->CreateOrUpdate($dataToSave, null);
-            }
-            $aa++;
-        }
-        $sum_detail_pengeluaran = $this->repo_detail->sumDataWhereDinamis(['package_expenses_id' => $id_parent[0]], 'nominal_idr');
-        $data_parent = $this->repo->whereData(['id' => $id_parent[0]])->first();
-        $nominal_penjualan = $data_parent->nominal_sales;
-        $laba_bersih = $nominal_penjualan - $sum_detail_pengeluaran;
-        $updated = $this->repo->CreateOrUpdate(['nominal_purchase' => $sum_detail_pengeluaran, 'nominal_profit' => $laba_bersih], $id_parent[0]);
-        // return response()->json(['msg' => 'success','parent_id'=>2,'tersimpan'=>$aa], 200);
-        return $this->autoResponse($updated);
-    }
-
-    public function getById(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:package_expenses_xeros,id'
+            'id' => 'required|exists:p_bills,id'
         ]);
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
         // dd(222);
-        $data = $this->repo->WhereDataWith(['details', 'detailsLocalInvoice'], ['id' => $request->id])->first();
+        $data = $this->repo->WhereDataWith(['getDetail', 'getContactFrom'], ['id' => $request->id])->first();
         return $this->autoResponse($data);
     }
-
-
-    public function deleteDetail(Request $request)
-    {
-        // 1. Validasi
-        $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:d_package_expenses_xeros,id'
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error($validator->errors());
-        }
-
-        //DB::beginTransaction(); // Mulai Transaksi
-        try {
-            $detail = $this->repo_detail->whereData(['id' => $request->id])->first();
-            $parentId = $detail->package_expenses_id;
-
-            $this->repo_detail->deleteWithIdDinamis('id', $request->id);
-            $new_sum_purchase = $this->repo_detail->sumDataWhereDinamis(
-                ['package_expenses_id' => $parentId],
-                'nominal_idr'
-            );
-
-            $data_parent = $this->repo->whereData(['id' => $parentId])->first();
-            $new_profit = $data_parent->nominal_sales - $new_sum_purchase;
-
-            $update_parent = $this->repo->CreateOrUpdate([
-                'nominal_purchase' => $new_sum_purchase,
-                'nominal_profit' => $new_profit
-            ], $parentId);
-
-            // DB::commit();
-            $data_after_saved = $this->repo->WhereDataWith(['details', 'detailsLocalInvoice'], ['id' => $parentId])->first();
-            return $this->autoResponse(['success' => true, 'data_after_saved' => $data_after_saved], "Berhasil dihapus");
-
-        } catch (\Exception $e) {
-            //DB::rollBack();
-            return $this->error("Gagal menghapus: " . $e->getMessage());
-        }
-    }
-
-    public function deletedExpenses(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:package_expenses_xeros,id'
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error($validator->errors());
-        }
-        // dd($request->id);
-        $detail = $this->repo_detail->deleteWithIdDinamisMultiRow('package_expenses_id', $request->id);
-        $inv_detail = $this->repo_d_invoice->deleteWithIdDinamisMultiRow('package_expenses_id', $request->id);
-        $parnet = $this->repo->deleteWithIdDinamisMultiRow('id', $request->id);
-        return $this->autoResponse($parnet);
-    }
-
-
-
 
 
 
