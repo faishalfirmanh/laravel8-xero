@@ -15,10 +15,11 @@ class DBill extends Model
         'desc',
         'qty',
         'unit_price',
-        'account_id_coa',
+        'account_id_coa',//pake id saja
         'tax_rate',
         'paket_tracking_uuid',//tracking_categories
         'divisi_travel_tracking_uuid',
-        'amount'
+        'amount',
+        'uuid_detail'//untu relasi dengan tabel transaction_all_coas
     ];
 }

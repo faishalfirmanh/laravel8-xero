@@ -16,13 +16,13 @@ class GlobalService
 {
 
     public function SavedInvoiceValue(
-                $uuid_invoice,
-                $invNumber,
-                $contact_name,
-                $total_xero,
-                $total_local,
-                $payment_return = 0)
-    {
+        $uuid_invoice,
+        $invNumber,
+        $contact_name,
+        $total_xero,
+        $total_local,
+        $payment_return = 0
+    ) {
         DB::beginTransaction();
         try {
             InvoicePriceGap::updateOrCreate(
@@ -32,7 +32,7 @@ class GlobalService
                     'contact_name' => $contact_name,
                     'total_nominal_payment_xero' => $total_xero,
                     'total_nominal_payment_local' => $total_local,
-                    'total_price_return'=>$payment_return
+                    'total_price_return' => $payment_return
                 ]
             );
             DB::commit();
@@ -46,14 +46,15 @@ class GlobalService
 
     public function getTotalLocalPaymentByuuidInvoice($uuid)
     {
-        $total = PaymentsHistoryFix::where('invoice_uuid',$uuid)->sum('amount');
+        $total = PaymentsHistoryFix::where('invoice_uuid', $uuid)->sum('amount');
         return $total;
     }
 
-    public function hitungSelisih($angka1, $angka2, $presisi = 2) {
+    public function hitungSelisih($angka1, $angka2, $presisi = 2)
+    {
         // Pastikan input jadi string
-        $str1 = (string)$angka1;
-        $str2 = (string)$angka2;
+        $str1 = (string) $angka1;
+        $str2 = (string) $angka2;
 
         // Hitung pengurangan
         $hasil = bcsub($str1, $str2, $presisi);
@@ -67,13 +68,14 @@ class GlobalService
     }
 
 
-     public function cekJenisPaketBasePagar(string $name) {
+    public function cekJenisPaketBasePagar(string $name)
+    {
         if (strpos($name, '#') !== false) {
             $parts = explode('#', $name);
             if (isset($parts[1])) {
                 return $parts[1];
             }
-        }else{
+        } else {
             return 1;
         }
     }
@@ -100,50 +102,92 @@ class GlobalService
         return $resultInvoice;
     }
 
-    function generateUniqueRandomString($length = 6) {
+    function generateUniqueRandomString($length = 6)
+    {
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $shuffled = str_shuffle($characters);
         return substr($shuffled, 0, $length);
     }
 
-// Contoh Hasil: "a4B9zK", "1mP2xR" (Tidak ada huruf/angka yang dobel)
+    // Contoh Hasil: "a4B9zK", "1mP2xR" (Tidak ada huruf/angka yang dobel)
 
-    public function requestCalculationXero(int $available_min, int $avilabe_day ) {
+    public function requestCalculationXero(int $available_min, int $avilabe_day)
+    {
         $used_min = 60 - $available_min;
         $used_day = 5000 - $avilabe_day;
         $day_now = now()->format('Y-m-d');//Carbon::now()->format('Y-m-d');
-         XeroRequestUsedLimit::updateOrCreate([
-            'tracking_date'=>$day_now,
-         ],[
-            'total_request_used_min'=>$used_min,
-            'total_request_used_day'=>$used_day,
-            'available_request_min'=>$available_min,
-            'available_request_day'=>$avilabe_day,
-            'tracking_date'=>$day_now
-         ]);
+        XeroRequestUsedLimit::updateOrCreate([
+            'tracking_date' => $day_now,
+        ], [
+            'total_request_used_min' => $used_min,
+            'total_request_used_day' => $used_day,
+            'available_request_min' => $available_min,
+            'available_request_day' => $avilabe_day,
+            'tracking_date' => $day_now
+        ]);
 
-         return true;
+        return true;
     }
 
-    public function getDataAvailabeRequestXero() {
+    public function getDataAvailabeRequestXero()
+    {
         $day_now = now()->format('Y-m-d');//Carbon::now()->format('Y-m-d');
-        $data = XeroRequestUsedLimit::where( 'tracking_date',$day_now,)->first();
+        $data = XeroRequestUsedLimit::where('tracking_date', $day_now, )->first();
         return $data;
     }
 
-    public function saveLogHistory($idUserLogin,string $action, $bowser, $ip_address)
-        {
-            try {
-                LogHistory::create([
-                    'user_id'    => $idUserLogin,
-                    'ip_address' => $ip_address,
-                    'browser'    => $bowser,
-                    'action'     => $action
-                ]);
-            } catch (\Throwable $th) {
-                Log::error('Gagal simpan log history: '.$th->getMessage());
-            }
+    public function saveLogHistory($idUserLogin, string $action, $bowser, $ip_address)
+    {
+        try {
+            LogHistory::create([
+                'user_id' => $idUserLogin,
+                'ip_address' => $ip_address,
+                'browser' => $bowser,
+                'action' => $action
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Gagal simpan log history: ' . $th->getMessage());
         }
+    }
+
+
+
+    public function generateUniqueString(): string
+    {
+        $tablesToCheck = [
+            'd_bills' => 'uuid_detail',
+        ];
+
+        do {
+            $isDuplicate = false;
+
+            // 2. Generate 5 huruf acak (Kapital)
+            $letters = '';
+            for ($i = 0; $i < 5; $i++) {
+                $letters .= chr(rand(65, 90)); // ASCII 65-90 adalah A-Z
+            }
+
+            // 3. Generate 5 angka acak (0-9)
+            $numbers = '';
+            for ($i = 0; $i < 5; $i++) {
+                $numbers .= rand(0, 9);
+            }
+
+            // 4. Gabungkan dan acak posisinya (agar tidak selalu huruf dulu baru angka)
+            $randomString = str_shuffle($letters . $numbers);
+
+            // 5. Pengecekan ke database
+            foreach ($tablesToCheck as $table => $column) {
+                // Jika string sudah ada di salah satu tabel, tandai duplicate dan hentikan pengecekan
+                if (DB::table($table)->where($column, $randomString)->exists()) {
+                    $isDuplicate = true;
+                    break; // Keluar dari perulangan foreach, ulangi proses do-while
+                }
+            }
+
+        } while ($isDuplicate);
+        return $randomString;
+    }
 
 }
 

@@ -19,15 +19,26 @@
     .select2-dropdown {
         min-width: 350px !important;   /* Lebar dropdown Account */
     }
+
+    .dropdown-menu {
+       z-index: 1060 !important;
+    }
 </style>
 
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Daftar Hotel</h5>
 
-        <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
-            <i class="ti ti-plus me-1"></i> Tambah Bills
-        </button>
+        <div>
+            {{-- Tambahan Opsional: Tombol untuk mengecek row yang di-select --}}
+            <button type="button" id="btnProsesSelected" class="btn btn-success me-2">
+                <i class="ti ti-check me-1"></i> Cek Data Terpilih
+            </button>
+
+            <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
+                <i class="ti ti-plus me-1"></i> Tambah Bills
+            </button>
+        </div>
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
@@ -150,10 +161,34 @@
                     </div>
                 </div>
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="button" onclick="switchToDetailTab()" class="btn btn-info" id="btnNext">Next → Detail Item</button>
-                    <button type="submit" class="btn btn-primary" id="btnSave">Save</button>
+                <div class="modal-footer d-flex justify-content-end">
+                    <!-- Hidden input untuk menyimpan nilai pilihan (1, 2, atau 3) -->
+                    <input type="hidden" name="action_type" id="actionTypeValue" value="">
+
+                    <button type="button" class="btn btn-secondary mr-2" data-dismiss="modal">Cancel</button>
+
+                    <!-- Tombol Save yang HANYA berfungsi sebagai pembuka dropdown -->
+                    <div class="btn-group dropup">
+                        <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Save
+                        </button>
+                        
+                        <!-- Menu Dropdown, disejajarkan ke kanan -->
+                        <div class="dropdown-menu dropdown-menu-right shadow">
+                            
+                            <!-- Pilihan 1 (Value: 1) -->
+                            <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="1">
+                                <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
+                                <span>Approve</span>
+                            </button>
+                            
+                            <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
+                                <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
+                                <span>Save draft</span>
+                            </button>
+
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
@@ -168,7 +203,6 @@ $(document).ready(function() {
     var table;
 
     // --- HELPER FUNCTION ---
-    // Mencegah error 'formatCurrency is not defined' di console
     function formatCurrency(amount) {
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
@@ -177,7 +211,7 @@ $(document).ready(function() {
     }
 
     // --- 1. DATATABLE CONFIG ---
-    let columnHotel = [
+    let columnBills = [
         {
             data: null,
             className: "text-center",
@@ -208,19 +242,46 @@ $(document).ready(function() {
             className: "text-center",
             render: function(data, type, row) {
                 let btnEdit = `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
-                let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
+               // let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
                 return btnEdit ;
             },
         }
     ];
 
-    // Asumsi function ini ada di app.blade.php Anda
-    table = initGlobalDataTableToken(
+    // FIX: Menggunakan initGlobalDataTableToken dan menambahkan logika addClass/removeClass
+    table = initGlobalDataTableTokenSelected(
         '#tableHotel',
         `{{ route('purchase-bills') }}`,
-        columnHotel,
-        { "kolom_name": "uuid_from" }
+        columnBills,
+        { "kolom_name": "uuid_from" }, // Parameter 4: Extra Params
+        {                              // Parameter 5: Options DataTables khusus untuk select row
+            rowCallback: function(row, data) {
+                $(row).css('cursor', 'pointer'); // Ubah kursor jadi tangan
+                $(row).off('click').on('click', function() {
+                    // Jika baris sudah terpilih, maka batalkan pilihannya
+                    if ($(this).hasClass('selected')) {
+                        $(this).removeClass('selected table-active');
+                    } else {
+                        // Jika baris belum terpilih, hapus pilihan dari baris lain, lalu pilih baris ini
+                        table.$('tr.selected').removeClass('selected table-active');
+                        $(this).addClass('selected table-active');
+                    }
+                });
+            }
+        }
     );
+
+    // FIX: Aksi tombol uji coba select row
+    $('#btnProsesSelected').on('click', function() {
+        let selectedRowData = table.row('.selected').data();
+        if (!selectedRowData) {
+            Swal.fire('Oops!', 'Pilih data terlebih dahulu dengan mengklik salah satu baris di tabel!', 'warning');
+            return;
+        }
+        console.log("Data yang dipilih:", selectedRowData);
+        Swal.fire('Berhasil', 'Anda memilih Reference: ' + selectedRowData.reference, 'success');
+        // Lakukan aksi dengan selectedRowData.id, selectedRowData.reference, dll
+    });
 
     // --- 2. INITIALIZE GLOBAL SELECT2 ---
     function initAllSelect2() {
@@ -269,13 +330,12 @@ $(document).ready(function() {
         });
     }
 
-    // Panggil initAllSelect2 SATU KALI saat halaman load
     initAllSelect2();
 
     // --- 3. MODAL & BUTTON EVENTS ---
     $("#button_add_hotel").on("click", function(){
         $('#idHotelInput').val(0);
-        $('#currency').val(0);
+        $('#cur_id').val(0); // FIX: selector val() currency
         $("#ref_id").val('');
         $("#d_id_parent_bill").val(0);
         $('#formCreateHotel')[0].reset();
@@ -286,12 +346,10 @@ $(document).ready(function() {
     $('#modalCreateHotel').on('show.bs.modal', function () {
         $('#header-tab').tab('show');
         
-        // HANYA bersihkan table jika ini proses ADD NEW (id = 0)
-        // Jika Edit, jangan di-empty karena loadBills sudah mengisi datanya
         if ($('#idHotelInput').val() == 0) {
             $('#contact_id').empty().trigger('change'); 
             $('#itemTable tbody').empty();
-            addNewRow(); // Tambah 1 baris kosong
+            addNewRow(); 
         }
     });
 
@@ -303,7 +361,6 @@ $(document).ready(function() {
         $('#idHotelInput').val(id);
         $('.modal-title').text('Edit Bill ' + (rowData.reference || ''));
         
-        // Panggil loadBills untuk isi form & detail item
         loadBills(id);
         
         $('#modalCreateHotel').modal('show');
@@ -311,7 +368,7 @@ $(document).ready(function() {
 
     function loadBills(id){
         $("#idHotelInput").val(id);
-        $('#itemTable tbody').empty(); // Kosongkan tabel detail sebelum diisi ulang
+        $('#itemTable tbody').empty(); 
         $('#contact_id').prop('disabled', true); 
 
         ajaxRequest( `{{ route('detail-bills') }}`,'GET',{id : id}, localStorage.getItem("token"))
@@ -319,20 +376,17 @@ $(document).ready(function() {
                 if(response.status == 200){
                     let data_res = response.data.data;
                     
-                    // --- Set Header Contact ---
                     let contactId = data_res.uuid_from;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
                  
                     let newOption = new Option(contactName, contactId, true, true);
                     $('#contact_id').empty().append(newOption).trigger('change');
                     
-                    // --- Set Header Form ---
                     $("#ref_id").val(data_res.reference || '');
                     $('#cur_id').val(data_res.currency).trigger('change');
                     $('#date_req').val(data_res.date_req).trigger('change');
                     $('#due_date').val(data_res.due_date).trigger('change');
 
-                    // --- Set Detail Items ---
                     let details = data_res.get_detail;
                     if (details && details.length > 0) {
                         details.forEach(function(item) {
@@ -375,7 +429,7 @@ $(document).ready(function() {
                 .then(response =>{
                     if(response.status == 200){
                         Swal.fire({ title: "Sukses", text: "Berhasil hapus", icon: "success" });
-                        table.ajax.reload();
+                        table.ajax.reload(null, false); // Reload tanpa refresh page number
                     }
                 })
                 .catch((err)=>{
@@ -385,11 +439,16 @@ $(document).ready(function() {
         });
     });
 
+
+    $('.action-submit').on('click', function() {
+        let actionValue = $(this).val();
+        $('#actionTypeValue').val(actionValue);
+    });
+
     // --- 6. SAVE FUNCTIONALITY ---
     $('#formCreateHotel').on('submit', function(e) {
         e.preventDefault();
         
-        // Ensure select2 values are committed to inputs
         $('.select2-account, .select2-paket, .select2-divisi').each(function() {
             if ($(this).data('select2')) { $(this).trigger('change'); }
         });
@@ -398,6 +457,9 @@ $(document).ready(function() {
         let params = new URLSearchParams(formData);
         let idInput = params.get('idHotelInput');
         let id_bill = (idInput && idInput > 0) ? idInput : null;
+        let action_selected = params.get('action_type');
+
+        console.log('actyn',action_selected)
 
         let selectedData = {
             id: id_bill,
@@ -406,6 +468,7 @@ $(document).ready(function() {
             due_date: params.get('due_date'),
             reference: params.get('reference'),
             currency: params.get('currency'),
+            action_save : action_selected,
          
             account_id: $('select[name="account_id[]"]').map(function(){ return $(this).val(); }).get(),
             desc: $('input[name="description[]"]').map(function(){ return $(this).val(); }).get(),
@@ -422,7 +485,7 @@ $(document).ready(function() {
                 if(response.status == 200){
                     Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
                     $('#modalCreateHotel').modal('hide');
-                    table.ajax.reload();
+                    table.ajax.reload(null, false);
                 }
             })
             .catch((err) => {
@@ -431,7 +494,6 @@ $(document).ready(function() {
     });
 
     // --- 7. GLOBAL FUNCTIONS EXPOSED TO WINDOW ---
-    // Membawa fungsi ini ke window scope agar bisa diakses attribute onclick HTML
     window.switchToDetailTab = function() {
         $('#detail-tab').tab('show');
     };
@@ -444,7 +506,6 @@ $(document).ready(function() {
     window.addNewRow = function(item = null) {
         let rowCount = $('#itemTable tbody tr').length + 1;
 
-        // Siapkan variabel value. Jika item ada (Edit), gunakan datanya. Jika tidak (Add), gunakan default.
         let id_detail_row = item ? item.id : 0;
         let desc = item ? (item.desc || '') : '';
         let qty = item ? item.qty : 1;
@@ -452,14 +513,13 @@ $(document).ready(function() {
         let taxRate = item ? (item.tax_rate !== null ? item.tax_rate : 0) : 0;
         let amount = item ? parseFloat(item.amount) : '';
 
-        // FIX TERPENTING: Memasukkan variabel ke dalam attribute value="${...}" !
         let newRow = `
             <tr>
                 <td class="text-center">${rowCount}</td>
                 <input type="hidden" name="id_detail[]" value="${id_detail_row}"/>
                 <td><input type="text" class="form-control" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
-                <td><input type="number" class="form-control" required name="qty[]" value="${qty}"></td>
-                <td><input type="number" class="form-control" required name="unit_price[]" step="0.01" value="${price}"></td>
+                <td><input type="number" class="form-control" required name="qty[]" min="1" value="${qty}"></td>
+                <td><input type="number" class="form-control" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
                 <td>
                     <select class="select2-account form-control" required name="account_id[]" style="width:100%;">
                         <option value="">Pilih Account...</option>
@@ -573,8 +633,6 @@ $(document).ready(function() {
                 .catch((err) => {
                     Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 });
-
-              
             }
 
             if (item.paket_tracking_uuid) {
@@ -605,7 +663,6 @@ $(document).ready(function() {
                 .catch((err) => {
                     Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 });
-              
             }
         }
 
@@ -625,7 +682,6 @@ $(document).ready(function() {
         $qty.on('input keyup', calculateAmount);
         $unitPrice.on('input keyup', calculateAmount);
 
-        // Jika row dibuat secara manual (bukan edit), hitung grand total awal
         if (!item) { calculateAmount(); }
     };
 

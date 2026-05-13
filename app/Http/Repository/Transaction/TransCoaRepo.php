@@ -12,4 +12,9 @@ class TransCoaRepo extends BaseRepository
         $this->model = $model;
     }
 
+    public function wherenDataIn($column, $value)
+    {
+        return $this->model->whereIn($column, $value);
+    }
+
 }

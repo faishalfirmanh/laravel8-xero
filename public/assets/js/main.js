@@ -117,6 +117,65 @@ function initGlobalDataTable(selector, url, columns, extraParams = {}) {
   });
 }
 
+function initGlobalDataTableTokenSelected(selector, url, columns, extraParams = {}, dtOptions = {}) {
+
+  // Konfigurasi dasar bawaan fungsi Anda
+  let baseConfig = {
+    processing: true,
+    serverSide: true,
+    destroy: true, // Reset tabel jika dipanggil ulang
+    ajax: function (data, callback, settings) {
+      var page = Math.ceil(settings._iDisplayStart / settings._iDisplayLength) + 1;
+      var keyword = data.search.value;
+
+      let param_send = Object.assign({
+        "limit": settings._iDisplayLength,
+        "page": page,
+        "keyword": keyword
+      }, extraParams);
+
+      $.ajax({
+        url: url,
+        type: 'GET',
+        data: param_send,
+        beforeSend: function (request) {
+          request.setRequestHeader("Authorization", 'Bearer ' + localStorage.getItem("token"));
+        },
+        success: function (response) {
+          callback({
+            draw: settings.iDraw,
+            recordsTotal: response.data.total,
+            recordsFiltered: response.data.total,
+            data: response.data.data
+          });
+        },
+        error: function (data, error, thrown) {
+          console.log('Error main:', data);
+          $(selector + '_processing').hide();
+          $(".dt-empty").addClass("d-none");
+          let pesan = "Terjadi kesalahan pada server";
+          if (data.responseJSON && (data.responseJSON.msg || data.responseJSON.message)) {
+            pesan = data.responseJSON.msg || data.responseJSON.message;
+          }
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Oops... auth gagal',
+            text: pesan,
+          });
+        }
+      });
+    },
+    columns: columns
+  };
+
+  // Gabungkan konfigurasi dasar dengan opsi tambahan (jika ada)
+  let finalConfig = Object.assign({}, baseConfig, dtOptions);
+
+  return $(selector).DataTable(finalConfig);
+}
+
+
 function initGlobalDataTableToken(selector, url, columns, extraParams = {}) {
   return $(selector).DataTable({
     processing: true,
@@ -148,10 +207,10 @@ function initGlobalDataTableToken(selector, url, columns, extraParams = {}) {
             recordsFiltered: response.data.total,
             data: response.data.data
           });
-          console.log('sss', response.data.data)
+          console.log('sukses main', response.data.data)
         },
         error: function (data, error, thrown) {
-          console.log('Error Load Data:', data);
+          console.log('Error main:', data);
           $(selector + '_processing').hide();
           $(".dt-empty").addClass("d-none");
           let pesan = "Terjadi kesalahan pada server";
