@@ -120,4 +120,9 @@ class DashboardController extends Controller
     {
         return view('admin.report.report_coa');
     }
+
+    public function detailCoaReport($idCoa)
+    {
+        return view('admin.report.report_detail_coa', ['id' => $idCoa]);
+    }
 }

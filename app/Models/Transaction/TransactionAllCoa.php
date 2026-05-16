@@ -23,13 +23,25 @@ class TransactionAllCoa extends Model
         'created_by'
     ];
 
+    public $appends = ['name_trans', 'name_coa'];
+
+    public function getNameTransAttribute()
+    {
+        return optional($this->d_bill)->getParent->name_contact ?? '-';
+    }
+
+    public function getNameCoaAttribute()
+    {
+        return optional($this->getCoa)->name ?? '-';
+    }
+
     public function d_bill()
     {
-        return $this->hasOne(DBill::class, 'uuid_detail');
+        return $this->hasOne(DBill::class, 'uuid_detail', 'uuid_detail');
     }
 
     public function getCoa()
     {
-        return $this->hasOne(Coa::class, 'uuid_coa');
+        return $this->hasOne(Coa::class, 'id', 'uuid_coa');
     }
 }

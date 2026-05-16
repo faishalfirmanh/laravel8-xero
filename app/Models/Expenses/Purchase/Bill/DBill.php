@@ -22,4 +22,9 @@ class DBill extends Model
         'amount',
         'uuid_detail'//untu relasi dengan tabel transaction_all_coas
     ];
+
+    public function getParent()
+    {
+        return $this->belongsTo(PBill::class, 'bills_parent_id', 'id');
+    }
 }

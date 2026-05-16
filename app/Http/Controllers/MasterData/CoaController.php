@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
+use App\Http\Repository\Transaction\TransCoaRepo;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\MasterData\CoaRepo;
@@ -30,11 +31,12 @@ class CoaController extends Controller
 {
 
     use ApiResponse;
-    protected $repo;
+    protected $repo, $repo_trans_all;
 
-    public function __construct(CoaRepo $repo)
+    public function __construct(CoaRepo $repo, TransCoaRepo $transCoaRepo)
     {
         $this->repo = $repo;
+        $this->repo_trans_all = $transCoaRepo;
 
     }
 
@@ -119,6 +121,28 @@ class CoaController extends Controller
         } else {
             $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'name', 'ASC');//getDataPaginate("name",10,$request->keyword);
         }
+        //$data['menu']= $request->menu;
+        return $this->autoResponse($data);
+        //return $this->success($data);
+    }
+
+
+    public function getListTransByCoaId(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'code_coa' => 'required|exists:coas,id',
+            'page' => 'required|integer',
+            'limit' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $where = ['uuid_coa' => $request->code_coa];
+
+        $data = $this->repo_trans_all->getAllDataWithDefault($where, $request->limit, $request->page, 'date_transaction', 'DESC');
+
         //$data['menu']= $request->menu;
         return $this->autoResponse($data);
         //return $this->success($data);

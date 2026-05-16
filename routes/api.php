@@ -221,7 +221,8 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('list', [LogHistoryController::class, 'getData'])->name('rep-log-history');
             });
             Route::prefix('rep-coa')->group(function () {
-                Route::get('list', [LogHistoryController::class, 'getData'])->name('rep-coa');
+                Route::get('list', [CoaController::class, 'getAllPaginate'])->name('rep-coa');
+                Route::get('getByIdCoa', [CoaController::class, 'getListTransByCoaId'])->name('rep-detail-coa');
             });
         });
 
