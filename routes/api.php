@@ -216,6 +216,14 @@ Route::prefix("admin-web")->group(function () {
 
         });
 
+        Route::prefix("report")->group(function () {
+            Route::prefix('rep-log-history')->group(function () {
+                Route::get('list', [LogHistoryController::class, 'getData'])->name('rep-log-history');
+            });
+            Route::prefix('rep-coa')->group(function () {
+                Route::get('list', [LogHistoryController::class, 'getData'])->name('rep-coa');
+            });
+        });
 
 
 
@@ -308,9 +316,9 @@ Route::prefix("admin-web")->group(function () {
         });
     });
 
-    Route::middleware(['auth:sanctum', 'xss'])->prefix("report")->group(function () {
-        Route::get('/log-history', [LogHistoryController::class, 'getData'])->name('list-log-history');
-    });
+    // Route::middleware(['auth:sanctum', 'xss'])->prefix("report")->group(function () {
+    //     Route::get('/log-history', [LogHistoryController::class, 'getData'])->name('list-log-history');
+    // });
 
     Route::middleware(['auth:sanctum', 'xss', 'role.menu'])->prefix("master-data")->group(function () {
 

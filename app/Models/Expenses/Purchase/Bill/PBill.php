@@ -25,6 +25,7 @@ class PBill extends Model
         'status',//0=draft,1=awaiting,  2=paid,
         'currency'
     ];
+    //status 0 /draft tidak tercatat pada
 
     protected $appends = [
         'name_contact'

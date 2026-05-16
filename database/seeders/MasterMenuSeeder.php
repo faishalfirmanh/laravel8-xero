@@ -12,7 +12,7 @@ use App\Models\Config\RoleUsers;
 use App\Models\User;
 use Illuminate\Support\Facades\DB; // Tambahkan ini
 use Exception; // Tambahkan ini untuk menangkap error
-
+use Illuminate\Support\Str;
 class MasterMenuSeeder extends Seeder
 {
     public function run()
@@ -26,7 +26,8 @@ class MasterMenuSeeder extends Seeder
             $list_parent_menu = [
                 ['nama_menu' => 'master data', 'order' => 1, 'is_active' => 1],
                 ['nama_menu' => 'transaksi', 'order' => 2, 'is_active' => 1],
-                ['nama_menu' => 'pengaturan', 'order' => 3, 'is_active' => 1]
+                ['nama_menu' => 'pengaturan', 'order' => 3, 'is_active' => 1],
+                ['nama_menu' => 'report', 'order' => 4, 'is_active' => 1]
             ];
 
             // 1. Simpan Parent Menu
@@ -116,7 +117,7 @@ class MasterMenuSeeder extends Seeder
             $transParent = Menu::where('nama_menu', 'transaksi')->first();
             if ($transParent) {
 
-                $child_trans = [ //nama routenya 
+                $child_trans = [ //nama routenya yang di akses 
                     'sales-invoice',
                     'sales-overview',
                     'sales-productAndService',
@@ -154,6 +155,38 @@ class MasterMenuSeeder extends Seeder
 
             }
 
+            //
+            $reportParent = Menu::where('nama_menu', 'report')->first();
+            if ($reportParent) {
+
+                $child_report = [ //nama routenya 
+                    'rep-coa',
+                    'rep-log-history'
+                ];
+                $slug_report = [
+                    'travel/admin/report/rep-coa',
+                    'travel/admin/report/rep-log-history',
+                ];
+
+                $rprt = 0;
+                foreach ($child_report as $name) {
+                    $result1 = (string) Str::of($name)->after('rep-')->replace('-', ' ');
+                    Menu::firstOrCreate([
+                        'nama_menu' => $result1,//nama menu yang tampil
+                        'route_name' => $name
+                    ], [
+                        'nama_menu' => $result1,
+                        'slug' => $slug_report[$rprt],
+                        'parent_id' => $reportParent->id,
+                        'is_active' => 1
+                    ]);
+
+                    $this->command->info('Berhasil simpan menu report : ' . $name . "-" . $rprt);
+                    $rprt++;
+                }
+
+            }
+
 
 
             //jika it insert role
@@ -161,7 +194,7 @@ class MasterMenuSeeder extends Seeder
             if ($cek_role_it) {
                 $getAllMenu = Menu::get();
                 foreach ($getAllMenu as $key => $value) {
-                    RoleMenus::firstOrCreate(
+                    $roles_menu = RoleMenus::firstOrCreate(
                         [
                             'role_id' => $cek_role_it->id,
                             'menu_id' => $value->id
@@ -171,10 +204,11 @@ class MasterMenuSeeder extends Seeder
                             'menu_id' => $value->id
                         ]
                     );
+                    $this->command->info('Berhasil create menu report : ' . $roles_menu->nama_menu . "-");
                 }
 
                 //tambah akses
-                $cek_akses_role = RoleUsers::where('role_id', $cek_role_it)->first();
+                // $cek_akses_role = RoleUsers::where('role_id', $cek_role_it)->first();
                 $cek_user = User::where('email', 'isal@gmail.com')->first();
 
                 $cekAkses = RoleUsers::where(['role_id' => $cek_role_it, 'user_id' => $cek_user->id])->first();

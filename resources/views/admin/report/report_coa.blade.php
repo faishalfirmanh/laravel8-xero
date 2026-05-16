@@ -17,11 +17,11 @@
             <thead class="table-dark">
                 <tr>
                     <th width="5%">No</th>
-                    {{-- <th>User ID</th> --}}
+                    <th>User ID</th>
                     <th>IP Address</th>
                     <th>Browser</th>
                     <th>Action</th>
-                    <th>Date</th>
+                    <th>Created By</th>
                 </tr>
             </thead>
         </table>
@@ -38,7 +38,7 @@ $(document).ready(function () {
 
     table = initGlobalDataTableToken(
         '#tableLogHistory',
-        `{{ route('rep-log-history') }}`,
+        `{{ route('rep-coa') }}`,
         [
             {
                 data: null,
@@ -47,11 +47,11 @@ $(document).ready(function () {
                     return m.row + m.settings._iDisplayStart + 1;
                 }
             },
-            // {
-            //     data: 'user_id',
-            //     name: 'user_id',
-            //     render: d => d ?? '-'
-            // },
+            {
+                data: 'user_id',
+                name: 'user_id',
+                render: d => d ?? '-'
+            },
             {
                 data: 'ip_address',
                 name: 'ip_address',
@@ -62,7 +62,7 @@ $(document).ready(function () {
                 name: 'browser',
                 render: function (data) {
                     if (!data) return '-';
-                    return `<span title="${data}">${data.substring(0, 130)}...</span>`;
+                    return `<span title="${data}">${data.substring(0, 40)}...</span>`;
                 }
             },
             {
@@ -70,11 +70,9 @@ $(document).ready(function () {
                 name: 'action'
             },
             {
-                data: 'created_at',
-                name: 'created_at',
-                render: function(data){
-                    return convertStringDate(data)
-                }
+                data: 'created_by',
+                name: 'created_by',
+                render: d => d ?? '-'
             },
         ],
         { kolom_name: 'action' }

@@ -15,22 +15,25 @@ use Illuminate\Support\Facades\Http;
 use App\ConfigRefreshXero;
 use Barryvdh\DomPDF\Facade\Pdf;
 
-class TravelController extends Controller {
+class TravelController extends Controller
+{
 
-   // protected $repo, $repo_detail, $service_global, $repo_jamaah;
+    // protected $repo, $repo_detail, $service_global, $repo_jamaah;
     use ConfigRefreshXero;
     use ApiResponse;
 
-    protected $repo;// $repo_trans, $repo_tracking;
+    protected $repo, $service_global;// $repo_trans, $repo_tracking;
 
 
-    public function __construct(TravelRepository $repo)
+    public function __construct(TravelRepository $repo, GlobalService $service_global)
     {
         $this->repo = $repo;
+        $this->service_global = $service_global;
+
     }
 
 
-  public function getAllPaginate(Request $request)
+    public function getAllPaginate(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'page' => 'required|integer',
@@ -55,19 +58,26 @@ class TravelController extends Controller {
 
 
 
-     public function store(Request $request)
+    public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name'        => 'required|string',
-            'is_active'      => 'required|boolean',
+            'name' => 'required|string',
+            'is_active' => 'required|boolean',
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 400);
         }
-         $request['created_by']= $request->user_login->id;
+        $request['created_by'] = $request->user_login->id;
         $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
 
+        $cek_konidis = $request->id != null ? 'update ' : 'create ';
+        $this->service_global->saveLogHistory(
+            $request->user_login->id,
+            $request->user_login->name . " " . $cek_konidis . ' master travel ' . $saved->name,
+            $request->userAgent(),
+            $request->ip()
+        );
         return $this->autoResponse($saved);
     }
 
@@ -76,7 +86,7 @@ class TravelController extends Controller {
 
     public function destroy(Request $request)
     {
-         $id = $request->id;
+        $id = $request->id;
 
         $validator = Validator::make($request->all(), [
             'id' => 'required|numeric|exists:travel_names,id',
@@ -86,7 +96,17 @@ class TravelController extends Controller {
             return $this->error($validator->errors(), 400);
         }
 
+        $findData = $this->repo->whereData(['id' => $id])->first();
+
+        $this->service_global->saveLogHistory(
+            $request->user_login->id,
+            $request->user_login->name . 'hapus master travel ' . $findData->name,
+            $request->userAgent(),
+            $request->ip()
+        );
         $data = $this->repo->delete($id);
+
+
         return $this->autoResponse($data);
 
     }

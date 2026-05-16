@@ -128,6 +128,14 @@ class BillXeroController extends Controller
                 }
             }
 
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $request->user_login->name . ' save transaksi bills ' . $saveP->name_contact,
+                $request->userAgent(),
+                $request->ip()
+            );
+
             // 3. Save Details (Create / Update)
             foreach ($request->account_id as $key => $accountId) {
                 $detailId = $request->id_detail[$key] ?? null;

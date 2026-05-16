@@ -143,7 +143,7 @@ class GlobalService
                 'user_id' => $idUserLogin,
                 'ip_address' => $ip_address,
                 'browser' => $bowser,
-                'action' => $action
+                'action' => $action,
             ]);
         } catch (\Throwable $th) {
             Log::error('Gagal simpan log history: ' . $th->getMessage());

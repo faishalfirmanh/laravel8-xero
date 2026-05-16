@@ -115,4 +115,9 @@ class DashboardController extends Controller
     {
         return view('admin.transaksi.purchase.list_bill');
     }
+
+    public function caoList()
+    {
+        return view('admin.report.report_coa');
+    }
 }
