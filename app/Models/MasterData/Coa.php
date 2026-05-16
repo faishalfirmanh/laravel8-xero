@@ -2,6 +2,7 @@
 
 namespace App\Models\MasterData;
 
+use App\Models\Transaction\TransactionAllCoa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -20,4 +21,18 @@ class Coa extends Model
         'is_active',
         'currency_code'
     ];
+
+    protected $appends = [
+        'sum_nominal'
+    ];
+
+    public function getTrans()
+    {
+        return $this->hasMany(TransactionAllCoa::class, 'id', 'uuid_coa');
+    }
+
+    public function getSumNominalAttribute()
+    {
+        return TransactionAllCoa::where('uuid_coa', $this->id)->sum('nominal');
+    }
 }

@@ -109,21 +109,23 @@ class CoaController extends Controller
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
+            'type' => 'nullable|string|in:EXPENSE,REVENUE,ALL'
         ]);
+
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
         //dd($request->menu);
-        $where = [];
+        $where = $request->type == 'ALL' ? [] : ['account_type' => $request->type];
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
         } else {
             $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'name', 'ASC');//getDataPaginate("name",10,$request->keyword);
         }
-        //$data['menu']= $request->menu;
+
         return $this->autoResponse($data);
-        //return $this->success($data);
+
     }
 
 

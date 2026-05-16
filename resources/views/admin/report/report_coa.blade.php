@@ -5,7 +5,16 @@
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Daftar Coa</h5>
+        <div class="form-group mb-0">
+            <select id="filterAccountType" class="form-select form-select-sm">
+                <option value="ALL">ALL</option>
+                <option value="EXPENSE">EXPENSE</option>
+                <option value="REVENUE">REVENUE</option>
+            </select>
+        </div>
     </div>
+
+    
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
         <div class="spinner-border text-primary" role="status"></div>
@@ -20,6 +29,7 @@
                      <th>Name</th>
                     <th>Account Type</th>
                     <th>Diskripsi</th>
+                    <th>Nominal</th>
                     <th width="15%">Action</th>
                 </tr>
             </thead>
@@ -27,54 +37,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Tambah Coa Baru</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form id="formCreateHotel">
-                @csrf
-                <div class="modal-body">
-                    <input type="hidden" name="idHotelInput" id="idHotelInput">
-                    <div class="form-group"> <label for="nameHotel">Nama Coa</label>
-                        <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Hotel Hilton" required>
-                    </div>
-                    <div class="form-group"> <label for="desc">Deskripsi Coa</label>
-                        <input type="text" class="form-control" id="desc" name="desc" placeholder="Contoh: coa untuk pendapatan" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="account_type">Account Type</label>
-                        <select class="form-control" id="account_type" name="account_type" required> <option value="" selected disabled>Pilih Account...</option>
-                            <option value="0">Pilih Account</option>
-                            <option value="current_asset">Current Asset</option>
-                            <option value="fixed_asset">Fixed Asset</option>
-                            <option value="inventory">inventory</option>
-                            <option value="non_current_asset">Non Current Asset</option>
-                            <option value="prepayment">Prepayment</option>
-                            <option value="equity">equity</option>
-                            <option value="expenses">expenses</option>
-                            <option value="overhead">overhead</option>
-                            <option value="current_liability">current liability</option>
-                            <option value="liability">Liability</option>
-                            <option value="non_current_liability">Non Current Liability</option>
-                            <option value="other_income">Other Income</option>
-                            <option value="revenue">Revenue</option>
-                            <option value="sales">Sales</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary" id="btnSave">Simpan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+
 
 @endsection
 
@@ -99,7 +62,7 @@ $(document).ready(function() {
         {
             data: 'account_type',
             name: 'account_type' ,
-            render: function(data) {
+            render: function(data,type, row) {
                 let final_view = data.replaceAll('_', ' ');
                 return final_view;
             }
@@ -107,6 +70,14 @@ $(document).ready(function() {
         {
             data: 'desc',
             name: 'desc'
+        },
+        {
+            data: 'sum_nominal',
+            name: 'sum_nominal',
+             render: function(data,type, row) {
+              
+                return formatCurrency(data);
+            }
         },
         {
             data: "id",
@@ -126,12 +97,22 @@ $(document).ready(function() {
 
    
 
-     table = initGlobalDataTableToken(
-        '#tableCoa',
-        `{{ route('get-all-coa') }}`,
-        columnCoa,
-        { "kolom_name": "name" }
-    );
+    function loadTable(accountType) {
+        table = initGlobalDataTableTokenSelected(
+            '#tableCoa',
+            `{{ route('get-all-coa') }}`,
+            columnCoa,
+            { 'kolom_name': 'name', 'type' : accountType } 
+        );
+    }
+
+    let initialType = $('#filterAccountType').val(); 
+    loadTable(initialType);
+
+    $('#filterAccountType').on('change', function() {
+       let selectedType = $(this).val();
+       loadTable(selectedType);
+    });
 
 });
 </script>
