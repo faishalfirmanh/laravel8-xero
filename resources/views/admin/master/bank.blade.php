@@ -3,14 +3,32 @@
 @section('content')
 
 <div class="card shadow mb-5">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Daftar Hotel</h5>
+     <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Daftar Bank</h5>
 
-        <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
-            <i class="ti ti-plus me-1"></i> Tambah Bank
-        </button>
+        <div class="d-flex gap-2">
+
+        <!-- Button Tambah COA -->
+             <button type="button" onclick="" id="button_add_bank" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel" style="height:42px;">
+                Tambah Bank
+             </button>
+
+            <!-- Button Sync dari Xero -->
+            <div class="d-flex flex-column align-items-end">
+                <button onclick="syncCoaFromXero()" 
+                        type="button" 
+                        class="btn btn-success shadow-sm fw-bold">
+                    <i class="fas fa-sync-alt me-1"></i> Sync dari Xero
+                </button>
+                <span class="text-muted mt-1 small" style="font-size: 11px;">
+                    Sinkronisasi semua Bank dari Xero
+                </span>
+            </div>
+
+        </div>
     </div>
 
+   
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
         <div class="spinner-border text-primary" role="status"></div>
         <div class="mt-2">Loading data...</div>
@@ -34,7 +52,7 @@
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Tambah Hotel Baru</h5>
+                <h5 class="modal-title">Tambah Bank Baru</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -42,17 +60,22 @@
             <form id="formCreateHotel">
                 @csrf
                 <div class="modal-body">
-                    <input type="hidden" name="idHotelInput" id="idHotelInput">
-                    <div class="form-group"> <label for="nameHotel">Nama Hotel</label>
-                        <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Hotel Hilton" required>
+                    <input type="hidden" name="id" id="idHotelInput">
+                    <div class="form-group"> <label for="nameHotel">Nama Bank</label>
+                        <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Bank BCA Namiroh" required>
                     </div>
 
-                    <div class="form-group">
-                        <label for="typeLocation">Lokasi</label>
-                        <select class="form-control" id="typeLocation" name="type_location_hotel" required> <option value="" selected disabled>Pilih Lokasi...</option>
-                            <option value="0">PIlih Lokasi</option>
-                            <option value="1">Makkah</option>
-                            <option value="2">Madinah</option>
+                    <div class="form-group"> <label for="account_number">No Rek Bank</label>
+                        <input type="text" class="form-control" id="account_number" name="account_number" placeholder="Contoh: 017382****" required>
+                    </div>
+                    <div class="form-group"> <label for="code">code</label>
+                        <input type="text" class="form-control" id="code" name="code" placeholder="Contoh: 12233****" required>
+                    </div>
+                    <div class="form-group"> <label for="currency_code">Jenis Mata Uang</label>
+                          <select class="form-control" id="currency_code" name="currency_code" required> <option value="" selected disabled>Pilih Jenis Mata Uang...</option>
+                            <option value="0">--pilih jenis mata uang--</option>
+                            <option value="SAR">SAR</option>
+                            <option value="IDR">IDR</option>
                         </select>
                     </div>
                 </div>
@@ -83,12 +106,10 @@ $(document).ready(function() {
         },
         { data: 'name', name: 'name' },
         {
-            data: 'type_location_hotel',
-            name: 'type_location_hotel',
+            data: 'account_number',
+            name: 'account_number',
             render: function(data) {
-                if(data == 1) return '<span class="badge badge-success">Makkah</span>'; // BS4 pakai badge-success
-                if(data == 2) return '<span class="badge badge-info">Madinah</span>';   // BS4 pakai badge-info
-                return '-';
+               return `<span class="badge badge-success">${data}</span>`; // BS4 pakai badge-success
             }
         },
         {
@@ -100,8 +121,8 @@ $(document).ready(function() {
                 console.log('idd',data)
                 // Di sini saya asumsikan Edit juga pakai Modal, jadi nanti pakai data-toggle="modal" juga
                 let btnEdit = `<a href="javascript:;" onclick="${loadDataHotel(data)}" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
-                let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
-                return btnEdit + btnHapus;
+                //let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
+                return btnEdit ;
             },
         }
     ];
@@ -111,9 +132,10 @@ $(document).ready(function() {
         let rowData = table.row($(this).parents('tr')).data(); // Ambil data baris tersebut
 
         $('#idHotelInput').val(id);
+         $('#code').val(rowData.code);
         $('#nameHotel').val(rowData.name);
-        $('#typeLocation').val(rowData.type_location_hotel).change(); // .change() untuk memicu update jika pakai select2
-
+        $('#account_number').val(rowData.account_number); // .change() untuk memicu update jika pakai select2
+        $("#currency_code").val(rowData.currency_code).trigger('change')
         // Ubah Judul Modal dan Tampilkan
         $('.modal-title').text('Edit Hotel ' +rowData.name);
         $('#modalCreateHotel').modal('show');
@@ -160,10 +182,12 @@ $(document).ready(function() {
 
     });
 
-    $("#button_add_hotel").on("click",function(){
+    $("#button_add_bank").on("click",function(){
+        $("#nameHotel").val('')
+        $("#currency_code").val(0).trigger('change')
         $('#idHotelInput').val(0);
-        $('#nameHotel').val('');
-        $('#typeLocation').val(0).change();
+        $("#code").val('');
+        $('#account_number').val('');
     });
 
     function tambahDataHotel(){
@@ -172,7 +196,7 @@ $(document).ready(function() {
 
      table = initGlobalDataTableToken(
         '#tableHotel',
-        `{{ route('getAllHotelApi') }}`,
+        `{{ route('bank-list') }}`,
         columnHotel,
         { "kolom_name": "name" }
     );
@@ -190,11 +214,13 @@ $(document).ready(function() {
         let selectedData = {
             id: idHotel,
             name: params.get('name'),
-            type_location_hotel: params.get('type_location_hotel')
+            code: params.get('code'),
+            account_number: params.get('account_number'),
+            currency_code: params.get('currency_code')
         };
 
         let jsonResult = JSON.stringify(selectedData);
-         ajaxRequest( `{{ route('saveMasterHotel') }}`,'POST',selectedData, localStorage.getItem("token"))
+         ajaxRequest( `{{ route('create-bank') }}`,'POST',selectedData, localStorage.getItem("token"))
             .then(response =>{
                  $("#modalCreateHotel").modal('hide')
                 if(response.status == 200){
@@ -203,7 +229,7 @@ $(document).ready(function() {
                         title: 'Simpan Berhasil!',
                         html: `
                             <div style="text-align: left; font-size: 14px;">
-                                <p class="mb-1"> berhasil simpan hotel </p>
+                                <p class="mb-1"> berhasil simpan bank </p>
                                 <hr>
                             </div>
                         `,
@@ -220,5 +246,54 @@ $(document).ready(function() {
     });
 
 });
+
+function syncCoaFromXero(){
+
+        Swal.fire({
+            title: 'Sinkronisasi Bank dari Xero?',
+            html: 'Apakah Anda yakin ingin mengambil <strong>semua bank </strong> dari Xero?<br><br>Proses ini akan memperbarui data bank lokal Anda.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',   // hijau
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Sync Sekarang',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                Swal.fire({
+                    title: 'Sedang Sinkronisasi...',
+                    text: 'Mohon tunggu sebentar',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                ajaxRequest( `{{ route('all-bank-xero') }}`,'GET',{ is_sync: 1 }, localStorage.getItem("token"))
+                .then(response =>{
+                    Swal.close();
+                        if (response.status === 200) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: `Berhasil sinkronisasi ${response.total_saved} data COA`,
+                                timer: 2000
+                            });
+                            // Refresh table
+                            $('#tableHotel').DataTable().ajax.reload();
+                        } else {
+                            Swal.fire('Gagal', response.data.data.message, 'error');
+                        }
+                })
+                .catch((err)=>{
+                    Swal.close();
+                    Swal.fire('Error', 'Terjadi kesalahan saat sinkronisasi', 'error');
+                    console.error(xhr.responseText);
+                })
+            }
+        })
+    }
 </script>
 @endpush

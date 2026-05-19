@@ -62,7 +62,7 @@
                 <div class="modal-body">
                     <input type="hidden" name="idHotelInput" id="idHotelInput">
                     <div class="form-group"> <label for="nameHotel">Nama Coa</label>
-                        <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Hotel Hilton" required>
+                        <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Gaji karyawan" required>
                     </div>
                     <div class="form-group"> <label for="desc">Deskripsi Coa</label>
                         <input type="text" class="form-control" id="desc" name="desc" placeholder="Contoh: coa untuk pendapatan" required>
@@ -189,7 +189,11 @@ $(document).ready(function() {
                     table.ajax.reload()
                 })
                 .catch((err)=>{
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                    if(err.status == 407){
+                        Swal.fire('Gagal!', err.error.message || 'Terjadi kesalahan.', 'error');
+                    }else{
+                        Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                    }
                     //console.log('error select2 invoice',err);
                 })
             }

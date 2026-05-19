@@ -3,41 +3,33 @@
 namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
+use App\Http\Repository\Expenses\PODBillRepository;
 use App\Http\Repository\Transaction\TransCoaRepo;
+use App\Models\Expenses\Purchase\Bill\DBill;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\MasterData\CoaRepo;
 
-use App\Http\Repository\Transaction\SpendMoneyRepo;
-use App\Http\Repository\Revenue\HotelDetailInvoicesRepository;
+
 use Validator;
 use App\Traits\ApiResponse;
-use Illuminate\Support\Facades\Auth;
-use App\Services\GlobalService;
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
-use App\Models\PaymentParams;
-use Illuminate\Support\Facades\Http;
-use App\ConfigRefreshXero;
-use App\Models\Revenue\Hotel\DetailInvoicesHotel;
-use App\Models\Revenue\Hotel\InvoicesHotel;
-use App\Models\Config\ConfigCurrency;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
+
 
 
 class CoaController extends Controller
 {
 
     use ApiResponse;
-    protected $repo, $repo_trans_all;
+    protected $repo, $repo_trans_all, $repo_d_bill;
 
-    public function __construct(CoaRepo $repo, TransCoaRepo $transCoaRepo)
-    {
+    public function __construct(
+        CoaRepo $repo,
+        TransCoaRepo $transCoaRepo,
+        PODBillRepository $repo_d_bill
+    ) {
         $this->repo = $repo;
         $this->repo_trans_all = $transCoaRepo;
-
+        $this->repo_d_bill = $repo_d_bill;
     }
 
     function generateRandom4Digit()
@@ -117,7 +109,7 @@ class CoaController extends Controller
             return $this->error($validator->errors(), 404);
         }
         //dd($request->menu);
-        $where = $request->type == 'ALL' ? [] : ['account_type' => $request->type];
+        $where = $request->type == 'ALL' || $request->type == null ? [] : ['account_type' => $request->type];
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
         } else {
@@ -163,6 +155,12 @@ class CoaController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
+
+        $cekDbill = $this->repo_d_bill->whereData(['account_id_coa' => $request->id])->first();
+        if ($cekDbill) {
+            return $this->error("coa sedang di gunakan pada bills", 407, "failed deleted");
+        }
+
         $blog = $this->repo->find($id);
 
         if ($blog) {

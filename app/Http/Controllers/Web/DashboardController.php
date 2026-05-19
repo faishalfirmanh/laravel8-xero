@@ -41,6 +41,11 @@ class DashboardController extends Controller
         return view('admin.master.list_pengeluaran');
     }
 
+    public function getWebListBank()
+    {
+        return view('admin.master.bank');
+    }
+
     public function getWebListPembelianHotel()
     {
         return view('admin.transaksi.pembelian_hotel');

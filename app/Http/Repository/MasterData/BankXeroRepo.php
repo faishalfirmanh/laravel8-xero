@@ -12,4 +12,10 @@ class BankXeroRepo extends BaseRepository
         $this->model = $model;
     }
 
-  }
+    public function firstCreate($req)
+    {
+
+        return $this->model->firstOrCreate(['account_id' => $req['account_id']], $req);
+    }
+
+}

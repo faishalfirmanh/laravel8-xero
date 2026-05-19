@@ -13,6 +13,9 @@ class TransactionAllCoa extends Model
     //yang di save parentnya, semua transaksi ter record disini
 
 
+    //Real uang ada di bank (master bank)
+    //Coa sebagai tampungan semua transaksi bisa di sebut sebagai history untuk laporan & backup
+
     protected $fillable = [
         'date_transaction',
         'uuid_coa',//id coa, coas->id

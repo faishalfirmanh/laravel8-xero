@@ -9,15 +9,15 @@ class BankXero extends Model
 {
     use HasFactory;
 
-    protected $fillable =[
+    protected $fillable = [
 
-       'account_id',
-            'code',
-            'name',
-           'status',
-          'type',
-           'currency_code',
-           'account_number'
+        'account_id',
+        'code',
+        'name',
+        'status',//ACTIVE = 1,
+        'type',
+        'currency_code',
+        'account_number'
 
     ];
 }

@@ -230,7 +230,7 @@ Route::prefix("admin-web")->group(function () {
 
 
         Route::prefix('bank-xero')->group(function () {
-            Route::get('list-bank', [BankXeroController::class, 'getListInvoice'])->name('bank-list');
+            Route::get('list-bank', [BankXeroController::class, 'getAllPaginate'])->name('bank-list');
             Route::post('create-bank', [BankXeroController::class, 'store'])->name('create-bank');
             Route::post('delete-bank', [BankXeroController::class, 'destroy'])->name('delete-bank');
             Route::post('find-bank', [BankXeroController::class, 'detail'])->name('find-bank');
@@ -393,7 +393,7 @@ Route::post('/updatePerbaris/{parent_id}/{amount_input}/{line_item_id}', [Invoic
 //paid
 Route::get('/get-bank/{paymentId}', [InvoiceItem2Controller::class, 'getBankAccountFromPayment']);
 Route::post('/bank-overpayment', [BankController::class, 'postBankOverpayment']);
-Route::get('/get-all-bank', [BankController::class, 'getAllBank']);
+Route::get('/get-all-bank', [BankController::class, 'getAllBank'])->name('all-bank-xero');//can use sync when is_sync = 1
 
 //currency
 Route::get('/convert/idr-to-sar', [CurrencyController::class, 'idrToSar']);

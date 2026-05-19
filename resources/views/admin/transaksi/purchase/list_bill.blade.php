@@ -67,7 +67,7 @@
 </div>
 
 <div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-hidden="true">
-   <div class="modal-dialog modal-xl modal-dialog-centered" 
+    <div class="modal-dialog modal-xl modal-dialog-centered" 
          style="max-width: 95% !important; width: 95% !important;" 
          role="document">
         <div class="modal-content">
@@ -89,8 +89,6 @@
                 </ul>
 
                 <div class="tab-content">
-
-                    <!-- TAB HEADER -->
                     <div class="tab-pane fade show active p-3" id="headerTab">
                         <div class="row">
                             <div class="col-md-6">
@@ -133,7 +131,6 @@
                         </div>
                     </div>
 
-                    <!-- TAB DETAIL -->
                     <div class="tab-pane fade p-3" id="detailTab">
                         <div class="table-responsive">
                             <input type="hidden" id="d_id_parent_bill" name="bills_parent_id"/>
@@ -162,35 +159,103 @@
                 </div>
 
                 <div class="modal-footer d-flex justify-content-end">
-                    <!-- Hidden input untuk menyimpan nilai pilihan (1, 2, atau 3) -->
                     <input type="hidden" name="action_type" id="actionTypeValue" value="">
 
                     <button type="button" class="btn btn-secondary mr-2" data-dismiss="modal">Cancel</button>
 
-                    <!-- Tombol Save yang HANYA berfungsi sebagai pembuka dropdown -->
                     <div class="btn-group dropup">
                         <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             Save
                         </button>
-                        
-                        <!-- Menu Dropdown, disejajarkan ke kanan -->
                         <div class="dropdown-menu dropdown-menu-right shadow">
-                            
-                            <!-- Pilihan 1 (Value: 1) -->
                             <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="1">
                                 <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Approve</span>
                             </button>
-                            
                             <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                                 <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Save draft</span>
                             </button>
-
                         </div>
                     </div>
                 </div>
-            </form>
+
+                <div class="p-4 bg-light border-top">
+                    <h6 class="font-weight-bold mb-3 text-dark">Make a payment</h6>
+                    <div class="row align-items-end mb-4">
+                        <div class="col-md-2">
+                            <div class="form-group mb-0">
+                                <label class="small font-weight-bold text-muted mb-1">Amount Paid <span class="payment-currency">SAR</span></label>
+                                <input type="number" step="0.01" class="form-control form-control-sm" name="payment_amount" value="11210.00">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group mb-0">
+                                <label class="small font-weight-bold text-muted mb-1">Date Paid</label>
+                                <input type="date" class="form-control form-control-sm" name="payment_date" value="2026-05-19">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group mb-0">
+                                <label class="small font-weight-bold text-muted mb-1">Paid From</label>
+                                <select class="form-control form-control-sm" name="payment_account">
+                                    <option value=""></option>
+                                    </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group mb-0">
+                                <label class="small font-weight-bold text-muted mb-1">Reference</label>
+                                <input type="text" class="form-control form-control-sm" name="payment_reference">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-success btn-sm w-100 font-weight-bold" id="btnRecordPayment">Record payment</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top">
+                        <h6 class="font-weight-bold text-muted mb-3">History & Notes</h6>
+                        
+                        <div class="text-muted small mb-3">
+                            Approved by Haidarullah Zaymin on 5 May 2026 at 9:32AM<br>
+                            <span class="text-dark font-weight-bold">VISA & BRN - GRUP - 20 PAX from AMNA KAMILIA for 11,210.00.</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-outline-info btn-sm mr-2 font-weight-bold">Hide History (2 entries)</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm font-weight-bold">Add Note</button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered bg-white">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th class="text-muted">Changes</th>
+                                        <th class="text-muted">Date</th>
+                                        <th class="text-muted">User</th>
+                                        <th class="text-muted">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="small text-muted">
+                                    <tr>
+                                        <td>Approved</td>
+                                        <td>5 May 2026 9:32 AM</td>
+                                        <td>Haidarullah Zaymin</td>
+                                        <td>VISA & BRN - GRUP - 20 PAX from AMNA KAMILIA for 11,210.00.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Created</td>
+                                        <td>5 May 2026 9:32 AM</td>
+                                        <td>Haidarullah Zaymin</td>
+                                        <td>VISA & BRN - GRUP - 20 PAX from AMNA KAMILIA for 11,210.00.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                </form>
         </div>
     </div>
 </div>
