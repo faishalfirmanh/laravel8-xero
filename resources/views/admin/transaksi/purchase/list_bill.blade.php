@@ -30,7 +30,6 @@
         <h5 class="mb-0">Daftar Hotel</h5>
 
         <div>
-            {{-- Tambahan Opsional: Tombol untuk mengecek row yang di-select --}}
             <button type="button" id="btnProsesSelected" class="btn btn-success me-2">
                 <i class="ti ti-check me-1"></i> Cek Data Terpilih
             </button>
@@ -56,6 +55,7 @@
                     <th>Reference</th>
                     <th>Date</th>
                     <th>Due Date</th>
+                    <th>Total</th>
                     <th>Paid</th>
                     <th>Due</th>
                        
@@ -79,7 +79,7 @@
                 </button>
             </div>
 
-            <form id="formCreateHotel">
+            <form id="formCreateHotel" novalidate>
                 @csrf
                 <input type="hidden" name="idHotelInput" id="idHotelInput">
 
@@ -180,33 +180,33 @@
                     </div>
                 </div>
 
-                <div class="p-4 bg-light border-top">
+                <div class="p-4 bg-light border-top" id="modal_pay">
                     <h6 class="font-weight-bold mb-3 text-dark">Make a payment</h6>
                     <div class="row align-items-end mb-4">
                         <div class="col-md-2">
                             <div class="form-group mb-0">
-                                <label class="small font-weight-bold text-muted mb-1">Amount Paid <span class="payment-currency">SAR</span></label>
-                                <input type="number" step="0.01" class="form-control form-control-sm" name="payment_amount" value="11210.00">
+                                <label class="small font-weight-bold text-muted mb-1">Amount Paid <span class="payment-currency" id="label_payment"></span></label>
+                                <input type="number" step="0.01" class="form-control form-control-sm" name="nominal_spend" min="1" value="0">
                             </div>
                         </div>
                         <div class="col-md-2">
                             <div class="form-group mb-0">
                                 <label class="small font-weight-bold text-muted mb-1">Date Paid</label>
-                                <input type="date" class="form-control form-control-sm" name="payment_date" value="2026-05-19">
+                                <input type="date" class="form-control form-control-sm" name="date_transaction" value="{{ date('Y-m-d') }}">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group mb-0">
                                 <label class="small font-weight-bold text-muted mb-1">Paid From</label>
-                                <select class="form-control form-control-sm" name="payment_account">
-                                    <option value=""></option>
-                                    </select>
+                                <select class="form-control select2-payment-bank" id="payment_bank" name="uuid_bank" style="width: 100%;">
+                                    <option value=""></option> 
+                                </select>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group mb-0">
                                 <label class="small font-weight-bold text-muted mb-1">Reference</label>
-                                <input type="text" class="form-control form-control-sm" name="payment_reference">
+                                <input type="text" class="form-control form-control-sm" name="reference_detail">
                             </div>
                         </div>
                         <div class="col-md-2">
@@ -216,46 +216,27 @@
 
                     <div class="mt-4 pt-3 border-top">
                         <h6 class="font-weight-bold text-muted mb-3">History & Notes</h6>
-                        
-                        <div class="text-muted small mb-3">
-                            Approved by Haidarullah Zaymin on 5 May 2026 at 9:32AM<br>
-                            <span class="text-dark font-weight-bold">VISA & BRN - GRUP - 20 PAX from AMNA KAMILIA for 11,210.00.</span>
-                        </div>
-                        
                         <div class="mb-3">
-                            <button type="button" class="btn btn-outline-info btn-sm mr-2 font-weight-bold">Hide History (2 entries)</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm font-weight-bold">Add Note</button>
+                            <button type="button" class="btn btn-outline-info btn-sm mr-2 font-weight-bold">History Payment </button>
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-sm table-bordered bg-white">
+                            <table class="table table-sm table-bordered bg-white" id="payment_history_bill">
                                 <thead class="thead-light">
                                     <tr>
-                                        <th class="text-muted">Changes</th>
+                                        <th class="text-muted">No</th>
                                         <th class="text-muted">Date</th>
-                                        <th class="text-muted">User</th>
-                                        <th class="text-muted">Details</th>
+                                        <th class="text-muted">Bank Name</th>
+                                        <th class="text-muted">Nominal</th>
                                     </tr>
                                 </thead>
                                 <tbody class="small text-muted">
-                                    <tr>
-                                        <td>Approved</td>
-                                        <td>5 May 2026 9:32 AM</td>
-                                        <td>Haidarullah Zaymin</td>
-                                        <td>VISA & BRN - GRUP - 20 PAX from AMNA KAMILIA for 11,210.00.</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Created</td>
-                                        <td>5 May 2026 9:32 AM</td>
-                                        <td>Haidarullah Zaymin</td>
-                                        <td>VISA & BRN - GRUP - 20 PAX from AMNA KAMILIA for 11,210.00.</td>
-                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-                </form>
+            </form>
         </div>
     </div>
 </div>
@@ -267,12 +248,20 @@
 $(document).ready(function() {
     var table;
 
-    // --- HELPER FUNCTION ---
+    // --- HELPER FUNCTIONS ---
     function formatCurrency(amount) {
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(amount);
+    }
+
+    // FIX 2: Added missing convertStringDate function to prevent ReferenceError
+    function convertStringDate(dateString) {
+        if (!dateString) return '-';
+        let d = new Date(dateString);
+        let options = { day: 'numeric', month: 'short', year: 'numeric' };
+        return d.toLocaleDateString('en-GB', options);
     }
 
     // --- 1. DATATABLE CONFIG ---
@@ -298,36 +287,50 @@ $(document).ready(function() {
         { data: 'reference', name: 'reference' },
         { data: 'date_req', name: 'date_req' },
         { data: 'due_date', name: 'due_date' },
-        { data: 'nominal_paid', name: 'nominal_paid' },
-        { data: 'nominal_due', name: 'nominal_due' },
+        { 
+            data: 'total', 
+            name: 'total', 
+            render: function(data,type,row){
+                return formatCurrency(data)
+            } 
+        },
+        { 
+            data: 'nominal_paid', 
+            name: 'nominal_paid', 
+            render: function(data,type,row){
+                return formatCurrency(data)
+            } 
+        },
+        { 
+            data: 'nominal_due', 
+            name: 'nominal_due' ,
+            render: function(data,type,row){
+                return formatCurrency(data)
+            }
+        },
         {
             data: "id",
             orderable: false,
             searchable: false,
             className: "text-center",
             render: function(data, type, row) {
-                let btnEdit = `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
-               // let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
-                return btnEdit ;
+                return `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
             },
         }
     ];
 
-    // FIX: Menggunakan initGlobalDataTableToken dan menambahkan logika addClass/removeClass
     table = initGlobalDataTableTokenSelected(
         '#tableHotel',
         `{{ route('purchase-bills') }}`,
         columnBills,
-        { "kolom_name": "uuid_from" }, // Parameter 4: Extra Params
-        {                              // Parameter 5: Options DataTables khusus untuk select row
+        { "kolom_name": "uuid_from" },
+        {
             rowCallback: function(row, data) {
-                $(row).css('cursor', 'pointer'); // Ubah kursor jadi tangan
+                $(row).css('cursor', 'pointer'); 
                 $(row).off('click').on('click', function() {
-                    // Jika baris sudah terpilih, maka batalkan pilihannya
                     if ($(this).hasClass('selected')) {
                         $(this).removeClass('selected table-active');
                     } else {
-                        // Jika baris belum terpilih, hapus pilihan dari baris lain, lalu pilih baris ini
                         table.$('tr.selected').removeClass('selected table-active');
                         $(this).addClass('selected table-active');
                     }
@@ -336,16 +339,38 @@ $(document).ready(function() {
         }
     );
 
-    // FIX: Aksi tombol uji coba select row
+
+    $("#btnRecordPayment").on('click', function(e){
+        e.preventDefault();
+        
+        let send_payment = {
+            uuid_bank: $('#modal_pay select[name="uuid_bank"]').val(),
+            nominal_spend: $('#modal_pay input[name="nominal_spend"]').val(),
+            reference_detail: $('#modal_pay input[name="reference_detail"]').val(),
+            date_transaction: $('#modal_pay input[name="date_transaction"]').val(),
+            id_parent_bill: $('#idHotelInput').val()
+        };
+
+         ajaxRequest(`{{ route('save-pay-bill') }}`, 'POST', send_payment, localStorage.getItem("token"))
+            .then(response => {
+                if(response.status == 200){
+                    Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                    $('#modalCreateHotel').modal('hide');
+                    table.ajax.reload(null, false);
+                }
+            })
+            .catch((err) => {
+                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+            });
+    });
+
     $('#btnProsesSelected').on('click', function() {
         let selectedRowData = table.row('.selected').data();
         if (!selectedRowData) {
             Swal.fire('Oops!', 'Pilih data terlebih dahulu dengan mengklik salah satu baris di tabel!', 'warning');
             return;
         }
-        console.log("Data yang dipilih:", selectedRowData);
         Swal.fire('Berhasil', 'Anda memilih Reference: ' + selectedRowData.reference, 'success');
-        // Lakukan aksi dengan selectedRowData.id, selectedRowData.reference, dll
     });
 
     // --- 2. INITIALIZE GLOBAL SELECT2 ---
@@ -353,7 +378,6 @@ $(document).ready(function() {
        $('.select2-contact').select2({
             placeholder: "Cari nama contact...",
             allowClear: true,
-            minimumInputLength: 0,
             dropdownParent: $('#modalCreateHotel'),
             ajax: {
                 url: "{{ route('list-contact-select2') }}",  
@@ -361,25 +385,15 @@ $(document).ready(function() {
                 dataType: 'json',
                 delay: 250,
                 data: function(params) {
-                    return {
-                        page: params.page || 1,
-                        keyword: params.term || '',  
-                        limit: 10
-                    };
+                    return { page: params.page || 1, keyword: params.term || '', limit: 10 };
                 },
                 processResults: function(response, params) {
                     params.page = params.page || 1;
                     return {
                         results: $.map(response.data.data, function(item) {
-                            return {
-                                id: item.id,                   
-                                text: item.full_name,
-                                phone: item.phone_number || '-'
-                            };
+                            return { id: item.id, text: item.full_name, phone: item.phone_number || '-' };
                         }),
-                        pagination: {
-                            more: response.data.next_page_url !== null
-                        }
+                        pagination: { more: response.data.next_page_url !== null }
                     };
                 },
                 cache: true
@@ -387,20 +401,48 @@ $(document).ready(function() {
             templateResult: function(item) {
                 if (!item.id) return item.text;
                 return $(`<span>${item.text} <small class="text-muted">(${item.phone})</small></span>`);
-            },
-            templateSelection: function(item) {
-                if (!item.id) return item.text;
-                return item.text;
             }
         });
     }
-
     initAllSelect2();
+
+    function initAllSelectBank() {
+       $('.select2-payment-bank').select2({
+            placeholder: "Cari nama bank...",
+            allowClear: true,
+            dropdownParent: $('#modalCreateHotel'),
+            ajax: {
+                url: "{{ route('getbankselect2') }}",  
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 10, kolom_name: 'name' };
+                },
+                processResults: function(response, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(response.data.data, function(item) {
+                            return { id: item.id, text: item.name, currency_code: item.currency_code || '-' };
+                        }),
+                        pagination: { more: response.data.next_page_url !== null }
+                    };
+                },
+                cache: true
+            },
+            templateResult: function(item) {
+                if (!item.id) return item.text;
+                return $(`<span>${item.text} <small class="text-muted">(${item.currency_code})</small></span>`);
+            }
+        });
+    }
+    initAllSelectBank();
 
     // --- 3. MODAL & BUTTON EVENTS ---
     $("#button_add_hotel").on("click", function(){
+        $("#modal_pay").addClass('d-none');
         $('#idHotelInput').val(0);
-        $('#cur_id').val(0); // FIX: selector val() currency
+        $('#cur_id').val(0); 
         $("#ref_id").val('');
         $("#d_id_parent_bill").val(0);
         $('#formCreateHotel')[0].reset();
@@ -425,7 +467,11 @@ $(document).ready(function() {
 
         $('#idHotelInput').val(id);
         $('.modal-title').text('Edit Bill ' + (rowData.reference || ''));
-        
+
+        $('#modal_pay input[name="nominal_spend"]').val(0);
+        $('#modal_pay select[name="uuid_bank"]').val(0).trigger('change');
+        $('#modal_pay input[name="reference_detail"]').val('');
+
         loadBills(id);
         
         $('#modalCreateHotel').modal('show');
@@ -436,15 +482,16 @@ $(document).ready(function() {
         $('#itemTable tbody').empty(); 
         $('#contact_id').prop('disabled', true); 
 
-        ajaxRequest( `{{ route('detail-bills') }}`,'GET',{id : id}, localStorage.getItem("token"))
+        ajaxRequest(`{{ route('detail-bills') }}`, 'GET', {id : id}, localStorage.getItem("token"))
             .then(response =>{
                 if(response.status == 200){
                     let data_res = response.data.data;
                     
                     let contactId = data_res.uuid_from;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
-                 
                     let newOption = new Option(contactName, contactId, true, true);
+
+                    $("#label_payment").text(data_res.currency);
                     $('#contact_id').empty().append(newOption).trigger('change');
                     
                     $("#ref_id").val(data_res.reference || '');
@@ -454,13 +501,41 @@ $(document).ready(function() {
 
                     let details = data_res.get_detail;
                     if (details && details.length > 0) {
-                        details.forEach(function(item) {
-                            addNewRow(item); 
-                        });
+                        details.forEach(function(item) { addNewRow(item); });
                     } else {
                         addNewRow(); 
                     }
-                    
+
+                    if(data_res.status == 1){
+                        $("#modal_pay").removeClass('d-none');
+                    }else{
+                        $("#modal_pay").addClass('d-none');
+                    }
+
+                    let tbody = $('#payment_history_bill tbody');
+                    tbody.empty();
+                    if (data_res.get_payment && data_res.get_payment.length > 0) {
+                        $.each(data_res.get_payment, function(index, payment) {
+                            let row = `
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td>${convertStringDate(payment.date_transaction)}</td>
+                                    <td>${payment.name_bank}</td>
+                                    <td>${formatCurrency(payment.nominal_spend)}</td> 
+                                </tr>
+                            `;
+                            tbody.append(row);
+                        });
+                    } else {
+                        tbody.append(`
+                            <tr>
+                                <td colspan="4" class="text-center py-3 text-muted">
+                                    <em>No payment history found.</em>
+                                </td>
+                            </tr>
+                        `);
+                    }
+                
                     calculateGrandTotal();
                 }
             })
@@ -472,38 +547,6 @@ $(document).ready(function() {
                 $('#contact_id').prop('disabled', false); 
             });
     }
-
-    // --- 5. DELETE FUNCTIONALITY ---
-    $('#tableHotel').on('click', '.deleted-hotel', function() {
-        let id = $(this).data('id');
-        let rowData = table.row($(this).parents('tr')).data();
-        let refName = rowData ? rowData.reference : 'Data ini';
-
-        Swal.fire({
-            title: 'Apakah Anda yakin?',
-            text: `Anda akan menghapus bill "${refName}". Data yang dihapus tidak dapat dikembalikan!`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33', 
-            cancelButtonColor: '#3085d6', 
-            confirmButtonText: 'Ya, Hapus!',
-            cancelButtonText: 'Batal'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                ajaxRequest( `{{ route('deleteMasterHotel') }}`,'POST',{id : id}, localStorage.getItem("token"))
-                .then(response =>{
-                    if(response.status == 200){
-                        Swal.fire({ title: "Sukses", text: "Berhasil hapus", icon: "success" });
-                        table.ajax.reload(null, false); // Reload tanpa refresh page number
-                    }
-                })
-                .catch((err)=>{
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-                });
-            }
-        });
-    });
-
 
     $('.action-submit').on('click', function() {
         let actionValue = $(this).val();
@@ -524,8 +567,6 @@ $(document).ready(function() {
         let id_bill = (idInput && idInput > 0) ? idInput : null;
         let action_selected = params.get('action_type');
 
-        console.log('actyn',action_selected)
-
         let selectedData = {
             id: id_bill,
             uuid_from: params.get('uuid_from'),
@@ -534,7 +575,6 @@ $(document).ready(function() {
             reference: params.get('reference'),
             currency: params.get('currency'),
             action_save : action_selected,
-         
             account_id: $('select[name="account_id[]"]').map(function(){ return $(this).val(); }).get(),
             desc: $('input[name="description[]"]').map(function(){ return $(this).val(); }).get(),
             qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
@@ -609,7 +649,6 @@ $(document).ready(function() {
 
         let $lastRow = $('#itemTable tbody tr:last');
 
-        // --- INIT DETAIL SELECT2 ---
         $lastRow.find('.select2-account').select2({
             placeholder: "Pilih Account...",
             allowClear: true,
@@ -683,7 +722,6 @@ $(document).ready(function() {
             }
         });
 
-        // --- SET DETAIL SELECT2 VALUES (EDIT MODE) ---
         if (item) {
             if (item.account_id_coa) {
                 ajaxRequest(`{{ route('coaDetail') }}`, 'get', {id: item.account_id_coa}, localStorage.getItem("token"))
@@ -696,7 +734,7 @@ $(document).ready(function() {
                     }
                 })
                 .catch((err) => {
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                    console.error(err);
                 });
             }
 
@@ -709,9 +747,6 @@ $(document).ready(function() {
                         let pktOpt = new Option(pktName, item.paket_tracking_uuid, true, true);
                         $lastRow.find('.select2-paket').append(pktOpt).trigger('change');
                     }
-                })
-                .catch((err) => {
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 });
             }
 
@@ -724,14 +759,10 @@ $(document).ready(function() {
                         let divOpt = new Option(divName, item.divisi_travel_tracking_uuid, true, true);
                         $lastRow.find('.select2-divisi').append(divOpt).trigger('change');
                     }
-                })
-                .catch((err) => {
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 });
             }
         }
 
-        // --- CALCULATION LOGIC FOR THIS ROW ---
         const $qty = $lastRow.find('input[name="qty[]"]');
         const $unitPrice = $lastRow.find('input[name="unit_price[]"]');
         const $amount = $lastRow.find('input[name="amount[]"]');

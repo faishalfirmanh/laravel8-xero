@@ -3,6 +3,8 @@
 namespace App\Models\Expenses\Purchase\Bill;
 
 use App\Models\MasterData\DataJamaahXero;
+use App\Models\Transaction\TransactionNominalBankAccount;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,13 +25,31 @@ class PBill extends Model
         'nominal_paid',
         'nominal_due',
         'status',//0=draft,1=awaiting,  2=paid,
-        'currency'
+        'currency',
+        'created_by'
     ];
     //status 0 /draft tidak tercatat pada
 
     protected $appends = [
-        'name_contact'
+        'name_contact',
+        'nama_pembuat'
     ];
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+
+    public function getPayment()
+    {
+        return $this->hasMany(TransactionNominalBankAccount::class, 'id_parent_bill');
+    }
+
+    public function getNamaPembuatAttribute()
+    {
+        return optional($this->creator)->name ?? 'no name';
+    }
 
     public function getNameContactAttribute()
     {

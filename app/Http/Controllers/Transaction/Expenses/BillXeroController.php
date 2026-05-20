@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Transaction\Expenses;
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
 use App\Http\Repository\Expenses\POPBillRepository;
+use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use Illuminate\Http\Request;
 
@@ -30,19 +31,21 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class BillXeroController extends Controller
 {
     //
-    protected $repo, $repo_detail, $service_global, $repo_all_trans;
+    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_bill;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
         POPBillRepository $repo,
         PODBillRepository $repo_detail,
         GlobalService $service_global,
-        TransCoaRepo $repo_all_trans
+        TransCoaRepo $repo_all_trans,
+        TransBankRepo $repo_trans_bill
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
         $this->service_global = $service_global;
         $this->repo_all_trans = $repo_all_trans;
+        $this->repo_trans_bill = $repo_trans_bill;
     }
 
     //used
@@ -67,6 +70,36 @@ class BillXeroController extends Controller
         return $this->autoResponse($data);
     }
 
+    public function storePayment(Request $request)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'id' => 'nullable|integer',
+            'uuid_bank' => 'required|integer|exists:bank_xeros,id',
+            'nominal_spend' => 'required|integer',
+            'reference_detail' => 'required|string',
+            'date_transaction' => 'required|date',
+            'id_parent_bill' => 'required|integer|exists:p_bills,id'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+        $request->merge([
+            'created_by' => $request->user_login->id,
+            'nominal_transfer' => 0,
+            'nominal_receive' => 0
+        ]);
+
+        $nominal_paid_final = $this->repo->whereData(['id' => $request->id_parent_bill])->first()->nominal_paid + $request->nominal_spend;
+        $nominal_due_final = $this->repo->whereData(['id' => $request->id_parent_bill])->first()->total - $nominal_paid_final;
+
+        $param_bill_save = ['nominal_paid' => $nominal_paid_final, 'nominal_due' => $nominal_due_final];
+        $this->repo->CreateOrUpdate($param_bill_save, $request->id_parent_bill);
+        $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), null);
+        return $this->autoResponse($saveP);
+
+    }
 
     public function storeParent(Request $request)
     {
@@ -213,7 +246,7 @@ class BillXeroController extends Controller
             return $this->error($validator->errors());
         }
         // dd(222);
-        $data = $this->repo->WhereDataWith(['getDetail', 'getContactFrom'], ['id' => $request->id])->first();
+        $data = $this->repo->WhereDataWith(['getDetail', 'getContactFrom', 'getPayment'], ['id' => $request->id])->first();
         return $this->autoResponse($data);
     }
 
