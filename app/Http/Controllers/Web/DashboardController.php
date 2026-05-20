@@ -121,6 +121,12 @@ class DashboardController extends Controller
         return view('admin.transaksi.purchase.list_bill');
     }
 
+    public function getTransBank()
+    {
+        return view('admin.transaksi.bank.list_trans_bank');
+    }
+
+
     public function caoList()
     {
         return view('admin.report.report_coa');

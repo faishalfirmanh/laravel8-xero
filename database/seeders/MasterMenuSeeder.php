@@ -117,14 +117,15 @@ class MasterMenuSeeder extends Seeder
             $transParent = Menu::where('nama_menu', 'transaksi')->first();
             if ($transParent) {
 
-                $child_trans = [ //nama routenya yang di akses 
+                $child_trans = [ //nama routenya yang di akses route api,
                     'sales-invoice',
                     'sales-overview',
                     'sales-productAndService',
                     'purchase-overview',
                     'bills',
                     'purchase-orders',
-                    'purchase-suppliers'
+                    'purchase-suppliers',
+                    'bank-trans'
                 ];
                 $slug_trans = [
                     'travel/admin/transaksi/sales-invoice',
@@ -134,6 +135,7 @@ class MasterMenuSeeder extends Seeder
                     'travel/admin/transaksi/purchase-bills',
                     'travel/admin/transaksi/purchase-orders',
                     'travel/admin/transaksi/purchase-suppliers',
+                    'travel/admin/transaksi/bank-trans',
                 ];
 
                 $tp = 0;

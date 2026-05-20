@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
+use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
 use App\Http\Controllers\Xero\CoaXeroController;
 use App\Http\Controllers\Xero\ConfigController;
@@ -203,6 +204,11 @@ Route::prefix("admin-web")->group(function () {
         Route::prefix('transaksi')->group(function () {
             Route::prefix('sales')->group(function () {
                 Route::get('invoice', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
+            });
+
+
+            Route::prefix('bank-trans')->group(function () {
+                Route::get('list', [BankSpendReceiveController::class, 'getAllPaginate'])->name('list-bank-trans');
             });
 
             Route::prefix('purchase')->group(function () {
