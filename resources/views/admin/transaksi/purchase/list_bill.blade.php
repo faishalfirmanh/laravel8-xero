@@ -273,7 +273,7 @@ $(document).ready(function() {
                 return meta.row + meta.settings._iDisplayStart + 1;
             },
         },
-        { data: 'name_contact', name: 'name_contact' },
+        { data: 'name_contact_bill', name: 'name_contact_bill' },
         {
             data: 'status',
             name: 'status',

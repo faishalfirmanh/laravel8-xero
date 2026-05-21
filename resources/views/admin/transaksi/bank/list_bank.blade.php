@@ -27,32 +27,7 @@
 
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0" id="title_header">List Transaction</h5>
-
-        <div>
-            {{-- <button type="button" id="btnProsesSelected" class="btn btn-success me-2">
-                <i class="ti ti-check me-1"></i> Cek Data Terpilih
-            </button> --}}
-
-            {{-- <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
-                <i class="ti ti-plus me-1"></i> add new transaction
-            </button> --}}
-            <div class="btn-group dropup">
-                <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    New Transaction
-                </button>
-                <div class="dropdown-menu dropdown-menu-right shadow">
-                    <button type="button" id="button_receive_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="1">
-                        <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
-                        <span>Receive Money</span>
-                    </button>
-                    <button type="button" id="button_spend_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
-                        <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
-                        <span>Spend Money</span>
-                    </button>
-                </div>
-            </div>
-        </div>
+        <h5 class="mb-0">List Of Bank</h5>
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
@@ -65,13 +40,9 @@
             <thead class="table-dark">
                 <tr>
                     <th width="5%">No</th>
-                    <th>Date</th>
-                    <th>Name Contact</th>
-                    <th>Reference</th>
-                    <th>Payment Ref</th>
-                    <th>Spend</th>
-                    <th>Received</th>
-                       
+                    <th>Name Bank</th>
+                    <th>Nominal Spend</th>
+                    <th>Nominal Receive</th>
                     <th width="15%">Action</th>
                 </tr>
             </thead>
@@ -107,32 +78,40 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label id="title_to_from"></label>
-                                    <select class="form-control select2-contact" name="uuid_to" id="contact_id" style="width: 100%;" required></select>
+                                    <label>From (Supplier / Contact)</label>
+                                    <select class="form-control select2-contact" name="uuid_from" id="contact_id" style="width: 100%;" required></select>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label>Date</label>
-                                    <input type="date" class="form-control" id="date_req" name="date_h" value="{{ date('Y-m-d') }}" required>
+                                    <input type="date" class="form-control" id="date_req" name="date_req" value="{{ date('Y-m-d') }}" required>
                                 </div>
                             </div>
                             <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>Due Date</label>
+                                    <input type="date" id="due_date" class="form-control" name="due_date" value="{{ date('Y-m-d', strtotime('+30 days')) }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
                                 <div class="form-group">
                                     <label>Reference</label>
                                     <input type="text" id="ref_id" class="form-control" name="reference">
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-md-12">
-                            <div class="form-group">
-                                <label>Ammounts Are</label>
-                                <select class="form-control" id="ammounts_are" name="ammounts_are" required>
-                                    <option value="7">-- selected value --</option>
-                                    <option value="2">TAX EXCLUSIVE</option>
-                                    <option value="1">TAX INCLUSIVE</option>
-                                    <option value="0">NO TAX</option>
-                                </select>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>Currency</label>
+                                    <select class="form-control" id="cur_id" name="currency" required>
+                                        <option value="0">Pilih mata uang</option>
+                                        <option value="IDR">IDR - Indonesian Rupiah</option>
+                                        <option value="SAR">SAR - Saudi Riyal</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -170,10 +149,10 @@
                     <button type="button" class="btn btn-secondary mr-2" data-dismiss="modal">Cancel</button>
 
                     <div class="btn-group dropup">
-                        <button type="submit" class="btn btn-primary"  aria-haspopup="true" aria-expanded="false">
+                        <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             Save
                         </button>
-                        {{-- <div class="dropdown-menu dropdown-menu-right shadow">
+                        <div class="dropdown-menu dropdown-menu-right shadow">
                             <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="1">
                                 <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Approve</span>
@@ -182,7 +161,7 @@
                                 <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Save draft</span>
                             </button>
-                        </div> --}}
+                        </div>
                     </div>
                 </div>
 
@@ -253,9 +232,7 @@
 <script>
 $(document).ready(function() {
     var table;
-    let full_url = window.location.href;
-    const segments = full_url.split('/').filter(Boolean);
-    const lastSegment = segments.pop();
+
     // --- HELPER FUNCTIONS ---
     function formatCurrency(amount) {
         return new Intl.NumberFormat('en-US', {
@@ -281,76 +258,45 @@ $(document).ready(function() {
                 return meta.row + meta.settings._iDisplayStart + 1;
             },
         },
+        { data: 'name', name: 'name' },
+    
         { 
-            data: 'date_transaction', 
-            name: 'date_transaction', 
-            render: function(data,type,row){
-               return convertStringDate(data)
-            } 
+            data: 'sum_spend', 
+            name: 'sum_spend',
+            render: function(data, type, row) {
+               
+               return `Rp. ${formatCurrency(data)}`
+            }, 
         },
         { 
-            data: null, 
-            name: null, 
-            render: function(data,type,row){
-                if(data.get_pbill){
-                    return data.get_pbill.name_contact_bill
-                }else{
-                    return  data.get_p_bank.name_contact_trans_bank;
-                }
-            } 
-        },
-       { 
-            data: 'reference_detail', 
-            name: 'reference_detail', 
-            render: function(data,type,row){
-            //    if(data.get_pbill){
-            //         return data.get_pbill.reference
-            //     }else{
-            //         return  data.get_p_bank.reference;
-            //     }
-            return data
-            } 
-        },
-        { 
-            data: null, 
-            name: null, 
-            render: function(data,type,row){
-                let cek_ =  data.is_spend ? data.total : 0
-                return formatCurrency(cek_)
-            } 
-        },
-        { 
-            data: 'nominal_spend', 
-            name: 'nominal_spend' ,
-            render: function(data,type,row){
-                return formatCurrency(data)
-            }
-        },
-        { 
-            data: 'nominal_receive', 
-            name: 'nominal_receive' ,
-            render: function(data,type,row){
-                return formatCurrency(data)
-            }
+            data: 'sum_receive', 
+            name: 'sum_receive',
+            render: function(data, type, row) { 
+                return `Rp. ${formatCurrency(data)}`
+            },  
         },
         {
             data: "id",
             orderable: false,
             searchable: false,
             className: "text-center",
-            render: function(data) {
-                let btn_edit = `<a href="javascript:;" style="margin-right:14px;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a> &nbsp &nbsp`;
-                let btn_detail =`<a href="javascript:;" data-id="${data}" class="text-primary view-tr mr-2"><i class="ti ti-eye"></i></a>`;
-                return btn_edit + btn_detail
+            render: function(data, type, row) {//
+               
+                let url = "{{ route('web-bank-trans-detail', ':id') }}";
+                url = url.replace(':id', data);
+                let btnView = `<a href="${url}" data-id="${data}" class="text-primary edit-hotel mr-2" title="View Detail"><i class="ti ti-eye"></i></a>`;
+                return btnView;
+
+                //return `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-eye"></i></a>`;
             },
         }
     ];
 
     table = initGlobalDataTableTokenSelected(
         '#tableHotel',
-        `{{ route('bank-trans-allByIdBank') }}`,
+        `{{ route('list-bank-all') }}`,
         columnBills,
-        { "kolom_name": "reference_detail" ,'bank_id_xero' : lastSegment},
+        { "kolom_name": "uuid_from" },
         {
             rowCallback: function(row, data) {
                 $(row).css('cursor', 'pointer'); 
@@ -480,8 +426,7 @@ $(document).ready(function() {
 
      $("#button_receive_money").on("click", function(){
         $("#modalCreateHotel").modal('show');
-         $("#title_to_from").text('From')
-         $("#is_spend").val(0)
+         $("#is_spend").val(1)
         $("#modal_pay").addClass('d-none');
         $('#idHotelInput').val(0);
         $('#cur_id').val(0); 
@@ -489,14 +434,13 @@ $(document).ready(function() {
         $("#d_id_parent_bill").val(0);
         $('#formCreateHotel')[0].reset();
         
-        $('.modal-title').text('Create New Receive Money');
+        $('.modal-title').text('Crate New Receive Money');
     });
 
 
      $("#button_spend_money").on("click", function(){
         $("#modalCreateHotel").modal('show');
-         $("#title_to_from").text('To')
-        $("#is_spend").val(1)
+        $("#is_spend").val(0)
         $("#modal_pay").addClass('d-none');
         $('#idHotelInput').val(0);
         $('#cur_id').val(0); 
@@ -504,7 +448,7 @@ $(document).ready(function() {
         $("#d_id_parent_bill").val(0);
         $('#formCreateHotel')[0].reset();
         
-        $('.modal-title').text('Create New Spend Money');
+        $('.modal-title').text('Crate New Spend Money');
     });
 
     $('#modalCreateHotel').on('show.bs.modal', function () {
@@ -544,7 +488,7 @@ $(document).ready(function() {
                 if(response.status == 200){
                     let data_res = response.data.data;
                     
-                    let contactId = data_res.uuid_to;
+                    let contactId = data_res.uuid_from;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
                     let newOption = new Option(contactName, contactId, true, true);
 
@@ -626,23 +570,23 @@ $(document).ready(function() {
 
         let selectedData = {
             id: id_bill,
-            uuid_to: params.get('uuid_to'),
-            date_h: params.get('date_h'),
-            is_spend:params.get('is_spend'),
-            ammounts_are : params.get('ammounts_are'),
-            bank_id_xero :lastSegment,
+            uuid_from: params.get('uuid_from'),
+            date_req: params.get('date_req'),
+            due_date: params.get('due_date'),
             reference: params.get('reference'),
+            currency: params.get('currency'),
+            action_save : action_selected,
             account_id: $('select[name="account_id[]"]').map(function(){ return $(this).val(); }).get(),
             desc: $('input[name="description[]"]').map(function(){ return $(this).val(); }).get(),
             qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
             unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
-            // tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),
+            tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),
             paket_tracking_uuid: $('select[name="nama_paket[]"]').map(function(){ return $(this).val(); }).get(),
             divisi_travel_tracking_uuid: $('select[name="divisi[]"]').map(function(){ return $(this).val(); }).get(),
             id_detail:$('input[name="id_detail[]"]').map(function(){ return $(this).val(); }).get(),
         };
 
-        ajaxRequest(`{{ route('save-p-bank-trans') }}`, 'POST', selectedData, localStorage.getItem("token"))
+        ajaxRequest(`{{ route('save-p-bills') }}`, 'POST', selectedData, localStorage.getItem("token"))
             .then(response => {
                 if(response.status == 200){
                     Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');

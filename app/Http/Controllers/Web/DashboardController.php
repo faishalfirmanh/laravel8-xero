@@ -123,7 +123,12 @@ class DashboardController extends Controller
 
     public function getTransBank()
     {
-        return view('admin.transaksi.bank.list_trans_bank');
+        return view('admin.transaksi.bank.list_bank');
+    }
+
+    public function getTransDetailBank($idBank)
+    {
+        return view('admin.transaksi.bank.list_trans_bank', ['id' => $idBank]);
     }
 
 

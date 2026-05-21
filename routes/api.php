@@ -208,7 +208,10 @@ Route::prefix("admin-web")->group(function () {
 
 
             Route::prefix('bank-trans')->group(function () {
-                Route::get('list', [BankSpendReceiveController::class, 'getAllPaginate'])->name('list-bank-trans');
+                Route::get('list', [BankSpendReceiveController::class, 'getAllPaginate'])->name('list-bank-all');
+                Route::get('list-each-bank', [BankSpendReceiveController::class, 'getAllPaginateDetail'])->name('bank-trans-allByIdBank');
+                Route::post('saveP', [BankSpendReceiveController::class, 'storeParent'])->name('save-p-bank-trans');
+                Route::get('detailBankTrans', [BankSpendReceiveController::class, 'storeParent'])->name('detail-bank-trans');
             });
 
             Route::prefix('purchase')->group(function () {

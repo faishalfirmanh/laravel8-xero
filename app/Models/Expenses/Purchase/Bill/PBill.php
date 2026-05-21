@@ -31,7 +31,7 @@ class PBill extends Model
     //status 0 /draft tidak tercatat pada
 
     protected $appends = [
-        'name_contact',
+        'name_contact_bill',
         'nama_pembuat'
     ];
 
@@ -51,7 +51,7 @@ class PBill extends Model
         return optional($this->creator)->name ?? 'no name';
     }
 
-    public function getNameContactAttribute()
+    public function getNameContactBillAttribute()
     {
         return optional($this->getContactFrom)->full_name ?? 'no name';
     }

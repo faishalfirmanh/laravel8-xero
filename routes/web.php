@@ -75,6 +75,7 @@ Route::prefix('travel')->group(function () {
 
         Route::prefix('transaksi')->group(function () {
             Route::get('bank-trans', [DashboardController::class, 'getTransBank'])->name('web-bank-trans');
+            Route::get('bank-trans/{idBank}', [DashboardController::class, 'getTransDetailBank'])->name('web-bank-trans-detail');
             Route::get('sales-invoice', [DashboardController::class, 'getTransInvoice'])->name('web-sales-inv');
             Route::get('purchase-orders', [DashboardController::class, 'getTransPurchaseOrder'])->name('web-purchase-or');
             Route::get('purchase-bills', [DashboardController::class, 'getTransPurchaseBill'])->name('web-purchase-bill');//

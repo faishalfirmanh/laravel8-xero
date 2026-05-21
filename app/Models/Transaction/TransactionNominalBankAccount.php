@@ -2,6 +2,7 @@
 
 namespace App\Models\Transaction;
 
+use App\Models\Expenses\Purchase\Bill\PBill;
 use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,7 @@ class TransactionNominalBankAccount extends Model
         'id_parent_bill',
         'date_transaction',
         'created_by',
+        'id_parent_bank'//relation with TransactionBankTransP ->id
     ];
 
     protected $appends = [
@@ -42,5 +44,16 @@ class TransactionNominalBankAccount extends Model
     public function getCoa()
     {
         return $this->hasOne(Coa::class, 'id', 'account_transaction');
+    }
+
+
+    public function getPbill()
+    {
+        return $this->hasOne(PBill::class, 'id', 'id_parent_bill');
+    }
+
+    public function getPBank()
+    {
+        return $this->hasOne(TransactionBankTransP::class, 'id', 'id_parent_bank');
     }
 }
