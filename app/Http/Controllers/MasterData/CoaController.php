@@ -77,13 +77,14 @@ class CoaController extends Controller
         $validator = Validator::make($request->all(), [
             'page' => 'required|integer',
             'keyword' => 'nullable|string',
+            'type' => 'nullable|string'
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
         //dd($request->menu);
-        $where = [];
+        $where = $request->type ? ['account_type' => $request->type] : [];
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, 10, $request->page, 'name', strtoupper($request->keyword));
         } else {
@@ -135,7 +136,14 @@ class CoaController extends Controller
 
         $where = ['uuid_coa' => $request->code_coa];
 
-        $data = $this->repo_trans_all->getAllDataWithDefault($where, $request->limit, $request->page, 'date_transaction', 'DESC');
+        $data = $this->repo_trans_all->getAllDataWithDefault(
+            $where,
+            $request->limit,
+            $request->page,
+            'date_transaction',
+            'DESC',
+            ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent']
+        );
 
         //$data['menu']= $request->menu;
         return $this->autoResponse($data);

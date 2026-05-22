@@ -43,11 +43,11 @@
                 </button>
                 <div class="dropdown-menu dropdown-menu-right shadow">
                     <button type="button" id="button_receive_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="1">
-                        <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
+                        <i class="ti ti-arrow-up-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Receive Money</span>
                     </button>
                     <button type="button" id="button_spend_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
-                        <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
+                        <i class="ti ti-arrow-down-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Spend Money</span>
                     </button>
                 </div>
@@ -314,10 +314,16 @@ $(document).ready(function() {
         { 
             data: null, 
             name: null, 
-            render: function(data,type,row){
-                let cek_ =  data.is_spend ? data.total : 0
-                return formatCurrency(cek_)
-            } 
+            render: function(data, type, row){
+                if(data.get_pbill != null){
+                    // Menggunakan backtick dan ${} untuk menyisipkan variabel
+                    return `bill | ${data.get_pbill.reference}`; 
+                } else if(data.get_p_bank != null){
+                    return `bank | ${data.get_p_bank.reference}`;
+                } else {
+                    return '-';
+                }
+            }
         },
         { 
             data: 'nominal_spend', 
@@ -706,6 +712,8 @@ $(document).ready(function() {
 
         let $lastRow = $('#itemTable tbody tr:last');
 
+        let cek_spend_for_coa = $("#is_spend").val() == 1 ? 'EXPENSE' : 'REVENUE';
+
         $lastRow.find('.select2-account').select2({
             placeholder: "Pilih Account...",
             allowClear: true,
@@ -716,7 +724,7 @@ $(document).ready(function() {
                 dataType: 'json',
                 delay: 250,
                 data: function(params) {
-                    return { keyword: params.term || '', page: params.page || 1 };
+                    return { keyword: params.term || '', page: params.page || 1 , type : cek_spend_for_coa };
                 },
                 processResults: function(response, params) {
                     params.page = params.page || 1;

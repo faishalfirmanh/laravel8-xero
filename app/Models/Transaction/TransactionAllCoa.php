@@ -22,7 +22,7 @@ class TransactionAllCoa extends Model
         'reference',
         'is_speend',
         'nominal',
-        'uuid_detail',
+        'uuid_detail',//bisa relasi bank, bisa bill, bisa invoice
         'created_by'
     ];
 
@@ -41,6 +41,11 @@ class TransactionAllCoa extends Model
     public function d_bill()
     {
         return $this->hasOne(DBill::class, 'uuid_detail', 'uuid_detail');
+    }
+
+    public function d_bank()
+    {
+        return $this->hasOne(TransactionBankTransD::class, 'uuid_detail_trans_bank', 'uuid_detail');
     }
 
     public function getCoa()

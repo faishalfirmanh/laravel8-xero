@@ -187,7 +187,7 @@ class BankSpendReceiveController extends Controller
 
                 // FIX: Hanya generate UUID_DETAIL jika ini adalah baris baru (bukan edit)
                 if (empty($detailId)) {
-                    $detailData['uuid_detail'] = $this->service_global->generateUniqueString();
+                    $detailData['uuid_detail_trans_bank'] = $this->service_global->generateUniqueString();
                 }
 
                 // Create atau Update Detail
@@ -200,13 +200,9 @@ class BankSpendReceiveController extends Controller
                 $cek_create_trans = $this->repo_all_trans->whereData([
                     'reference' => $request->reference,
                     'uuid_coa' => $accountId,
-                    'uuid_detail' => $save_d->uuid_detail
+                    'uuid_detail' => $save_d->uuid_detail_trans_bank
                 ])->first();
 
-                //repo_trans_all_bank
-                $cek_is_spend = $request->is_spend
-                    ? ['nominal_spend' => $saveP->total]
-                    : ['nominal_receive' => $saveP->total];
 
                 if ($cek_create_trans) {
                     // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
@@ -222,7 +218,7 @@ class BankSpendReceiveController extends Controller
                         'is_speend' => true,
                         'nominal' => $save_d->amount,
                         'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
-                        'uuid_detail' => $save_d->uuid_detail
+                        'uuid_detail' => $save_d->uuid_detail_trans_bank
                     ];
                     $this->repo_all_trans->CreateOrUpdate($data_trans_create, null);
                 }
@@ -262,10 +258,10 @@ class BankSpendReceiveController extends Controller
     }
 
     //used
-    public function detailBill(Request $request)
+    public function getDetailTransBank(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:p_bills,id'
+            'id' => 'required|integer'
         ]);
         if ($validator->fails()) {
             return $this->error($validator->errors());

@@ -461,22 +461,6 @@ $(document).ready(function() {
         }
     });
 
-    // --- 4. EDIT FUNCTIONALITY ---
-    $('#tableHotel').on('click', '.edit-hotel', function() {
-        let id = $(this).data('id');
-        let rowData = table.row($(this).parents('tr')).data(); 
-
-        $('#idHotelInput').val(id);
-        $('.modal-title').text('Edit Bill ' + (rowData.reference || ''));
-
-        $('#modal_pay input[name="nominal_spend"]').val(0);
-        $('#modal_pay select[name="uuid_bank"]').val(0).trigger('change');
-        $('#modal_pay input[name="reference_detail"]').val('');
-
-        loadBills(id);
-        
-        $('#modalCreateHotel').modal('show');
-    });
 
     function loadBills(id){
         $("#idHotelInput").val(id);

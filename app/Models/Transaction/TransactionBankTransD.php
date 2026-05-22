@@ -22,5 +22,12 @@ class TransactionBankTransD extends Model
         'paket_tracking_uuid',
         'divisi_travel_tracking_uuid',
         'amount',
+        'uuid_detail_trans_bank'
     ];
+
+
+    public function getParent()
+    {
+        return $this->belongsTo(TransactionBankTransP::class, 'trans_bank_parent_id', 'id');
+    }
 }

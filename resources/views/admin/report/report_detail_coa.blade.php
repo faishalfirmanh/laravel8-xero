@@ -55,15 +55,25 @@ $(document).ready(function() {
             }
         },
         {
-            data: 'name_trans',
-            name: 'name_trans' ,
+            data: null,
+            name: null,
+            render: function(data,type,row){
+                if(data.d_bill){
+                    return `<b style="color:#4CB555">bills </b> | <b>${data.d_bill.desc} </b> | ${data.d_bill.get_parent.name_contact_bill}`
+                }else if(data.d_bank){
+                   let cek_kondisi_bank = data.d_bank.get_parent.is_spend == 1 ? 'keluar' : 'terima';
+                   let cek_warna = data.d_bank.get_parent.is_spend == 1 ? 'red' : '#78C0FF'
+                   return `<b style="color:${cek_warna}">bank ${cek_kondisi_bank}</b> | <b>${data.d_bank.desc} </b> | ${data.d_bank.get_parent.name_contact_trans_bank}`
+                }else{
+                     return 'bukan--';
+                }
+            }
         },
         {
             data: null,
             name: null,
-            render: function(data){
+            render: function(data,type,row){
                 $("#title_trans").text(data.name_coa)
-                console.log('daa',data.name_coa)
                 let datanya = data.d_bill ? data.d_bill.desc : '-';
                 return datanya
             }
