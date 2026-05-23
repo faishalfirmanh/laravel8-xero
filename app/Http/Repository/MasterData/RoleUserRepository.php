@@ -34,16 +34,16 @@ class RoleUserRepository extends BaseRepository
 
 
 
-    public function getAllDataWithDefault($where = array(), $per_page = 10, $offset = 1, $sort_column, $sort_order = "ASC")
+    public function getAllDataWithDefault($where = array(), $per_page = 10, $offset = 1, $sort_column, $sort_order = "ASC", $modelWith = [])
     {
-        $data = $this->model->with('menus')->where($where)->offset($offset)->limit($per_page)->orderBy($sort_column, $sort_order)->paginate($per_page);
+        $data = $this->model->with($modelWith)->where($where)->offset($offset)->limit($per_page)->orderBy($sort_column, $sort_order)->paginate($per_page);
         return $data;
     }
 
     // semua paginate / list yang ada searchnya. kalau tanpa relasi dan cuma 1 kolom
-    public function searchData($where = array(), $per_page = 10, $offset = 1, $search_column = "", $keyword = "")
+    public function searchData($where = array(), $per_page = 10, $offset = 1, $search_column = "", $keyword = "", $modelWith = [])
     {
-        $data = $this->model->with('menus')->where($where)->offset($offset)->limit($per_page)->whereRaw("LOWER($search_column) like '%" . $keyword . "%'")->paginate($per_page);
+        $data = $this->model->with($modelWith)->where($where)->offset($offset)->limit($per_page)->whereRaw("LOWER($search_column) like '%" . $keyword . "%'")->paginate($per_page);
         return $data;
     }
 }

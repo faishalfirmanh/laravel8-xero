@@ -58,7 +58,8 @@ class RoleUserController extends Controller
                 $request->limit,
                 $request->page,
                 $request->kolom_name,
-                'ASC'
+                'ASC',
+                []
             );
         }
 

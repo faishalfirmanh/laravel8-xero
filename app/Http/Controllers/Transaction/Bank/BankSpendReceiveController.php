@@ -261,13 +261,13 @@ class BankSpendReceiveController extends Controller
     public function getDetailTransBank(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id' => 'required|integer'
+            'id' => 'required|integer|exists:transaction_bank_trans_p_s,id'
         ]);
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
         // dd(222);
-        $data = $this->repo->WhereDataWith(['getDetail', 'getContactFrom', 'getPayment'], ['id' => $request->id])->first();
+        $data = $this->repo_bank_p_trans->WhereDataWith(['getDetail'], ['id' => $request->id])->first();
         return $this->autoResponse($data);
     }
 

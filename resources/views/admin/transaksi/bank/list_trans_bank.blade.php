@@ -114,7 +114,7 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label>Date</label>
-                                    <input type="date" class="form-control" id="date_req" name="date_h" value="{{ date('Y-m-d') }}" required>
+                                    <input type="date" class="form-control" id="date_h" name="date_h" value="{{ date('Y-m-d') }}" required>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -303,11 +303,7 @@ $(document).ready(function() {
             data: 'reference_detail', 
             name: 'reference_detail', 
             render: function(data,type,row){
-            //    if(data.get_pbill){
-            //         return data.get_pbill.reference
-            //     }else{
-            //         return  data.get_p_bank.reference;
-            //     }
+          
             return data
             } 
         },
@@ -344,10 +340,11 @@ $(document).ready(function() {
             orderable: false,
             searchable: false,
             className: "text-center",
-            render: function(data) {
+            render: function(data,type,row) {
                 let btn_edit = `<a href="javascript:;" style="margin-right:14px;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a> &nbsp &nbsp`;
                 let btn_detail =`<a href="javascript:;" data-id="${data}" class="text-primary view-tr mr-2"><i class="ti ti-eye"></i></a>`;
-                return btn_edit + btn_detail
+                let kondisi_btn_edit = row.get_p_bank ? btn_edit : '';
+                return kondisi_btn_edit + btn_detail
             },
         }
     ];
@@ -356,20 +353,7 @@ $(document).ready(function() {
         '#tableHotel',
         `{{ route('bank-trans-allByIdBank') }}`,
         columnBills,
-        { "kolom_name": "reference_detail" ,'bank_id_xero' : lastSegment},
-        {
-            rowCallback: function(row, data) {
-                $(row).css('cursor', 'pointer'); 
-                $(row).off('click').on('click', function() {
-                    if ($(this).hasClass('selected')) {
-                        $(this).removeClass('selected table-active');
-                    } else {
-                        table.$('tr.selected').removeClass('selected table-active');
-                        $(this).addClass('selected table-active');
-                    }
-                });
-            }
-        }
+        { "kolom_name": "reference_detail" ,'bank_id_xero' : lastSegment}
     );
 
 
@@ -528,27 +512,31 @@ $(document).ready(function() {
         let id = $(this).data('id');
         let rowData = table.row($(this).parents('tr')).data(); 
 
+        console.log('addd edit ',rowData)
+        let kondisi_bank = rowData.is_spend ? 'Spend ' : ' Receive'
         $('#idHotelInput').val(id);
-        $('.modal-title').text('Edit Bill ' + (rowData.reference || ''));
+        $('.modal-title').text(`Edit Bank Trans ${kondisi_bank}` + (rowData.reference || ''));
 
         $('#modal_pay input[name="nominal_spend"]').val(0);
         $('#modal_pay select[name="uuid_bank"]').val(0).trigger('change');
         $('#modal_pay input[name="reference_detail"]').val('');
 
-        loadBills(id);
+        loadBankTrans(rowData.get_p_bank.id);
         
         $('#modalCreateHotel').modal('show');
     });
 
-    function loadBills(id){
+    function loadBankTrans(id){
         $("#idHotelInput").val(id);
         $('#itemTable tbody').empty(); 
         $('#contact_id').prop('disabled', true); 
 
-        ajaxRequest(`{{ route('detail-bills') }}`, 'GET', {id : id}, localStorage.getItem("token"))
+        ajaxRequest(`{{ route('detail-bank-trans') }}`, 'GET', {id : id}, localStorage.getItem("token"))
             .then(response =>{
                 if(response.status == 200){
                     let data_res = response.data.data;
+                   
+                    $("#ammounts_are").val(data_res.amounts_are).trigger('change');
                     
                     let contactId = data_res.uuid_to;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
@@ -556,12 +544,11 @@ $(document).ready(function() {
 
                     $("#label_payment").text(data_res.currency);
                     $('#contact_id').empty().append(newOption).trigger('change');
-                    
+                    $("#is_spend").val(data_res.is_spend);
                     $("#ref_id").val(data_res.reference || '');
                     $('#cur_id').val(data_res.currency).trigger('change');
-                    $('#date_req').val(data_res.date_req).trigger('change');
-                    $('#due_date').val(data_res.due_date).trigger('change');
-
+                    $('#date_h').val(data_res.date_h).trigger('change');
+                  
                     let details = data_res.get_detail;
                     if (details && details.length > 0) {
                         details.forEach(function(item) { addNewRow(item); });
