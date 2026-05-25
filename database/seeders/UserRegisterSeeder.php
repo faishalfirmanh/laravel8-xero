@@ -12,30 +12,48 @@ class UserRegisterSeeder extends Seeder
      *
      * @return void
      */
-    public function run()
+public function run()
     {
         $path = base_path('user_register.json');
 
         if (!file_exists($path)) {
-            return response()->json(['error' => 'File JSON tidak ditemukan'], 404);
-        }else{
-            $users = json_decode(file_get_contents($path), true);
-            $a = 0;
-            foreach ($users as $value) {
-
-                if (User::where('email', $value['email'])->exists()) {
-                    continue;
-                }
-
-                User::create([
-                    'name'     => $value['name'],
-                    'email'    => $value['email'],
-                    'password' => Hash::make($value['password']),
-                ]);
-                $this->command->info('sukses seeder json register  ke '.$a);
-                $a++;
-            }
+            $this->command->error('File JSON tidak ditemukan: ' . $path);
+            return;
         }
 
-    }
+        $jsonContent = file_get_contents($path);
+        $users = json_decode($jsonContent, true);
+
+        // Cek apakah JSON valid
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->command->error('JSON tidak valid: ' . json_last_error_msg());
+            return;
+        }
+
+        $a = 0;
+        foreach ($users as $value) {
+            if (empty($value['email']) || empty($value['name'])) {
+                $this->command->warn('Data tidak lengkap, dilewati.');
+                continue;
+            }
+
+            if (User::where('email', $value['email'])->exists()) {
+                $this->command->info("User {$value['email']} sudah ada, dilewati.");
+                continue;
+            }
+
+            User::create([
+                'name'     => $value['name'],
+                'email'    => $value['email'],
+                'password' => Hash::make($value['password'] ?? 'password123'),
+            ]);
+
+            $this->command->info('Sukses seeder: ' . $value['email']);
+            $a++;
+        }
+
+        $this->command->info("Total user berhasil di-seed: {$a}");
+    }   
+
+
 }
