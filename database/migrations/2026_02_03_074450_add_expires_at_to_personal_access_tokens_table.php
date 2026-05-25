@@ -14,7 +14,10 @@ class AddExpiresAtToPersonalAccessTokensTable extends Migration
     public function up()
     {
         Schema::table('personal_access_tokens', function (Blueprint $table) {
-            $table->timestamp('expires_at')->nullable()->after('last_used_at');
+            if (!Schema::hasColumn('personal_access_tokens', 'expires_at')) {
+                $table->timestamp('expires_at')->nullable()->after('last_used_at');
+            }
+
         });
     }
 
@@ -27,7 +30,7 @@ class AddExpiresAtToPersonalAccessTokensTable extends Migration
     {
         Schema::table('personal_access_tokens', function (Blueprint $table) {
             //
-             Schema::dropIfExists('expires_at');
+            Schema::dropIfExists('expires_at');
         });
     }
 }
