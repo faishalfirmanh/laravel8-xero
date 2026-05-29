@@ -192,7 +192,7 @@ Route::prefix("admin-web")->group(function () {
         });
 
 
-        Route::prefix('travel')->group(function () {
+        Route::prefix('travel-master-data')->group(function () {
             Route::get('list', [TravelController::class, 'getAllPaginate'])->name('get-all-travel');
             Route::post('save', [TravelController::class, 'store'])->name('save-travel');
             Route::get('detail', [TravelController::class, 'detail'])->name('find-travel');
