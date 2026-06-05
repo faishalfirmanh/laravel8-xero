@@ -156,7 +156,8 @@ class GlobalService
     {
         $tablesToCheck = [
             'd_bills' => 'uuid_detail',
-            'transaction_bank_trans_d_s' => 'uuid_detail_trans_bank'
+            'transaction_bank_trans_d_s' => 'uuid_detail_trans_bank',
+            'item_detail_invoices' => 'uuid_detail_inv',
         ];
 
         do {

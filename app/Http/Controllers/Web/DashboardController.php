@@ -106,7 +106,7 @@ class DashboardController extends Controller
     public function getTransInvoice()
     {
 
-        return view('admin.master.travel');
+        return view('admin.transaksi.sales.list_inv_from_xero');
     }
 
 

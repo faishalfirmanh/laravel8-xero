@@ -2,6 +2,8 @@
 namespace App\Http\Controllers\Transaction\Sales;
 
 use App\Http\Controllers\Controller;
+use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
+use App\Http\Repository\Transaction\TransCoaRepo;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
 use App\Http\Repository\MasterData\DataJamaahXeroRepository;
@@ -24,15 +26,22 @@ class InvXeroController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans;
     use ConfigRefreshXero;
     use ApiResponse;
 
 
-    public function __construct(InvoiceXeroLocalRepo $repo, HotelDetailInvoicesRepository $repo_detail, GlobalService $service_global, DataJamaahXeroRepository $repo_jamaah)
-    {
+    public function __construct(
+        InvoiceXeroLocalRepo $repo,
+        InvoiceDXeroLocalRepo $repo_detail,
+        TransCoaRepo $repo_all_trans,
+
+        GlobalService $service_global,
+        DataJamaahXeroRepository $repo_jamaah
+    ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
+        $this->repo_all_trans = $repo_all_trans;
         $this->service_global = $service_global;
         $this->repo_jamaah = $repo_jamaah;
     }
@@ -43,148 +52,6 @@ class InvXeroController extends Controller
 
     }
 
-    function filterPaymentString($string)
-    {
-        $keyword = "-man";
-        $position = strpos(strtolower($string), $keyword);
-        if ($position !== false && $position > 0) {
-            return substr($string, $position);
-        }
-        return $string;
-    }
-
-    public function updateInvoiceDate(Request $request)
-    {
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'invoice_uuid' => 'required|string',
-                'issue_date' => 'required|date',
-            ]
-        );
-        if ($validator->fails()) {
-            return $this->error($validator->errors(), 404);
-        }
-        $tokenData = $this->getValidToken();
-        if (!$tokenData) {
-            return response()->json(['message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'], 401);
-        }
-
-        //$user_name_xero = $this->getUserNameXeroFromToken($tokenData["access_token"]);
-        //dd($user_name_xero);
-
-        $response = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Invoices/' . $request->invoice_uuid);
-
-        if ($response->failed()) {
-            return response()->json(['status' => 'error', 'message' => 'Gagal koneksi ke Xero'], 500);
-        }
-
-        $available_min_req = (int) $response->header('X-MinLimit-Remaining');
-        $available_day_req = (int) $response->header('X-DayLimit-Remaining');
-        //$this->serviceGlobal->requestCalculationXero($available_min_req, $available_day_req);
-
-        $invoiceData = $response->json()['Invoices'][0];
-
-        $cekPayment = PaymentParams::where('invoice_id', $request->invoice_uuid)->first();
-        if ($cekPayment != NULL) {
-            PaymentParams::where('invoice_id', $request->invoice_uuid)->delete();
-        }
-
-        if (isset($invoiceData['Payments'])) {
-            foreach ($invoiceData['Payments'] as $pay) {
-                $cek_pay = self::cekPaymentAda($pay['PaymentID']);
-                //dd(self::parseXeroDate($cek_pay['Date']));
-                if ($cek_pay != NULL) {
-                    PaymentParams::create([
-                        'invoice_id' => $request->invoice_uuid,
-                        'account_code' => $cek_pay['Account']['Code'],
-                        'date' => self::parseXeroDate($cek_pay['Date']),
-                        'amount' => $cek_pay['Amount'],
-                        'reference' => self::filterPaymentString($cek_pay['Reference']),
-                        'bank_account_id' => $cek_pay['Account']['AccountID'],
-                    ]);
-                }
-            }
-
-            foreach ($invoiceData['Payments'] as $pay_2) {
-                self::voidPaymentInXero($pay_2['PaymentID']);
-            }
-        }
-
-        //update date :
-        //
-        $is_update_issu_date = 0;
-        $payload = [
-            'InvoiceID' => $request->invoice_uuid,
-            'Date' => $request->issue_date
-        ];
-
-        $updateResponse = Http::withHeaders($this->getHeaders())
-            ->post($this->xeroBaseUrl . '/Invoices/' . $request->invoice_uuid, $payload);
-
-        if ($updateResponse->successful()) {
-            $is_update_issu_date += 1;
-        }
-
-        $tot_payemnt = 0;
-        $payment_local_byInv = PaymentParams::where('invoice_id', $request->invoice_uuid)->get();
-        if (count($payment_local_byInv) > 0) {
-            foreach ($payment_local_byInv as $key => $value) {
-                $accoun_code_bank = $value->account_code;
-                $value_amount = $value->amount;
-                $reff_nya = $value->reference;
-                $tnggl_bayar = $value->date;
-
-                $form_payment = [
-                    "Invoice" => [
-                        "InvoiceID" => $request->invoice_uuid
-                    ],
-                    "Account" => [
-                        "Code" => $accoun_code_bank
-                    ],
-                    "Date" => $tnggl_bayar,
-                    "Amount" => $value_amount,
-                    "Reference" => $reff_nya ?? "Payment via API"
-                ];
-
-                $response_repayment = Http::withHeaders($this->getHeaders())
-                    ->post($this->xeroBaseUrl . '/Payments', $form_payment);
-                if ($response_repayment->failed()) {
-                    Log::error("Gagal Restore Payment ke Invoice: InvoiceXerlocalController line 136 " . $response_repayment->body());
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Gagal Update: payment baru ssat bayar ulang',
-                        'body' => $response_repayment->body()
-                    ], 400);
-                } else {
-                    $tot_payemnt++;
-                }
-            }
-        }
-
-        PaymentParams::where('invoice_id', $request->invoice_uuid)->delete();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'berhasil ubah invoice date',
-            'isue_date' => $is_update_issu_date,
-            'total_repayment' => $tot_payemnt
-        ], 200);
-        // echo  . "<br>".$tot_payemnt ."<br>";
-        //dd($invoiceData['Payments']);
-    }
-
-
-    public function SearchHotel(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'keyword' => 'nullable|string'
-        ]);
-        $where = [];
-        $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
-        return $this->autoResponse($data);
-
-    }
 
     public function getAllPaginate(Request $request)
     {
@@ -207,57 +74,141 @@ class InvXeroController extends Controller
         return $this->autoResponse($data);
     }
 
-    public function store(Request $request)
+    public function storeParent(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => [
-                'required',
-                'string',
-                Rule::unique('hotels', 'name')->ignore($request->id)
-            ],
-            'type_location_hotel' => 'integer|between:1,5',
             'id' => 'nullable|integer',
+            'uuid_from' => 'required|string',
+            'issue_date' => 'required|date',
+            'due_date' => 'required|date',
+            'reference' => 'required|string',
+            'action_save' => 'required|integer|between:0,2',
+
+            'item_id' => 'required|array|min:1',
+            'desc' => 'required|array|min:1',
+            'qty' => 'required|array|min:1',
+            'unit_price' => 'required|array|min:1',
+            'coa_id' => 'required|array|min:1',
+            'paket_tracking_uuid' => 'nullable|array',
+            'divisi_travel_tracking_uuid' => 'nullable|array',
+            'id_detail' => 'nullable|array'
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
 
-        $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
-        return $this->autoResponse($saved);
-    }
-
-    public function delete(Request $request)
-    {
-        $id = $request->id;
-
-        $validator = Validator::make($request->all(), [
-            'id' => 'required|numeric|exists:hotels,id',
+        // Gunakan merge agar field ini terbaca dengan baik saat request->except() atau validasi lanjutan
+        $request->merge([
+            'status' => $request->action_save, // 0->draft, 1/2->approve
+            'reference' => strtolower($request->reference)
         ]);
 
-        if ($validator->fails()) {
-            return $this->error($validator->errors(), 404);
-        }
-        $blog = $this->repo->find($id);
+        DB::beginTransaction();
+        try {
+            // 1. Save Parent
+            $saveP = $this->repo->CreateOrUpdate(
+                $request->except(['coa_id', 'desc', 'qty', 'unit_price', 'nama_paket', 'divisi', 'id_detail', 'action_save']),
+                $request->id
+            );
 
-        if ($blog) {
-            $data = $this->repo->delete($id);
-            return $this->autoResponse($data);
-        }
+            // 2. Hapus Detail yang Dibuang (Lakukan DI LUAR LOOP)
+            // Pastikan kita hanya mengecek jika ini adalah proses Update (id tidak null)
+            if ($saveP->id) {
+                $allDetailIds = $this->repo_detail->whereData(['parent_inv_id' => $saveP->id])->pluck('id')->toArray();
 
-        return $this->error('hotel not found', 404);
+                // Hindari error jika $request->id_detail kosong/null
+                $providedDetailIds = $request->id_detail ? array_filter($request->id_detail) : [];
+                $deleted_array = array_diff($allDetailIds, $providedDetailIds);
+
+                if (!empty($deleted_array)) {
+                    // Asumsi wherenDataIn adalah fungsi custom repository Anda (mirip whereIn eloquent)
+                    $deletedUuids = $this->repo_detail->wherenDataIn('id', $deleted_array)->pluck('uuid_detail_inv')->toArray();
+
+                    // B. Hapus data di tabel all_trans berdasarkan uuid_detail tersebut
+                    if (!empty($deletedUuids)) {
+                        // Asumsi repo_all_trans juga memiliki fungsi wherenDataIn
+                        $this->repo_all_trans->wherenDataIn('uuid_detail', $deletedUuids)->delete();
+                    }
+                    $this->repo_detail->wherenDataIn('id', $deleted_array)->delete();
+                }
+            }
+
+            // 3. Save Details (Create / Update)
+            foreach ($request->coa_id as $key => $accountId) {
+                $detailId = $request->id_detail[$key] ?? null;
+
+                $detailData = [
+                    'invoice_number' => $saveP->invoice_number,
+                    'coa_id' => $accountId,
+                    'desc' => $request->desc[$key] ?? null,
+                    'qty' => $request->qty[$key] ?? 0,
+                    'unit_price' => $request->unit_price[$key] ?? 0,
+                    'total_amount_each_row' => ($request->qty[$key] ?? 0) * ($request->unit_price[$key] ?? 0),
+                    'paket_tracking_uuid' => $request->paket_tracking_uuid[$key] ?? null,
+                    'divisi_travel_tracking_uuid' => $request->divisi_travel_tracking_uuid[$key] ?? null,
+                ];
+
+                // FIX: Hanya generate UUID_DETAIL jika ini adalah baris baru (bukan edit)
+                if (empty($detailId)) {
+                    $detailData['uuid_detail_inv'] = $this->service_global->generateUniqueString();
+                }
+
+                // Create atau Update Detail
+                $save_d = $this->repo_detail->CreateOrUpdate($detailData, $detailId);
+
+                // 4. Manajemen Transaksi (Jika approve / action_save != 0)
+                if ($request->action_save != 0) {
+
+                    $cek_create_trans = $this->repo_all_trans->whereData([
+                        'reference' => $request->reference, // Sudah di-strtolower via merge
+                        'uuid_coa' => $accountId,
+                        'uuid_detail' => $save_d->uuid_detail_inv
+                    ])->first();
+
+                    if ($cek_create_trans) {
+                        // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
+                        $cek_create_trans->is_speend = false;
+                        $cek_create_trans->nominal = $save_d->amount;
+                        $cek_create_trans->save();
+                    } else {
+                        // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
+                        $data_trans_create = [
+                            'date_transaction' => $request->date_req,
+                            'uuid_coa' => $accountId,
+                            'reference' => $request->reference,
+                            'is_speend' => false,
+                            'nominal' => $save_d->total_amount_each_row,
+                            'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
+                            'uuid_detail' => $save_d->uuid_detail_inv
+                        ];
+                        $this->repo_all_trans->CreateOrUpdate($data_trans_create, null);
+                    }
+                }
+            }
+
+            // 5. Update Total Keseluruhan Parent
+            $sumD = $this->repo_detail->sumDataWhereDinamis(['parent_inv_id' => $saveP->id], 'total_amount_each_row');
+            $this->repo->CreateOrUpdate(['invoice_amount' => $sumD], $saveP->id);
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $request->user_login->name . ' save transaksi invoice ' . $saveP->contact_name,
+                $request->userAgent(),
+                $request->ip()
+            );
+
+            DB::commit();
+            return $this->autoResponse($saveP);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            // Memunculkan pesan error dengan lengkap sangat membantu saat debugging di network tab inspect element
+            return $this->error($th->getMessage() . ' at line ' . $th->getLine(), 500);
+        }
     }
 
 
-    public function parseXeroDate($xeroDate)
-    {
-        if (preg_match('/\/Date\((-?\d+)([+-]\d+)?\)\//', $xeroDate, $matches)) {
-            $timestamp = (int) $matches[1] / 1000;
-            return date('Y-m-d', $timestamp);
-        }
-        return date('Y-m-d');
-
-    }
 
 
 
@@ -276,17 +227,7 @@ class InvXeroController extends Controller
         ];
     }
 
-    private function voidPaymentInXero($paymentId)
-    {
-        if (self::cekPaymentAda($paymentId)) {
-            $response = Http::withHeaders($this->getHeaders())
-                ->post($this->xeroBaseUrl . "/Payments/$paymentId", ["Status" => "DELETED"]);
-            if ($response->failed() && $response->status() != 404) {
-                //  throw new \Exception("Gagal Void Payment: " . $response->body());
-                Log::info('gagal void payment saat update issue date InvoiceXeroLocalController line : 187');
-            }
-        }
-    }
+
 
     public function cekPaymentAda($paymentId)
     {

@@ -9,7 +9,7 @@ class InvoicesAllFromXero extends Model
 {
     use HasFactory;
 
-     protected $fillable = [
+    protected $fillable = [
         'invoice_number',
         'invoice_uuid',
         'invoice_amount',//invoice paid
@@ -20,7 +20,8 @@ class InvoicesAllFromXero extends Model
         'status',
         'uuid_contact',
         'contact_name',
-        'item_name'
+        'item_name',
+        'reference'
     ];
 
 }

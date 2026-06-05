@@ -225,6 +225,17 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('orders', [InvXeroController::class, 'getAllPaginate'])->name('list-po-xero');
             });
 
+
+            Route::prefix('sales')->group(function () {
+                Route::prefix('invoice')->group(function () {
+                    Route::get('list', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
+                    //Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('sales-inv');
+                    Route::post('saveP', [BillXeroController::class, 'storeParent'])->name('save-sales-inv');
+                    Route::post('pay_bill', [BillXeroController::class, 'storePayment'])->name('save-pay-sales-inv');
+                    Route::get('detailBill', [BillXeroController::class, 'detailBill'])->name('detail-sales-inv');
+                });
+            });
+
         });
 
         Route::prefix("report")->group(function () {
