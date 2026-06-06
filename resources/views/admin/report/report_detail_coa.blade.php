@@ -58,14 +58,19 @@ $(document).ready(function() {
             data: null,
             name: null,
             render: function(data,type,row){
+                console.log('ada',data)
                 if(data.d_bill){
                     return `<b style="color:#4CB555">bills </b> | <b>${data.d_bill.desc} </b> | ${data.d_bill.get_parent.name_contact_bill}`
                 }else if(data.d_bank){
                    let cek_kondisi_bank = data.d_bank.get_parent.is_spend == 1 ? 'keluar' : 'terima';
                    let cek_warna = data.d_bank.get_parent.is_spend == 1 ? 'red' : '#78C0FF'
                    return `<b style="color:${cek_warna}">bank ${cek_kondisi_bank}</b> | <b>${data.d_bank.desc} </b> | ${data.d_bank.get_parent.name_contact_trans_bank}`
+                }else if(data.d_invoice){
+                   let cek_kondisi_bank = 'terima';
+                   //let cek_warna = data.d_bank.get_parent.is_spend == 1 ? 'red' : '#'
+                   return `<b style="color:#78C0FF">invoice ${cek_kondisi_bank}</b> | <b>${data.d_invoice.desc} </b> | ${data.d_invoice.get_parent.contact_name}`
                 }else{
-                     return 'bukan--';
+                    return 'bukan'
                 }
             }
         },
@@ -74,8 +79,15 @@ $(document).ready(function() {
             name: null,
             render: function(data,type,row){
                 $("#title_trans").text(data.name_coa)
-                let datanya = data.d_bill ? data.d_bill.desc : '-';
-                return datanya
+                if(data.d_bill){
+                    let datanya = data.d_bill.desc ?? '-';
+                    return datanya
+                }else if(data.d_invoice){
+                    return data.d_invoice.desc
+                }else{
+                    return 'not registered'
+                }
+              
             }
         },
         {

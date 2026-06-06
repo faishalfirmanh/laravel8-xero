@@ -4,6 +4,7 @@ namespace App\Models\Transaction;
 
 use App\Models\Expenses\Purchase\Bill\DBill;
 use App\Models\MasterData\Coa;
+use App\Models\MasterData\ItemDetailInvoices;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -46,6 +47,12 @@ class TransactionAllCoa extends Model
     public function d_bank()
     {
         return $this->hasOne(TransactionBankTransD::class, 'uuid_detail_trans_bank', 'uuid_detail');
+    }
+
+
+    public function d_invoice()
+    {
+        return $this->hasOne(ItemDetailInvoices::class, 'uuid_detail_inv', 'uuid_detail');
     }
 
     public function getCoa()

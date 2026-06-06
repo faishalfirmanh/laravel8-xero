@@ -208,11 +208,13 @@ class XeroSyncInvoicePaidController extends Controller
         $query = ItemsPaketAllFromXero::query()
             ->where('jenis_item', 1)
             ->select([
+                'id',
                 'jenis_item',
                 'uuid_proudct_and_service',
                 'nama_paket',
                 'total_hari',
-                'created_at'
+                'created_at',
+                'price_sales'
             ]);
 
         if ($keyword !== '') {
@@ -237,10 +239,6 @@ class XeroSyncInvoicePaidController extends Controller
                 'pagination' => [
                     'more' => ($offset + $limit) < $total
                 ]
-                // 'page' => $page,
-                // 'limit' => $limit,
-                // 'total' => $total,
-                // 'has_more' => ($offset + $limit) < $total
             ]
         ], 200);
     }
@@ -268,7 +266,7 @@ class XeroSyncInvoicePaidController extends Controller
 
         try {
             // --- BAGIAN 1: SYNC INVOICE ---
-           // $start_time = Carbon::now()->format('d-m-Y H.i');
+            // $start_time = Carbon::now()->format('d-m-Y H.i');
             Log::info("(/admin/list-invoice) mulai sync invoice ");
             while (!$isFinished) {
                 $this->rateLimiter->checkAndHit($tenantId);
@@ -334,7 +332,8 @@ class XeroSyncInvoicePaidController extends Controller
                         if (isset($lineItem["Item"])) {
                             // Pastikan LineItemID ada, jika null (jarang terjadi) buat fallback
                             $lineItemId = $lineItem['LineItemID'] ?? $invoice['InvoiceID'] . '-' . $lineItem["Item"]["ItemID"];
-                            if (substr_count($lineItem["Item"]["Name"], '/') !== 2) continue;
+                            if (substr_count($lineItem["Item"]["Name"], '/') !== 2)
+                                continue;
 
                             $batchLineItems[] = [
                                 'line_item_uuid' => $lineItemId, // Pastikan kolom ini ada di DB & Unique
@@ -474,7 +473,7 @@ class XeroSyncInvoicePaidController extends Controller
 
             $view_req = $this->global->getDataAvailabeRequestXero();
             $end_time_sync = Carbon::now()->format('d-m-Y H.i');
-            Log::info("(/admin/list-invoice) selesai sync invoice ".$end_time_sync);
+            Log::info("(/admin/list-invoice) selesai sync invoice " . $end_time_sync);
             return response()->json([
                 'status' => 'success',
                 'pesan_invoice' => 'Total Baris Item Invoice tersimpan: ' . $totalSyncedInvoiceLines,
@@ -502,12 +501,12 @@ class XeroSyncInvoicePaidController extends Controller
             $hapus_paket = ItemsPaketAllFromXero::query()->delete();
             DB::commit();
             Log::info("deleted all invoice success: ");
-           return response()->json([
+            return response()->json([
                 'status' => 'success',
-                'message'=>"berhasil hapus invoice"
+                'message' => "berhasil hapus invoice"
             ]);
         } catch (\Throwable $th) {
-           DB::rollback();
+            DB::rollback();
             Log::error("deleted all invoice Error: " . $th->getMessage());
             return response()->json([
                 'status' => 'error',
@@ -519,7 +518,7 @@ class XeroSyncInvoicePaidController extends Controller
     }
 
     //hanya sync invoice
-     public function getInvoicePaidArrival(Request $request)
+    public function getInvoicePaidArrival(Request $request)
     {
         // Hindari timeout PHP
         ini_set('max_execution_time', 0);
@@ -534,8 +533,8 @@ class XeroSyncInvoicePaidController extends Controller
             return $this->error($validator->errors());
         }
 
-       $startStr = Carbon::parse($request->startDate)->format('Y,m,d');
-       $endStr   = Carbon::parse($request->endDate)->format('Y,m,d');
+        $startStr = Carbon::parse($request->startDate)->format('Y,m,d');
+        $endStr = Carbon::parse($request->endDate)->format('Y,m,d');
 
         $tokenData = $this->getValidToken();
         if (!$tokenData) {
@@ -556,7 +555,7 @@ class XeroSyncInvoicePaidController extends Controller
             $dateStr = $startDate->format('Y,m,d');
             //$whereClause = 'Status=="PAID" AND Date >= DateTime(' . $dateStr . ')';
             $whereClause = 'Status=="PAID" AND Date >= DateTime(' . $startStr . ') AND Date <= DateTime(' . $endStr . ')';
-            Log::info("Melakukan Partial Sync Invoice Xero mulai dari: " . $startStr . " => ".$endStr);
+            Log::info("Melakukan Partial Sync Invoice Xero mulai dari: " . $startStr . " => " . $endStr);
         }
 
         $page = 1;
@@ -575,13 +574,13 @@ class XeroSyncInvoicePaidController extends Controller
                         'Xero-Tenant-Id' => $tenantId,
                         'Accept' => 'application/json',
                     ])
-                    ->timeout(20)
-                    ->get('https://api.xero.com/api.xro/2.0/Invoices', [
-                        'where' => $whereClause, // Filter tanggal diterapkan disini
-                        'order' => 'Date DESC',
-                        'page' => $page,
-                        'unitdp' => 4 // Optimasi desimal presisi
-                    ]);
+                        ->timeout(20)
+                        ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                            'where' => $whereClause, // Filter tanggal diterapkan disini
+                            'order' => 'Date DESC',
+                            'page' => $page,
+                            'unitdp' => 4 // Optimasi desimal presisi
+                        ]);
                 });
 
                 if ($response->serverError()) {
@@ -606,7 +605,8 @@ class XeroSyncInvoicePaidController extends Controller
                 $batchLineItems = [];
 
                 foreach ($data_invoice_all as $invoice) {
-                    if (empty($invoice['InvoiceNumber'])) continue;
+                    if (empty($invoice['InvoiceNumber']))
+                        continue;
 
                     // Tampung Header
                     $batchInvoices[] = [
@@ -627,7 +627,8 @@ class XeroSyncInvoicePaidController extends Controller
                         foreach ($invoice['LineItems'] as $lineItem) {
                             if (isset($lineItem["Item"])) {
                                 // Validasi nama item sederhana
-                                if (!isset($lineItem["Item"]["Name"]) || substr_count($lineItem["Item"]["Name"], '/') !== 2) continue;
+                                if (!isset($lineItem["Item"]["Name"]) || substr_count($lineItem["Item"]["Name"], '/') !== 2)
+                                    continue;
 
                                 $lineItemId = $lineItem['LineItemID'] ?? $invoice['InvoiceID'] . '-' . $lineItem["Item"]["ItemID"];
 
@@ -676,7 +677,7 @@ class XeroSyncInvoicePaidController extends Controller
                 // 'pesan' => 'Sync Invoice (Filter: '. ($request->force_all ? 'ALL' : 'Last 30 Days') .') selesai.',
                 // 'total_lines' => $totalSyncedInvoiceLines,
                 // 'request_sisa' => $view_req->available_request_min,
-                 'status' => 'success',
+                'status' => 'success',
                 'pesan_invoice' => 'Total Baris Item Invoice tersimpan: ' . $totalSyncedInvoiceLines,
                 'pesan_paket' => 'Total Paket tersimpan: ',
                 'request_min_tersisa_hari' => $view_req->available_request_day,
@@ -689,7 +690,8 @@ class XeroSyncInvoicePaidController extends Controller
         }
     }
 
-    function cekFormatStringPaket($text) {
+    function cekFormatStringPaket($text)
+    {
         if (substr($text, -2) === '#1') {
             return true;
         }
@@ -701,7 +703,7 @@ class XeroSyncInvoicePaidController extends Controller
 
     public function getPaketHajiUmroh(Request $request)
     {
-         $tokenData = $this->getValidToken();
+        $tokenData = $this->getValidToken();
         if (!$tokenData) {
             return response()->json(['message' => 'Token kosong/invalid.'], 401);
         }
@@ -709,20 +711,20 @@ class XeroSyncInvoicePaidController extends Controller
         $tenantId = $this->getTenantId($tokenData['access_token']);
         $page_item = 1;
         $resItem = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page_item) {
-                return Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $tokenData['access_token'],
-                    'Xero-Tenant-Id' => $tenantId,
-                    'Accept' => 'application/json',
-                ])
-                    ->timeout(15)
-                    ->get('https://api.xero.com/api.xro/2.0/Items', [
-                        'order' => 'Code ASC',
-                        'page' => $page_item
-                    ]);
-            });
+            return Http::withHeaders([
+                'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])
+                ->timeout(15)
+                ->get('https://api.xero.com/api.xro/2.0/Items', [
+                    'order' => 'Code ASC',
+                    'page' => $page_item
+                ]);
+        });
         $min_rem = (int) $resItem->header('X-MinLimit-Remaining');
-                $day_rem = (int) $resItem->header('X-DayLimit-Remaining');
-                $this->global->requestCalculationXero($min_rem, $day_rem);
+        $day_rem = (int) $resItem->header('X-DayLimit-Remaining');
+        $this->global->requestCalculationXero($min_rem, $day_rem);
 
         $itemPaketAndProduct = $resItem->json('Items') ?? [];
         $totalSyncedItem = 0;
@@ -731,7 +733,7 @@ class XeroSyncInvoicePaidController extends Controller
             if (!isset($value['Name']) || trim($value['Name']) === '')
                 continue;
 
-            if(self::cekFormatStringPaket($value["Name"])){
+            if (self::cekFormatStringPaket($value["Name"])) {
                 $hari = self::getTotalHari($value['Name']) ?? 0;
                 $batchItems[] = [
                     'uuid_proudct_and_service' => $value['ItemID'],
@@ -757,7 +759,7 @@ class XeroSyncInvoicePaidController extends Controller
         }
         $view_req = $this->global->getDataAvailabeRequestXero();
         $end_time_sync = Carbon::now()->format('d-m-Y H.i');
-        Log::info("(/xero/sync-item-paket) selesai sync paket ".$end_time_sync);
+        Log::info("(/xero/sync-item-paket) selesai sync paket " . $end_time_sync);
         return response()->json([
             'status' => 'success',
             'pesan_paket' => 'Total Paket tersimpan: ' . $totalSyncedItem,
@@ -798,7 +800,7 @@ class XeroSyncInvoicePaidController extends Controller
 
     function getTotalHari(string $text): ?int
     {
-       if (preg_match('/(\d{1,3})\s*(?:hari|h)\b/i', $text, $matches)) {
+        if (preg_match('/(\d{1,3})\s*(?:hari|h)\b/i', $text, $matches)) {
             return (int) $matches[1];
         }
         return null;

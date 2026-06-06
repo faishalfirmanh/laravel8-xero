@@ -161,15 +161,42 @@ class TrackingController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name_parent_category' => 'required|string',
+            'keyword' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 402);
         }
-        $data = $this->repo->whereData(['name_parent_category' => $request->name_parent_category])->first();
 
-        $convert_nya = $data->lines_category;
-        $linesCategory = is_string($data->lines_category) ? json_decode($convert_nya, true) : $data->lines_category;
+
+
+        $data = $this->repo
+            ->whereData(['name_parent_category' => $request->name_parent_category])
+            ->first();
+
+        if (!$data) {
+            return $this->error('Data tidak ditemukan.', 404);
+        }
+
+        // Decode lines_category: handle JSON string maupun sudah array
+        $linesCategory = is_string($data->lines_category)
+            ? json_decode($data->lines_category, true)
+            : (array) $data->lines_category;
+
+        $linesCategory = $linesCategory ?? [];
+
+        // Filter keyword pada field item_name_category (case-insensitive)
+        $keyword = trim((string) $request->keyword);
+        if ($keyword !== '') {
+            $keywordUpper = strtoupper($keyword);
+            $linesCategory = array_values(
+                array_filter($linesCategory, function (array $item) use ($keywordUpper) {
+                    $itemName = strtoupper($item['item_name_category'] ?? '');
+                    return strpos($itemName, $keywordUpper) !== false;
+                })
+            );
+        }
+
         $data->lines_category = $linesCategory;
 
         return $this->autoResponse($data);

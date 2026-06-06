@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Transaction\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
+use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
@@ -22,11 +23,12 @@ use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
 use Barryvdh\DomPDF\Facade\Pdf;
 
+
 class InvXeroController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank;
     use ConfigRefreshXero;
     use ApiResponse;
 
@@ -35,7 +37,7 @@ class InvXeroController extends Controller
         InvoiceXeroLocalRepo $repo,
         InvoiceDXeroLocalRepo $repo_detail,
         TransCoaRepo $repo_all_trans,
-
+        TransBankRepo $repo_trans_bank,
         GlobalService $service_global,
         DataJamaahXeroRepository $repo_jamaah
     ) {
@@ -44,6 +46,7 @@ class InvXeroController extends Controller
         $this->repo_all_trans = $repo_all_trans;
         $this->service_global = $service_global;
         $this->repo_jamaah = $repo_jamaah;
+        $this->repo_trans_bank = $repo_trans_bank;
     }
 
     public function getListInvoice(Request $request)
@@ -69,7 +72,7 @@ class InvXeroController extends Controller
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'contact_name', strtoupper($request->keyword));
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'contact_name', 'ASC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
         }
         return $this->autoResponse($data);
     }
@@ -78,7 +81,7 @@ class InvXeroController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
-            'uuid_from' => 'required|string',
+            'contact_id' => 'required|integer|exists:data_jamaah_xeros,id',
             'issue_date' => 'required|date',
             'due_date' => 'required|date',
             'reference' => 'required|string',
@@ -107,8 +110,18 @@ class InvXeroController extends Controller
         DB::beginTransaction();
         try {
             // 1. Save Parent
+            $get_contact = $this->repo_jamaah->whereData(['id' => $request->contact_id])->first();
+            $request->merge(
+                [
+                    'invoice_number' => $this->service_global->generateNewInvoiceNumber(),
+                    'invoice_uuid' => $this->service_global->generateUniqueRandomStringInvoice(),
+                    'contact_name' => $get_contact->full_name,
+                    'uuid_contact' => 'from_local'
+                ]
+            );
+            //$request['invoice_nuber'] = $this->service_global->generateNewInvoiceNumber();
             $saveP = $this->repo->CreateOrUpdate(
-                $request->except(['coa_id', 'desc', 'qty', 'unit_price', 'nama_paket', 'divisi', 'id_detail', 'action_save']),
+                $request->except(['coa_id', 'desc', 'qty', 'unit_price', 'nama_paket', 'divisi', 'id_detail', 'action_save', 'invoice_nuber']),
                 $request->id
             );
 
@@ -140,6 +153,8 @@ class InvXeroController extends Controller
 
                 $detailData = [
                     'invoice_number' => $saveP->invoice_number,
+                    'uuid_invoices' => 'from_local', //$saveP->invoice_uuid,
+                    'uuid_item' => 'from_local',
                     'coa_id' => $accountId,
                     'desc' => $request->desc[$key] ?? null,
                     'qty' => $request->qty[$key] ?? 0,
@@ -147,6 +162,7 @@ class InvXeroController extends Controller
                     'total_amount_each_row' => ($request->qty[$key] ?? 0) * ($request->unit_price[$key] ?? 0),
                     'paket_tracking_uuid' => $request->paket_tracking_uuid[$key] ?? null,
                     'divisi_travel_tracking_uuid' => $request->divisi_travel_tracking_uuid[$key] ?? null,
+                    'parent_inv_id' => $saveP->id,
                 ];
 
                 // FIX: Hanya generate UUID_DETAIL jika ini adalah baris baru (bukan edit)
@@ -174,7 +190,7 @@ class InvXeroController extends Controller
                     } else {
                         // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
                         $data_trans_create = [
-                            'date_transaction' => $request->date_req,
+                            'date_transaction' => $request->issue_date,
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => false,
@@ -210,6 +226,49 @@ class InvXeroController extends Controller
 
 
 
+    public function detailBill(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|exists:invoices_all_from_xeros,id'
+        ]);
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+        // dd(222);
+        $data = $this->repo->WhereDataWith(['getDetailByUUID', 'getPayment'], ['id' => $request->id])->first();
+        return $this->autoResponse($data);
+    }
+
+    public function storePayment(Request $request)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'id' => 'nullable|integer',
+            'uuid_bank' => 'required|integer|exists:bank_xeros,id',
+            'nominal_receive' => 'required|integer',
+            'reference_detail' => 'required|string',
+            'date_transaction' => 'required|date',
+            'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+        $request->merge([
+            'created_by' => $request->user_login->id,
+            'nominal_transfer' => 0,
+            'nominal_spend' => 0
+        ]);
+
+        $nominal_paid_final = $this->repo->whereData(['id' => $request->parent_inv_id])->first()->invoice_amount + $request->nominal_receive;
+        $nominal_due_final = $this->repo->whereData(['id' => $request->parent_inv_id])->first()->invoice_amount - $nominal_paid_final;//kekurangan bayar
+
+        $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $nominal_due_final];
+        $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);
+        $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
+        return $this->autoResponse($saveP);
+
+    }
 
 
     private function getHeaders()

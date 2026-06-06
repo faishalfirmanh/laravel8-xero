@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\InvoicePriceGap;
+use App\Models\InvoicesAllFromXero;
 use App\Models\Xero\XeroRequestUsedLimit;
 use App\Models\PaymentsHistoryFix;
 use App\Models\Revenue\Hotel\InvoicesHotel;
@@ -102,6 +103,33 @@ class GlobalService
         return $resultInvoice;
     }
 
+    function generateUniqueRandomStringInvoice(int $length = 6): string
+    {
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $charLength = strlen($characters);
+        $maxAttempts = 10;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+
+            // random_int: cryptographically secure, karakter bisa repeat
+            $result = '';
+            for ($i = 0; $i < $length; $i++) {
+                $result .= $characters[random_int(0, $charLength - 1)];
+            }
+
+            // Cek keunikan langsung ke kolom invoice_uuid
+            $isUnique = !InvoicesAllFromXero::where('invoice_uuid', $result)->exists();
+
+            if ($isUnique) {
+                return $result; // ✅ langsung return jika unik
+            }
+        }
+
+        // Sangat jarang terjadi — jika 10x masih bentrok, tambah panjang otomatis
+        // daripada throw error yang mengganggu flow
+        return $this->generateUniqueRandomString($length + 2);
+    }
+
     function generateUniqueRandomString($length = 6)
     {
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -148,6 +176,20 @@ class GlobalService
         } catch (\Throwable $th) {
             Log::error('Gagal simpan log history: ' . $th->getMessage());
         }
+    }
+
+    public function generateNewInvoiceNumber(): string
+    {
+        $maxNumber = InvoicesAllFromXero::selectRaw(
+            "MAX(CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED)) as max_num"
+        )->value('max_num');
+
+        // bcadd: aritmatika presisi tinggi, tidak tergantung 32/64-bit PHP
+        // aman untuk angka sebesar apapun
+        $next = bcadd((string) ($maxNumber ?? '0'), '1');
+
+        // str_pad hanya aktif jika digit < 4, tidak truncate angka besar
+        return 'INV-' . str_pad($next, 4, '0', STR_PAD_LEFT);
     }
 
 

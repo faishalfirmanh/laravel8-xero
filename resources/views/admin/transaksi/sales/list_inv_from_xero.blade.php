@@ -85,123 +85,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-labelledby="modalCreateHotelLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl" role="document"> <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalCreateHotelLabel">Add New Invoices Hotel</h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form id="formCreateHotel">
-                @csrf
-                <div class="modal-body">
-                    <input type="hidden" name="idHotelInput" id="idHotelInput">
-
-                    <div class="card bg-light mb-3">
-                        <div class="card-body py-3">
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label for="order_name" class="font-weight-bold">Nama Agent / Pemesan <span class="text-danger">*</span></label>
-                                    <select class="form-control select2" name="order_name" id="order_name" style="width: 100%;" required>
-                                        <option value="" disabled selected>Pilih Agent</option>
-                                    </select>
-                                </div>
-                                <div class="form-group col-md-6">
-                                    <label for="hotel_id" class="font-weight-bold">Nama Hotel <span class="text-danger">*</span></label>
-                                    <select class="form-control select2" name="hotel_id" id="hotels" style="width: 100%;" required>
-                                        <option value="" disabled selected>Pilih Hotel</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                     <label for="check_in" class="font-weight-bold">Check In <span class="text-danger">*</span></label>
-                                     <input type="date" class="form-control" name="check_in" id="check_in" required>
-                                </div>
-                                <div class="form-group col-md-6">
-                                     <label for="check_out" class="font-weight-bold">Check Out <span class="text-danger">*</span></label>
-                                     <input type="date" class="form-control" name="check_out" id="check_out" required>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                     <label for="total_days" class="font-weight-bold">Total Hari <span class="text-danger">*</span></label>
-                                     <input type="number" class="form-control" name="total_days" id="total_days" disabled>
-                                </div>
-                                <div class="form-group col-md-6">
-                                     <label for="date_transaction" class="font-weight-bold">Tanggal Transaksi <span class="text-danger">*</span></label>
-                                     <input type="date" class="form-control" name="date_transaction" id="date_transaction" required>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-warning d-flex align-items-center py-2" role="alert">
-                        <i class="ti ti-info-circle mr-2"></i>
-                        <small><strong>Info Kurs:</strong> Harga 1 Real saat ini diestimasi <b id="text_currency"></b></small>
-                    </div>
-
-                    <hr>
-
-                    <div id="room-container">
-                        <label class="font-weight-bold mb-3">Detail Kamar</label>
-                        <div class="room-row form-row mb-2">
-                            <div class="form-group col-md-5">
-                                <label class="small font-weight-bold">Type Room <span class="text-danger">*</span></label>
-                                <select class="form-control select2-room" name="tipe_room[]" style="width: 100%;" required>
-                                    <option value="" disabled selected>Pilih Tipe</option>
-                                    <option value="4">Quad</option>
-                                    <option value="2">Double</option>
-                                    <option value="3">Triple</option>
-                                    <option value="5">Quint</option>
-                                    <option value="8">Room Only</option>
-                                    <option value="9">Bed</option>
-                                </select>
-                            </div>
-                            <div class="form-group col-md-2">
-                                <label class="small font-weight-bold">Qty <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="qty[]" min="1" value="1" required>
-                            </div>
-                            <div class="form-group col-md-4">
-                                <label class="small font-weight-bold">Harga Satuan (SAR) <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <div class="input-group-prepend">
-                                        <span class="input-group-text font-weight-bold text-xs">SAR</span>
-                                    </div>
-                                    <input type="number" class="form-control" name="price_hotel[]" placeholder="0" required>
-                                </div>
-                            </div>
-                            <div class="form-group col-md-1 text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm btn-remove-row" disabled>
-                                    <i class="ti ti-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mt-2">
-                        <div class="col-12">
-                            <button type="button" class="btn btn-success btn-sm btn-block dashed-border" id="btn-add-row">
-                                <i class="ti ti-plus"></i> Tambah Tipe Kamar Lain
-                            </button>
-                        </div>
-                    </div>
-
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                        <i class="ti ti-close mr-1"></i> Batal
-                    </button>
-                    <button type="submit" class="btn btn-primary shadow" id="btnSave">
-                        <i class="ti ti-save mr-1"></i> Simpan Data
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+@include('admin.transaksi.sales.modal_inv')
 
 <!-- Modal -->
 <div class="modal fade" id="invoiceModal" tabindex="-1" role="dialog">
@@ -438,7 +322,7 @@
     }
 
     // FUNGSI UTAMA: Membuat HTML Baris Kamar (Bisa dipakai Edit & Tambah Baru)
-    console.log('aaa');
+   
 
 
     let columnHotel = [
@@ -451,11 +335,15 @@
         { data: 'issue_date', name: 'issue_date' },
         { data: 'due_date', name: 'due_date' },
         {
-            data: 'invoice_amount', name: 'invoice_amount' }, // Sesuaikan jika nama hotel ada relasi
+            data: 'invoice_amount', 
+            render: function(data,type,row){
+                return formatCurrency(data)
+            } 
+        }, // Sesuaikan jika nama hotel ada relasi
         {
             data: 'status', name: 'status',
             render: function(data){
-                console.log('saaa',data);
+              
                 if(data != 'PAID'){
                     return '<span class="badge badge-danger">Belum dibayar</span>'
                 }else{
@@ -481,7 +369,7 @@
 
     $("#close_modal_payment").on('click',function(){
          table.ajax.reload();
-         console.log('reload')
+       
     })
 
     // Trigger Tambah Baru
@@ -489,6 +377,404 @@
         $('.modal-title').text('Add New Invoices Hotel');
         // Reset handled by modal hidden event
     });
+
+// =========================================================
+// INVOICE MODAL — JAVASCRIPT
+// =========================================================
+
+// ── Kurs rate (diisi dari response server jika ada) ───────
+let kursRate = 0;  // set dari luar: kursRate = 4350;
+
+// ── Template HTML satu baris item ────────────────────────
+function buildRow() {
+    return `
+    <tr class="line-item-row">
+        <td><span class="drag-handle">&#x28FF;</span></td>
+
+          <input type="hidden" name="id_detail[]"/>
+        {{-- Item — Select2 AJAX --}}
+        <td>
+            <select class="form-control select2-item" name="item_id[]"
+                    style="width:100%;" required>
+            </select>
+        </td>
+
+        {{-- Desc — auto-fill dari item --}}
+        <td>
+            <input type="text" class="form-control desc-input"
+                   name="desc[]" placeholder="(otomatis dari item)" required>
+        </td>
+
+        {{-- Qty --}}
+        <td>
+            <input type="number" class="form-control qty-input"
+                   name="qty[]" min="1" value="1"
+                   style="text-align:right;" required>
+        </td>
+
+        {{-- Price dengan label currency --}}
+        <td>
+            <div class="price-col-wrap">
+                <span class="currency-label price-currency-label">SAR</span>
+                <input type="number" class="form-control price-input"
+                       name="unit_price[]" placeholder="0" required>
+            </div>
+        </td>
+
+        {{-- Disc --}}
+        <td>
+            <input type="text" class="form-control"
+                   name="disc[]" placeholder="0%">
+        </td>
+
+        {{-- Account — Select2 AJAX --}}
+        <td>
+            <select class="form-control select2-account" name="coa_id[]" required
+                    style="width:100%;">
+            </select>
+        </td>
+
+        {{-- Tax rate --}}
+        <td>
+            <select class="form-control" name="tax_rate[]">
+                <option value="0">No tax</option>
+                <option value="11">11% PPN</option>
+            </select>
+        </td>
+
+        {{-- Tax amount (readonly) --}}
+        <td>
+            <input type="text" class="form-control tax-amount"
+                   name="tax_amount[]" placeholder="0.00"
+                   readonly style="text-align:right;background:#fafafa;">
+        </td>
+
+        {{-- Amount IDR (readonly) --}}
+        <td>
+            <input type="text" class="form-control amount-idr"
+                   name="amount_idr[]" placeholder="0" required
+                   readonly style="text-align:right;background:#fafafa;">
+        </td>
+
+        {{-- Nama Paket — Select2 AJAX --}}
+        <td>
+            <select class="form-control select2-paket" name="paket_tracking_uuid[]"
+                    style="width:100%;">
+            </select>
+        </td>
+
+        {{-- Divisi — Select2 AJAX --}}
+        <td>
+            <select class="form-control select2-divisi" name="divisi_travel_tracking_uuid[]"
+                    style="width:100%;">
+            </select>
+        </td>
+
+        <td>
+            <button type="button" class="btn-del-line" title="Hapus baris">
+                <i class="ti ti-trash"></i>
+            </button>
+        </td>
+    </tr>`;
+}
+
+// ── Init semua Select2 pada satu baris ($row) ─────────────
+function initRowSelect2($row) {
+    const modalEl = $('#modalCreateHotel');
+
+    // Item — AJAX list-paket-select2
+    $row.find('.select2-item').select2({
+        theme: 'bootstrap4',
+        dropdownParent: modalEl,
+        placeholder: 'Pilih Item',
+        allowClear: true,
+        ajax: {
+            url: '{{ route("list-paket-select2") }}',
+            dataType: 'json',
+            delay: 300,
+            data: function(params) {
+                return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+            },
+            processResults: function(response) {
+                if (response.status != 'success') return { results: [], pagination: { more: false } };;
+                return {
+                    results: $.map(response.data.results, function(item) {
+                        return { 
+                            id        : item.id,
+                            text      : item.nama_paket,
+                            harga     : item.price_sales
+                        };
+                    }),
+                }
+            },
+            cache: true
+        }
+    }).on('select2:select', function (e) {
+        // Auto-fill desc dari field nama_paket response
+        const d = e.params.data;
+        $(this).closest('tr').find('.desc-input')
+               .val(d.nama_paket || d.text || '');
+        $(this).closest('tr').find('.price-input').val(Number(d.harga) || ''); 
+        recalcSummary();
+    });
+
+    // Account — AJAX get-all-coa-select2
+    $row.find('.select2-account').select2({
+        theme: 'bootstrap4',
+        dropdownParent: modalEl,
+        placeholder: 'Account',
+        allowClear: true,
+        ajax: {
+            url: '{{ route("get-all-coa-select2") }}',
+            dataType: 'json',
+            delay: 300,
+            data: function(params) {
+                return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+            },
+            processResults: function(response, params) {
+                params.page = params.page || 1;
+                return {
+                    results: $.map(response.data?.data || [], function(item) {
+                        return { id: item.id, text: item.name, account_type: item.account_type || '-' };
+                    })
+                };
+            },
+            cache: true
+        }
+    });
+
+    // Nama Paket — AJAX tracking-by-parent
+    $row.find('.select2-paket').select2({
+        theme: 'bootstrap4',
+        dropdownParent: modalEl,
+        placeholder: 'Nama Paket',
+        allowClear: true,
+        ajax: {
+            url: '{{ route("tracking-by-parent") }}',
+            dataType: 'json',
+            delay: 300,
+            data: (params) => ({
+                keyword: params.term,
+                name_parent_category: 'nama paket'
+            }),
+            processResults: function(response) {
+                if (!response.status || !response.data?.lines_category) return { results: [] };
+                return {
+                    results: $.map(response.data.lines_category, function(item) {
+                        return { id: item.item_uuid_category || item.id, text: item.item_name_category };
+                    })
+                };
+            },
+            cache: false
+        }
+    });
+
+    // Divisi — AJAX tracking-by-parent
+    $row.find('.select2-divisi').select2({
+        theme: 'bootstrap4',
+        dropdownParent: modalEl,
+        placeholder: 'Divisi',
+        allowClear: true,
+        ajax: {
+            url: '{{ route("tracking-by-parent") }}',
+            dataType: 'json',
+            delay: 300,
+            data: (params) => ({
+                keyword: params.term,
+                name_parent_category: 'divisi'
+            }),
+           processResults: function(response) {
+                if (!response.status || !response.data?.lines_category) return { results: [] };
+                return {
+                    results: $.map(response.data.lines_category, function(item) {
+                        return { id: item.item_uuid_category || item.id, text: item.item_name_category };
+                    })
+                };
+            },
+            cache: false
+        }
+    });
+}
+
+// ── Init Contact Select2 di form atas ─────────────────────
+function initContactSelect2() {
+    $('#contact_id').select2({
+        theme: 'bootstrap4',
+        dropdownParent: $('#modalCreateHotel'),
+        placeholder: 'Pilih Agent / Contact',
+        allowClear: true,
+        ajax: {
+            url: '{{ route("list-contact-select2") }}',
+            dataType: 'json',
+            delay: 300,
+            data: function(params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+            },
+            processResults: function(response, params) {
+                params.page = params.page || 1;
+                return {
+                    results: $.map(response.data.data, function(item) {
+                        return { id: item.id, text: item.full_name, phone: item.phone_number || '-' };
+                    }),
+                    pagination: { more: response.data.next_page_url !== null }
+                };
+            },
+            cache: true
+        }
+    });
+}
+
+// ── Tambah baris ──────────────────────────────────────────
+$('#btn-add-row').on('click', function () {
+    const $row = $(buildRow());
+    $('#lineItemsBody').append($row);
+    initRowSelect2($row);
+    syncCurrencyLabels();
+    updateDeleteButtons();
+});
+
+// ── Hapus baris ───────────────────────────────────────────
+$(document).on('click', '.btn-del-line', function () {
+    $(this).closest('tr').remove();
+    updateDeleteButtons();
+    recalcSummary();
+});
+
+function updateDeleteButtons() {
+    const $rows = $('#lineItemsBody tr');
+    $rows.find('.btn-del-line').prop('disabled', $rows.length <= 1);
+}
+
+// ── Currency parent — ubah label SAR/IDR di semua baris ───
+$('#currency_selected').on('change', function () {
+    syncCurrencyLabels();
+    recalcSummary();
+});
+
+function syncCurrencyLabels() {
+    const cur = $('#currency_selected').val() || 'SAR';
+    $('.price-currency-label').text(cur);
+}
+
+// ── Recalc saat input berubah ─────────────────────────────
+$(document).on('input change', '.qty-input, .price-input, [name="tax_rate[]"]',
+    recalcSummary);
+
+function recalcSummary() {
+    const cur     = $('#currency_selected').val() || 'SAR';
+    const isSAR   = (cur === 'SAR');
+    let totalSAR  = 0;
+    let totalIDR  = 0;
+    let totalTax  = 0;
+
+    $('#lineItemsBody tr').each(function () {
+        const qty      = parseFloat($(this).find('.qty-input').val())  || 0;
+        const price    = parseFloat($(this).find('.price-input').val()) || 0;
+        const taxRate  = parseFloat($(this).find('[name="tax_rate[]"]').val()) || 0;
+        const subtotal = qty * price;
+        const taxAmt   = subtotal * (taxRate / 100);
+        const total    = subtotal + taxAmt;
+
+        $(this).find('.tax-amount').val(taxAmt > 0 ? taxAmt.toFixed(2) : '');
+
+        if (isSAR) {
+            const amtIDR = total * kursRate;
+            $(this).find('.amount-idr').val(
+                amtIDR > 0 ? Math.round(amtIDR).toLocaleString('id-ID') : ''
+            );
+            totalSAR += subtotal;
+            totalIDR += amtIDR;
+        } else {
+            $(this).find('.amount-idr').val(
+                total > 0 ? Math.round(total).toLocaleString('id-ID') : ''
+            );
+            totalIDR += total;
+        }
+        totalTax += taxAmt;
+    });
+
+    $('#summarySubtotalSAR').text(isSAR ? 'SAR ' + totalSAR.toLocaleString('id-ID') : '–');
+    $('#summarySubtotalIDR').text('Rp ' + Math.round(totalIDR).toLocaleString('id-ID'));
+    $('#summaryTax').text(totalTax > 0 ? totalTax.toFixed(2) : '0.00');
+    $('#summaryTotal').text('Rp ' + Math.round(totalIDR).toLocaleString('id-ID'));
+}
+
+// ── Reset saat modal ditutup ──────────────────────────────
+$('#modalCreateHotel').on('hidden.bs.modal', function () {
+    $('#formCreateHotel')[0].reset();
+    $('#lineItemsBody').empty();
+    addFirstRow();                     // selalu ada 1 baris kosong
+    syncCurrencyLabels();
+    $('#summarySubtotalSAR, #summarySubtotalIDR, #summaryTax, #summaryTotal')
+        .text('–');
+});
+
+// ── Inisialisasi awal saat DOM ready ─────────────────────
+function addFirstRow() {
+    const $row = $(buildRow());
+    $('#lineItemsBody').append($row);
+    initRowSelect2($row);
+    updateDeleteButtons();
+}
+
+$(function () {
+    initContactSelect2();
+    addFirstRow();
+    syncCurrencyLabels();
+});
+
+//submit
+    $('.action-submit').on('click', function() {
+        let actionValue = $(this).val();
+        $('#actionTypeValue').val(actionValue);
+    });
+
+
+        $('#formCreateHotel').on('submit', function(e) {
+            e.preventDefault();
+            
+            $('.select2-account, .select2-paket, select2-item, .select2-divisi').each(function() {
+                if ($(this).data('select2')) { $(this).trigger('change'); }
+            });
+
+            let formData = $(this).serialize();
+            let params = new URLSearchParams(formData);
+            let idInput = params.get('idHotelInput');
+            let id_inv = (idInput && idInput > 0) ? idInput : null;
+            let action_selected = params.get('action_type');
+
+            let selectedData = {
+                id: id_inv,
+                contact_id: params.get('contact_id'),
+                issue_date: params.get('issue_date'),
+                due_date: params.get('due_date'),
+                reference: params.get('reference'),
+                // currency: params.get('currency'),
+                action_save : action_selected,
+
+                item_id : $('select[name="item_id[]"]').map(function(){ return $(this).val(); }).get(),
+                coa_id: $('select[name="coa_id[]"]').map(function(){ return $(this).val(); }).get(),
+                desc: $('input[name="desc[]"]').map(function(){ return $(this).val(); }).get(),
+                qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
+                unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
+                //tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),
+                paket_tracking_uuid: $('select[name="nama_paket[]"]').map(function(){ return $(this).val(); }).get(),
+                divisi_travel_tracking_uuid: $('select[name="divisi[]"]').map(function(){ return $(this).val(); }).get(),
+                id_detail:$('input[name="id_detail[]"]').map(function(){ return $(this).val(); }).get(),
+            };
+
+            ajaxRequest(`{{ route('save-sales-inv') }}`, 'POST', selectedData, localStorage.getItem("token"))
+                .then(response => {
+                    if(response.status == 200){
+                        Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                        $('#modalCreateHotel').modal('hide');
+                        table.ajax.reload(null, false);
+                    }
+                })
+                .catch((err) => {
+                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                });
+        });
 
 </script>
 @endpush

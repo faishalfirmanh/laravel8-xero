@@ -28,6 +28,7 @@ class ItemDetailInvoices extends Model
         'paket_tracking_uuid',
         'divisi_travel_tracking_uuid',
         'id_parent_inv',
+        'desc',
     ];
 
     public function getCoa()

@@ -13,13 +13,16 @@ class AddColumnIdParentInvOnTransBank extends Migration
      */
     public function up()
     {
-        Schema::table('transaction_nominal_bank_accounts', function (Blueprint $table) {
-            $table->unsignedInteger('id_parent_inv')->nullable();
-            $table->foreign('id_parent_inv')
-                ->references('id')
-                ->on('invoices_all_from_xeros')
-                ->onDelete('cascade');
-        });
+        if (!Schema::hasColumn('transaction_nominal_bank_accounts', 'id_parent_invoice')) {
+            Schema::table('transaction_nominal_bank_accounts', function (Blueprint $table) {
+                $table->unsignedInteger('id_parent_invoice')->nullable();
+                $table->foreign('id_parent_invoice')
+                    ->references('id')
+                    ->on('invoices_all_from_xeros')
+                    ->onDelete('cascade');
+            });
+        }
+
     }
 
     /**

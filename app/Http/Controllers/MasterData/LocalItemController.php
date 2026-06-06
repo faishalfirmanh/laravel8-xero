@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
+use App\Http\Repository\MasterData\Finance\ItemPaketAllXeroRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\Expenses\Purchase\Bill\DBill;
 use Illuminate\Http\Request;
@@ -16,14 +17,14 @@ use App\Traits\ApiResponse;
 
 
 
-class CoaController extends Controller
+class LocalItemController extends Controller
 {
 
     use ApiResponse;
     protected $repo, $repo_trans_all, $repo_d_bill;
 
     public function __construct(
-        CoaRepo $repo,
+        ItemPaketAllXeroRepo $repo,
         TransCoaRepo $transCoaRepo,
         PODBillRepository $repo_d_bill
     ) {
@@ -84,11 +85,11 @@ class CoaController extends Controller
             return $this->error($validator->errors(), 404);
         }
         //dd($request->menu);
-        $where = $request->type ? ['account_type' => $request->type] : [];
+        $where = [];//$request->type ? ['account_type' => $request->type] : [];
         if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, 10, $request->page, 'name', strtoupper($request->keyword));
+            $data = $this->repo->searchData($where, 10, $request->page, 'nama_paket', strtoupper($request->keyword));
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, 10, $request->page, 'name', 'ASC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, 10, $request->page, 'nama_paket', 'ASC');//getDataPaginate("name",10,$request->keyword);
         }
         //$data['menu']= $request->menu;
         return $this->autoResponse($data);
@@ -142,7 +143,7 @@ class CoaController extends Controller
             $request->page,
             'date_transaction',
             'DESC',
-            ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent', 'd_invoice', 'd_invoice.getParent']
+            ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent']
         );
 
         //$data['menu']= $request->menu;

@@ -3,6 +3,7 @@
 namespace App\Models\Transaction;
 
 use App\Models\Expenses\Purchase\Bill\PBill;
+use App\Models\InvoicesAllFromXero;
 use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,7 +25,8 @@ class TransactionNominalBankAccount extends Model
         'id_parent_bill',
         'date_transaction',
         'created_by',
-        'id_parent_bank'//relation with TransactionBankTransP ->id
+        'id_parent_bank',//relation with TransactionBankTransP ->id,
+        'id_parent_invoice'
     ];
 
     protected $appends = [
@@ -50,6 +52,11 @@ class TransactionNominalBankAccount extends Model
     public function getPbill()
     {
         return $this->hasOne(PBill::class, 'id', 'id_parent_bill');
+    }
+
+    public function getInv()
+    {
+        return $this->hasOne(InvoicesAllFromXero::class, 'id', 'id_parent_invoice');
     }
 
     public function getPBank()
