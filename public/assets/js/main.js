@@ -24,6 +24,8 @@ function convertStringDate(dateStr) {
   const hours = date.getHours().toString().padStart(2, '0');
   const minutes = date.getMinutes().toString().padStart(2, '0');
 
+
+
   // Construct the formatted string
   const formattedDate = `${dayName}, ${day} ${month} ${year} ${hours}.${minutes}`;
   return formattedDate
@@ -55,6 +57,37 @@ function formatCurrency(value, currency = 'IDR', decimals = 0) {
     currency: currency,
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals
+  });
+}
+
+
+function cathError(err) {
+  const errData = err?.error ?? err;
+  const rawMessage = errData?.message ?? err?.message ?? 'Terjadi kesalahan.';
+
+  let displayMessage = rawMessage;
+
+  // 2. Deteksi apakah message adalah JSON string (Laravel validation)
+  try {
+    const parsed = JSON.parse(rawMessage);
+    if (parsed && typeof parsed === 'object') {
+      // Gabungkan semua pesan validasi: { field: ["msg1","msg2"] }
+      displayMessage = Object.entries(parsed)
+        .map(([field, messages]) =>
+          `<b>${field}:</b> ${[].concat(messages).join(', ')}`
+        )
+        .join('<br>');
+    }
+  } catch (_) {
+    // Bukan JSON string → tampilkan apa adanya
+    displayMessage = rawMessage;
+  }
+
+  Swal.fire({
+    icon: 'error',
+    title: 'Gagal!',
+    html: displayMessage,
+    confirmButtonText: 'OK',
   });
 }
 

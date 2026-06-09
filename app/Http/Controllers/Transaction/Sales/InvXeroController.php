@@ -103,7 +103,7 @@ class InvXeroController extends Controller
 
         // Gunakan merge agar field ini terbaca dengan baik saat request->except() atau validasi lanjutan
         $request->merge([
-            'status' => $request->action_save, // 0->draft, 1/2->approve
+            'status' => $request->action_save, // 0->draft, 1/2->approve, harus di perbaiki
             'reference' => strtolower($request->reference)
         ]);
 
@@ -163,6 +163,7 @@ class InvXeroController extends Controller
                     'paket_tracking_uuid' => $request->paket_tracking_uuid[$key] ?? null,
                     'divisi_travel_tracking_uuid' => $request->divisi_travel_tracking_uuid[$key] ?? null,
                     'parent_inv_id' => $saveP->id,
+                    'item_id' => $request->item_id[$key] ?? null
                 ];
 
                 // FIX: Hanya generate UUID_DETAIL jika ini adalah baris baru (bukan edit)
@@ -185,7 +186,7 @@ class InvXeroController extends Controller
                     if ($cek_create_trans) {
                         // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
                         $cek_create_trans->is_speend = false;
-                        $cek_create_trans->nominal = $save_d->amount;
+                        $cek_create_trans->nominal = $save_d->amount ?? 0;
                         $cek_create_trans->save();
                     } else {
                         // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
@@ -205,7 +206,7 @@ class InvXeroController extends Controller
 
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_detail->sumDataWhereDinamis(['parent_inv_id' => $saveP->id], 'total_amount_each_row');
-            $this->repo->CreateOrUpdate(['invoice_amount' => $sumD], $saveP->id);
+            $this->repo->CreateOrUpdate(['invoice_total' => $sumD, 'less_nominal' => $sumD], $saveP->id);//invoice_total ->totaol, invoice_amount->totaol dibayar
 
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
@@ -226,7 +227,7 @@ class InvXeroController extends Controller
 
 
 
-    public function detailBill(Request $request)
+    public function detailInvoice(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'id' => 'required|exists:invoices_all_from_xeros,id'
@@ -235,7 +236,13 @@ class InvXeroController extends Controller
             return $this->error($validator->errors());
         }
         // dd(222);
-        $data = $this->repo->WhereDataWith(['getDetailByUUID', 'getPayment'], ['id' => $request->id])->first();
+        $data = $this->repo->WhereDataWith([
+            'getDetailById',
+            'getDetailById.getCoa',
+            'getDetailById.getItem',
+            'getPayment'
+            // 'getDetailById.trackingCategoryPaket'
+        ], ['id' => $request->id])->first();
         return $this->autoResponse($data);
     }
 
@@ -252,19 +259,37 @@ class InvXeroController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->error($validator->errors());
+            return $this->error($validator->errors(), 500);
         }
+
+        $cekData = $this->repo->whereData(['id' => $request->parent_inv_id])->first();
+
+
+        $sisaTagihan = $cekData->less_nominal;
+
+        if ($request->nominal_receive > $cekData->invoice_total) {
+            return $this->error("Nominal melebihi total tagihan (due: {$cekData->invoice_total})", 400);
+        }
+
+        if ($request->nominal_receive > $sisaTagihan) {
+            return $this->error("Nominal melebihi sisa tagihan yang belum dibayar (sisa: {$sisaTagihan})", 400);
+        }
+
         $request->merge([
             'created_by' => $request->user_login->id,
             'nominal_transfer' => 0,
             'nominal_spend' => 0
         ]);
 
-        $nominal_paid_final = $this->repo->whereData(['id' => $request->parent_inv_id])->first()->invoice_amount + $request->nominal_receive;
-        $nominal_due_final = $this->repo->whereData(['id' => $request->parent_inv_id])->first()->invoice_amount - $nominal_paid_final;//kekurangan bayar
+        $nominal_paid_final = $cekData->invoice_amount + $request->nominal_receive;
+        //$nominal_due_final = $cekData->invoice_amount - $nominal_paid_final;//kekurangan bayar
+        $final_less = $cekData->less_nominal < 1 ? $cekData->invoice_total - $request->nominal_receive : $cekData->less_nominal - $request->nominal_receive;
 
-        $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $nominal_due_final];
+        $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $final_less];
         $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);
+        $request->merge([
+            'id_parent_invoice' => $request->parent_inv_id
+        ]);
         $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
         return $this->autoResponse($saveP);
 

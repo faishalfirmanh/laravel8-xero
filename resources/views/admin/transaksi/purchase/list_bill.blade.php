@@ -360,7 +360,9 @@ $(document).ready(function() {
                 }
             })
             .catch((err) => {
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                cathError(err)
+                // console.log('err',err)
+                // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
             });
     });
 

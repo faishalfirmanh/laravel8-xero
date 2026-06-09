@@ -1,4 +1,3 @@
-
 @extends('layouts.app')
 
 @section('content')
@@ -8,7 +7,6 @@
     .btn-remove-row {
         margin-top: 32px; /* Menyesuaikan tinggi label */
     }
-
 
     .select2-container .select2-selection--single {
         border: 2px solid #888 !important; /* Ubah 2px sesuai ketebalan yg diinginkan */
@@ -47,6 +45,451 @@
             width: 100%;
         }
     }
+
+    #modalCreateHotel .modal-body {
+        overflow-y: auto  !important;   /* OVERRIDE inline style overflow:visible */
+        overflow-x: hidden;
+        flex: 1 1 auto;                 /* ambil sisa tinggi yang tersedia */
+    }
+
+    #paymentFormSection {
+        margin: 0 -26px -20px;         /* kompensasi padding modal-body */
+    }
+
+    /**/
+    /* ── PAYMENT HISTORY SECTION ── */
+        #paymentHistorySection {
+            display: none;
+            margin-top: 16px;
+            margin-bottom: 12px;
+        }
+        .pay-history-wrap {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+            font-size: 11px;
+        }
+        .pay-history-head {
+            background: #f6f6f6;
+            padding: 7px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .pay-history-head span { font-weight: 600; color: #444; font-size: 11px; }
+        .pay-history-head small { font-size: 10px; color: #999; }
+        .pay-history-table { width: 100%; border-collapse: collapse; }
+        .pay-history-table thead th {
+            background: #fafafa;
+            padding: 6px 10px;
+            font-size: 10px; font-weight: 600; color: #555;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap;
+        }
+        .pay-history-table tbody td {
+            padding: 5px 10px;
+            border-bottom: 1px solid #f5f5f5;
+            font-size: 11px; color: #333;
+            vertical-align: middle;
+        }
+        .pay-history-table tbody tr:last-child td { border-bottom: none; }
+        .pay-history-table tfoot td {
+            padding: 6px 10px;
+            background: #f0fdf8;
+            font-weight: 600; font-size: 11px;
+        }
+        .pay-history-empty {
+            padding: 14px; text-align: center;
+            color: #aaa; font-size: 11px;
+        }
+        .btn-del-pay {
+            background: transparent; border: 1px solid #e74c3c;
+            color: #e74c3c; border-radius: 3px;
+            padding: 2px 6px; font-size: 11px; cursor: pointer; line-height: 1;
+        }
+        .btn-del-pay:hover { background: #e74c3c; color: #fff; }
+
+        /*modal ---*/
+        /* ── Reset & base ── */
+#modalCreateHotel .modal-content {
+    border: none;
+    border-radius: 8px;
+    overflow: hidden;               /* TAMBAH: wajib untuk scrollable */
+    max-height: calc(100vh - 40px); /* TAMBAH: batas tinggi = viewport - margin */
+    display: flex;                  /* TAMBAH: flex column agar body bisa grow */
+    flex-direction: column;
+
+}
+
+/* ── PAKSA modal selebar viewport, margin kecil ── */
+#modalCreateHotel .modal-dialog {
+    max-width: calc(100vw - 40px) !important;
+    width: calc(100vw - 40px) !important;
+    margin: 20px auto !important;
+}
+
+/* ── Topbar Xero ── */
+.xero-modal-header {
+    background: #1c3a5e;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.xero-modal-header .breadcrumb-nav {
+    font-size: 11px;
+    color: #9bb4cc;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.xero-modal-header .breadcrumb-nav b { color: #fff; }
+.xero-modal-header .header-actions   { display: flex; align-items: center; gap: 7px; }
+.btn-xero-ghost {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff; border-radius: 4px;
+    padding: 4px 13px; font-size: 11px; cursor: pointer;
+}
+.btn-xero-approve {
+    background: #1ab394; border: none; color: #fff;
+    border-radius: 4px 0 0 4px;
+    padding: 5px 13px; font-size: 11px; cursor: pointer;
+}
+.btn-xero-approve-caret {
+    background: #17a085; border: none; color: #fff;
+    border-radius: 0 4px 4px 0;
+    padding: 5px 8px; font-size: 11px; cursor: pointer;
+    border-left: 1px solid rgba(255,255,255,0.3);
+}
+
+/* ── Banner ── */
+.xero-banner {
+    background: #1c3a6e; color: #fff;
+    padding: 8px 18px; font-size: 11px;
+    display: flex; align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    flex-shrink: 0;
+}
+.card-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 3px; font-size: 8px; font-weight: 700;
+    height: 14px; padding: 0 5px;
+}
+.btn-add-pay {
+    background: #1ab394; border: none; color: #fff;
+    border-radius: 4px; padding: 4px 12px; font-size: 11px; cursor: pointer;
+}
+
+/* ── Invoice title ── */
+.invoice-title-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+}
+.invoice-title-row h5 { font-size: 18px; font-weight: 400; margin: 0; color: #222; }
+.badge-draft {
+    background: #e8e8e8; color: #555;
+    border-radius: 4px; padding: 2px 9px;
+    font-size: 11px; font-weight: 400;
+}
+
+/* ── Header fields grid ── */
+.xero-fields-grid {
+    display: grid;
+    grid-template-columns: 3fr 1.2fr 1.2fr 1fr;
+    gap: 10px 16px;
+    margin-bottom: 12px;
+    align-items: end;
+}
+.xero-row-2 {
+    display: grid;
+    grid-template-columns: 3fr 1.5fr 1.5fr;
+    gap: 10px 16px;
+    margin-bottom: 14px;
+    align-items: end;
+}
+@media (max-width: 900px) {
+    .xero-fields-grid { grid-template-columns: 1fr 1fr; }
+    .xero-row-2       { grid-template-columns: 1fr 1fr; }
+}
+.xero-field { display: flex; flex-direction: column; gap: 3px; }
+.xero-field label {
+    font-size: 10px; font-weight: 600; color: #555; margin-bottom: 0;
+}
+.xero-field .form-control {
+    border: 1px solid #ccc; border-radius: 4px;
+    height: 32px; padding: 4px 8px;
+    font-size: 12px; color: #222;
+}
+.xero-field .form-control:focus { border-color: #1ab394; box-shadow: none; }
+.xero-field .input-icon-wrap { position: relative; }
+.xero-field .input-icon-wrap > i {
+    position: absolute; left: 7px; top: 50%;
+    transform: translateY(-50%); color: #bbb;
+    font-size: 13px; pointer-events: none; z-index: 1;
+}
+.xero-field .input-icon-wrap .form-control { padding-left: 26px; }
+
+/* ── Kurs alert ── */
+.kurs-alert {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 4px;
+    padding: 7px 12px;
+    margin-bottom: 14px;
+    font-size: 11px; color: #555;
+    display: flex; align-items: center; gap: 8px;
+}
+
+/* ──────────────────────────────────────────────
+   LINE ITEMS TABLE — area paling kritis
+   ────────────────────────────────────────────── */
+.line-items-wrap {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow-x: auto;          /* scroll horizontal jika perlu */
+    overflow-y: visible;       /* JANGAN clip dropdown ke bawah */
+    margin-bottom: 10px;
+    /* Beri ruang bawah agar dropdown Select2 tidak terpotong */
+    padding-bottom: 4px;
+}
+.line-items-table {
+    width: 100%;
+    border-collapse: separate;  /* perlu untuk overflow visible */
+    border-spacing: 0;
+    font-size: 11px;
+    /* min-width agar kolom tidak crush — sesuaikan dgn lebar modal */
+    min-width: 1350px;
+    table-layout: fixed;        /* kolom FIXED — tidak melar/menyempit */
+}
+.line-items-table thead th {
+    background: #f6f6f6;
+    padding: 7px 8px;
+    font-weight: 600; color: #555;
+    border-bottom: 1px solid #e0e0e0;
+    white-space: nowrap; font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.line-items-table thead th.col-r { text-align: right; }
+.line-items-table tbody td {
+    padding: 5px 6px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+    overflow: visible;          /* dropdown tidak terpotong */
+}
+.line-items-table tbody tr:last-child td { border-bottom: none; }
+
+/* Input & native select di dalam tabel */
+.line-items-table td .form-control {
+    border: 1px solid #ddd; border-radius: 3px;
+    padding: 3px 6px; font-size: 11px;
+    height: 30px; width: 100%;
+    min-width: 0;
+}
+.line-items-table td .form-control:focus {
+    border-color: #1ab394; box-shadow: none;
+}
+
+/* ── PRICE kolom dengan prefix label ── */
+.price-col-wrap { display: flex; }
+.price-col-wrap .currency-label {
+    background: #f0f0f0;
+    border: 1px solid #ddd; border-right: none;
+    border-radius: 3px 0 0 3px;
+    padding: 0 7px; height: 30px;
+    display: flex; align-items: center;
+    font-size: 10px; font-weight: 600; color: #555;
+    white-space: nowrap; flex-shrink: 0;
+}
+.price-col-wrap .form-control {
+    border-radius: 0 3px 3px 0 !important;
+}
+
+/* Drag & delete */
+.drag-handle { color: #ccc; font-size: 14px; cursor: grab; user-select: none; }
+.btn-del-line {
+    background: transparent; border: none; color: #ccc;
+    padding: 2px 4px; cursor: pointer; font-size: 14px; line-height: 1;
+}
+.btn-del-line:hover { color: #e74c3c; }
+
+/* ── Table actions ── */
+.table-actions { display: flex; gap: 8px; margin-bottom: 18px; }
+.btn-dashed {
+    background: transparent; border: 1px dashed #1ab394; color: #1ab394;
+    border-radius: 4px; padding: 4px 14px; font-size: 11px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+}
+.btn-dashed:hover { background: #e8faf6; }
+
+/* ── Summary ── */
+.invoice-summary { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.summary-table { min-width: 280px; font-size: 12px; }
+.summary-table td { padding: 4px 0; color: #555; }
+.summary-table td:last-child { text-align: right; padding-left: 40px; font-variant-numeric: tabular-nums; }
+.summary-table .row-total td {
+    font-size: 16px; font-weight: 500; color: #222;
+    border-top: 1.5px solid #333; padding-top: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SELECT2 FIXES — INI BAGIAN TERPENTING
+   ═══════════════════════════════════════════════════════ */
+
+/* 1. Header form — tinggi 32px */
+.xero-field .select2-container--bootstrap4 .select2-selection--single {
+    height: 32px !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+.xero-field .select2-container--bootstrap4
+    .select2-selection--single .select2-selection__rendered {
+    line-height: 30px !important;
+    font-size: 12px !important;
+    padding-left: 8px !important;
+    /* KUNCI: teks tidak terpotong */
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: calc(100% - 24px) !important;
+}
+.xero-field .select2-container--bootstrap4
+    .select2-selection--single .select2-selection__arrow {
+    height: 30px !important;
+}
+
+/* 2. Tabel detail — tinggi 30px */
+.line-items-table .select2-container--bootstrap4 .select2-selection--single {
+    height: 30px !important;
+    border: 1px solid #ddd !important;
+    border-radius: 3px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+.line-items-table .select2-container--bootstrap4
+    .select2-selection--single .select2-selection__rendered {
+    line-height: 28px !important;
+    font-size: 11px !important;
+    padding-left: 6px !important;
+    padding-right: 20px !important;
+    /* KUNCI: teks selected tidak terpotong/setengah */
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 100% !important;
+    display: block !important;
+}
+.line-items-table .select2-container--bootstrap4
+    .select2-selection--single .select2-selection__arrow {
+    height: 28px !important;
+    width: 20px !important;
+    right: 2px !important;
+}
+
+/* 3. Select2 container width = 100% dari td */
+.line-items-table td .select2-container {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+/* 4. Dropdown hasil pencarian — font & ukuran wajar */
+.select2-dropdown {
+    font-size: 12px !important;
+    z-index: 9999 !important;      /* muncul di atas modal */
+}
+.select2-results__option {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    white-space: normal !important;   /* bisa wrap — tidak terpotong */
+    word-break: break-word !important;
+}
+.select2-results__option--highlighted {
+    background-color: #1ab394 !important;
+    color: #fff !important;
+}
+
+/* 5. Search box di dalam dropdown */
+.select2-search--dropdown .select2-search__field {
+    border: 1px solid #ddd !important;
+    border-radius: 3px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    height: 30px !important;
+}
+
+/* 6. Pastikan select2 dengan icon tidak overlap */
+.xero-field .input-icon-wrap .select2-container {
+    padding-left: 0 !important;
+}
+.xero-field .input-icon-wrap .select2-container .select2-selection__rendered {
+    padding-left: 26px !important;
+}
+
+/* untuk form payment */
+/* ── PAYMENT FORM SECTION ── */
+.payment-form-section {
+    display: none;
+    border-top: 2px solid #1ab394;
+    background: #f4fdf9;
+}
+.payment-form-section .payment-form-inner {
+    padding: 14px 26px 18px;
+}
+.payment-form-section .payment-form-title {
+    display: flex; align-items: center; gap: 7px;
+    margin-bottom: 12px;
+}
+.payment-form-section .payment-form-title span {
+    font-size: 12px; font-weight: 600; color: #1c3a5e;
+}
+.payment-form-section .payment-form-title .btn-close-payment {
+    margin-left: auto; background: transparent; border: none;
+    color: #aaa; cursor: pointer; font-size: 18px; line-height: 1;
+    padding: 0 2px;
+}
+.payment-form-section .payment-form-title .btn-close-payment:hover { color: #e74c3c; }
+.payment-fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr 1fr 1fr;
+    gap: 10px 16px;
+    align-items: end;
+}
+@media (max-width: 900px) {
+    .payment-fields-grid { grid-template-columns: 1fr 1fr; }
+}
+.payment-form-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid #d8f0e8;
+}
+.btn-payment-cancel {
+    background: transparent; border: 1px solid #ccc; color: #555;
+    border-radius: 4px; padding: 5px 16px; font-size: 11px; cursor: pointer;
+}
+.btn-payment-cancel:hover { background: #f5f5f5; }
+.btn-payment-save {
+    background: #1ab394; border: none; color: #fff;
+    border-radius: 4px; padding: 5px 18px; font-size: 11px;
+    font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+}
+.btn-payment-save:hover { background: #17a085; }
+
+/* --- CSS TAMBAHAN UNTUK SCROLLABLE PAYMENT MODAL --- */
+#paymentModal .modal-content {
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+}
+#paymentModal .modal-body {
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    flex: 1 1 auto;
+}
 </style>
 
 
@@ -77,6 +520,7 @@
                     <th>Due Date</th>
                     <th>Amount</th>
                     <th>Status</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -85,9 +529,315 @@
     </div>
 </div>
 
-@include('admin.transaksi.sales.modal_inv')
 
-<!-- Modal -->
+
+<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog"
+     aria-labelledby="modalCreateHotelLabel" aria-hidden="true">
+
+    {{-- modal-dialog dikendalikan CSS di atas --}}
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+
+            {{-- ── TOPBAR ── --}}
+            <div class="xero-modal-header">
+                <div class="breadcrumb-nav">
+                    <i class="ti ti-chevron-left" style="font-size:12px;"></i>
+                    <span>Sales overview &rsaquo; </span><b>Invoices</b>
+                </div>
+                <div class="header-actions">
+                    {{-- <button type="button" class="btn-xero-ghost" data-dismiss="modal">
+                        Save &amp; close
+                    </button> --}}
+                    <div class="d-flex">
+                        {{-- <button type="button" class="btn-xero-approve" id="btnApproveTop">
+                            Approve
+                        </button>
+                        <button type="button" class="btn-xero-approve-caret">
+                            <i class="ti ti-chevron-down" style="font-size:11px;"></i>
+                        </button> --}}
+                    </div>
+                    <span style="color:#9bb4cc;font-size:18px;cursor:pointer;">&#8942;</span>
+                </div>
+            </div>
+
+            {{-- ── BANNER ── --}}
+            <div class="xero-banner">
+               
+                <button class="btn-add-pay" id="btn_add_payment_inv">
+                    <i class="ti ti-credit-card" style="font-size:11px;"></i> Add payments
+                </button>
+            </div>
+
+            {{-- ── FORM ── --}}
+            <form id="formCreateHotel">
+                @csrf
+                <div class="modal-body" style="padding: 20px 26px;">
+
+                    <div class="invoice-title-row">
+                        <h5 id="modalInvoiceTitle">New invoice</h5>
+                        <span class="badge-draft" id="invoiceStatusBadge">Draft</span>
+                    </div>
+
+                    <input type="hidden" name="idHotelInput" id="idHotelInput">
+
+                    {{-- ── BARIS 1: Contact | Issue date | Due date | Invoice no ── --}}
+                    <div class="xero-fields-grid">
+                        <div class="xero-field">
+                            <label>Contact <span class="text-danger">*</span></label>
+                            <div class="input-icon-wrap">
+                                <i class="ti ti-user"></i>
+                                <select class="form-control select2-contact"
+                                        name="contact_id" id="contact_id"
+                                        style="width:100%;" required>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="xero-field">
+                            <label>Issue date <span class="text-danger">*</span></label>
+                            <div class="input-icon-wrap">
+                                <i class="ti ti-calendar"></i>
+                                <input type="date" class="form-control"
+                                       name="issue_date" id="issue_date" required>
+                            </div>
+                        </div>
+
+                        <div class="xero-field">
+                            <label>Due date</label>
+                            <div class="input-icon-wrap">
+                                <i class="ti ti-calendar"></i>
+                                <input type="date" class="form-control"
+                                       name="due_date" id="due_date">
+                            </div>
+                        </div>
+
+                        <div class="xero-field">
+                            <label>Invoice number</label>
+                            <div class="input-icon-wrap">
+                                <i class="ti ti-hash"></i>
+                                <input type="text" class="form-control"
+                                       id="invoice_number_display"
+                                       placeholder="Auto" readonly
+                                       style="background:#f9f9f9;">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- ── BARIS 2: Reference | Currency | Amounts are ── --}}
+                    <div class="xero-row-2">
+                        <div class="xero-field">
+                            <label>Reference</label>
+                            <div class="input-icon-wrap">
+                                <i class="ti ti-bookmark"></i>
+                                <input type="text" class="form-control"
+                                       name="reference" id="reference">
+                            </div>
+                        </div>
+
+                        <div class="xero-field">
+                            <label>Currency <span class="text-danger">*</span></label>
+                            <select class="form-control" name="currency_selected"
+                                    id="currency_selected" required>
+                                <option value="IDR" selected>IDR &ndash; Rupiah</option>
+                                <option value="SAR">SAR &ndash; Saudi Riyal</option>
+                            </select>
+                        </div>
+
+                        <div class="xero-field">
+                            <label>Amounts are</label>
+                            <select class="form-control" name="amount_are" id="amount_are">
+                                <option value="0" selected>No Tax</option>
+                                <option value="1">Tax Exclusive</option>
+                                <option value="2">Tax Inclusive</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {{-- ── KURS ALERT ── --}}
+                    <div class="kurs-alert">
+                        <i class="ti ti-info-circle" style="font-size:15px;color:#f0a500;"></i>
+                        <span><strong>Info Kurs:</strong> Harga 1 SAR saat ini diestimasi
+                            <b id="text_currency">–</b>
+                        </span>
+                    </div>
+
+                    {{-- ── LINE ITEMS TABLE ── --}}
+                    <div class="line-items-wrap">
+                        <table class="line-items-table" id="lineItemsTable">
+                            <colgroup>
+                                <col style="width:28px;">      {{-- drag --}}
+                                <col style="width:200px;">     {{-- Item --}}
+                                <col style="width:180px;">     {{-- Desc --}}
+                                <col style="width:62px;">      {{-- Qty --}}
+                                <col style="width:140px;">     {{-- Price --}}
+                                <col style="width:66px;">      {{-- Disc --}}
+                                <col style="width:160px;">     {{-- Account --}}
+                                <col style="width:100px;">     {{-- Tax rate --}}
+                                <col style="width:88px;">      {{-- Tax amt --}}
+                                <col style="width:110px;">     {{-- Amount IDR --}}
+                                <col style="width:150px;">     {{-- Nama Paket --}}
+                                <col style="width:130px;">     {{-- Divisi --}}
+                                <col style="width:28px;">      {{-- delete --}}
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Item</th>
+                                    <th>Description</th>
+                                    <th class="text-center">Qty</th>
+                                    <th>Price</th>
+                                    <th>Disc.</th>
+                                    <th>Account</th>
+                                    <th>Tax rate</th>
+                                    <th class="col-r">Tax amt</th>
+                                    <th class="col-r">Amount IDR</th>
+                                    <th>Nama Paket</th>
+                                    <th>Divisi</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="lineItemsBody">
+                                {{-- diisi JS --}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-actions">
+                        <button type="button" class="btn-dashed" id="btn-add-row">
+                            <i class="ti ti-plus" style="font-size:12px;"></i> Add row
+                        </button>
+                    </div>
+
+                    {{-- ── SUMMARY ── --}}
+                    <div class="invoice-summary">
+                        <table class="summary-table">
+                            <tr>
+                                <td>Subtotal (SAR)</td>
+                                <td id="summarySubtotalSAR">–</td>
+                            </tr>
+                            <tr>
+                                <td>Subtotal (IDR)</td>
+                                <td id="summarySubtotalIDR">Rp 0</td>
+                            </tr>
+                            <tr>
+                                <td>Total tax</td>
+                                <td id="summaryTax">0.00</td>
+                            </tr>
+                            <tr class="row-total">
+                                <td>Total</td>
+                                <td id="summaryTotal">Rp 0</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                   
+
+                    <div class="payment-form-section" id="paymentFormSection">
+                        <div class="payment-form-inner">
+
+                            {{-- Title bar --}}
+                            <div class="payment-form-title">
+                                <i class="ti ti-credit-card" style="font-size:15px; color:#1ab394;"></i>
+                                <span>Add Payment</span>
+                                <button type="button" class="btn-close-payment" id="btnClosePayment"
+                                        title="Tutup">&times;</button>
+                            </div>
+
+                            {{-- Fields sejajar --}}
+                            <div class="payment-fields-grid">
+
+                                {{-- Date Paid --}}
+                                <div class="xero-field">
+                                    <label>Date Paid <span class="text-danger">*</span></label>
+                                    <div class="input-icon-wrap">
+                                        <i class="ti ti-calendar"></i>
+                                        <input type="date" class="form-control"
+                                            name="date_transaction" id="date_paid">
+                                    </div>
+                                </div>
+
+                                {{-- Account Bank --}}
+                                <div class="xero-field">
+                                    <label>Account Bank <span class="text-danger">*</span></label>
+                                    <select class="form-control select2-account-bank"
+                                            name="uuid_bank" id="account_bank"
+                                            style="width:100%;">
+                                        <option value="">-- Pilih Akun --</option>
+                                        {{-- populate via JS / AJAX --}}
+                                    </select>
+                                </div>
+
+                                {{-- Amount Paid --}}
+                                <div class="xero-field">
+                                    <label>Amount Paid <span class="text-danger">*</span></label>
+                                    <div class="input-icon-wrap">
+                                        <i class="ti ti-cash"></i>
+                                        <input type="number" class="form-control"
+                                            name="nominal_receive" id="amount_paid"
+                                            min="0" step="0.01" placeholder="0.00">
+                                    </div>
+                                </div>
+
+                                {{-- Reference --}}
+                                <div class="xero-field">
+                                    <label>Reference</label>
+                                    <div class="input-icon-wrap">
+                                        <i class="ti ti-bookmark"></i>
+                                        <input type="text" class="form-control"
+                                            name="reference_detail" id="payment_reference"
+                                            placeholder="Optional">
+                                    </div>
+                                </div>
+
+                            </div>{{-- /.payment-fields-grid --}}
+
+                            {{-- Actions --}}
+                            <div class="payment-form-footer">
+                                <button type="button" class="btn-payment-cancel" id="btnCancelPayment">
+                                    Batal
+                                </button>
+                                <button type="button" class="btn-payment-save" id="btnSavePayment">
+                                    <i class="ti ti-check" style="font-size:12px;"></i>
+                                    Save Payment
+                                </button>
+                            </div>
+
+                        </div>{{-- /.payment-form-inner --}}
+                    </div>
+
+                </div>{{-- /.modal-body --}}
+
+                <div class="modal-footer bg-white"
+                     style="border-top:1px solid #eee; padding:10px 22px;">
+                    <input type="hidden" name="action_type" id="actionTypeValue" value="">
+                    <button type="button" class="btn btn-secondary btn-sm"
+                            data-dismiss="modal">
+                        <i class="ti ti-x mr-1"></i> Batal
+                    </button>
+                    <div class="btn-group dropup">
+                        <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Save
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right shadow">
+                            <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="1">
+                                <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
+                                <span>Approve</span>
+                            </button>
+                            <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
+                                <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
+                                <span>Save draft</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+
 <div class="modal fade" id="invoiceModal" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
     <div class="modal-content" id="printArea">
@@ -101,13 +851,11 @@
 
       <div class="modal-body">
 
-        <!-- HEADER -->
         <div class="text-center mb-3">
           <h5 class="font-weight-bold" id="hotel_name"></h5>
           <small>No Invoice: <span id="no_invoice"></span></small>
         </div>
 
-        <!-- INFO -->
         <div class="row">
           <div class="col-12 col-md-6">
             <input type="hidden" id="id_invoice_view_detail" name="id_invoice_view_detail"/>
@@ -128,7 +876,6 @@
 
         <hr>
 
-        <!-- DETAIL TABLE -->
         <div class="table-responsive">
           <table class="table table-bordered table-sm">
             <thead class="thead-light">
@@ -223,9 +970,9 @@
                     <tr>
                         <th width="5%">No</th>
                         <th>Tanggal</th>
+                        <th>Nama Bank</th>
                         <th>Keterangan / Ref</th>
                         <th>Nominal</th>
-                        <th width="10%" class="d-print-none">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="payment_list_body">
@@ -242,9 +989,18 @@
                     <input type="hidden" id="row_payment_id" name="row_payment_id">
                     <input type="hidden" id="invoices_id_parent" name="invoices_id_parent">
                     <div class="form-row">
-                        <div class="form-group col-md-3">
+                        <div class="form-group col-md-6">
                             <label class="small font-weight-bold">Tanggal Bayar</label>
                             <input type="date" class="form-control form-control-sm" id="input_payment_date" name="date_transfer" required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="small font-weight-bold">Pilih Bank</label>
+                            <select class="form-control select2-account-bank-modal2"
+                                    name="uuid_bank" id="account_bank_modal_2"
+                                    style="width:100%;">
+                                <option value="">-- Pilih Akun --</option>
+                                {{-- populate via JS / AJAX --}}
+                            </select>
                         </div>
                         <div class="form-group col-md-4">
                             <label class="small font-weight-bold">Nominal (Rupiah)</label>
@@ -324,6 +1080,7 @@
     // FUNGSI UTAMA: Membuat HTML Baris Kamar (Bisa dipakai Edit & Tambah Baru)
    
 
+    console.log('local',localStorage.getItem('token'))
 
     let columnHotel = [
         {
@@ -335,7 +1092,7 @@
         { data: 'issue_date', name: 'issue_date' },
         { data: 'due_date', name: 'due_date' },
         {
-            data: 'invoice_amount', 
+            data: 'invoice_total', 
             render: function(data,type,row){
                 return formatCurrency(data)
             } 
@@ -350,6 +1107,18 @@
                     return '<span class="badge badge-primary">Lunas</span>'
                 }
             }
+        },
+        {
+            data: "id",
+            orderable: false,
+            searchable: false,
+            className: "text-center",
+            render: function(data, type, row) {
+                return `
+                    <a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2" title="Edit Invoice"><i class="ti ti-pencil"></i></a>
+                    <a href="javascript:;" data-id="${data}" class="text-success show-payment-modal" title="Payment History"><i class="ti ti-credit-card"></i></a>
+                `;
+            },
         }
        ];
 
@@ -360,6 +1129,195 @@
         return `${d}/${m}/${y}`;
     }
 
+     $('#tableHotel').on('click', '.edit-hotel', function() {
+        const id      = $(this).data('id');
+        const rowData = table.row($(this).parents('tr')).data();
+
+        // Reset dulu ke state kosong
+        //resetModal();
+
+        // Set judul & ID
+        $('#modalInvoiceTitle').text('Edit Invoice ' + (rowData.invoice_number || ''));
+        $('#idHotelInput').val(id);//id paretn
+
+        // Buka modal
+        $('#modalCreateHotel').modal('show');
+
+        // Load data SETELAH modal benar-benar tampil (penting untuk Select2)
+        $('#modalCreateHotel').one('shown.bs.modal', function () {
+            loadInvoice(id);
+        });
+        
+    });
+
+
+    function destroyRowSelect2() {
+        $('#lineItemsBody').find(
+            '.select2-item, .select2-account, .select2-paket, .select2-divisi'
+        ).each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) {
+                $(this).select2('destroy');
+            }
+        });
+    }
+
+
+    function showModalLoading(show) {
+        const $body = $('#modalCreateHotel .modal-body');
+        if (show) {
+            if (!$('#modalBodyLoader').length) {
+                $body.prepend(`
+                    <div id="modalBodyLoader"
+                        style="position:absolute;inset:0;background:rgba(255,255,255,0.85);
+                                z-index:999;display:flex;align-items:center;
+                                justify-content:center;border-radius:0 0 8px 8px;">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem;">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                            <div class="mt-2 text-muted small">Memuat data...</div>
+                        </div>
+                    </div>`);
+                $body.css('position', 'relative');
+            }
+            $('#modalBodyLoader').show();
+        } else {
+            $('#modalBodyLoader').fadeOut(200);
+        }
+    }
+
+
+    function setSelect2Value(selector, id, text) {
+        const $el = $(selector);
+        // Hapus semua opsi dulu kecuali placeholder
+        $el.find('option[value!=""]').remove();
+        // Buat option baru dan set sebagai selected
+        const newOpt = new Option(text, id, true, true);
+        $el.append(newOpt).trigger('change');
+    }
+
+
+    function addRowWithData(item) {
+    // 1. Buat baris kosong dan append
+        const $row = $(buildRow());
+        $('#lineItemsBody').append($row);
+
+        // 2. Isi hidden id_detail (untuk update, bukan insert baru)
+        $row.find('input[name="id_detail[]"]').val(item.id || '');
+
+        // 3. Isi field teks sederhana
+        $row.find('.desc-input').val(item.desc || '');
+        $row.find('.qty-input').val(item.qty || 1);
+        $row.find('.price-input').val(parseFloat(item.unit_price) || 0);
+
+        // 4. Init Select2 pada baris ini dulu
+        initRowSelect2($row);
+
+        
+        if(item.item_id) {
+            const itemText = item.get_item.nama_paket;
+            setRowSelect2Value($row, '.select2-item', item.item_id, itemText);
+        }
+
+
+        if (item.coa_id) {
+            const coaText = item.get_coa.name || ('Account #' + item.coa_id);
+            setRowSelect2Value($row, '.select2-account', item.coa_id, coaText);
+        }
+
+
+        if (item.coa_id) {
+            const coaText = item.get_coa.name || ('Account #' + item.coa_id);
+            setRowSelect2Value($row, '.select2-account', item.coa_id, coaText);
+        }
+
+        // 6. Set Nama Paket
+        if (item.paket_tracking_uuid) {
+            const paketText = item.tracking_category_paket;
+            setRowSelect2Value($row, '.select2-paket', item.paket_tracking_uuid, paketText);
+        }
+
+
+        // 7. Set Divisi
+        if (item.divisi_travel_tracking_uuid) {
+            const divisiText = item.tracking_category_divisi;
+            setRowSelect2Value($row, '.select2-divisi', item.divisi_travel_tracking_uuid, divisiText);
+        }
+
+        // 8. Item (item_id) — null di response ini, skip
+        // Jika suatu saat ada, tambahkan:
+        // if (item.item_id) setRowSelect2Value($row, '.select2-item', item.item_id, item.item_name || '');
+    }
+
+// ── Inject option ke select2 dalam row ($row) ────────────
+function setRowSelect2Value($row, selector, id, text) {
+    if (!id) return;
+    const $el = $row.find(selector);
+    $el.find('option[value!=""]').remove();
+    $el.append(new Option(text, id, true, true)).trigger('change');
+}
+
+   function loadInvoice(id) {
+    showModalLoading(true);
+
+    ajaxRequest(
+        `{{ route('detail-sales-inv') }}`,
+        'GET',
+        { id: id },
+        localStorage.getItem("token")
+    )
+    .then(function (response) {
+        if (!response.status) {
+            Swal.fire('Gagal!', response.message || 'Data tidak ditemukan.', 'error');
+            return;
+        }
+
+        const d = response.data.data;
+        console.log(',d_invoice',d)
+
+        renderPaymentHistory(d.get_payment,d.less_nominal)
+        // ── 1. Header fields ─────────────────────────────
+        $('#invoice_number_display').val(d.invoice_number || '');
+        $('#issue_date').val(d.issue_date || '');         // name="issue_date" id="issue_date"
+        $('#due_date').val(d.due_date || '');
+        $('#reference').val(d.reference || '');
+        $('#invoiceStatusBadge').text(d.status == '1' ? 'Approved' : 'Draft');
+
+        // ── 2. Contact — inject option ke Select2 ────────
+        // Field: name="contact_id" id="contact_id"
+        if (d.contact_id) {
+            const contactText = d.contact_name || ('Contact #' + d.contact_id);
+            setSelect2Value('#contact_id', d.contact_id, contactText);
+        }
+
+        // ── 3. Detail rows ───────────────────────────────
+        // Bersihkan dulu (destroy select2 dalam baris lama)
+        destroyRowSelect2();
+        $('#lineItemsBody').empty();
+
+        const details = d.get_detail_by_id || [];
+
+        if (details.length > 0) {
+            details.forEach(function (item) {
+                addRowWithData(item);
+            });
+        } else {
+            addFirstRow(); // minimal 1 baris kosong
+        }
+
+        updateDeleteButtons();
+        syncCurrencyLabels();
+        recalcSummary();
+    })
+    .catch(function (err) {
+        cathError(err)
+        // console.error('[loadInvoice] error:', err);
+        // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan saat memuat data.', 'error');
+    })
+    .finally(function () {
+        showModalLoading(false);
+    });
+}
 
 
     function formatNumber(num) {
@@ -375,8 +1333,123 @@
     // Trigger Tambah Baru
     $("#button_add_hotel").on("click", function() {
         $('.modal-title').text('Add New Invoices Hotel');
+        $('#issue_date').val('m-d-Y');
+        $('#due_date').val('m-d-Y');
+        $('#invoice_number_display').val('auto');
+        $("#reference").val('')
         // Reset handled by modal hidden event
     });
+
+
+    $("#btn_add_payment_inv").on("click",function(){
+       
+        $('#paymentFormSection').slideDown(200);
+        // Set default date hari ini
+        if (!$('#date_paid').val()) {
+            $('#date_paid').val(new Date().toISOString().split('T')[0]);
+        }
+    })
+
+
+    $(document).on('click', '#btnClosePayment, #btnCancelPayment', function () {
+        $('#paymentFormSection').slideUp(200);
+    });
+
+
+     function initAllSelect2Bank() {
+       $('.select2-account-bank-modal2').select2({
+            placeholder: "Cari nama bank...",
+            allowClear: true,
+            dropdownParent: $('#paymentModal'),
+            ajax: {
+                url: "{{ route('getbankselect2') }}",  
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 10, kolom_name: 'name' };
+                },
+                processResults: function(response, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(response.data.data, function(item) {
+                            return { id: item.id, text: item.name, currency_code: item.currency_code || '-' };
+                        }),
+                        pagination: { more: response.data.next_page_url !== null }
+                    };
+                },
+                cache: true
+            },
+            templateResult: function(item) {
+                if (!item.id) return item.text;
+                return $(`<span>${item.text} <small class="text-muted">(${item.currency_code})</small></span>`);
+            }
+        });
+    }
+    initAllSelect2Bank()
+
+    //modal1
+    function initAllSelectBank() {
+       $('.select2-account-bank').select2({
+            placeholder: "Cari nama bank...",
+            allowClear: true,
+            dropdownParent: $('#modalCreateHotel'),
+            ajax: {
+                url: "{{ route('getbankselect2') }}",  
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 10, kolom_name: 'name' };
+                },
+                processResults: function(response, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(response.data.data, function(item) {
+                            return { id: item.id, text: item.name, currency_code: item.currency_code || '-' };
+                        }),
+                        pagination: { more: response.data.next_page_url !== null }
+                    };
+                },
+                cache: true
+            },
+            templateResult: function(item) {
+                if (!item.id) return item.text;
+                return $(`<span>${item.text} <small class="text-muted">(${item.currency_code})</small></span>`);
+            }
+        });
+    }
+    initAllSelectBank();
+
+
+    $("#btnSavePayment").on('click', function (e) {
+       
+       e.preventDefault();
+         const payload = {
+            date_transaction         : $('#date_paid').val(),
+            uuid_bank      : $('#account_bank').val(),
+            nominal_receive       : $('#amount_paid').val(),
+            reference_detail : $('#payment_reference').val(),
+            parent_inv_id : $('#idHotelInput').val()
+          
+        };
+
+         ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
+            .then(response => {
+                if(response.status == 200){
+                    Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                    $('#modalCreateHotel').modal('hide');
+                    table.ajax.reload(null, false);
+                }
+            })
+            .catch((err) => {
+                cathError(err)
+                //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+            });
+    });
+
+
+   
 
 // =========================================================
 // INVOICE MODAL — JAVASCRIPT
@@ -758,8 +1831,8 @@ $(function () {
                 qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
                 unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
                 //tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),
-                paket_tracking_uuid: $('select[name="nama_paket[]"]').map(function(){ return $(this).val(); }).get(),
-                divisi_travel_tracking_uuid: $('select[name="divisi[]"]').map(function(){ return $(this).val(); }).get(),
+                paket_tracking_uuid: $('select[name="paket_tracking_uuid[]"]').map(function(){ return $(this).val(); }).get(),
+                divisi_travel_tracking_uuid: $('select[name="divisi_travel_tracking_uuid[]"]').map(function(){ return $(this).val(); }).get(),
                 id_detail:$('input[name="id_detail[]"]').map(function(){ return $(this).val(); }).get(),
             };
 
@@ -772,9 +1845,179 @@ $(function () {
                     }
                 })
                 .catch((err) => {
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                    cathError(err)
+                    //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 });
         });
 
+        function renderPaymentHistory(payments, totalDue) {
+            const $section    = $('#paymentHistorySection');
+            const $tbody      = $('#paymentHistoryBody');
+            const $tfoot      = $('#paymentHistoryFoot');
+            const $count      = $('#payHistoryCount');
+            const $total      = $('#payHistoryTotal');
+            const $remaining  = $('#payHistoryRemaining');
+
+            // Reset
+            $tbody.empty();
+            $tfoot.hide();
+            
+            // TAMBAHKAN BARIS INI UNTUK MEMUNCULKAN TABEL:
+            $('.pay-history-wrap').removeClass('d-none'); 
+
+            if (!payments || payments.length === 0) {
+                $tbody.html(`
+                    <tr>
+                        <td colspan="6" class="pay-history-empty">
+                            <i class="ti ti-inbox" style="font-size:18px; color:#ccc;"></i>
+                            <br>Belum ada riwayat pembayaran
+                        </td>
+                    </tr>
+                `);
+                $section.show();
+                return;
+            }
+
+            let totalPaid = 0;
+
+            payments.forEach((p, i) => {
+                // console.log('aa',p.get_bank.name)
+                const nominal = parseFloat(p.nominal_receive || 0);
+                totalPaid += nominal;
+
+                $tbody.append(`
+                    <tr>
+                        <td class="text-center">${i + 1}</td>
+                        <td>${p.date_transaction ?? '-'}</td>
+                        <td>${p.name_bank ?? p.uuid_bank ?? '-'}</td>
+                        <td>${p.reference_detail ?? '-'}</td>
+                        <td class="text-right">${formatCurrency(nominal)}</td>
+                    </tr>
+                `);
+            });
+
+            const remaining = (parseFloat(totalDue) || 0) - totalPaid;
+
+            $count.text(`${payments.length} transaksi`);
+            $total.text(formatCurrency(totalPaid));
+            $remaining.text(formatCurrency(remaining < 0 ? 0 : remaining));
+            $tfoot.show();
+            $section.show();
+        }
+
+    // =========================================================
+    // AJAX HISTORY PAYMENT MODAL
+    // =========================================================
+
+    // 1. Buka Modal dan Load Data
+    $('#tableHotel').on('click', '.show-payment-modal', function() {
+        const id = $(this).data('id');
+        $('#invoices_id_parent').val(id); // Set hidden ID untuk form tambah bayar
+        
+        
+
+
+
+        $('#formSubmitPayment').find('.select2-account-bank-modal2').each(function() {
+            $(this).val(null).trigger('change');
+        });
+        $("#input_payment_date").val(null)
+        $("#input_payment_nominal").val(0)
+        $("#input_payment_ref").val('')
+        // Munculkan Modal
+        $('#paymentModal').modal('show');
+        
+        // Panggil AJAX Load History
+        loadPaymentHistoryModal(id);
+    });
+
+    // 2. Fungsi Load History ke Table Modal
+    function loadPaymentHistoryModal(invoiceId) {
+        $('#payment_list_body').html('<tr><td colspan="5" class="text-center"><div class="spinner-border text-primary spinner-border-sm"></div> Memuat Data...</td></tr>');
+        
+        ajaxRequest(`{{ route('detail-sales-inv') }}`, 'GET', { id: invoiceId }, localStorage.getItem("token"))
+        .then(function(response) {
+            const d = response.data.data;
+            const payments = d.get_payment || [];
+            
+            // Set View Info Modal
+            $('#hotel_name_display').text(d.contact_name || '-');
+            $('#no_invoice_display').text(d.invoice_number || '-');
+            $('#summary_total').text(formatCurrency(d.invoice_total));
+            
+            let totalPaid = 0;
+            let tbody = '';
+            
+            if (payments.length === 0) {
+                tbody = '<tr><td colspan="5" class="text-muted text-center">Belum ada data pembayaran</td></tr>';
+            } else {
+                payments.forEach((p, index) => {
+                    console.log('pp',p)
+                    const nominal = parseFloat(p.nominal_receive || 0);
+                    totalPaid += nominal;
+                    tbody += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${p.date_transaction || '-'}</td>
+                            <td>${p.name_bank}</td>
+                            <td>${p.reference_detail || p.name_bank || '-'}</td>
+                            <td class="text-right">${formatCurrency(nominal)}</td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            $('#payment_list_body').html(tbody);
+            
+            // Set Summary Cards
+            $('#summary_paid').text(formatCurrency(totalPaid));
+            const remaining = parseFloat(d.invoice_total) - totalPaid;
+            $('#summary_remaining').text(formatCurrency(remaining < 0 ? 0 : remaining));
+        })
+        .catch(function(err) {
+            $('#payment_list_body').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data riwayat pembayaran</td></tr>');
+        });
+    }
+
+    // 3. Submit Pembayaran Baru dari Modal History
+    $('#formSubmitPayment').on('submit', function(e) {
+        e.preventDefault();
+        const payload = {
+            date_transaction : $('#input_payment_date').val(),
+            nominal_receive  : $('#input_payment_nominal').val(),
+            reference_detail : $('#input_payment_ref').val(),
+            parent_inv_id    : $('#invoices_id_parent').val(),
+            uuid_bank : $('#account_bank_modal_2').val(),
+            parent_inv_id : $('#invoices_id_parent').val(),
+        };
+
+        // Ganti UI Button
+        const $btn = $(this).find('button[type="submit"]');
+        $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Menyimpan...');
+
+        ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
+        .then(response => {
+            if(response.status == 200){
+                Swal.fire('Sukses!', 'Pembayaran berhasil ditambahkan.', 'success');
+                $('#formSubmitPayment')[0].reset(); 
+                
+                // Reload table History & DataTable Induk
+                loadPaymentHistoryModal(payload.parent_inv_id);
+                table.ajax.reload(null, false); 
+            }
+        })
+        .catch((err) => {
+            cathError(err);
+        })
+        .finally(() => {
+            $btn.prop('disabled', false).html('<i class="fa fa-save mr-1"></i> Simpan Pembayaran');
+        });
+    });
+
+    // 4. Aksi Delete Payment History
+   
+
 </script>
 @endpush
+
+```

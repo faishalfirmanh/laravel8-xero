@@ -232,7 +232,7 @@ Route::prefix("admin-web")->group(function () {
                     //Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('sales-inv');
                     Route::post('saveP', [InvXeroController::class, 'storeParent'])->name('save-sales-inv');
                     Route::post('pay_inv', [InvXeroController::class, 'storePayment'])->name('save-pay-sales-inv');
-                    Route::get('detailInv', [InvXeroController::class, 'detailBill'])->name('detail-sales-inv');
+                    Route::get('detailInv', [InvXeroController::class, 'detailInvoice'])->name('detail-sales-inv');
                 });
             });
 

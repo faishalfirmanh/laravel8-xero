@@ -81,9 +81,11 @@ $(document).ready(function() {
                 $("#title_trans").text(data.name_coa)
                 if(data.d_bill){
                     let datanya = data.d_bill.desc ?? '-';
-                    return datanya
+                    return `<b style="color:#E53407">bills</b>  &nbsp` + datanya
                 }else if(data.d_invoice){
-                    return data.d_invoice.desc
+                    return  `<b style="color:#2CBF56">Invoice</b> &nbsp` + data.d_invoice.desc
+                }else if(data.d_bank){
+                    return `<b style="color:#2155FF">Bank</b> &nbsp`+ data.d_bank.desc;
                 }else{
                     return 'not registered'
                 }

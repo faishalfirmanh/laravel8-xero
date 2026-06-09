@@ -65,7 +65,7 @@ class BillXeroController extends Controller
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'uuid_from', strtoupper($request->keyword));
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'uuid_from', 'ASC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
         }
         return $this->autoResponse($data);
     }
@@ -85,14 +85,26 @@ class BillXeroController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
+        $findData = $this->repo->whereData(['id' => $request->id_parent_bill])->first();
+
+        $sisaTagihan = $findData->nominal_due - $findData->nominal_paid;
+
+        if ($request->nominal_spend > $findData->nominal_due) {
+            return $this->error("Nominal melebihi total tagihan (due: {$findData->nominal_due})", 400);
+        }
+
+        if ($request->nominal_spend > $sisaTagihan) {
+            return $this->error("Nominal melebihi sisa tagihan yang belum dibayar (sisa: {$sisaTagihan})", 400);
+        }
+
         $request->merge([
             'created_by' => $request->user_login->id,
             'nominal_transfer' => 0,
             'nominal_receive' => 0
         ]);
 
-        $nominal_paid_final = $this->repo->whereData(['id' => $request->id_parent_bill])->first()->nominal_paid + $request->nominal_spend;
-        $nominal_due_final = $this->repo->whereData(['id' => $request->id_parent_bill])->first()->total - $nominal_paid_final;
+        $nominal_paid_final = $findData->nominal_paid + $request->nominal_spend;
+        $nominal_due_final = $findData->total - $nominal_paid_final;
 
         $param_bill_save = ['nominal_paid' => $nominal_paid_final, 'nominal_due' => $nominal_due_final];
         $this->repo->CreateOrUpdate($param_bill_save, $request->id_parent_bill);

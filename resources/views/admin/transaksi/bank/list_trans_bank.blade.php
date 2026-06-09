@@ -67,8 +67,8 @@
                     <th width="5%">No</th>
                     <th>Date</th>
                     <th>Name Contact</th>
-                    <th>Reference</th>
-                    <th>Payment Ref</th>
+                    <th>Payment Ref Transfer</th>
+                    <th>Ref</th>
                     <th>Spend</th>
                     <th>Received</th>
                        
@@ -294,8 +294,13 @@ $(document).ready(function() {
             render: function(data,type,row){
                 if(data.get_pbill){
                     return data.get_pbill.name_contact_bill
+                }else if(data.get_p_bank){
+                   // console.log('aaa',data)
+                    return data.get_p_bank.name_contact_trans_bank;
+                }else if(data.get_inv){
+                     return data.get_inv.contact_name;
                 }else{
-                    return  data.get_p_bank.name_contact_trans_bank;
+                    return  '-'
                 }
             } 
         },
@@ -303,8 +308,8 @@ $(document).ready(function() {
             data: 'reference_detail', 
             name: 'reference_detail', 
             render: function(data,type,row){
-          
-            return data
+                console.log(data)
+                return data
             } 
         },
         { 
@@ -313,10 +318,13 @@ $(document).ready(function() {
             render: function(data, type, row){
                 if(data.get_pbill != null){
                     // Menggunakan backtick dan ${} untuk menyisipkan variabel
-                    return `bill | ${data.get_pbill.reference}`; 
+                    return `<b style="color:#B05327">bill</b> | ${data.get_pbill.reference}`; 
                 } else if(data.get_p_bank != null){
-                    return `bank | ${data.get_p_bank.reference}`;
-                } else {
+                    return `<b style="color:#8F1470">bank</b> | ${data.get_p_bank.reference}`;
+                } else if(data.get_inv != null){
+                    return `<b style="color:#627FF5">invoice</b> | ${data.get_inv.reference}`;
+                }
+                else {
                     return '-';
                 }
             }

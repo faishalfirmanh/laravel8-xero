@@ -31,9 +31,14 @@ class ItemDetailInvoices extends Model
         'desc',
     ];
 
+    public $appends = [
+        'tracking_category_paket',
+        'tracking_category_divisi'
+    ];
+
     public function getCoa()
     {
-        return $this->hasOne(Coa::class, 'coa_id', 'id');
+        return $this->hasOne(Coa::class, 'id', 'coa_id');
     }
 
     public function getParent()
@@ -45,6 +50,44 @@ class ItemDetailInvoices extends Model
     {
         return $this->belongsTo(ItemsPaketAllFromXero::class, 'item_id', 'id');
     }
+
+    public function getTrackingCategoryPaketAttribute(): ?string
+    {
+        static $category = null; // cache dalam 1 request lifecycle
+
+        if ($category === null) {
+            $category = TrackingCategory::where('name_parent_category', 'nama paket')
+                ->first();
+        }
+
+        if (!$category)
+            return null;
+
+        $matched = collect($category->lines_category)
+            ->firstWhere('item_uuid_category', $this->paket_tracking_uuid);
+
+        return $matched['item_name_category'] ?? null;
+    }
+
+
+    public function getTrackingCategoryDivisiAttribute(): ?string
+    {
+        static $category = null; // cache dalam 1 request lifecycle
+
+        if ($category === null) {
+            $category = TrackingCategory::where('name_parent_category', 'divisi')
+                ->first();
+        }
+
+        if (!$category)
+            return null;
+
+        $matched = collect($category->lines_category)
+            ->firstWhere('item_uuid_category', $this->divisi_travel_tracking_uuid);
+
+        return $matched['item_name_category'] ?? null;
+    }
+
 
     public function getTrans()
     {
