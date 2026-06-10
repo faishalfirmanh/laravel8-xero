@@ -60,6 +60,16 @@ function formatCurrency(value, currency = 'IDR', decimals = 0) {
   });
 }
 
+function setModalSelect2(selector, id, text) {
+  const $el = $(selector);
+  $el.find('option').remove();
+  if (id && text) {
+    $el.append(new Option(text, id, true, true)).trigger('change');
+  } else {
+    $el.val(null).trigger('change');
+  }
+}
+
 
 function cathError(err) {
   const errData = err?.error ?? err;

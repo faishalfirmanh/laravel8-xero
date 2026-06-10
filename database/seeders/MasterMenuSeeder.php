@@ -50,7 +50,7 @@ class MasterMenuSeeder extends Seeder
             $masterDataParent = Menu::where('nama_menu', 'master data')->first();
 
             if ($masterDataParent) {
-                $child_menus = ['hotel', 'jamaah', 'tracking-category', 'coa', 'bank-xero', 'role-user', 'business-line', 'travel'];
+                $child_menus = ['hotel', 'jamaah', 'tracking-category', 'coa', 'bank-xero', 'role-user', 'business-line', 'travel', 'product-and-service'];
                 $slug_web = [
                     'travel/admin/master-data/hotel',
                     'travel/admin/master-data/jamaah',
@@ -59,7 +59,8 @@ class MasterMenuSeeder extends Seeder
                     'travel/admin/master-data/bank-xero',
                     'travel/admin/master-data/role-user',
                     'travel/admin/master-data/business-line',
-                    'travel/admin/master-data/travel'
+                    'travel/admin/master-data/travel',
+                    'travel/admin/master-data/product-and-service'
                 ];
                 $i = 0;
                 foreach ($child_menus as $name) {

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
+use App\Http\Controllers\MasterData\ProducAndServiceXeroLocalController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
 use App\Http\Controllers\Xero\CoaXeroController;
@@ -249,6 +250,13 @@ Route::prefix("admin-web")->group(function () {
         });
 
 
+
+        //atas master data
+        Route::prefix('product-and-service')->group(function () {
+            Route::get('list-item', [ProducAndServiceXeroLocalController::class, 'getAllPaginate'])->name('item-list');
+            Route::post('save-item', [ProducAndServiceXeroLocalController::class, 'store'])->name('save-item-product');
+            Route::get('detail-item', [ProducAndServiceXeroLocalController::class, 'detail'])->name('item-detail-xero');
+        });
 
 
         Route::prefix('bank-xero')->group(function () {

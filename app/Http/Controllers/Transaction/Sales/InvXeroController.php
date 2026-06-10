@@ -103,7 +103,7 @@ class InvXeroController extends Controller
 
         // Gunakan merge agar field ini terbaca dengan baik saat request->except() atau validasi lanjutan
         $request->merge([
-            'status' => $request->action_save, // 0->draft, 1/2->approve, harus di perbaiki
+            'status' => $request->action_save == 0 ? 'DRAFT' : 'AUTHORISED', // 0->draft, 1/2->approve, harus di perbaiki
             'reference' => strtolower($request->reference)
         ]);
 
@@ -281,17 +281,29 @@ class InvXeroController extends Controller
             'nominal_spend' => 0
         ]);
 
-        $nominal_paid_final = $cekData->invoice_amount + $request->nominal_receive;
-        //$nominal_due_final = $cekData->invoice_amount - $nominal_paid_final;//kekurangan bayar
-        $final_less = $cekData->less_nominal < 1 ? $cekData->invoice_total - $request->nominal_receive : $cekData->less_nominal - $request->nominal_receive;
+        DB::beginTransaction();
+        try {
+            $nominal_paid_final = $cekData->invoice_amount + $request->nominal_receive;
+            //$nominal_due_final = $cekData->invoice_amount - $nominal_paid_final;//kekurangan bayar
+            $final_less = $cekData->less_nominal < 1 ? $cekData->invoice_total - $request->nominal_receive : $cekData->less_nominal - $request->nominal_receive;
 
-        $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $final_less];
-        $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);
-        $request->merge([
-            'id_parent_invoice' => $request->parent_inv_id
-        ]);
-        $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
-        return $this->autoResponse($saveP);
+            $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $final_less];
+            $invP = $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);
+            $request->merge([
+                'id_parent_invoice' => $request->parent_inv_id
+            ]);
+            $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
+
+            if ($invP->invoice_amount == $invP->invoice_total && $invP->less_nominal == 0) {
+                $this->repo->CreateOrUpdate(['status' => 'PAID'], $request->parent_inv_id);
+            }
+            DB::commit();
+            return $this->autoResponse($saveP);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error($th->getMessage(), 400);
+        }
+
 
     }
 

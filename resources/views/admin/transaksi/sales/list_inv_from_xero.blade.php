@@ -1100,12 +1100,12 @@
         {
             data: 'status', name: 'status',
             render: function(data){
-              
-                if(data != 'PAID'){
-                    return '<span class="badge badge-danger">Belum dibayar</span>'
-                }else{
-                    return '<span class="badge badge-primary">Lunas</span>'
-                }
+                return data;
+                // if(data != 'PAID'){
+                //     return '<span class="badge badge-danger">Belum dibayar</span>'
+                // }else{
+                //     return '<span class="badge badge-primary">Lunas</span>'
+                // }
             }
         },
         {

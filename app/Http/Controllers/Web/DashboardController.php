@@ -109,6 +109,11 @@ class DashboardController extends Controller
         return view('admin.transaksi.sales.list_inv_from_xero');
     }
 
+    public function getWebProduct()
+    {
+        return view('admin.master.product_service');
+    }
+
 
     public function getTransPurchaseOrder()
     {

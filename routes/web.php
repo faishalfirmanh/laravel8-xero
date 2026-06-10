@@ -63,6 +63,7 @@ Route::prefix('travel')->group(function () {
             Route::get('/business-line', [DashboardController::class, 'getBusiness'])->name('business.index');
             Route::get('/travel', [DashboardController::class, 'getTravel'])->name('travel.index');
             Route::get('/bank-xero', [DashboardController::class, 'getWebListBank'])->name('bank-web-travel');
+            Route::get('product-and-service', [DashboardController::class, 'getWebProduct'])->name('product-and-service');
         });
 
         Route::prefix('config')->group(function () {
