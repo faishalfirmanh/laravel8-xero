@@ -204,9 +204,9 @@ Route::prefix("admin-web")->group(function () {
 
 
         Route::prefix('transaksi')->group(function () {
-            Route::prefix('sales')->group(function () {
-                Route::get('invoice', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
-            });
+            // Route::prefix('sales')->group(function () {
+            //     Route::get('invoice', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
+            // });
 
 
             Route::prefix('bank-trans')->group(function () {
@@ -248,8 +248,8 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('list', [CoaController::class, 'getAllPaginate'])->name('rep-coa');
                 Route::get('getByIdCoa', [CoaController::class, 'getListTransByCoaId'])->name('rep-detail-coa');
             });
-            Route::prefix('rep-profit-loss')->group(function () {
-                Route::get('index', [ProfitLossController::class, 'getHome'])->name('riport-profit-loss');
+            Route::prefix('profit-and-loss')->group(function () {
+                Route::get('index', [ProfitLossController::class, 'getHome'])->name('profit-and-loss');
             });
         });
 

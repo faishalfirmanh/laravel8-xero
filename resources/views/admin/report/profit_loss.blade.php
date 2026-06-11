@@ -246,9 +246,9 @@
                     <span style="font-weight:400; color:#0070c4;" id="labelDateRange">This month</span>
                 </span>
                 <div class="date-range-group">
-                    <input type="date" class="form-control" id="date_from" name="date_from"
+                    <input type="date" class="form-control" id="date_from" name="date_start"
                            value="{{ now()->startOfMonth()->format('Y-m-d') }}">
-                    <input type="date" class="form-control" id="date_to" name="date_to"
+                    <input type="date" class="form-control" id="date_to" name="date_from"
                            value="{{ now()->endOfMonth()->format('Y-m-d') }}">
                     <button type="button" class="btn-dropdown" id="btnDatePreset"
                             title="Pilih preset tanggal">
@@ -381,15 +381,12 @@ $(function () {
 
     function formatAmt(val) {
         val = parseFloat(val) || 0;
-        if (val < 0) {
-            return '(' + fmt.format(Math.abs(val)) + ')';
-        }
+        if (val < 0) return '(' + fmt.format(Math.abs(val)) + ')';
         return fmt.format(val);
     }
 
     function amtClass(val) {
-        val = parseFloat(val) || 0;
-        return val < 0 ? 'amt negative' : 'amt positive';
+        return (parseFloat(val) || 0) < 0 ? 'amt negative' : 'amt positive';
     }
 
     // =========================================================
@@ -413,30 +410,25 @@ $(function () {
         updatePeriodLabel();
     }
 
-    // Toggle preset dropdown
     $('#btnDatePreset').on('click', function (e) {
         e.stopPropagation();
-        var $menu = $('#datePresetMenu');
+        var $menu  = $('#datePresetMenu');
         var offset = $(this).offset();
         $menu.css({
-            display: $menu.is(':visible') ? 'none' : 'block',
-            top: offset.top + $(this).outerHeight() + 4,
-            left: offset.left - 160,
-            position: 'fixed',
-            zIndex: 9999
+            display  : $menu.is(':visible') ? 'none' : 'block',
+            top      : offset.top + $(this).outerHeight() + 4,
+            left     : offset.left - 160,
+            position : 'fixed',
+            zIndex   : 9999
         });
     });
 
     $(document).on('click', '.preset-item', function () {
-        var preset = $(this).data('preset');
-        var label  = $(this).text();
-        applyPreset(preset, label);
+        applyPreset($(this).data('preset'), $(this).text());
         $('#datePresetMenu').hide();
     });
 
-    $(document).on('click', function () {
-        $('#datePresetMenu').hide();
-    });
+    $(document).on('click', function () { $('#datePresetMenu').hide(); });
 
     // =========================================================
     // PERIOD LABEL UPDATE
@@ -446,9 +438,8 @@ $(function () {
         var to   = moment($('#date_to').val());
         if (!from.isValid() || !to.isValid()) return;
 
-        // Cek apakah satu bulan penuh
         if (from.isSame(from.clone().startOf('month'), 'day') &&
-            to.isSame(to.clone().endOf('month'),   'day') &&
+            to.isSame(to.clone().endOf('month'), 'day') &&
             from.isSame(to, 'month')) {
             $('#reportPeriodLabel').text('For the month ended ' + to.format('D MMMM YYYY'));
             $('#colPeriodLabel').text(to.format('MMM YYYY'));
@@ -464,25 +455,22 @@ $(function () {
     // SELECT2 — tracking category
     // =========================================================
     $('#tracking_category').select2({
-        theme       : 'bootstrap4',
-        placeholder : 'None',
-        allowClear  : true,
+        theme         : 'bootstrap4',
+        placeholder   : 'None',
+        allowClear    : true,
         dropdownParent: $('body'),
         ajax: {
-            url    : '{{ route("tracking-by-parent") }}',
+            url     : '{{ route("tracking-by-parent") }}',
             dataType: 'json',
-            delay  : 300,
-            data   : function (p) {
+            delay   : 300,
+            data    : function (p) {
                 return { keyword: p.term || '', name_parent_category: 'all' };
             },
             processResults: function (response) {
                 if (!response.status || !response.data) return { results: [] };
                 return {
                     results: (response.data.lines_category || []).map(function (item) {
-                        return {
-                            id  : item.item_uuid_category || item.id,
-                            text: item.item_name_category
-                        };
+                        return { id: item.item_uuid_category || item.id, text: item.item_name_category };
                     })
                 };
             },
@@ -491,70 +479,105 @@ $(function () {
     });
 
     // =========================================================
-    // LOAD REPORT
+    // ADAPTER — ubah response API → format sections untuk renderReport()
     // =========================================================
+    function adaptApiResponse(data) {
+        // data = response.data dari API
+        // Bangun array sections dari trading_income, cost_of_sales
+        // dan hitung gross_profit sebagai section sendiri
+
+        var sections = [];
+
+        // ── Trading Income ────────────────────────────────
+        if (data.trading_income) {
+            sections.push({
+                name : 'Trading Income',
+                items: (data.trading_income.items || []).map(function (i) {
+                    return { name: i.name, amount: i.total };
+                }),
+                total: data.trading_income.total
+            });
+        }
+
+        // ── Cost of Sales ─────────────────────────────────
+        if (data.cost_of_sales) {
+            sections.push({
+                name : 'Cost of Sales',
+                items: (data.cost_of_sales.items || []).map(function (i) {
+                    return { name: i.name, amount: i.total };
+                }),
+                total: data.cost_of_sales.total
+            });
+        }
+
+        // ── Gross Profit (baris sendiri, bukan section detail) ──
+        // Dikirim ke renderReport sebagai field terpisah
+        var grossProfit = parseFloat(data.gross_profit) || 0;
+        var netProfit   = parseFloat(data.net_profit)   || 0;
+
+        // Label Net Profit atau Net Loss
+        var netLabel = netProfit >= 0 ? 'Net Profit' : 'Net Loss';
+
+        return {
+            sections         : sections,
+            gross_profit     : grossProfit,
+            net_profit       : netProfit,
+            net_profit_label : netLabel
+        };
+    }
+
+    // =========================================================
+    // LOAD REPORT — AJAX
+    // =========================================================
+    var _lastData = null;
+
     function loadReport() {
         var params = {
-            date_from        : $('#date_from').val(),
-            date_to          : $('#date_to').val(),
-            compare_with     : $('#compare_with').val(),
-            tracking_category: $('#tracking_category').val(),
-            currency         : $('#currency').val(),
+            date_start        : $('#date_from').val(),
+            date_end          : $('#date_to').val(),
+            compare_with      : $('#compare_with').val(),
+            tracking_category : $('#tracking_category').val(),
+            currency          : $('#currency').val(),
         };
 
         $('#reportLoading').show();
-        $('#reportBody').empty();
+        $('#reportContent').hide();
 
-        // $.ajax({
-        //     url    : '{{ route("riport-profit-loss") }}',
-        //     method : 'GET',
-        //     data   : params,
-        //     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-        //     success: function (response) {
-        //         if (!response.status) {
-        //             Swal.fire('Gagal', response.message || 'Terjadi kesalahan.', 'error');
-        //             return;
-        //         }
-        //         renderReport(response.data);
-        //     },
-        //     error: function (err) {
-        //         Swal.fire('Error', 'Gagal memuat laporan.', 'error');
-        //         console.error(err);
-        //     },
-        //     complete: function () {
-        //         $('#reportLoading').hide();
-        //     }
-        // });
+        ajaxRequest(
+            '{{ route("profit-and-loss") }}',
+            'GET',
+            params,
+            localStorage.getItem('token')
+        )
+        .then(function (response) {
+            console.log('aaa',response)
+            if (!response.status || !response.data) {
+                throw new Error(response.message || 'Gagal memuat data');
+            }
+            var adapted = adaptApiResponse(response.data.data);
+            _lastData = adapted;
+            renderReport(adapted);
+        })
+        .catch(function (err) {
+            cathError(err);
+        })
+        .finally(function () {
+            $('#reportLoading').hide();
+            $('#reportContent').show();
+        });
     }
 
     // =========================================================
     // RENDER REPORT
-    // response.data structure:
-    // {
-    //   sections: [
-    //     {
-    //       name: 'Trading Income',
-    //       items: [ { name: 'PPPU NAMIROH', amount: 18686125000 }, ... ],
-    //       total: 27060595978.19
-    //     },
-    //     {
-    //       name: 'Cost of Sales',
-    //       items: [ ... ],
-    //       total: 0
-    //     },
-    //     ...
-    //   ],
-    //   net_profit: 12345678.90,
-    //   net_profit_label: 'Net Profit'
-    // }
     // =========================================================
     function renderReport(data) {
         var $body   = $('#reportBody');
         var compact = $('#compactView').is(':checked');
         $body.empty();
 
+        // ── Sections (Trading Income, Cost of Sales, dst) ──
         (data.sections || []).forEach(function (section) {
-            // Section header
+
             $body.append(
                 '<tr class="section-header">' +
                 '<td>' + escHtml(section.name) + '</td>' +
@@ -562,20 +585,17 @@ $(function () {
                 '</tr>'
             );
 
-            // Detail rows (hidden in compact mode)
             if (!compact) {
                 (section.items || []).forEach(function (item) {
-                    var cls = amtClass(item.amount);
                     $body.append(
                         '<tr class="detail-row">' +
                         '<td>' + escHtml(item.name) + '</td>' +
-                        '<td class="' + cls + '">' + formatAmt(item.amount) + '</td>' +
+                        '<td class="' + amtClass(item.amount) + '">' + formatAmt(item.amount) + '</td>' +
                         '</tr>'
                     );
                 });
             }
 
-            // Section total
             $body.append(
                 '<tr class="section-total">' +
                 '<td>Total ' + escHtml(section.name) + '</td>' +
@@ -584,14 +604,23 @@ $(function () {
             );
         });
 
-        // Net profit / loss
+        // ── Gross Profit (grand total sebelum net) ──
+        if (data.gross_profit !== undefined) {
+            $body.append(
+                '<tr class="grand-total">' +
+                '<td>Gross Profit</td>' +
+                '<td class="amt total ' + amtClass(data.gross_profit) + '">' + formatAmt(data.gross_profit) + '</td>' +
+                '</tr>'
+            );
+        }
+
+        // ── Net Profit / Loss ──
         var npLabel = data.net_profit_label || 'Net Profit';
         var npVal   = parseFloat(data.net_profit) || 0;
-        var npAmt   = formatAmt(npVal);
         $body.append(
             '<tr class="net-profit">' +
             '<td>' + escHtml(npLabel) + '</td>' +
-            '<td class="amt">' + npAmt + '</td>' +
+            '<td class="amt">' + formatAmt(npVal) + '</td>' +
             '</tr>'
         );
     }
@@ -601,8 +630,7 @@ $(function () {
     }
 
     // =========================================================
-    // DEMO DATA (dipakai jika API belum tersedia)
-    // Hapus blok ini setelah API siap
+    // DEMO DATA — fallback saat API belum tersedia
     // =========================================================
     function loadDemoReport() {
         var demo = {
@@ -610,42 +638,44 @@ $(function () {
                 {
                     name : 'Trading Income',
                     items: [
-                        { name: 'DISKON PENJUALAN (KOMPENSASI)',               amount: -4000000 },
-                        { name: 'PENDAPATAN LAYANAN VAKSIN',                   amount: 1200000 },
-                        { name: 'PENDAPATAN PEMBUATAN PASPOR',                 amount: 6000000 },
-                        { name: 'PENDAPATAN PENJUALAN PERLENGKAPAN UMROH',     amount: 383755000 },
-                        { name: 'PENDAPATAN TIKET PESAWAT ONLY',               amount: 5774565978.19 },
-                        { name: 'PPPU ANTRAV',                                 amount: 161400000 },
-                        { name: 'PPPU NAMIROH',                                amount: 18686125000 },
-                        { name: 'PPPU RIHLAH',                                 amount: 1172250000 },
-                        { name: 'PPPU TAJALLI',                                amount: 889350000 },
-                        { name: 'REFUND & PEMBATALAN',                         amount: -10050000 },
+                        { name: 'DISKON PENJUALAN (KOMPENSASI)',            amount: -4000000 },
+                        { name: 'PENDAPATAN LAYANAN VAKSIN',                amount: 1200000 },
+                        { name: 'PENDAPATAN PEMBUATAN PASPOR',              amount: 6000000 },
+                        { name: 'PENDAPATAN PENJUALAN PERLENGKAPAN UMROH',  amount: 383755000 },
+                        { name: 'PENDAPATAN TIKET PESAWAT ONLY',            amount: 5774565978.19 },
+                        { name: 'PPPU ANTRAV',                              amount: 161400000 },
+                        { name: 'PPPU NAMIROH',                             amount: 18686125000 },
+                        { name: 'PPPU RIHLAH',                              amount: 1172250000 },
+                        { name: 'PPPU TAJALLI',                             amount: 889350000 },
+                        { name: 'REFUND & PEMBATALAN',                      amount: -10050000 },
                     ],
                     total: 27060595978.19
                 },
                 {
                     name : 'Cost of Sales',
                     items: [
-                        { name: 'BIAYA KOMISI AGEN & KANTOR',                  amount: 631575000 },
-                        { name: 'HARGA POKOK LAYANAN PASPOR',                  amount: 1400000 },
-                        { name: 'HARGA POKOK PEMBELIAN PERLENGKAPAN UMROH',    amount: 40312000 },
-                        { name: 'HPP HOTEL VILLA RETAJ (NIDA UTAMA)',          amount: 13.95 },
+                        { name: 'BIAYA KOMISI AGEN & KANTOR',               amount: 631575000 },
+                        { name: 'HARGA POKOK LAYANAN PASPOR',               amount: 1400000 },
+                        { name: 'HARGA POKOK PEMBELIAN PERLENGKAPAN UMROH', amount: 40312000 },
+                        { name: 'HPP HOTEL VILLA RETAJ (NIDA UTAMA)',       amount: 13.95 },
                     ],
                     total: 673287013.95
                 },
                 {
                     name : 'Operating Expenses',
                     items: [
-                        { name: 'BIAYA ADMINISTRASI',                          amount: 12500000 },
-                        { name: 'BIAYA GAJI KARYAWAN',                         amount: 85000000 },
-                        { name: 'BIAYA PEMASARAN',                             amount: 22000000 },
+                        { name: 'BIAYA ADMINISTRASI',  amount: 12500000 },
+                        { name: 'BIAYA GAJI KARYAWAN', amount: 85000000 },
+                        { name: 'BIAYA PEMASARAN',     amount: 22000000 },
                     ],
                     total: 119500000
                 }
             ],
-            net_profit      : 26267808964.24,
-            net_profit_label: 'Net Profit'
+            gross_profit     : 26387308964.24,
+            net_profit       : 26267808964.24,
+            net_profit_label : 'Net Profit'
         };
+        _lastData = demo;
         renderReport(demo);
     }
 
@@ -653,22 +683,20 @@ $(function () {
     // EVENT BINDINGS
     // =========================================================
     $('#btnUpdate').on('click', function () {
-        // Ganti loadDemoReport() dengan loadReport() saat API siap
-        loadDemoReport();
         updatePeriodLabel();
+        loadReport();
     });
 
+    // Compact toggle: re-render cache, tidak hit API lagi
     $('#compactView').on('change', function () {
-        // Re-render dengan mode compact
-        $('#btnUpdate').trigger('click');
+        if (_lastData) renderReport(_lastData);
     });
 
     $('#btnFilter').on('click', function () {
-        // Buka panel filter tambahan (implementasi sesuai kebutuhan)
         Swal.fire({
-            title           : 'Filter',
-            text            : 'Panel filter tambahan (implementasi sesuai kebutuhan).',
-            icon            : 'info',
+            title            : 'Filter',
+            text             : 'Panel filter tambahan (implementasi sesuai kebutuhan).',
+            icon             : 'info',
             confirmButtonText: 'OK'
         });
     });
@@ -683,10 +711,10 @@ $(function () {
     });
 
     // =========================================================
-    // INIT — load demo saat halaman pertama terbuka
+    // INIT
     // =========================================================
     updatePeriodLabel();
-    loadDemoReport();  // Ganti ke loadReport() saat API siap
+    loadReport(); // ← ganti ke loadReport() setelah API live
 
 });
 </script>
