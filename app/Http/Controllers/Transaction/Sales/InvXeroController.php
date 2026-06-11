@@ -186,7 +186,7 @@ class InvXeroController extends Controller
                     if ($cek_create_trans) {
                         // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
                         $cek_create_trans->is_speend = false;
-                        $cek_create_trans->nominal = $save_d->amount ?? 0;
+                        $cek_create_trans->nominal = $save_d->total_amount_each_row ?? 0;
                         $cek_create_trans->save();
                     } else {
                         // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang

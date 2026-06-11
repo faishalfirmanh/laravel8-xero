@@ -38,6 +38,21 @@ class TrackingController extends Controller
 
     }
 
+    private array $uuidReferenceGuards = [
+        [
+            'table' => 'd_bills',
+            'column' => 'paket_tracking_uuid',
+            'label' => 'Tagihan',
+        ],
+        [
+            'table' => 'item_detail_invoices',
+            'column' => 'paket_tracking_uuid',
+            'label' => 'Detail Invoice',
+        ],
+        // tambah tabel baru di sini ↓
+        // ['table' => 'tabel_lain', 'column' => 'paket_tracking_uuid', 'label' => 'Nama Modul'],
+    ];
+
 
     public function store(Request $request)
     {
@@ -45,44 +60,171 @@ class TrackingController extends Controller
             'name_parent_category' => [
                 'required',
                 'string',
-                Rule::unique('tracking_categories', 'name_parent_category')->ignore($request->id)
+                Rule::unique('tracking_categories', 'name_parent_category')
+                    ->ignore($request->id),
             ],
             'lines_category' => 'required|array|min:1',
-            // 'lines_category.*.id_parent'        => 'required|string',
             'lines_category.*.item_name_category' => 'required|string|max:255',
-            // 'lines_category.*.item_uuid_category'        => 'required|string|max:100',
-
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Validasi Gagal',
-                'errors' => $validator->errors()->toArray()
+                'errors' => $validator->errors()->toArray(),
             ], 422);
         }
 
-        $linesCategory = $request->input('lines_category', []);
-        foreach ($linesCategory as &$line) {
-            $line['id_parent'] = $request->id ? $request->id : $this->repo->getLastIdPlusOne();//
-            $line['item_uuid_category'] = self::generateRandom4Digit();
+        $isUpdate = !empty($request->id);
+        $parentId = $isUpdate
+            ? (int) $request->id
+            : $this->repo->getLastIdPlusOne();
+
+        // ── NEW: guard deleted items ──────────────────────────────────────────────
+        // Only runs on update. Compares existing JSON vs incoming payload,
+        // then checks every guard table for references to removed UUIDs.
+        if ($isUpdate) {
+            $blockingErrors = $this->getRemovedUuidsInUse(
+                $request->id,
+                $request->input('lines_category', [])
+            );
+
+            if (!empty($blockingErrors)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Beberapa paket tidak dapat dihapus karena masih digunakan di transaksi lain.',
+                    'errors' => $blockingErrors,
+                ], 422);
+            }
         }
-        $request->merge(['name_parent_category' => strtolower($request->name_parent_category)]);
-        $request->merge(['lines_category' => $linesCategory]);
 
-        //dd($request->all());
+        // ── Pre-load all in-use UUIDs for uniqueness guarantee ────────────────────
+        $usedUuids = $this->getAllUsedUuids();
+        $linesCategory = $request->input('lines_category', []);
 
-        $request['created_by'] = 1;// $request->user_login->id;
+        foreach ($linesCategory as &$line) {
+            $line['id_parent'] = $parentId;
+
+            // Only generate UUID for NEW items (no item_uuid_category yet).
+            // Existing items keep their UUID unchanged.
+            if (empty($line['item_uuid_category'])) {
+                $line['item_uuid_category'] = $this->generateUniqueRandom4Digit($usedUuids);
+            }
+        }
+        unset($line);
+
+        $request->merge([
+            'name_parent_category' => strtolower($request->name_parent_category),
+            'lines_category' => $linesCategory,
+        ]);
+
+        $request['created_by'] = $request->user_login->id;
         $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
         return $this->autoResponse($saved);
     }
 
-
-
-    function generateRandom4Digit()
+    private function getRemovedUuidsInUse($existingId, array $incomingLines): array
     {
-        return str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        // ── 1. Load current JSON from DB ──────────────────────────────────────────
+        $current = DB::table('tracking_categories')
+            ->select('lines_category')
+            ->where('id', $existingId)
+            ->first();
+
+        if (!$current) {
+            return [];
+        }
+
+        $existingLines = json_decode($current->lines_category, true) ?? [];
+
+        // ── 2. Diff: which UUIDs disappeared from the payload? ────────────────────
+        $existingUuids = array_values(array_filter(
+            array_column($existingLines, 'item_uuid_category')
+        ));
+        $incomingUuids = array_values(array_filter(
+            array_column($incomingLines, 'item_uuid_category')
+        ));
+
+        $removedUuids = array_values(array_diff($existingUuids, $incomingUuids));
+
+        if (empty($removedUuids)) {
+            return [];
+        }
+
+        // UUID → item_name_category for human-readable error messages
+        $uuidToName = array_column($existingLines, 'item_name_category', 'item_uuid_category');
+
+        // ── 3. One query per guard table ──────────────────────────────────────────
+        $errors = []; // keyed by uuid while building, values() at the end
+
+        foreach ($this->uuidReferenceGuards as $guard) {
+            $found = DB::table($guard['table'])
+                ->whereIn($guard['column'], $removedUuids)
+                ->distinct()
+                ->pluck($guard['column'])
+                ->toArray();
+
+            foreach ($found as $uuid) {
+                // Initialize the error bucket for this UUID if it doesn't exist yet
+                $errors[$uuid] ??= [
+                    'uuid' => $uuid,
+                    'name' => $uuidToName[$uuid] ?? '-',
+                    'used_in' => [],
+                ];
+                $errors[$uuid]['used_in'][] = $guard['label'];
+            }
+        }
+
+        // ── 4. Attach human-readable messages and re-index ────────────────────────
+        return array_values(
+            array_map(function (array $item): array {
+                $item['message'] = sprintf(
+                    'Paket "%s" tidak dapat dihapus, masih digunakan di: %s.',
+                    $item['name'],
+                    implode(', ', $item['used_in'])
+                );
+                return $item;
+            }, $errors)
+        );
     }
+
+
+
+    private function getAllUsedUuids(): array
+    {
+        $uuids = [];
+
+        DB::table('tracking_categories')
+            ->select('lines_category')
+            ->whereNotNull('lines_category')
+            ->orderBy('id')
+            ->each(function ($row) use (&$uuids) {
+                foreach (json_decode($row->lines_category, true) ?? [] as $line) {
+                    if (!empty($line['item_uuid_category'])) {
+                        $uuids[] = $line['item_uuid_category'];
+                    }
+                }
+            });
+
+        return array_unique($uuids);
+    }
+
+
+
+    private function generateUniqueRandom4Digit(array &$usedUuids): string
+    {
+        for ($attempt = 0; $attempt < 200; $attempt++) {
+            $uuid = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+
+            if (!in_array($uuid, $usedUuids, true)) {
+                $usedUuids[] = $uuid;
+                return $uuid;
+            }
+        }
+
+        throw new \RuntimeException('Gagal menghasilkan item_uuid_category unik — slot hampir penuh.');
+    }
+
 
 
     public function getAllPaginate(Request $request)

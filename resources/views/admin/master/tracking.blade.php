@@ -231,7 +231,8 @@ $(document).ready(function() {
                 }
             })
             .catch(err => {
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan', 'error');
+                cathError(err)
+                //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan', 'error');
             });
     });
 

@@ -162,13 +162,15 @@ class MasterMenuSeeder extends Seeder
             $reportParent = Menu::where('nama_menu', 'report')->first();
             if ($reportParent) {
 
-                $child_report = [ //nama routenya 
+                $child_report = [ //nama routenya
                     'rep-coa',
-                    'rep-log-history'
+                    'rep-log-history',
+                    'rep-profil-loss',
                 ];
                 $slug_report = [
                     'travel/admin/report/rep-coa',
                     'travel/admin/report/rep-log-history',
+                    'travel/admin/report/profit-and-loss'
                 ];
 
                 $rprt = 0;

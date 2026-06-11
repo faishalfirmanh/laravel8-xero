@@ -3,6 +3,7 @@
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
 use App\Http\Controllers\MasterData\ProducAndServiceXeroLocalController;
+use App\Http\Controllers\Report\ProfitLossController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
 use App\Http\Controllers\Xero\CoaXeroController;
@@ -246,6 +247,9 @@ Route::prefix("admin-web")->group(function () {
             Route::prefix('rep-coa')->group(function () {
                 Route::get('list', [CoaController::class, 'getAllPaginate'])->name('rep-coa');
                 Route::get('getByIdCoa', [CoaController::class, 'getListTransByCoaId'])->name('rep-detail-coa');
+            });
+            Route::prefix('rep-profit-loss')->group(function () {
+                Route::get('index', [ProfitLossController::class, 'getHome'])->name('riport-profit-loss');
             });
         });
 

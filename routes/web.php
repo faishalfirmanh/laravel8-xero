@@ -88,6 +88,7 @@ Route::prefix('travel')->group(function () {
             Route::get('/rep-log-history', [LogHistoryController::class, 'index'])->name('web-log-history-list');
             Route::get('/rep-coa', [DashboardController::class, 'caoList'])->name('web-rep-coa');
             Route::get('rep-coa/{idCoa}', [DashboardController::class, 'detailCoaReport'])->name('view-report-detail-coa');
+            Route::get('profit-and-loss', [DashboardController::class, 'profitAndLoss'])->name('view-report-profit-loss');
         });
     });
 });

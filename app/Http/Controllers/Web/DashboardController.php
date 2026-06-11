@@ -31,6 +31,12 @@ class DashboardController extends Controller
     }
 
 
+    public function profitAndLoss()
+    {
+        return view('admin.report.profit_loss');
+    }
+
+
     public function getWebListInvoice()
     {
         return view('admin.list_invoices');
