@@ -2,20 +2,30 @@
 
 namespace App\Http\Controllers\Xero;
 
+use App\Http\Repository\MasterData\TrackingRepo;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\ConfigRefreshXero;
 
+use Validator;
 
 class TrackingController extends Controller
 {
 
-   use ConfigRefreshXero;
+    use ConfigRefreshXero, ApiResponse;
 
-   public function getAgent()
+    private $repo;
+    public function __construct(
+        TrackingRepo $repo
+    ) {
+        $this->repo = $repo;
+    }
+
+    public function getAgent()
     {
 
-       try {
+        try {
 
             $tokenData = $this->getValidToken();
             if (!$tokenData) {
@@ -37,23 +47,23 @@ class TrackingController extends Controller
                 ], $getData->status());
             }
             //  if($getData["TrackingCategories"]["Name"]);
-            $list_data=[];
+            $list_data = [];
             $aa = 0;
             foreach ($getData["TrackingCategories"] as $key => $value) {
-                if($value["Name"] == "Agen"){//dev : Agent, //prod : Agen
+                if ($value["Name"] == "Agen") {//dev : Agent, //prod : Agen
                     $list_data[$aa] = $value["Options"];
                     $aa++;
                 }
             }
-              return response()->json($list_data);
-       } catch (\Throwable $e) {
-              return response()->json(['message' => 'Proxy Error: ' . $e->getMessage()], $e->getCode());
-       }
+            return response()->json($list_data);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Proxy Error: ' . $e->getMessage()], $e->getCode());
+        }
     }
 
 
 
-      public function createBulkAgents()
+    public function createBulkAgents()
     {
         try {
             $tokenData = $this->getValidToken();
@@ -118,10 +128,19 @@ class TrackingController extends Controller
     }
 
 
-    public function getKategory()
+    public function getKategory(Request $request)
     {
 
-         try {
+        $validator = Validator::make($request->all(), [
+            'type' => 'required|string|in:Divisi,Nama Paket',
+            'is_sync' => 'required|numeric|in:0,1'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        try {
             $tokenData = $this->getValidToken();
             if (!$tokenData) {
                 return response()->json(['message' => 'Token kosong/invalid. Silakan akses /xero/connect dulu.'], 401);
@@ -140,17 +159,58 @@ class TrackingController extends Controller
                     'details' => $getData->json()
                 ], $getData->status());
             }
-        //  if($getData["TrackingCategories"]["Name"]);
-            $list_data=[];
+            //  if($getData["TrackingCategories"]["Name"]);
+            $list_data = [];
             $aa = 0;
-            foreach ($getData["TrackingCategories"] as $key => $value) {
-                if($value["Name"] == "Divisi"){
-                    $list_data[$aa] = $value["Options"];
-                    $aa++;
+            if ($request->is_sync == 0) {
+                foreach ($getData["TrackingCategories"] as $key => $value) {
+                    if ($value["Name"] == $request->type) {
+                        $list_data[$aa] = $value["Options"];
+                        $aa++;
+                    }
                 }
+                return response()->json($list_data);
             }
-            return response()->json($list_data);
-         }catch (\Exception $e) {
+            $syncedCount = 0;
+
+            foreach ($getData["TrackingCategories"] as $value) {
+
+                // Step 1 — Simpan/update parent category, ambil primary key-nya
+                $parent = $this->repo->CreateOrUpdate(
+                    ['name_parent_category' => $value["Name"]],
+                    null
+                );
+                $parentId = $parent->id;
+
+                // Step 2 — Bangun lines_category dari Options milik kategori ini
+                $lines = array_map(
+                    function ($opt) use ($parentId) {
+                        return [
+                            'id_parent' => $parentId,
+                            'item_name_category' => $opt["Name"],
+                            'item_uuid_category' => $opt["TrackingOptionID"],
+                        ];
+                    },
+                    $value["Options"] ?? []
+                );
+
+                // Step 3 — Update baris yang sama dengan lines_category (JSON)
+                $this->repo->CreateOrUpdate(
+                    ['lines_category' => $lines],   // ✅ array, bukan string JSON
+                    $parentId
+                );
+
+                $syncedCount++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sinkronisasi berhasil',
+                'synced' => $syncedCount,
+            ]);
+
+
+        } catch (\Exception $e) {
             return response()->json(['message' => 'Proxy Error: ' . $e->getMessage()], $e->getCode());
         }
     }

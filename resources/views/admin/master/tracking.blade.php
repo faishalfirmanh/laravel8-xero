@@ -4,11 +4,23 @@
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Daftar Tracking Category</h5>
-        <button id="btnAddTracking" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus"></i> Tambah Baru
-        </button>
-    </div>
+        <div class="d-flex gap-2"></div>
+            <div class="d-flex flex-column align-items-end">
+                <button onclick="syncTracking()" 
+                        type="button" 
+                        class="btn btn-success shadow-sm fw-bold">
+                    <i class="fas fa-sync-alt me-1"></i> Sync dari Xero
+                </button>
+                <span class="text-muted mt-1 small" style="font-size: 11px;">
+                    Sinkronisasi 
+                </span>
+                 <button id="btnAddTracking" style="margin-left: 390px;" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> Tambah Baru
+            </button>
+            </div>
+        </div>
 
+    </div>
     <div class="table-responsive p-3">
         <table class="table table-striped table-bordered" id="table_tracking">
             <thead class="table-dark">
@@ -24,7 +36,7 @@
     </div>
 </div>
 
-{{-- MODAL (Detail + Edit Lines Category) --}}
+{{-- MODAL (Detail + Edit Lines Category) sync_tracking--}}
 <div class="modal fade" id="modalTracking" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -265,5 +277,51 @@ $(document).ready(function() {
         });
     });
 });
+  function syncTracking(){
+         Swal.fire({
+            title: 'Sinkronisasi Tracking category dari Xero?',
+            html: 'Apakah Anda yakin ingin mengambil <strong>semua Tracking Kategory</strong> dari Xero?<br>',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',   // hijau
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Sync Sekarang',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                Swal.fire({
+                    title: 'Sedang Sinkronisasi...',
+                    text: 'Mohon tunggu sebentar',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                ajaxRequest( `{{ route('sync_tracking') }}`,'GET',{ is_sync: 1, type :'Divisi' }, localStorage.getItem("token"))
+                .then(response =>{
+                    Swal.close();
+                        if (response.status === 200) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: `Berhasil sinkronisasi ${response.synced} data tracking`,
+                                timer: 2000
+                            });
+                            // Refresh table
+                            $('#table_tracking').DataTable().ajax.reload();
+                        } else {
+                            Swal.fire('Gagal', response.data.data.message, 'error');
+                        }
+                })
+                .catch((err)=>{
+                    cathError(err)
+                })
+            }
+        })
+    }
+
 </script>
 @endpush

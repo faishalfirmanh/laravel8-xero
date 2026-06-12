@@ -113,7 +113,7 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::get('/get-by-id/{id}', [ProductAndServiceController::class, 'getProductById'])->name('xero-product-by-id');//used
 
     //kategory (tracking)
-    Route::get('/get_divisi', [TrackingController::class, 'getKategory']);//used
+    Route::get('/get_divisi', [TrackingController::class, 'getKategory'])->name('sync_tracking');//used
     Route::get('/get_agent', [TrackingController::class, 'getAgent']);//used
     Route::post('/save_agent', [TrackingController::class, 'createBulkAgents']);
 
