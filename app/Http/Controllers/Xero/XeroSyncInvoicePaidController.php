@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Xero;
+use App\Jobs\SyncXeroPaketJob;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -701,6 +702,21 @@ class XeroSyncInvoicePaidController extends Controller
         return false;
     }
 
+    public function getPaketHajiUmrohSyncJob(Request $request)
+    {
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) {
+            return response()->json(['message' => 'Token kosong/invalid.'], 401);
+        }
+
+        SyncXeroPaketJob::dispatch($tokenData);
+
+        return response()->json([
+            'status' => 'queued',
+            'message' => 'Sync paket sedang diproses.',
+        ]);
+    }
+
     public function getPaketHajiUmroh(Request $request)
     {
         $tokenData = $this->getValidToken();
@@ -747,14 +763,23 @@ class XeroSyncInvoicePaidController extends Controller
                     'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
                     'desc' => $value['Description'] ?? '',
                     'updated_at' => now(),
+                    'tax_rate_salles' => 0,
+                    'tax_rate_purchase' => 0,
                 ];
                 $totalSyncedItem++;
             }
         }
 
-        if (!empty($batchItems)) {
+        if (!empty($batchItems) && $request->is_sync == 1) {
             ItemsPaketAllFromXero::upsert($batchItems, ['uuid_proudct_and_service'], [
                 'updated_at'
+            ]);
+        } else if ($request->is_sync == 0) {
+            return response()->json([
+                'status' => 'success',
+                'total' => count($itemPaketAndProduct),
+                'data' => $itemPaketAndProduct,     // versi clean
+                // 'raw_data'  => $accounts,          // uncomment jika ingin data mentah
             ]);
         }
         $view_req = $this->global->getDataAvailabeRequestXero();

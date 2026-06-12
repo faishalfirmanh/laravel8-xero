@@ -45,7 +45,7 @@ class CoaController extends Controller
             'account_type' => [
                 'required',
                 'string',
-                'regex:/^(current_asset|fixed_asset|revenue|inventory|non_current_asset|prepayment|equity|description|direct_cost|expense|overhead|current_liability|liability|non_current_liability|other_income|sales)$/i'
+                'regex:/^(CURRENT|FIXED|EQUITY|EXPENSE|DIRECTCOSTS|CURRLIAB|OTHERINCOME|REVENUE)$/i'
             ],
             // 'code' => [
             //     'required',
@@ -65,7 +65,7 @@ class CoaController extends Controller
             $request->merge(['code' => self::generateRandom4Digit()]);
         }
 
-        $request['created_by'] = 1;// $request->user_login->id;
+        $request['created_by'] = $request->user_login->id;
         $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
         return $this->autoResponse($saved);
     }

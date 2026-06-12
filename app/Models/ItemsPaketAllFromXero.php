@@ -18,17 +18,19 @@ class ItemsPaketAllFromXero extends Model
         'purchase_AccountCode',
         'sales_AccountCode',
         'total_hari',
-        'jenis_item',  //#1 = paket umroh,
+        'jenis_item',  //#1 = paket umroh,->TIDAK DIpaket
         // #2 = paket haji,
         // #3 = perlengkapan haji,terkait haji, ex : visa, passport, guide, bis
         //  #4 = perlengkapan umroh,terkait umroh, ex : visa, passport, guide,bis
         // #5 = operasional kantor,
         //#6 = lain-lain
 
-        'price_purchase',
-        'price_sales',
+        'price_purchase',//yang ada  price purhcase ada di purchase bill & po
+        'price_sales',//yang ada  price salles ada di salles invoices
         'desc',
-        'account_id_purchase',//untuk coa id local kalau insert dari web, tidak sync dari xero, relasi dengan coas->id
+        'account_id_purchase',//untuk coa id local kalau insert dari web, tidak sync dari xero, relasi dengan coas->id. 
+
+
         'account_id_salles',//untuk coa id local kalau insert dari web, tidak sync dari xero,
         'desc_salles',
         'tax_rate_salles',//0->salles tax on imports, 1 tax exempt, 2 tax on purchase, 3 tax on salles

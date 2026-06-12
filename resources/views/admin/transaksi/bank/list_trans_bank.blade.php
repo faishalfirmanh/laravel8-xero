@@ -385,7 +385,8 @@ $(document).ready(function() {
                 }
             })
             .catch((err) => {
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                cathError(err)
+                //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
             });
     });
 
@@ -598,8 +599,9 @@ $(document).ready(function() {
                 }
             })
             .catch((err)=>{
-                console.log('error',err);
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                cathError(err)
+                // console.log('error',err);
+                // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
             })
             .finally(() => {
                 $('#contact_id').prop('disabled', false); 
@@ -652,7 +654,8 @@ $(document).ready(function() {
                 }
             })
             .catch((err) => {
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                cathError(err)
+               // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
             });
     });
 
@@ -794,7 +797,8 @@ $(document).ready(function() {
                     }
                 })
                 .catch((err) => {
-                    console.error(err);
+                    cathError(err)
+                    //console.error(err);
                 });
             }
 

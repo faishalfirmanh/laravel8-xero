@@ -13,7 +13,13 @@ class Coa extends Model
 
     protected $fillable = [
         'code',
-        'account_type',//string tidak bebas
+        'account_type',//string tidak bebas,
+        //asset : CURRENT, FIXED
+        //liabillities : CURRLIAB
+        //equility : EQUITY
+        //expenses : EXPENSE, DIRECTCOSTS
+        //revenue : OTHERINCOME, REVENUE
+        //archive : -> tidak di pake
         'name',
         'created_by',
         'desc',

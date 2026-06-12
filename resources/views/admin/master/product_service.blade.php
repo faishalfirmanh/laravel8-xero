@@ -554,9 +554,9 @@
                     <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
                         Batal
                     </button>
-                    <button type="button" class="btn-save-dup" id="btnSaveDuplicate">
+                    {{-- <button type="button" class="btn-save-dup" id="btnSaveDuplicate">
                         Save &amp; duplicate
-                    </button>
+                    </button> --}}
                     <div class="d-flex">
                         <button type="submit" class="btn-save-main" id="btnSave">
                             Save
@@ -645,6 +645,8 @@ $(document).ready(function () {
     $('#searchTable').on('keyup', function () {
         table.search($(this).val()).draw();
     });
+
+    // console.log('bearer token',localStorage.getItem('token'))
 
     // =========================================================
     // KLIK EDIT (dari icon pensil atau nama item)
@@ -752,9 +754,9 @@ $(document).ready(function () {
     // =========================================================
     // SAVE & DUPLICATE
     // =========================================================
-    $('#btnSaveDuplicate').on('click', function () {
-        submitForm(true); // true = duplicate setelah simpan
-    });
+    // $('#btnSaveDuplicate').on('click', function () {
+    //     submitForm(true); // true = duplicate setelah simpan
+    // });
 
     // =========================================================
     // SUBMIT FORM

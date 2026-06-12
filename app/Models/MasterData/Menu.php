@@ -12,13 +12,13 @@ class Menu extends Model
     use HasFactory;
 
     protected $fillable = [
-       'nama_menu',
-       'slug',//untuk url web
-       'route_name',//prefix
-       'module',
-       'parent_id',
-       'order',
-       'is_active'
+        'nama_menu',
+        'slug',//untuk url web
+        'route_name', //last prefix kalau di api, kalau di db route_name
+        'module',
+        'parent_id',
+        'order',
+        'is_active'
     ];
 
     // protected $appends = [
@@ -34,15 +34,15 @@ class Menu extends Model
     // }
 
 
-public function parent()
-{
-    return $this->belongsTo(Menu::class, 'parent_id');
-}
+    public function parent()
+    {
+        return $this->belongsTo(Menu::class, 'parent_id');
+    }
 
-public function children()
-{
-    return $this->hasMany(Menu::class, 'parent_id');
-}
+    public function children()
+    {
+        return $this->hasMany(Menu::class, 'parent_id');
+    }
 
     public function roles()
     {

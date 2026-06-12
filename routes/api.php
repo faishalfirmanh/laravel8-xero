@@ -95,7 +95,7 @@ Route::prefix("xero")->group(function () {
 
 Route::prefix("xero-integrasi")->group(function () {
     Route::get('/get-data', [ContactController::class, 'getContact']);
-
+    Route::get('sync-job-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmrohSyncJob'])->name('sync-job-item-paket');//sync item dengan job
     Route::get('/get-contact-local', [ContactController::class, 'getContactLocal']);//used
     Route::get('getCodeBeforeToken', [ConfigController::class, 'getAuthUrl']);
     Route::post('getToken', [ConfigController::class, 'getToken']);

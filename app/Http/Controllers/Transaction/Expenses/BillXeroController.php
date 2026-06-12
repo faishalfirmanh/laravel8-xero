@@ -236,7 +236,7 @@ class BillXeroController extends Controller
 
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_detail->sumDataWhereDinamis(['bills_parent_id' => $saveP->id], 'amount');
-            $this->repo->CreateOrUpdate(['total' => $sumD], $saveP->id);
+            $this->repo->CreateOrUpdate(['total' => $sumD, 'nominal_due' => $sumD], $saveP->id);
 
             DB::commit();
             return $this->autoResponse($saveP);

@@ -64,6 +64,7 @@ class ProducAndServiceXeroLocalController extends Controller
             'sales_AccountCode' => 'from_web',
             'tax_rate_salles' => 0,
             'tax_rate_purchase' => 0,
+            'price_purchase' => $request->price_purchase ?? 0
         ]);
 
         $request['uuid_proudct_and_service'] = 'from_web';
@@ -113,9 +114,9 @@ class ProducAndServiceXeroLocalController extends Controller
         //dd($request->menu);
         $where = []; //$request->type == 'ALL' || $request->type == null ? [] : ['account_type' => $request->type];
         if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, $request->kolom_name, strtoupper($request->keyword));
+            $data = $this->repo->searchData($where, $request->limit, $request->page, 'nama_paket', strtoupper($request->keyword));
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, $request->kolom_name, 'DESC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
         }
 
         return $this->autoResponse($data);

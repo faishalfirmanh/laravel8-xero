@@ -165,7 +165,7 @@ class MasterMenuSeeder extends Seeder
                 $child_report = [ //nama routenya
                     'rep-coa',
                     'rep-log-history',
-                    'rep-profil-loss',
+                    'invoice',
                 ];
                 $slug_report = [
                     'travel/admin/report/rep-coa',

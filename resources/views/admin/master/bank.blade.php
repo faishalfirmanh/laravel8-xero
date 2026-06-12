@@ -174,7 +174,8 @@ $(document).ready(function() {
                     table.ajax.reload()
                 })
                 .catch((err)=>{
-                    Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                    cathError(err)
+                   // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                     //console.log('error select2 invoice',err);
                 })
             }
@@ -240,8 +241,9 @@ $(document).ready(function() {
                 table.ajax.reload()
             })
             .catch((err)=>{
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-                console.log('error select2 invoice',err);
+                cathError(err)
+                // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                // console.log('error select2 invoice',err);
             })
     });
 
@@ -288,9 +290,10 @@ function syncCoaFromXero(){
                         }
                 })
                 .catch((err)=>{
+                    cathError(err)
                     Swal.close();
-                    Swal.fire('Error', 'Terjadi kesalahan saat sinkronisasi', 'error');
-                    console.error(xhr.responseText);
+                    // Swal.fire('Error', 'Terjadi kesalahan saat sinkronisasi', 'error');
+                    // console.error(xhr.responseText);
                 })
             }
         })

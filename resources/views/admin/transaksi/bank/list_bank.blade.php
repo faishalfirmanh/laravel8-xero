@@ -719,7 +719,8 @@ $(document).ready(function() {
                     }
                 })
                 .catch((err) => {
-                    console.error(err);
+                    cathError(err)
+                    //console.error(err);
                 });
             }
 

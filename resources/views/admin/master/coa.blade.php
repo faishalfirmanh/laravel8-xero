@@ -71,20 +71,14 @@
                         <label for="account_type">Account Type</label>
                         <select class="form-control" id="account_type" name="account_type" required> <option value="" selected disabled>Pilih Account...</option>
                             <option value="0">Pilih Account</option>
-                            <option value="current_asset">Current Asset</option>
-                            <option value="fixed_asset">Fixed Asset</option>
-                            <option value="inventory">inventory</option>
-                            <option value="non_current_asset">Non Current Asset</option>
-                            <option value="prepayment">Prepayment</option>
-                            <option value="equity">equity</option>
-                            <option value="expenses">expenses</option>
-                            <option value="overhead">overhead</option>
-                            <option value="current_liability">current liability</option>
-                            <option value="liability">Liability</option>
-                            <option value="non_current_liability">Non Current Liability</option>
-                            <option value="other_income">Other Income</option>
-                            <option value="revenue">Revenue</option>
-                            <option value="sales">Sales</option>
+                            <option value="CURRENT">Current Asset</option>
+                            <option value="FIXED">Fixed Asset</option>
+                            <option value="EQUITY">equity</option>
+                            <option value="EXPENSE">expenses</option>
+                            <option value="DIRECTCOSTS">direct cost</option>
+                            <option value="CURRLIAB">current liability</option>
+                            <option value="OTHERINCOME">Other Income</option>
+                            <option value="REVENUE">Revenue</option>
                         </select>
                     </div>
                 </div>
@@ -257,8 +251,7 @@ $(document).ready(function() {
                 table.ajax.reload()
             })
             .catch((err)=>{
-                Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-                console.log('error select2 invoice',err);
+               cathError(err)
             })
     });
 
@@ -306,9 +299,7 @@ $(document).ready(function() {
                         }
                 })
                 .catch((err)=>{
-                    Swal.close();
-                    Swal.fire('Error', 'Terjadi kesalahan saat sinkronisasi', 'error');
-                    console.error(xhr.responseText);
+                    cathError(err)
                 })
             }
         })
