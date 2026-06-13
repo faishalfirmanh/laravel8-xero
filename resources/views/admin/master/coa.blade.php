@@ -99,6 +99,7 @@ $(document).ready(function() {
     //console.log("token",localStorage.getItem("token"))
     var table;
     // --- 1. DATATABLE ---
+    console.log('token',localStorage.getItem('token'))
     let columnCoa = [
         {
             data: null,

@@ -1952,7 +1952,7 @@ $(function () {
                 tbody = '<tr><td colspan="5" class="text-muted text-center">Belum ada data pembayaran</td></tr>';
             } else {
                 payments.forEach((p, index) => {
-                    console.log('pp',p)
+                  
                     const nominal = parseFloat(p.nominal_receive || 0);
                     totalPaid += nominal;
                     tbody += `

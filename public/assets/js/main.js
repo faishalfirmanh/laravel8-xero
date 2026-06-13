@@ -250,7 +250,7 @@ function initGlobalDataTableToken(selector, url, columns, extraParams = {}) {
             recordsFiltered: response.data.total,
             data: response.data.data
           });
-          console.log('sukses main', response.data.data)
+
         },
         error: function (data, error, thrown) {
           console.log('Error main:', data);
