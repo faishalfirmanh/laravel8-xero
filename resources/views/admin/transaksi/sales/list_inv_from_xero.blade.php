@@ -490,6 +490,15 @@
     overflow-x: hidden;
     flex: 1 1 auto;
 }
+
+/* Styling agar thumbnail Dropzone bisa di-klik */
+#buktiDropzone .dz-preview .dz-image {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+#buktiDropzone .dz-preview .dz-image:hover {
+    transform: scale(1.05); /* Sedikit membesar saat di-hover */
+}
 </style>
 
 
@@ -1049,6 +1058,22 @@
   </div>
 </div>
 
+
+<div class="modal fade" id="previewImageModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close" style="opacity: 1; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
+                    <span aria-hidden="true" style="font-size: 2.5rem;">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img id="previewImageModalSrc" src="" alt="Preview Gambar" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -1090,6 +1115,7 @@
 
     Dropzone.autoDiscover = false;
     let myDropzone;
+    let isClearingDropzone = false;
 
     $(function() {
         // 1. Inisialisasi Dropzone
@@ -1128,6 +1154,11 @@
                 //hapus
                 this.on("removedfile", function(file) {
                     // Hanya eksekusi AJAX hapus jika file tersebut berasal dari server
+
+                    if (isClearingDropzone) {
+                        return; 
+                    }
+
                     if (file.isFromServer) {
                         $.ajax({
                             url: "{{ route('remove-image-sales-inv') }}",
@@ -1151,6 +1182,23 @@
                     }
                     // Jika file.isFromServer false/undefined, Dropzone hanya akan menghapus antrean di browser secara diam-diam.
                 });
+
+
+                this.on("addedfile", function(file) {
+                file.previewElement.addEventListener("click", function(e) {
+                    // Cegah klik agar tidak memicu dialog "Pilih File" Dropzone lagi jika diklik pas di gambar
+                    e.stopPropagation(); 
+                    e.preventDefault();
+                    let imageUrl = file.url || file.dataURL;
+                    if (!imageUrl && file.status === Dropzone.ADDED) {
+                        imageUrl = URL.createObjectURL(file);
+                    }
+                    if (imageUrl) {
+                        $('#previewImageModalSrc').attr('src', imageUrl);
+                        $('#previewImageModal').modal('show');
+                    }
+                });
+            });
             }
         });
 
@@ -1855,7 +1903,9 @@ function recalcSummary() {
 // ── Reset saat modal ditutup ──────────────────────────────
 $('#modalCreateHotel').on('hidden.bs.modal', function () {
     if(myDropzone) {
-        myDropzone.removeAllFiles(true);
+       isClearingDropzone = true;       
+       myDropzone.removeAllFiles(true);
+       isClearingDropzone = false;
     }
 
     $('#formCreateHotel')[0].reset();
@@ -1880,7 +1930,9 @@ function addFirstRow() {
 function loadDropzoneImages(invoiceId) {
     // Kosongkan Dropzone terlebih dahulu jika ada gambar dari sesi sebelumnya
     if(myDropzone) {
-        myDropzone.removeAllFiles(true);
+        isClearingDropzone = true;       
+        myDropzone.removeAllFiles(true); 
+        isClearingDropzone = false;
     }
 
       ajaxRequest("{{ route('get-image-sales-inv') }}", 'GET', { invoice_id: invoiceId }, localStorage.getItem("token"))

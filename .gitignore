@@ -14,3 +14,5 @@ yarn-error.log
 xero_token_2.json
 user_register.json
 composer.lock
+
+/public/uploads

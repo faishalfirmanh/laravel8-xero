@@ -112,14 +112,18 @@ class InvXeroController extends Controller
         try {
             // 1. Save Parent
             $get_contact = $this->repo_jamaah->whereData(['id' => $request->contact_id])->first();
-            $request->merge(
-                [
-                    'invoice_number' => $this->service_global->generateNewInvoiceNumber(),
-                    'invoice_uuid' => $this->service_global->generateUniqueRandomStringInvoice(),
-                    'contact_name' => $get_contact->full_name,
-                    'uuid_contact' => 'from_local'
-                ]
-            );
+
+            $mergeData = [
+                'contact_name' => $get_contact->full_name,
+                'uuid_contact' => 'from_local'
+            ];
+            if (empty($request->id)) {
+                $mergeData['invoice_number'] = $this->service_global->generateNewInvoiceNumber();
+                $mergeData['invoice_uuid'] = $this->service_global->generateUniqueRandomStringInvoice();
+            }
+            $request->merge($mergeData);
+
+
             //$request['invoice_nuber'] = $this->service_global->generateNewInvoiceNumber();
             $saveP = $this->repo->CreateOrUpdate(
                 $request->except(['coa_id', 'desc', 'qty', 'unit_price', 'nama_paket', 'divisi', 'id_detail', 'action_save', 'invoice_nuber']),
