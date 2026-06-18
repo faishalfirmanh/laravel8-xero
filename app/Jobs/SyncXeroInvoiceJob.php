@@ -5,11 +5,13 @@ namespace App\Jobs;
 use App\ConfigRefreshXero;
 use App\Models\InvoicesAllFromXero;
 use App\Models\ItemsPaketAllFromXero;
+use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\SyncJobStatus;
 use App\Models\Transaction\TransactionAllCoa;
+use App\Models\Transaction\TransactionNominalBankAccount;
 use App\Services\GlobalService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -44,6 +46,7 @@ class SyncXeroInvoiceJob implements ShouldQueue
 
         $this->tokenData = $tokenData;
         $this->jobId = $jobId;
+        $this->service_global = new GlobalService();
     }
 
     public function handle(): void
@@ -127,27 +130,114 @@ class SyncXeroInvoiceJob implements ShouldQueue
 
     // ----------------------------------------------------------------
     // Proses 1 invoice: upsert parent → upsert detail line items
-    // ----------------------------------------------------------------
+    // ------------
+    // 
+    // ----------------------------------------------------
 
+
+    private function syncPayment(string $paymentId): void
+    {
+        $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
+
+        if ($alreadySynced) {
+            return;
+        }
+
+        $this->getDetailPayment($paymentId);
+    }
+
+    public function getDetailPayment(string $idPayment)
+    {
+        $accessToken = $this->tokenData['access_token'];
+        $tenantId = $this->getTenantId($accessToken);
+
+        $response_detail = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $accessToken,
+            'Xero-Tenant-Id' => $tenantId,
+            'Accept' => 'application/json',
+        ])->timeout(25)->get("https://api.xero.com/api.xro/2.0/Payments/$idPayment");
+
+        if ($response_detail->failed()) {
+            throw new \Exception("Gagal Get Detail Payment $idPayment: " . $response_detail->body());
+        }
+
+        // Guard rate limit juga di sini, bukan cuma di fetch invoice list
+        $minRem = (int) $response_detail->header('X-MinLimit-Remaining');
+        if ($minRem > 0 && $minRem <= self::MIN_REM_THRESHOLD) {
+            throw new \Exception("Rate limit hampir habis saat fetch payment $idPayment ($minRem/menit).");
+        }
+
+        $data = $response_detail->json();
+        $payment = $data['Payments'][0] ?? null;
+
+        if (!$payment) {
+            Log::warning("[getDetailPayment] Payment $idPayment tidak ditemukan/kosong di response Xero, dilewati.");
+            return;
+        }
+
+        $amount = $payment['Amount'] ?? 0;
+        $account_code = data_get($payment, 'Account.Code');
+        $date = $this->parseXeroDate($payment['Date'] ?? null);
+        $invoiceUuid = data_get($payment, 'Invoice.InvoiceID');
+
+        $id_parent_inv = $invoiceUuid
+            ? InvoicesAllFromXero::where('invoice_uuid', $invoiceUuid)->value('id')
+            : null;
+
+        $this->insertToDb($idPayment, $amount, $account_code, $date, $invoiceUuid, $id_parent_inv);
+
+        usleep(150_000); // throttle kecil, payment fetch ikut makan quota rate limit Xero
+    }
+
+
+    public function insertToDb($paymentUuid, $amount, $account_code, $date, $ref_detail, $id_parent_inv)
+    {
+        $findBank = BankXero::where('code', $account_code)->first();
+
+        if (!$findBank) {
+            Log::warning("[insertToDb] Kode akun bank tidak ditemukan: '{$account_code}'. Payment {$paymentUuid} dilewati.");
+            return;
+        }
+
+        // updateOrCreate, bukan create() polos → mencegah duplikat saat job di-retry/cron ulang
+        TransactionNominalBankAccount::updateOrCreate(
+            ['payment_uuid' => $paymentUuid],
+            [
+                'uuid_bank' => $findBank->id,
+                'nominal_receive' => $amount,
+                'created_by' => 1,
+                'date_transaction' => $date,
+                'nominal_spend' => 0,
+                'nominal_transfer' => 0,
+                'reference_detail' => $ref_detail,
+                'id_parent_invoice' => $id_parent_inv,
+            ]
+        );
+    }
 
     private function processInvoice(array $inv): void
     {
         $lineItems = $inv['LineItems'] ?? [];
         $firstLine = $lineItems[0] ?? [];
-
+        $glbl = new GlobalService();
         $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
         $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
 
         $findContact = DataJamaahXero::where('uuid_contact', data_get($inv, 'Contact.ContactID'))->pluck('id')->first() ?? 1;
 
 
+        // if (count($inv['Payments']) > 0) {
+        //     foreach ($inv['Payments'] as $key2 => $value2) {
+        //         self::getDetailPayment($value2['PaymentID']);
+        //     }
+        // }
         // --- Upsert parent invoice ---
         $invoiceData = [
             'invoice_uuid' => $inv['InvoiceID'],
             'invoice_number' => $inv['InvoiceNumber'] ?? null,
-            'invoice_amount' => $inv['AmountDue'] ?? 0,
+            'invoice_amount' => $inv['AmountPaid'] ?? 0,//$inv['AmountDue'] ?? 0,
             'invoice_total' => $inv['Total'] ?? 0,
-            'less_nominal' => $inv['TotalDiscount'] ?? 0,
+            'less_nominal' => $inv['AmountDue'] ?? 0, //$inv['TotalDiscount'] ?? 0,
             'issue_date' => $issueDate,
             'due_date' => $dueDate,
             'status' => $inv['Status'] ?? null,
@@ -280,7 +370,7 @@ class SyncXeroInvoiceJob implements ShouldQueue
             $itemIdSave = $itemCode ? ($itemMap[$itemCode] ?? null) : null;
             $uuidItem = $line['Item']['ItemID'] ?? $line['ItemID'] ?? 'no_set';
 
-            $glbl = new GlobalService();
+
             $batchDetails[] = [
                 'invoice_number' => $inv['InvoiceNumber'] ?? null,
                 'uuid_invoices' => $inv['InvoiceID'],
@@ -345,9 +435,9 @@ class SyncXeroInvoiceJob implements ShouldQueue
                 [
                     'date_transaction' => $issueDate,
                     'uuid_coa' => $detail['coa_id'],
-                    'reference' => $inv['Reference'] ?? null,
+                    'reference' => $inv['Reference'] ?? '-',
                     'is_speend' => 0,
-                    'nominal' => $saved->total_amount_each_row,
+                    'nominal' => abs((int) $saved->total_amount_each_row),//selalu positif
                     'uuid_detail' => $saved->uuid_detail_inv,
                 ]
             );
@@ -369,6 +459,7 @@ class SyncXeroInvoiceJob implements ShouldQueue
             ])
                 ->timeout(25)
                 ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                    'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',
                     'Type' => 'ACCREC',
                     'order' => 'Date DESC',
                     'page' => $page,

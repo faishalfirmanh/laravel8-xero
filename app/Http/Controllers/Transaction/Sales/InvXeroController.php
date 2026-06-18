@@ -21,8 +21,9 @@ use App\ConfigRefreshXero;
 use App\Models\Revenue\Hotel\DetailInvoicesHotel;
 use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Config\ConfigCurrency;
+use Illuminate\Support\Facades\File;
 use Barryvdh\DomPDF\Facade\Pdf;
-
+use Intervention\Image\Facades\Image;
 
 class InvXeroController extends Controller
 {
@@ -195,7 +196,7 @@ class InvXeroController extends Controller
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => false,
-                            'nominal' => $save_d->total_amount_each_row,
+                            'nominal' => abs((int) $save_d->total_amount_each_row),//agar auto positif
                             'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
                             'uuid_detail' => $save_d->uuid_detail_inv
                         ];
@@ -224,8 +225,191 @@ class InvXeroController extends Controller
             return $this->error($th->getMessage() . ' at line ' . $th->getLine(), 500);
         }
     }
+    public function getImageDetail(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'invoice_id' => 'required|exists:invoices_all_from_xeros,id'
+        ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => $validator->errors()->first()
+            ], 400);
+        }
 
+        try {
+            $invoiceId = $request->input('invoice_id');
+            $directory = public_path('uploads/images/invoices');
+
+            // Jika folder belum ada, berarti belum ada gambar sama sekali
+            if (!File::exists($directory)) {
+                return response()->json([
+                    'success' => true,
+                    'data' => []
+                ], 200);
+            }
+            $pattern = $directory . '/*_' . $invoiceId . '.webp';
+            $matchedFiles = glob($pattern);
+
+            $images = [];
+
+            if ($matchedFiles) {
+                foreach ($matchedFiles as $file) {
+                    $filename = basename($file);
+
+                    $images[] = [
+                        'name' => $filename,
+                        'size' => filesize($file), // Dropzone butuh ukuran file (bytes)
+                        'url' => url('uploads/images/invoices/' . $filename) // Full path URL
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $images
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Gagal mengambil data gambar: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function removeImage(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'file_name' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => $validator->errors()->first()
+            ], 400);
+        }
+
+        try {
+            $filename = $request->input('file_name');
+
+            // Keamanan tambahan: Cegah directory traversal attack (misal nama file '../gambar.webp')
+            if (preg_match('/\.\./', $filename)) {
+                return response()->json(['error' => 'Nama file tidak valid.'], 400);
+            }
+
+            $filePath = public_path('uploads/images/invoices/' . $filename);
+
+            // Cek apakah file fisik ada, lalu hapus
+            if (File::exists($filePath)) {
+                File::delete($filePath);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Gambar berhasil dihapus dari server.'
+                ], 200);
+            }
+
+            return response()->json(['error' => 'Gambar tidak ditemukan di server.'], 404);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Terjadi kesalahan server: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function uploadMultiple(Request $request)
+    {
+        // 1. Validasi Input Gambar (Pastikan 'file' divalidasi sebagai array)
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|array',
+            'file.*' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'invoice_id' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => $validator->errors()->first()
+            ], 400);
+        }
+
+        try {
+            $files = $request->file('file'); // Ini sekarang adalah ARRAY dari file
+            $invoiceId = $request->input('invoice_id');
+
+            // 2. Siapkan Path
+            $destinationPath = public_path('uploads/images/invoices');
+            if (!file_exists($destinationPath)) {
+                mkdir($destinationPath, 0755, true);
+            }
+
+            $uploadedFilesData = [];
+
+            // 3. LOOPING UNTUK SETIAP FILE GAMBAR
+            foreach ($files as $index => $file) {
+
+                $img = Image::make($file->getRealPath());
+
+                // Resize jika resolusi terlalu besar
+                if ($img->width() > 1200) {
+                    $img->resize(1200, null, function ($constraint) {
+                        $constraint->aspectRatio();
+                        $constraint->upsize();
+                    });
+                }
+
+                $quality = 90;
+                $targetSize = 90 * 1024; // 90 KB
+
+                // Encode awal
+                $encodedData = $img->encode('webp', $quality);
+
+                // Looping kompresi untuk target 90KB
+                while (strlen($encodedData) > $targetSize && $quality > 10) {
+                    $quality -= 10;
+                    $encodedData = $img->encode('webp', $quality);
+                }
+
+                // Resolusi darurat jika masih > 90KB
+                if (strlen($encodedData) > $targetSize) {
+                    $img->resize($img->width() * 0.7, null, function ($constraint) {
+                        $constraint->aspectRatio();
+                    });
+                    $encodedData = $img->encode('webp', 40);
+                }
+
+                $invNumber = $this->repo->whereData(['id' => $invoiceId])->first();
+
+                // Penamaan file (Gunakan uniqid agar nama tidak bentrok di dalam loop)
+                $filename = $invNumber->invoice_number . '_' . uniqid() . '_' . $invoiceId . '.webp';
+
+                // Simpan File
+                file_put_contents($destinationPath . '/' . $filename, $encodedData);
+
+                // Hitung ukuran akhir
+                $finalSizeKb = round(filesize($destinationPath . '/' . $filename) / 1024, 2);
+
+                // Simpan data file yang berhasil diproses ke array
+                $uploadedFilesData[] = [
+                    'file_name' => $filename,
+                    'file_url' => url('uploads/images/invoices/' . $filename),
+                    'final_size' => $finalSizeKb . ' KB'
+                ];
+            }
+
+            // Kembalikan Response Berisi Array Data Gambar
+            return response()->json([
+                'success' => true,
+                'message' => 'Semua gambar berhasil diupload.',
+                'data' => $uploadedFilesData
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Gagal memproses gambar: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
     public function detailInvoice(Request $request)
     {

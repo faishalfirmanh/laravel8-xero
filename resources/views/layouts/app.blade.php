@@ -9,6 +9,24 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.datatables.net/2.3.6/css/dataTables.dataTables.css" />
     <link rel="stylesheet" href="{{ asset('admin/css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.css" />
+    <style>
+        /* Styling tambahan agar dropzone menyatu dengan desain Xero Anda */
+        #buktiDropzone {
+            border: 2px dashed #1ab394;
+            border-radius: 5px;
+            background: #f4fdf9;
+            min-height: 120px;
+            padding: 10px;
+            cursor: pointer;
+        }
+        #buktiDropzone .dz-message {
+            color: #1ab394;
+            font-weight: 600;
+            font-size: 14px;
+            margin: 2em 0;
+        }
+    </style>
 </head>
 <body>
 
@@ -66,6 +84,7 @@
     @include('layouts.footer')
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.js"></script>
      <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/2.3.6/js/dataTables.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>

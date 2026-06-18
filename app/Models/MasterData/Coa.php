@@ -14,7 +14,7 @@ class Coa extends Model
     protected $fillable = [
         'code',
         'account_type',//string tidak bebas,
-        //asset : CURRENT, FIXED
+        //asset : CURRENT, FIXED, BANK
         //liabillities : CURRLIAB
         //equility : EQUITY
         //expenses : EXPENSE, DIRECTCOSTS
@@ -27,6 +27,15 @@ class Coa extends Model
         'is_active',
         'currency_code'
     ];
+
+    //coa yang di hide pada xero :
+    //Realised Currency Gains (Keuntungan kurs terealisasi)
+    // Unrealised Currency Gains (Keuntungan/kerugian kurs belum terealisasi)
+    // Bank Currency Revaluation (Revaluasi kurs bank)
+    // Unpaid Expense Claims (Klaim pengeluaran yang belum dibayar)
+    // Historical Adjustments (Penyesuaian historis/saldo awal)
+    // Rounding (Akun pembulatan)
+    // Tracking Transfers (Akun sistem untuk mutasi tracking category)
 
     protected $appends = [
         'sum_nominal'

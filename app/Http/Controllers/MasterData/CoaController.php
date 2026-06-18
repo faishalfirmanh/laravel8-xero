@@ -102,7 +102,7 @@ class CoaController extends Controller
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
-            'type' => 'nullable|string|in:EXPENSE,REVENUE,ALL'
+            'type' => 'nullable|string|in:EXPENSE,REVENUE,ASSET,ALL,LIABILITIES,EQUITY'
         ]);
 
 
@@ -110,7 +110,7 @@ class CoaController extends Controller
             return $this->error($validator->errors(), 404);
         }
         //dd($request->menu);
-        $where = $request->type == 'ALL' || $request->type == null ? [] : ['account_type' => $request->type];
+        $where = self::chekWhere($request->type);
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
         } else {
@@ -121,6 +121,29 @@ class CoaController extends Controller
 
     }
 
+    public function chekWhere($requestType)
+    {
+        // Jika ALL, kembalikan array kosong (agar ->where([]) tidak memfilter apapun)
+        if ($requestType == 'ALL' || empty($requestType)) {
+            return [];
+        }
+
+        // Kembalikan Closure berisi Query Builder
+        return function ($query) use ($requestType) {
+            if ($requestType == 'ASSET') {
+                $query->whereIn('account_type', ['CURRENT', 'FIXED', 'BANK']);
+            } else if ($requestType == 'LIABILITIES') {
+                $query->where('account_type', 'CURRLIAB');
+            } else if ($requestType == 'EQUITY') {
+                $query->where('account_type', 'EQUITY');
+            } else if ($requestType == 'EXPENSE') {
+                // Catatan: Saya ubah 'EQUITY' menjadi 'EXPENSE' karena sepertinya di script asli Anda ada typo
+                $query->whereIn('account_type', ['EXPENSE', 'DIRECTCOSTS']);
+            } else if ($requestType == 'REVENUE') {
+                $query->whereIn('account_type', ['OTHERINCOME', 'REVENUE']);
+            }
+        };
+    }
 
     public function getListTransByCoaId(Request $request)
     {
@@ -128,6 +151,7 @@ class CoaController extends Controller
             'code_coa' => 'required|exists:coas,id',
             'page' => 'required|integer',
             'limit' => 'required|integer',
+            'keyword' => 'nullable|string'
         ]);
 
         if ($validator->fails()) {
@@ -135,19 +159,46 @@ class CoaController extends Controller
         }
 
         $where = ['uuid_coa' => $request->code_coa];
+        $relations = ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent', 'd_invoice', 'd_invoice.getParent'];
 
-        $data = $this->repo_trans_all->getAllDataWithDefault(
-            $where,
-            $request->limit,
-            $request->page,
-            'date_transaction',
-            'DESC',
-            ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent', 'd_invoice', 'd_invoice.getParent']
-        );
+        // DEFINISIKAN KOLOM PENCARIAN (TABEL UTAMA + RELASI)
+        $search_columns = [
+            // 1. Kolom di Tabel Utama
+            'nominal',
+            'date_transaction' => 'date',
 
-        //$data['menu']= $request->menu;
+            // 2. Kolom di Tabel Relasi (Format: 'NamaRelasi' => ['kolom1', 'kolom2'])
+            'd_bill' => ['desc'],
+            'd_bill.getParent.getContactFrom' => ['full_name'],
+
+            'd_bank' => ['desc'],
+            'd_bank.getParent.getContactFrom' => ['full_name'],
+
+            'd_invoice' => ['desc'],
+            'd_invoice.getParent' => ['contact_name'],
+        ];
+
+        // LOGIKA PENARIKAN DATA
+        if ($request->keyword) {
+            $data = $this->repo_trans_all->searchDataMultiColumn(
+                $where,
+                $request->limit, // Menggunakan limit dari request, bukan manual 10
+                $search_columns,
+                $request->keyword,
+                $relations
+            );
+        } else {
+            $data = $this->repo_trans_all->getAllDataWithDefault(
+                $where,
+                $request->limit,
+                $request->page,
+                'date_transaction',
+                'ASC',
+                $relations
+            );
+        }
+
         return $this->autoResponse($data);
-        //return $this->success($data);
     }
 
 

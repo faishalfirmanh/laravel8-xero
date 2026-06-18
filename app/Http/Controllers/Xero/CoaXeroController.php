@@ -67,6 +67,17 @@ class CoaXeroController extends Controller
 
             $accounts = $response->json()['Accounts'] ?? [];
 
+            // $hiddenAccounts = collect($accounts)->filter(function ($acc) {
+            //     // Tangkap akun yang punya SystemAccount ATAU yang statusnya ARCHIVED
+            //     return isset($acc['SystemAccount']) || (isset($acc['Status']) && $acc['Status'] === 'ARCHIVED');
+            // })->values()->all();
+
+            // // Return ini sementara untuk melihat data ke-7 akun tersebut
+            // return response()->json([
+            //     'hidden_count' => count($hiddenAccounts),
+            //     'hidden_data' => $hiddenAccounts
+            // ]);
+
             // Optional: Mapping sederhana agar lebih clean
             $cleanAccounts = array_map(function ($acc) {
                 return [

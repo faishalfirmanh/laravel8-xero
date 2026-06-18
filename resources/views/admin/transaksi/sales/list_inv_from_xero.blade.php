@@ -706,8 +706,16 @@
                         <button type="button" class="btn-dashed" id="btn-add-row">
                             <i class="ti ti-plus" style="font-size:12px;"></i> Add row
                         </button>
+                        <button type="button" class="btn-dashed" id="btn-show-dropzone" style="border-color: #007bff; color: #007bff; margin-left: 10px;">
+                            <i class="ti ti-upload" style="font-size:12px;"></i> Upload Bukti
+                        </button>
                     </div>
 
+                    <div id="dropzone-container" style="display: none; margin-bottom: 20px;">
+                        <div class="dropzone" id="buktiDropzone">
+                            <div class="dz-message" data-dz-message><span>Klik atau Drop gambar bukti di sini (Bisa pilih banyak file)</span></div>
+                        </div>
+                    </div>
                     {{-- ── SUMMARY ── --}}
                     <div class="invoice-summary">
                         <table class="summary-table">
@@ -1080,7 +1088,78 @@
     // FUNGSI UTAMA: Membuat HTML Baris Kamar (Bisa dipakai Edit & Tambah Baru)
    
 
-    console.log('local',localStorage.getItem('token'))
+    Dropzone.autoDiscover = false;
+    let myDropzone;
+
+    $(function() {
+        // 1. Inisialisasi Dropzone
+        myDropzone = new Dropzone("#buktiDropzone", {
+            url: "{{ route('uploadImage-sales-inv') }}",
+            autoProcessQueue: false, // PENTING: Jangan langsung upload saat gambar dipilih
+            uploadMultiple: true,
+            parallelUploads: 10,
+            maxFiles: 10,
+            acceptedFiles: "image/*",
+            addRemoveLinks: true,
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("token"),
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            init: function() {
+                // Saat proses upload berjalan, kirimkan ID Invoice
+                this.on("sending", function(file, xhr, formData) {
+                    // Ambil ID dari hidden input (Bisa dari edit, atau ID baru setelah save form)
+                    formData.append("invoice_id", $('#idHotelInput').val()); 
+                });
+
+                // Jika semua file berhasil diupload
+                this.on("successmultiple", function(files, response) {
+                    Swal.fire('Sukses!', 'Data invoice dan bukti berhasil disimpan.', 'success');
+                    $('#modalCreateHotel').modal('hide');
+                    table.ajax.reload(null, false);
+                });
+
+                // Jika terjadi error saat upload
+                this.on("errormultiple", function(files, response) {
+                    Swal.fire('Peringatan', 'Invoice tersimpan, namun gagal mengupload gambar.', 'warning');
+                    table.ajax.reload(null, false);
+                });
+
+                //hapus
+                this.on("removedfile", function(file) {
+                    // Hanya eksekusi AJAX hapus jika file tersebut berasal dari server
+                    if (file.isFromServer) {
+                        $.ajax({
+                            url: "{{ route('remove-image-sales-inv') }}",
+                            type: "POST",
+                            data: { file_name: file.name },
+                            headers: {
+                                'Authorization': 'Bearer ' + localStorage.getItem("token"),
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function(response) {
+                                if(response.success) {
+                                    console.log("Berhasil:", response.message);
+                                    // Optional: Tampilkan toast / notifikasi kecil bahwa gambar dihapus
+                                }
+                            },
+                            error: function(err) {
+                                console.error("Gagal menghapus gambar:", err);
+                                Swal.fire('Gagal!', 'Gambar gagal dihapus dari server.', 'error');
+                            }
+                        });
+                    }
+                    // Jika file.isFromServer false/undefined, Dropzone hanya akan menghapus antrean di browser secara diam-diam.
+                });
+            }
+        });
+
+        // 2. Toggle Tampilkan/Sembunyikan Area Dropzone
+        $('#btn-show-dropzone').on('click', function() {
+            $('#dropzone-container').slideToggle(200);
+        });
+    });
+   
 
     let columnHotel = [
         {
@@ -1146,6 +1225,7 @@
         // Load data SETELAH modal benar-benar tampil (penting untuk Select2)
         $('#modalCreateHotel').one('shown.bs.modal', function () {
             loadInvoice(id);
+            loadDropzoneImages(id);
         });
         
     });
@@ -1774,12 +1854,17 @@ function recalcSummary() {
 
 // ── Reset saat modal ditutup ──────────────────────────────
 $('#modalCreateHotel').on('hidden.bs.modal', function () {
+    if(myDropzone) {
+        myDropzone.removeAllFiles(true);
+    }
+
     $('#formCreateHotel')[0].reset();
     $('#lineItemsBody').empty();
     addFirstRow();                     // selalu ada 1 baris kosong
     syncCurrencyLabels();
     $('#summarySubtotalSAR, #summarySubtotalIDR, #summaryTax, #summaryTotal')
         .text('–');
+    $('#dropzone-container').hide();
 });
 
 // ── Inisialisasi awal saat DOM ready ─────────────────────
@@ -1788,6 +1873,46 @@ function addFirstRow() {
     $('#lineItemsBody').append($row);
     initRowSelect2($row);
     updateDeleteButtons();
+}
+
+
+// Fungsi untuk menarik gambar dari server dan menampilkannya di Dropzone
+function loadDropzoneImages(invoiceId) {
+    // Kosongkan Dropzone terlebih dahulu jika ada gambar dari sesi sebelumnya
+    if(myDropzone) {
+        myDropzone.removeAllFiles(true);
+    }
+
+      ajaxRequest("{{ route('get-image-sales-inv') }}", 'GET', { invoice_id: invoiceId }, localStorage.getItem("token"))
+        .then(response => {
+           if (response.data.success && response.data.data.length > 0) {
+                $('#dropzone-container').show();
+                // Looping data gambar dari server
+                $.each(response.data.data, function(key, value) {
+                    let mockFile = { 
+                        name: value.name, 
+                        size: value.size, 
+                        accepted: true,
+                        status: Dropzone.ADDED,
+                        url: value.url,
+                        isFromServer: true
+                    };
+
+                    // Emit event agar Dropzone membuatkan thumbnail di UI
+                    myDropzone.emit("addedfile", mockFile);
+                    myDropzone.emit("thumbnail", mockFile, value.url);
+                    myDropzone.emit("complete", mockFile);
+
+                    // Tambahkan file ke array internal Dropzone agar tidak bentrok
+                    myDropzone.files.push(mockFile);
+                   
+                });
+            }
+        })
+        .catch((err) => {
+            cathError(err)
+            //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+        })
 }
 
 $(function () {
@@ -1839,14 +1964,28 @@ $(function () {
             ajaxRequest(`{{ route('save-sales-inv') }}`, 'POST', selectedData, localStorage.getItem("token"))
                 .then(response => {
                     if(response.status == 200){
-                        Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                        $('#modalCreateHotel').modal('hide');
-                        table.ajax.reload(null, false);
+                        // Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                        // $('#modalCreateHotel').modal('hide');
+                        // table.ajax.reload(null, false);
+                        if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
+                            let savedInvoiceId = id_inv ? id_inv : response.data.id; 
+                            $('#idHotelInput').val(savedInvoiceId); 
+                            $('.action-submit').prop('disabled', true);
+                            myDropzone.processQueue(); 
+                        } else {
+                            // Jika Save Draft (0) ATAU tidak ada gambar yang dipilih, langsung tutup dan sukses
+                            Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                            $('#modalCreateHotel').modal('hide');
+                            table.ajax.reload(null, false);
+                        }
                     }
                 })
                 .catch((err) => {
                     cathError(err)
                     //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                })
+                .finally(() => {
+                    $('.action-submit').prop('disabled', false);
                 });
         });
 
@@ -2015,7 +2154,9 @@ $(function () {
     });
 
     // 4. Aksi Delete Payment History
-   
+
+    // Matikan auto discover Dropzone agar kita bisa inisiasi manual
+    
 
 </script>
 @endpush

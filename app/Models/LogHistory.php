@@ -13,9 +13,11 @@ class LogHistory extends Model
         'ip_address',
         'browser',
         'action',
+        'salles_inv_id',
+        'bills_id',
         'created_by',
     ];
-        protected $appends = ['nama_pembuat'];
+    protected $appends = ['nama_pembuat'];
 
     // RELASI
     public function creator()
@@ -25,17 +27,17 @@ class LogHistory extends Model
 
     public function getNamaPembuatAttribute()
     {
-    if($this->creator){
+        if ($this->creator) {
 
-    if($this->creator->name){
+            if ($this->creator->name) {
 
-    return $this->creator->name;
-    }
-    else{
-    return 'nama kosong';}
-    }
-    else{
-    return '-';}
+                return $this->creator->name;
+            } else {
+                return 'nama kosong';
+            }
+        } else {
+            return '-';
+        }
     }
 
 }

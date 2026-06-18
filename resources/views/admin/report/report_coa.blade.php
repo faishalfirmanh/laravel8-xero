@@ -8,6 +8,9 @@
         <div class="form-group mb-0">
             <select id="filterAccountType" class="form-select form-select-sm">
                 <option value="ALL">ALL</option>
+                <option value="ASSET">ASSET</option>
+                <option value="LIABILITIES">LIABILITIES</option>
+                <option value="EQUITY">EQUITY</option>
                 <option value="EXPENSE">EXPENSE</option>
                 <option value="REVENUE">REVENUE</option>
             </select>
@@ -98,6 +101,7 @@ $(document).ready(function() {
    
 
     function loadTable(accountType) {
+    console.log('loadd',accountType)
         table = initGlobalDataTableTokenSelected(
             '#tableCoa',
             `{{ route('get-all-coa') }}`,

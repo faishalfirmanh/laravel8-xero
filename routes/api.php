@@ -237,6 +237,9 @@ Route::prefix("admin-web")->group(function () {
                     Route::post('saveP', [InvXeroController::class, 'storeParent'])->name('save-sales-inv');
                     Route::post('pay_inv', [InvXeroController::class, 'storePayment'])->name('save-pay-sales-inv');
                     Route::get('detailInv', [InvXeroController::class, 'detailInvoice'])->name('detail-sales-inv');
+                    Route::post('uploadImage', [InvXeroController::class, 'uploadMultiple'])->name('uploadImage-sales-inv');
+                    Route::get('getImage', [InvXeroController::class, 'getImageDetail'])->name('get-image-sales-inv');
+                    Route::post('removeImage', [InvXeroController::class, 'removeImage'])->name('remove-image-sales-inv');
                 });
             });
 

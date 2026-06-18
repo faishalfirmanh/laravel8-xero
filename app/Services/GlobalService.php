@@ -157,6 +157,17 @@ class GlobalService
         return true;
     }
 
+    function xeroDateToPhp($xeroDate, $format = 'Y-m-d')
+    {
+        if (empty($xeroDate))
+            return null;
+        preg_match('/\/Date\((-?\d+)/', $xeroDate, $matches);
+
+        if (!isset($matches[1]))
+            return null;
+        return date($format, $matches[1] / 1000);
+    }
+
     public function getDataAvailabeRequestXero()
     {
         $day_now = now()->format('Y-m-d');//Carbon::now()->format('Y-m-d');

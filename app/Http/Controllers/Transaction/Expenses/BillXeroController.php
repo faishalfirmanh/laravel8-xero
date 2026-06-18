@@ -225,7 +225,7 @@ class BillXeroController extends Controller
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => true,
-                            'nominal' => $save_d->amount,
+                            'nominal' => abs((int) $save_d->amount),//auto positif
                             'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
                             'uuid_detail' => $save_d->uuid_detail
                         ];

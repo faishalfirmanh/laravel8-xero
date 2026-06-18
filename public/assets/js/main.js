@@ -167,6 +167,7 @@ function initGlobalDataTableTokenSelected(selector, url, columns, extraParams = 
     processing: true,
     serverSide: true,
     destroy: true, // Reset tabel jika dipanggil ulang
+    searchDelay: 700,
     ajax: function (data, callback, settings) {
       var page = Math.ceil(settings._iDisplayStart / settings._iDisplayLength) + 1;
       var keyword = data.search.value;

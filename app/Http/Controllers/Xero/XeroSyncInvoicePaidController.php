@@ -734,6 +734,8 @@ class XeroSyncInvoicePaidController extends Controller
             ])
                 ->timeout(15)
                 ->get('https://api.xero.com/api.xro/2.0/Items', [
+                    'Type' => 'ACCREC',
+                    'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',//DELETED
                     'order' => 'Code ASC',
                     'page' => $page_item
                 ]);

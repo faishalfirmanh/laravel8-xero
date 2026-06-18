@@ -26,7 +26,8 @@ class TransactionNominalBankAccount extends Model
         'date_transaction',
         'created_by',
         'id_parent_bank',//relation with TransactionBankTransP ->id,
-        'id_parent_invoice'
+        'id_parent_invoice',
+        'payment_uuid'//unique key id
     ];
 
     protected $appends = [
