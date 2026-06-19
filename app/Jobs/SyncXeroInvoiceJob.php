@@ -79,6 +79,9 @@ class SyncXeroInvoiceJob implements ShouldQueue
                 $minRem = (int) $response->header('X-MinLimit-Remaining');
                 $dayRem = (int) $response->header('X-DayLimit-Remaining');
 
+
+                $this->service_global->requestCalculationXero($minRem, $dayRem);
+
                 Log::info("[SyncXeroInvoiceJob][$this->jobId] Page $page | MinRem: $minRem | DayRem: $dayRem");
 
                 if ($minRem <= self::MIN_REM_THRESHOLD) {
@@ -135,16 +138,7 @@ class SyncXeroInvoiceJob implements ShouldQueue
     // ----------------------------------------------------
 
 
-    private function syncPayment(string $paymentId): void
-    {
-        $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
 
-        if ($alreadySynced) {
-            return;
-        }
-
-        $this->getDetailPayment($paymentId);
-    }
 
     public function getDetailPayment(string $idPayment)
     {
@@ -170,6 +164,11 @@ class SyncXeroInvoiceJob implements ShouldQueue
         $data = $response_detail->json();
         $payment = $data['Payments'][0] ?? null;
 
+
+        $dayRem = (int) $response_detail->header('X-DayLimit-Remaining');
+        $this->service_global->requestCalculationXero($minRem, $dayRem);
+
+        dd($data);
         if (!$payment) {
             Log::warning("[getDetailPayment] Payment $idPayment tidak ditemukan/kosong di response Xero, dilewati.");
             return;
@@ -179,23 +178,25 @@ class SyncXeroInvoiceJob implements ShouldQueue
         $account_code = data_get($payment, 'Account.Code');
         $date = $this->parseXeroDate($payment['Date'] ?? null);
         $invoiceUuid = data_get($payment, 'Invoice.InvoiceID');
+        $bankName = data_get($payment, 'Account.Name');
+        $invoiceNumber = data_get($payment, 'Invoice.InvoiceNumber');
 
         $id_parent_inv = $invoiceUuid
             ? InvoicesAllFromXero::where('invoice_uuid', $invoiceUuid)->value('id')
             : null;
 
-        $this->insertToDb($idPayment, $amount, $account_code, $date, $invoiceUuid, $id_parent_inv);
+        $this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $account_code, $date, $invoiceUuid, $id_parent_inv);
 
         usleep(150_000); // throttle kecil, payment fetch ikut makan quota rate limit Xero
     }
 
 
-    public function insertToDb($paymentUuid, $amount, $account_code, $date, $ref_detail, $id_parent_inv)
+    public function insertToDb($invNumber, $namaBank, $paymentUuid, $amount, $account_code, $date, $ref_detail, $id_parent_inv)
     {
         $findBank = BankXero::where('code', $account_code)->first();
 
         if (!$findBank) {
-            Log::warning("[insertToDb] Kode akun bank tidak ditemukan: '{$account_code}'. Payment {$paymentUuid} dilewati.");
+            Log::warning("[insertToDb] Kode akun bank tidak ditemukan: '{$account_code}'. Payment {$paymentUuid} dilewati. nama bank {$namaBank} INVOICE : $invNumber");
             return;
         }
 
@@ -226,11 +227,11 @@ class SyncXeroInvoiceJob implements ShouldQueue
         $findContact = DataJamaahXero::where('uuid_contact', data_get($inv, 'Contact.ContactID'))->pluck('id')->first() ?? 1;
 
 
-        // if (count($inv['Payments']) > 0) {
-        //     foreach ($inv['Payments'] as $key2 => $value2) {
-        //         self::getDetailPayment($value2['PaymentID']);
-        //     }
-        // }
+        if (count($inv['Payments']) > 0) {
+            foreach ($inv['Payments'] as $key2 => $value2) {
+                self::getDetailPayment($value2['PaymentID']);
+            }
+        }
         // --- Upsert parent invoice ---
         $invoiceData = [
             'invoice_uuid' => $inv['InvoiceID'],
@@ -421,26 +422,28 @@ class SyncXeroInvoiceJob implements ShouldQueue
             collect($batchDetails)->pluck('line_item_uuid')->toArray()
         )->get()->keyBy('line_item_uuid');
 
-        foreach ($batchDetails as $detail) {
-            if (empty($detail['coa_id']))
-                continue;
+        if ($inv['Status'] == 'AUTHORISED' || $inv['Status'] == 'PAID') {
+            foreach ($batchDetails as $detail) {
+                if (empty($detail['coa_id']))
+                    continue;
 
-            $saved = $savedDetails[$detail['line_item_uuid']] ?? null;
-            if (!$saved)
-                continue;
+                $saved = $savedDetails[$detail['line_item_uuid']] ?? null;
+                if (!$saved)
+                    continue;
 
-            TransactionAllCoa::firstOrCreate(
+                TransactionAllCoa::firstOrCreate(
 
-                ['uuid_detail' => $saved->uuid_detail_inv],
-                [
-                    'date_transaction' => $issueDate,
-                    'uuid_coa' => $detail['coa_id'],
-                    'reference' => $inv['Reference'] ?? '-',
-                    'is_speend' => 0,
-                    'nominal' => abs((int) $saved->total_amount_each_row),//selalu positif
-                    'uuid_detail' => $saved->uuid_detail_inv,
-                ]
-            );
+                    ['uuid_detail' => $saved->uuid_detail_inv],
+                    [
+                        'date_transaction' => $issueDate,
+                        'uuid_coa' => $detail['coa_id'],
+                        'reference' => $inv['Reference'] ?? '-',
+                        'is_speend' => 0,
+                        'nominal' => abs((int) $saved->total_amount_each_row),//selalu positif
+                        'uuid_detail' => $saved->uuid_detail_inv,
+                    ]
+                );
+            }
         }
 
     }

@@ -491,7 +491,7 @@
     flex: 1 1 auto;
 }
 
-/* Styling agar thumbnail Dropzone bisa di-klik */
+/* Styling agar thumbnail Dropzone bisa di-klik */        
 #buktiDropzone .dz-preview .dz-image {
     cursor: pointer;
     transition: transform 0.2s;

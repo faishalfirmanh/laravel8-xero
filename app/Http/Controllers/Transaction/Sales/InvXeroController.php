@@ -200,7 +200,7 @@ class InvXeroController extends Controller
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => false,
-                            'nominal' => abs((int) $save_d->total_amount_each_row),//agar auto positif
+                            'nominal' => $save_d->total_amount_each_row,//abs((int) $save_d->total_amount_each_row),//agar auto positif
                             'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
                             'uuid_detail' => $save_d->uuid_detail_inv
                         ];

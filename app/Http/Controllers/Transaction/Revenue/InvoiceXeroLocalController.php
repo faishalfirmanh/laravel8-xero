@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Transaction\Revenue;
 use App\Http\Controllers\Controller;
 use App\Jobs\SyncXeroInvoiceJob;
+use App\Jobs\SyncXeroInvoiceJobV2;
 use App\Models\SyncJobStatus;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
@@ -102,7 +103,7 @@ class InvoiceXeroLocalController extends Controller
         //     'status' => 'pending',
         // ]);
 
-        SyncXeroInvoiceJob::dispatch($tokenData, $jobId);
+        SyncXeroInvoiceJobV2::dispatch($tokenData, $jobId);
 
         return response()->json([
             'status' => 'queued',

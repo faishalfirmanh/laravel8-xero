@@ -23,6 +23,33 @@
     .dropdown-menu {
        z-index: 1060 !important;
     }
+
+    /*untuk dropzone*/
+    /* Styling agar thumbnail Dropzone bisa di-klik */
+
+    #buktiDropzone {
+        border: 2px dashed #1ab394;
+        border-radius: 5px;
+        background: #f4fdf9;
+        min-height: 120px;
+        padding: 10px;
+        cursor: pointer;
+    }
+
+    #buktiDropzone .dz-message {
+        color: #1ab394;
+        font-weight: 600;
+        font-size: 14px;
+        margin: 2em 0;
+    }
+
+    #buktiDropzone .dz-preview .dz-image {
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    #buktiDropzone .dz-preview .dz-image:hover {
+        transform: scale(1.05); /* Sedikit membesar saat di-hover */
+    }
 </style>
 
 <div class="card shadow mb-5">
@@ -152,9 +179,20 @@
                                 <tbody></tbody>
                             </table>
                         </div>
-                        <button type="button" class="btn btn-primary btn-sm mt-2" onclick="addNewRow()">
-                            <i class="ti ti-plus"></i> Add a new line
-                        </button>
+                        <div class="table-actions">
+                            <button type="button" class="btn-dashed" onclick="addNewRow()">
+                                <i class="ti ti-plus"></i> Add a new line
+                            </button>
+                            <button type="button" class="btn-dashed" id="btn-show-dropzone" style="border-color: #007bff; color: #007bff; margin-left: 10px;">
+                                <i class="ti ti-upload" style="font-size:12px;"></i> Upload Bukti
+                            </button>
+                        </div>
+
+                        <div id="dropzone-container" style="display: none; margin-bottom: 20px;">
+                            <div class="dropzone" id="buktiDropzone">
+                                <div class="dz-message" data-dz-message><span>Klik atau Drop gambar bukti di sini (Bisa pilih banyak file)</span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -163,11 +201,11 @@
 
                     <button type="button" class="btn btn-secondary mr-2" data-dismiss="modal">Cancel</button>
 
-                    <div class="btn-group dropup">
+                    <div class="btn-group">
                         <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             Save
                         </button>
-                        <div class="dropdown-menu dropdown-menu-right shadow">
+                        <div class="dropdown-menu dropdown-menu-right shadow" style="z-index: 1000">
                             <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="1">
                                 <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Approve</span>
@@ -241,10 +279,36 @@
     </div>
 </div>
 
+<!-- modal preview -->
+<div class="modal fade" id="previewImageModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close" style="opacity: 1; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
+                    <span aria-hidden="true" style="font-size: 2.5rem;">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img id="previewImageModalSrc" src="" alt="Preview Gambar" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
+// PENTING: Harus dieksekusi SEGERA di top-level (bukan di dalam $(document).ready)
+// Dropzone.js listen ke event DOMContentLoaded untuk auto-attach ke semua
+// elemen class="dropzone" di halaman. Kalau autoDiscover=false ditaruh di
+// dalam $(document).ready, listener Dropzone (yang didaftarkan lebih dulu
+// saat dropzone.min.js dimuat) akan keburu jalan duluan dan auto-attach ke
+// #buktiDropzone TANPA url yang valid (karena cuma <div>, bukan <form>),
+// menyebabkan "Uncaught Error: No URL provided." — lalu saat kode kita
+// mencoba new Dropzone("#buktiDropzone", {...}) sendiri, elemen itu sudah
+// terpasang Dropzone lain → "Uncaught Error: Dropzone already attached."
+Dropzone.autoDiscover = false;
+
 $(document).ready(function() {
     var table;
 
@@ -338,6 +402,143 @@ $(document).ready(function() {
             }
         }
     );
+
+
+
+    let myDropzone;
+    let isClearingDropzone = false;
+
+    {
+        // 1. Inisialisasi Dropzone
+        myDropzone = new Dropzone("#buktiDropzone", {
+            url: "{{ route('uploadImage-bill') }}",
+            autoProcessQueue: false, // PENTING: Jangan langsung upload saat gambar dipilih
+            uploadMultiple: true,
+            parallelUploads: 10,
+            maxFiles: 10,
+            acceptedFiles: "image/*",
+            addRemoveLinks: true,
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem("token"),
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            init: function() {
+                // Saat proses upload berjalan, kirimkan ID Invoice
+                this.on("sending", function(file, xhr, formData) {
+                    // Ambil ID dari hidden input (Bisa dari edit, atau ID baru setelah save form)
+                    formData.append("bill_id", $('#idHotelInput').val()); 
+                });
+
+                // Jika semua file berhasil diupload
+                this.on("successmultiple", function(files, response) {
+                    Swal.fire('Sukses!', 'Data bill dan bukti berhasil disimpan.', 'success');
+                    $('#modalCreateHotel').modal('hide');
+                    table.ajax.reload(null, false);
+                });
+
+                // Jika terjadi error saat upload
+                this.on("errormultiple", function(files, response) {
+                    Swal.fire('Peringatan', 'bill tersimpan, namun gagal mengupload gambar.', 'warning');
+                    table.ajax.reload(null, false);
+                });
+
+                //hapus
+                this.on("removedfile", function(file) {
+                    // Hanya eksekusi AJAX hapus jika file tersebut berasal dari server
+
+                    if (isClearingDropzone) {
+                        return; 
+                    }
+
+                    if (file.isFromServer) {
+                        $.ajax({
+                            url: "{{ route('remove-image-bill') }}",
+                            type: "POST",
+                            data: { file_name: file.name },
+                            headers: {
+                                'Authorization': 'Bearer ' + localStorage.getItem("token"),
+                                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function(response) {
+                                if(response.success) {
+                                    console.log("Berhasil:", response.message);
+                                    // Optional: Tampilkan toast / notifikasi kecil bahwa gambar dihapus
+                                }
+                            },
+                            error: function(err) {
+                                console.error("Gagal menghapus gambar:", err);
+                                Swal.fire('Gagal!', 'Gambar gagal dihapus dari server.', 'error');
+                            }
+                        });
+                    }
+                    // Jika file.isFromServer false/undefined, Dropzone hanya akan menghapus antrean di browser secara diam-diam.
+                });
+
+
+                this.on("addedfile", function(file) {
+                file.previewElement.addEventListener("click", function(e) {
+                    // Cegah klik agar tidak memicu dialog "Pilih File" Dropzone lagi jika diklik pas di gambar
+                    e.stopPropagation(); 
+                    e.preventDefault();
+                    let imageUrl = file.url || file.dataURL;
+                    if (!imageUrl && file.status === Dropzone.ADDED) {
+                        imageUrl = URL.createObjectURL(file);
+                    }
+                    if (imageUrl) {
+                        $('#previewImageModalSrc').attr('src', imageUrl);
+                        $('#previewImageModal').modal('show');
+                    }
+                });
+            });
+            }
+        });
+
+        // 2. Toggle Tampilkan/Sembunyikan Area Dropzone
+        $('#btn-show-dropzone').on('click', function() {
+            $('#dropzone-container').slideToggle(200);
+        });
+    }
+
+
+    function loadDropzoneImages(billid) {
+        // Kosongkan Dropzone terlebih dahulu jika ada gambar dari sesi sebelumnya
+        if(myDropzone) {
+            isClearingDropzone = true;       
+            myDropzone.removeAllFiles(true); 
+            isClearingDropzone = false;
+        }
+
+        ajaxRequest("{{ route('get-image-bill') }}", 'GET', { bill_id: billid }, localStorage.getItem("token"))
+            .then(response => {
+            if (response.data.success && response.data.data.length > 0) {
+                    $('#dropzone-container').show();
+                    // Looping data gambar dari server
+                    $.each(response.data.data, function(key, value) {
+                        let mockFile = { 
+                            name: value.name, 
+                            size: value.size, 
+                            accepted: true,
+                            status: Dropzone.ADDED,
+                            url: value.url,
+                            isFromServer: true
+                        };
+
+                        // Emit event agar Dropzone membuatkan thumbnail di UI
+                        myDropzone.emit("addedfile", mockFile);
+                        myDropzone.emit("thumbnail", mockFile, value.url);
+                        myDropzone.emit("complete", mockFile);
+
+                        // Tambahkan file ke array internal Dropzone agar tidak bentrok
+                        myDropzone.files.push(mockFile);
+                    
+                    });
+                }
+            })
+            .catch((err) => {
+                cathError(err)
+                //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+            })
+    }
 
 
     $("#btnRecordPayment").on('click', function(e){
@@ -460,6 +661,8 @@ $(document).ready(function() {
             $('#itemTable tbody').empty();
             addNewRow(); 
         }
+
+        $('#dropzone-container').hide();
     });
 
     // --- 4. EDIT FUNCTIONALITY ---
@@ -474,9 +677,13 @@ $(document).ready(function() {
         $('#modal_pay select[name="uuid_bank"]').val(0).trigger('change');
         $('#modal_pay input[name="reference_detail"]').val('');
 
-        loadBills(id);
         
         $('#modalCreateHotel').modal('show');
+
+        $('#modalCreateHotel').one('shown.bs.modal', function () {
+            loadBills(id);
+            loadDropzoneImages(id);
+        })
     });
 
     function loadBills(id){
@@ -590,9 +797,20 @@ $(document).ready(function() {
         ajaxRequest(`{{ route('save-p-bills') }}`, 'POST', selectedData, localStorage.getItem("token"))
             .then(response => {
                 if(response.status == 200){
-                    Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                    $('#modalCreateHotel').modal('hide');
-                    table.ajax.reload(null, false);
+                    // Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                    // $('#modalCreateHotel').modal('hide');
+                    // table.ajax.reload(null, false);
+                        if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
+                            let savedInvoiceId = id_bill ? id_bill : response.data.id; 
+                            $('#idHotelInput').val(savedInvoiceId); 
+                            $('.action-submit').prop('disabled', true);
+                            myDropzone.processQueue(); 
+                        } else {
+                            // Jika Save Draft (0) ATAU tidak ada gambar yang dipilih, langsung tutup dan sukses
+                            Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                            $('#modalCreateHotel').modal('hide');
+                            table.ajax.reload(null, false);
+                        }
                 }
             })
             .catch((err) => {
