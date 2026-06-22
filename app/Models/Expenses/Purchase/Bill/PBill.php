@@ -26,7 +26,8 @@ class PBill extends Model
         'nominal_due',
         'status',//0=draft,1=awaiting,  2=paid,
         'currency',
-        'created_by'
+        'created_by',
+        'bills_uuid_xero'//isi ketika sync xero
     ];
     //status 0 /draft tidak tercatat pada
 

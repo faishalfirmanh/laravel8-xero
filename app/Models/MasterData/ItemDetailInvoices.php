@@ -94,6 +94,11 @@ class ItemDetailInvoices extends Model
         return $this->hasOne(TransactionAllCoa::class, 'uuid_detail_inv', 'uuid_detail');
     }
 
+    public function getItems()
+    {
+        return $this->hasOne(ItemsPaketAllFromXero::class, 'id', 'item_id');
+    }
+
     public function getPayment()
     {
         return $this->hasMany(TransactionNominalBankAccount::class, 'id_parent_inv');

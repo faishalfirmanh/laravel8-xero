@@ -61,6 +61,10 @@
                 <i class="ti ti-check me-1"></i> Cek Data Terpilih
             </button>
 
+             <button type="button" onclick="syncBillFromXero()"  id="button_sync_bill" class="btn btn-danger" data-toggle="modal" data-target="#modalSyncBill">
+                <i class="ti ti-plus me-1"></i> Sync Bills
+            </button>
+
             <button type="button" onclick="" id="button_add_hotel" class="btn btn-primary" data-toggle="modal" data-target="#modalCreateHotel">
                 <i class="ti ti-plus me-1"></i> Tambah Bills
             </button>
@@ -326,6 +330,52 @@ $(document).ready(function() {
         let d = new Date(dateString);
         let options = { day: 'numeric', month: 'short', year: 'numeric' };
         return d.toLocaleDateString('en-GB', options);
+    }
+
+    function syncBillFromXero(){
+          Swal.fire({
+            title: 'Sinkronisasi Bill dari Xero?',
+            html: 'Apakah Anda yakin ingin mengambil <strong>semua bill </strong> dari Xero?<br><br>Proses ini akan memperbarui data bill Anda.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',   // hijau
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Sync Sekarang',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                Swal.fire({
+                    title: 'Sedang Sinkronisasi...',
+                    text: 'Mohon tunggu sebentar',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                ajaxRequest( `{{ route('sync-bill-xero') }}`,'GET',{ is_sync: 1 }, localStorage.getItem("token"))
+                .then(response =>{
+                    Swal.close();
+                        if (response.status === 200) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: `Berhasil sinkronisasi ${response.total_saved} data COA`,
+                                timer: 2000
+                            });
+                            // Refresh table
+                            $('#tableHotel').DataTable().ajax.reload();
+                        } else {
+                            Swal.fire('Gagal', response.data.data.message, 'error');
+                        }
+                })
+                .catch((err)=>{
+                    cathError(err)
+                })
+            }
+        })
     }
 
     // --- 1. DATATABLE CONFIG ---

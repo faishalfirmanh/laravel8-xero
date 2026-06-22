@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MasterData\HotelApiController;
+use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
 use App\Http\Controllers\Web\MasterData\HotelController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Xero\ContactController;
@@ -95,6 +96,8 @@ Route::prefix('travel')->group(function () {
 
 //print-pdf
 Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
+Route::get('/sales-invoice/print/{id}', [InvoiceXeroLocalController::class, 'printInvoice'])->name('salles_invoice_print');
+
 
 Route::get('/coba_redirect', function () {
     return "aaa";

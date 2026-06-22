@@ -1243,7 +1243,8 @@
             render: function(data, type, row) {
                 return `
                     <a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2" title="Edit Invoice"><i class="ti ti-pencil"></i></a>
-                    <a href="javascript:;" data-id="${data}" class="text-success show-payment-modal" title="Payment History"><i class="ti ti-credit-card"></i></a>
+                    <a href="javascript:;" data-id="${data}" class="text-success show-payment-modal mr-2" title="Payment History"><i class="ti ti-credit-card"></i></a>
+                    <a href="javascript:;" data-id="${data}" onclick="printInvoice(${data})" class="text-success show-invoice-modal" title="invoice"><i class="ti ti-clipboard"></i></a>
                 `;
             },
         }
@@ -1446,6 +1447,17 @@ function setRowSelect2Value($row, selector, id, text) {
         showModalLoading(false);
     });
 }
+
+
+    function printInvoice(idTes) {
+        if(!idTes) {
+            alert("ID Invoice tidak ditemukan");
+            return;
+        }
+        let url = "{{ route('salles_invoice_print', ':id') }}";
+        url = url.replace(':id', idTes);
+        window.open(url, '_blank');
+    }
 
 
     function formatNumber(num) {
@@ -2101,6 +2113,13 @@ $(function () {
     // =========================================================
 
     // 1. Buka Modal dan Load Data
+
+    $('#tableHotel').on('click', '.show-invoice-modal', function() {
+        const id = $(this).data('id');
+        $('#invoices_id_parent').val(id);
+    })
+
+
     $('#tableHotel').on('click', '.show-payment-modal', function() {
         const id = $(this).data('id');
         $('#invoices_id_parent').val(id); // Set hidden ID untuk form tambah bayar

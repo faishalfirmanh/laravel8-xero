@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Transaction\Revenue;
 use App\Http\Controllers\Controller;
 use App\Jobs\SyncXeroInvoiceJob;
 use App\Jobs\SyncXeroInvoiceJobV2;
+use App\Models\InvoicesAllFromXero;
 use App\Models\SyncJobStatus;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
@@ -110,6 +111,21 @@ class InvoiceXeroLocalController extends Controller
             'job_id' => $jobId,
             'message' => 'Sync invoice dimulai. Gunakan job_id untuk cek status.',
         ]);
+    }
+
+    public function printInvoice(Request $request, $id)
+    {
+        $invoice = InvoicesAllFromXero::with(['getDetailById', 'getPayment', 'getDetailById.getItems'])->find($id);
+
+        $data = [
+            'invoice' => $invoice,
+            'title' => 'Invoice #' . $invoice->invoice_number,
+            'date' => date('d-m-Y'),
+            // 'cetak_by'=>
+        ];
+        $pdf = Pdf::loadView('pdf.salles_invoice_print', $data);
+        $pdf->setPaper('A4', 'portrait');
+        return $pdf->stream('Invoice-' . $invoice->invoice_number . '.pdf');//tampil
     }
 
     function filterPaymentString($string)

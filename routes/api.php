@@ -20,6 +20,7 @@ use App\Http\Controllers\Xero\PaymentController;
 use App\Http\Controllers\GlobalExternal\ImageController;
 use App\Http\Controllers\InvoiceItemController;
 use App\Http\Controllers\Config\ConfigCurrencyApiController;
+use App\Http\Controllers\Xero\XeroBillController;
 use App\Http\Controllers\Xero\XeroSyncInvoicePaidController;
 use App\Http\Controllers\Xero\XeroContactController;
 use App\Http\Controllers\GlobalExternal\CurrencyController;
@@ -91,6 +92,7 @@ Route::prefix("xero")->group(function () {
     Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2
     Route::post('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');//pindah invoice, detail dan item xero ke local db
     Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');
+    Route::get('sync-bill', [XeroBillController::class, 'getBills'])->name('sync-bill-xero');
 });
 
 Route::get('status-job/{jobId}', [InvoiceXeroLocalController::class, 'getSyncStatus'])->name('cek-sync-job-inv-xero');
