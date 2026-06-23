@@ -222,9 +222,9 @@
                     </div>
                 </div>
 
-                <div class="p-4 bg-light border-top" id="modal_pay">
+                <div class="p-4 bg-light border-top">
                     <h6 class="font-weight-bold mb-3 text-dark">Make a payment</h6>
-                    <div class="row align-items-end mb-4">
+                    <div class="row align-items-end mb-4" id="modal_pay">
                         <div class="col-md-2">
                             <div class="form-group mb-0">
                                 <label class="small font-weight-bold text-muted mb-1">Amount Paid <span class="payment-currency" id="label_payment"></span></label>
@@ -394,7 +394,7 @@ $(document).ready(function() {
             render: function(data) {
                 if(data == 0) return '<span class="badge badge-secondary">Draft</span>'; 
                 if(data == 1) return '<span class="badge badge-success">Awaiting Payment</span>'; 
-                if(data == 2) return '<span class="badge badge-info">Madinah</span>'; 
+                if(data == 2) return '<span class="badge badge-info">Paid</span>'; 
                 return '-';
             }
         },
@@ -764,18 +764,29 @@ $(document).ready(function() {
                     } else {
                         addNewRow(); 
                     }
+                    console.log('pay-idnya : ',id, data_res.get_payment)
 
-                    if(data_res.status == 1){
+                    if(data_res.status == 1 || (data_res.get_payment && data_res.get_payment.length > 0)) {
                         $("#modal_pay").removeClass('d-none');
-                    }else{
+                        
+                        // (Opsional) Jika status sudah Paid (2), sembunyikan form input pembayaran 
+                        // agar user hanya bisa melihat histori tanpa bisa membayar lagi.
+                        if(data_res.status == 2) {
+                            $("#btnRecordPayment").closest('.row').hide(); 
+                        } else {
+                            $("#btnRecordPayment").closest('.row').show();
+                        }
+                    } else {
                         $("#modal_pay").addClass('d-none');
                     }
 
                     let tbody = $('#payment_history_bill tbody');
+                    console.log('payment',data_res.get_payment)
                     tbody.empty();
-                    if (data_res.get_payment && data_res.get_payment.length > 0) {
+                    if (data_res.get_payment.length > 0) {
+                        console.log('ada pembayaran')
                         $.each(data_res.get_payment, function(index, payment) {
-                            let row = `
+                             let row = `
                                 <tr>
                                     <td>${index + 1}</td>
                                     <td>${convertStringDate(payment.date_transaction)}</td>
@@ -783,8 +794,9 @@ $(document).ready(function() {
                                     <td>${formatCurrency(payment.nominal_spend)}</td> 
                                 </tr>
                             `;
-                            tbody.append(row);
+                             tbody.append(row);
                         });
+                        
                     } else {
                         tbody.append(`
                             <tr>

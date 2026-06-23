@@ -60,8 +60,29 @@ class BillXeroController extends Controller
             return $this->error($validator->errors(), 404);
         }
         $where = [];
-        if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, 'uuid_from', strtoupper($request->keyword));
+        $relations = ['getContactFrom', 'getDetail'];
+
+        // DEFINISIKAN KOLOM PENCARIAN (TABEL UTAMA + RELASI)
+        $search_columns = [
+            // 1. Kolom di Tabel Utama
+            'reference',
+            'date_req' => 'date',
+            'due_date' => 'date',
+            // 2. Kolom di Tabel Relasi (Format: 'NamaRelasi' => ['kolom1', 'kolom2'])
+            'getContactFrom' => ['full_name'],
+            'subtotal',
+            'total',
+            'nominal_due'
+        ];
+
+        if ($request->keyword) {
+            $data = $this->repo->searchDataMultiColumn(
+                $where,
+                $request->limit, // Menggunakan limit dari request, bukan manual 10
+                $search_columns,
+                $request->keyword,
+                $relations
+            );
         } else {
             $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
         }

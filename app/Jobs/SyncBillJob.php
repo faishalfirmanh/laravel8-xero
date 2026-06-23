@@ -97,13 +97,17 @@ class SyncBillJob implements ShouldQueue
     public function handle(): void
     {
         try {
+            SyncJobStatus::where('job_id', $this->jobId)->update([
+                'status' => 'running',
+                'started_at' => now(),
+            ]);
+
             $accessToken = $this->tokenData['access_token'];
+
             $tenantId = $this->getTenantId($accessToken);
             $page = 1;
             $totalSynced = 0;
-
             Log::info("[SyncBillJob][$this->jobId] Mulai sync bill (ACCPAY)...");
-
             do {
                 $response = $this->fetchPage($accessToken, $tenantId, $page);
 
@@ -176,9 +180,20 @@ class SyncBillJob implements ShouldQueue
                 return;
             }
 
+            SyncJobStatus::where('job_id', $this->jobId)->update([
+                'status' => 'success',
+                'finished_at' => now(),
+            ]);
+
             Log::info("[SyncBillJob][$this->jobId] Selesai. Total bill: $totalSynced");
 
         } catch (\Exception $e) {
+            SyncJobStatus::where('job_id', $this->jobId)->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+                'finished_at' => now(),
+            ]);
+
             Log::error("[SyncBillJob][$this->jobId] Error: " . $e->getMessage());
             throw $e;
         }
@@ -274,6 +289,21 @@ class SyncBillJob implements ShouldQueue
      * tanpa ini, setiap sync ulang (cron harian) akan menarik ulang SEMUA
      * payment walau sudah ada di DB, salah satu penyebab terbesar kuota habis.
      */
+
+    private function mapAmountsAre(?string $xeroLineAmountTypes): int
+    {
+        switch ($xeroLineAmountTypes) {
+            case 'Inclusive':
+                return 1;
+            case 'NoTax':
+                return 0;
+            case 'Exclusive':
+            default:
+                // ADJUST: default Exclusive (2) dipakai kalau Xero tidak
+                // mengirim LineAmountTypes sama sekali (jarang terjadi).
+                return 2;
+        }
+    }
     public function getDetailPayment(string $idPayment, ?int $knownParentId = null): void
     {
         if ($this->shouldRelease) {
@@ -318,13 +348,15 @@ class SyncBillJob implements ShouldQueue
         $date = $this->parseXeroDate($payment['Date'] ?? null);
         $invoiceUuid = data_get($payment, 'Invoice.InvoiceID');
         $invoiceNumber = data_get($payment, 'Invoice.InvoiceNumber');
+        $ref_payment = $payment['Reference'] ?? '-';
+
 
         // Pakai parent id yang sudah diketahui (dilempar dari processBills)
         // dulu kalau ada — hindari query tambahan ke PBill.
         $idParentInv = $knownParentId
             ?? ($invoiceUuid ? PBill::where('bills_uuid_xero', $invoiceUuid)->value('id') : null);
 
-        $this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $invoiceUuid, $idParentInv);
+        $this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $ref_payment, $idParentInv);
 
         usleep(self::THROTTLE_PAYMENT_US);
     }
@@ -368,7 +400,7 @@ class SyncBillJob implements ShouldQueue
                 'date_transaction' => $date,
                 'nominal_transfer' => 0,
                 'reference_detail' => $refDetail,
-                'id_parent_invoice' => $idParentInv,
+                'id_parent_bill' => $idParentInv,
             ]
         );
     }
@@ -399,16 +431,16 @@ class SyncBillJob implements ShouldQueue
                     'uuid_from' => $findContact,
                     'date_req' => $issueDate,
                     'due_date' => $dueDate,
-                    'reference' => $inv['Reference'] ?? null,
+                    'reference' => $inv['InvoiceNumber'] ?? null,//$inv['InvoiceNumber'] ?? null,
                     // ADJUST: cek apakah "amounts_are" memang dimaksudkan
                     // menyimpan LineAmountTypes Xero (Exclusive/Inclusive/NoTax).
-                    'amounts_are' => $inv['LineAmountTypes'] ?? null,
+                    'amounts_are' => self::mapAmountsAre($inv['LineAmountTypes'] ?? null),
                     'subtotal' => $inv['SubTotal'] ?? 0,
                     'total' => $inv['Total'] ?? 0,
                     'tax' => $inv['TotalTax'] ?? 0,
                     'nominal_paid' => $inv['AmountPaid'] ?? 0,
                     'nominal_due' => $inv['AmountDue'] ?? 0,
-                    'status' => $this->mapBillStatus($inv['Status'] ?? null),
+                    'status' => self::mapBillStatus($inv['Status'] ?? null),
                     'currency' => $inv['CurrencyCode'] ?? null,
                     'created_by' => 1,
                     'updated_at' => now(),
@@ -486,6 +518,8 @@ class SyncBillJob implements ShouldQueue
                     $divisiUuid = $this->resolveTrackingUuid('Divisi', $optionName);
                 }
             }
+
+
 
             $coaId = isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null;
             $itemCode = $line['ItemCode'] ?? data_get($line, 'Item.Code');
@@ -618,7 +652,7 @@ class SyncBillJob implements ShouldQueue
                         // endpoint /Bills terpisah). Sebelumnya ini ACCREC
                         // (Sales Invoice), itu sebabnya data bill tidak masuk.
                         'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',
-                        'Type' => 'ACCPAY',
+                        'where' => 'Type=="ACCPAY"',
                         'order' => 'Date DESC',
                         'page' => $page,
                         'unitdp' => 4,

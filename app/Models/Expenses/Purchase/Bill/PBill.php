@@ -18,12 +18,12 @@ class PBill extends Model
         'date_req',
         'due_date',
         'reference',
-        'amounts_are',
+        'amounts_are',////tax exclude = 2, tax inclusive = 1, no tax = 0
         'subtotal',
         'total',
         'tax',
-        'nominal_paid',
-        'nominal_due',
+        'nominal_paid',//nominal di bayarkan
+        'nominal_due',//nominal tagihan
         'status',//0=draft,1=awaiting,  2=paid,
         'currency',
         'created_by',
