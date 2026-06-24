@@ -54,12 +54,16 @@ class BillXeroController extends Controller
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
+            'status' => 'required|integer|between:0,2'
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
-        $where = [];
+
+        $where = ['status' => $request->status];
+
+
         $relations = ['getContactFrom', 'getDetail'];
 
         // DEFINISIKAN KOLOM PENCARIAN (TABEL UTAMA + RELASI)

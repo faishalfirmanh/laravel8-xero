@@ -69,6 +69,13 @@
                 <i class="ti ti-plus me-1"></i> Tambah Bills
             </button>
         </div>
+         <div class="form-group mb-0">
+            <select id="filter_status" class="form-select form-select-sm">
+                <option value="0">DRAFT</option>
+                <option value="1">AWAITING PAYMENT</option>
+                <option value="2">PAID</option>
+            </select>
+        </div>
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
@@ -434,25 +441,25 @@ $(document).ready(function() {
         }
     ];
 
-    table = initGlobalDataTableTokenSelected(
-        '#tableHotel',
-        `{{ route('purchase-bills') }}`,
-        columnBills,
-        { "kolom_name": "uuid_from" },
-        {
-            rowCallback: function(row, data) {
-                $(row).css('cursor', 'pointer'); 
-                $(row).off('click').on('click', function() {
-                    if ($(this).hasClass('selected')) {
-                        $(this).removeClass('selected table-active');
-                    } else {
-                        table.$('tr.selected').removeClass('selected table-active');
-                        $(this).addClass('selected table-active');
-                    }
-                });
-            }
-        }
-    );
+    // table = initGlobalDataTableTokenSelected(
+    //     '#tableHotel',
+    //     `{{ route('purchase-bills') }}`,
+    //     columnBills,
+    //     { "kolom_name": "uuid_from" },
+    //     {
+    //         rowCallback: function(row, data) {
+    //             $(row).css('cursor', 'pointer'); 
+    //             $(row).off('click').on('click', function() {
+    //                 if ($(this).hasClass('selected')) {
+    //                     $(this).removeClass('selected table-active');
+    //                 } else {
+    //                     table.$('tr.selected').removeClass('selected table-active');
+    //                     $(this).addClass('selected table-active');
+    //                 }
+    //             });
+    //         }
+    //     }
+    // );
 
 
 
@@ -1143,6 +1150,23 @@ $(document).ready(function() {
         }
         $('#grandTotal').text(formatCurrency(total_grand));
     };
+
+    function loadTable(status_type) {
+         table = initGlobalDataTableTokenSelected(
+            '#tableHotel',
+            `{{ route('purchase-bills') }}`,
+            columnBills,
+            { 'kolom_name': 'reference', 'status' : status_type } 
+        );
+     }
+
+    let initialType = $('#filter_status').val(); 
+    loadTable(initialType);
+
+     $('#filter_status').on('change', function() {
+       let selectedType = $(this).val();
+       loadTable(selectedType);
+    });
 
 });
 </script>

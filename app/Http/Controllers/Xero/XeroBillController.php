@@ -38,6 +38,106 @@ class XeroBillController extends Controller
      * BUKAN Chart of Account — endpoint /Accounts difilter Type=="BANK"
      * supaya hanya bank account yang diambil.
      */
+
+    public function fixEmptyBankAccountNumbers(): void
+    {
+        if ($this->shouldRelease) {
+            return;
+        }
+
+        $tokenData = $this->getValidToken();
+        $accessToken = $tokenData['access_token'];
+        $tenantId = $this->getTenantId($accessToken);
+
+        // ── 1. Ambil semua Bank Account dari Xero ──────────────────────────
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $accessToken,
+            'Xero-Tenant-Id' => $tenantId,
+            'Accept' => 'application/json',
+        ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Accounts', [
+                    'where' => 'Type=="BANK"',
+                ]);
+
+        if ($response->status() === 429) {
+            $retryAfter = (int) ($response->header('Retry-After') ?? 60);
+            Log::warning("[SyncBillJob][fixEmptyBankAccountNumbers] Rate limited (429). Release {$retryAfter}s.");
+            $this->triggerRelease($retryAfter);
+            return;
+        }
+
+        if (!$response->successful()) {
+            Log::error("[SyncBillJob][fixEmptyBankAccountNumbers] Gagal fetch Bank Accounts [{$response->status()}]: " . substr($response->body(), 0, 300));
+            return;
+        }
+
+        $accounts = $response->json('Accounts') ?? [];
+
+        // ── 2. Filter bank account yang BankAccountNumber-nya kosong / "0000" ──
+        $emptyNumberBanks = array_filter($accounts, function ($acc) {
+            $number = trim($acc['BankAccountNumber'] ?? '');
+            return $number === '' || $number === '0000';
+        });
+
+        if (empty($emptyNumberBanks)) {
+            Log::info('[SyncBillJob][fixEmptyBankAccountNumbers] Tidak ada bank account dengan account number kosong/0000.');
+            return;
+        }
+
+        // Kumpulkan number yang sudah dipakai supaya random tidak bentrok
+        $usedNumbers = collect($accounts)
+            ->pluck('BankAccountNumber')
+            ->filter()
+            ->map(fn($n) => (string) $n)
+            ->flip()
+            ->toArray();
+
+        foreach ($emptyNumberBanks as $bank) {
+            if ($this->shouldRelease) {
+                break;
+            }
+
+            $accountId = $bank['AccountID'] ?? null;
+            $accountName = $bank['Name'] ?? '(tanpa nama)';
+
+            if (!$accountId) {
+                continue;
+            }
+
+            // ── 3. Generate random 8 digit, pastikan unik ──────────────────
+            do {
+                $newNumber = (string) random_int(10000000, 99999999);
+            } while (isset($usedNumbers[$newNumber]));
+
+            $usedNumbers[$newNumber] = true;
+
+            // ── 4. Update BankAccountNumber-nya di Xero ────────────────────
+            $updateResponse = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->timeout(25)->post("https://api.xero.com/api.xro/2.0/Accounts/$accountId", [
+                        'BankAccountNumber' => $newNumber,
+                    ]);
+
+            if ($updateResponse->status() === 429) {
+                $retryAfter = (int) ($updateResponse->header('Retry-After') ?? 60);
+                Log::warning("[SyncBillJob][fixEmptyBankAccountNumbers] Rate limited (429) saat update $accountId. Release {$retryAfter}s.");
+                $this->triggerRelease($retryAfter);
+                return;
+            }
+
+            if (!$updateResponse->successful()) {
+                Log::error("[SyncBillJob][fixEmptyBankAccountNumbers] Gagal update account number bank '$accountName' ($accountId) [{$updateResponse->status()}]: " . substr($updateResponse->body(), 0, 300));
+                continue;
+            }
+
+            Log::info("[SyncBillJob][fixEmptyBankAccountNumbers] Bank '$accountName' ($accountId) account number diupdate ke $newNumber.");
+
+            usleep(300000); // throttle ringan antar update
+        }
+    }
+
     public function fixEmptyBankAccountCodes(): void
     {
         if ($this->shouldRelease) {

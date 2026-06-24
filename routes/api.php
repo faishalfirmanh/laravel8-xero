@@ -82,8 +82,8 @@ Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logo
 
 Route::post('/extract-text', [ImageController::class, 'extractText']);
 
-Route::get('ubah-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountCodes']);
-
+Route::get('ubah-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountCodes']);//
+Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountNumbers']);
 //xero refresh token
 // 1. Route untuk inisiasi login (Jalankan ini saat xero_token.json masih kosong)
 Route::prefix("xero")->group(function () {
