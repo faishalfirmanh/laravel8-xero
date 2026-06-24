@@ -169,7 +169,8 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th width="40" class="text-center">No</th>
-                                        <th style="min-width: 280px;">Item / Description</th>
+                                        <th style="min-width: 150px;">Item</th>
+                                        <th style="min-width: 280px;">Description</th>
                                         <th width="80" class="text-center">Qty</th>
                                         <th width="130" class="text-right">Unit Price</th>
                                         <th style="min-width: 220px;">Account</th>
@@ -180,7 +181,7 @@
                                         <th width="50" class="text-center">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody></tbody>
+                                <tbody id="lineItemsBody"></tbody>
                             </table>
                         </div>
                         <div class="table-actions">
@@ -828,7 +829,7 @@ $(document).ready(function() {
     $('#formCreateHotel').on('submit', function(e) {
         e.preventDefault();
         
-        $('.select2-account, .select2-paket, .select2-divisi').each(function() {
+        $('.select2-item, .select2-account, .select2-paket, .select2-divisi').each(function() {
             if ($(this).data('select2')) { $(this).trigger('change'); }
         });
 
@@ -839,6 +840,7 @@ $(document).ready(function() {
         let action_selected = params.get('action_type');
 
         let selectedData = {
+            item_code : $('select[name="item_code[]"]').map(function(){ return $(this).val(); }).get(),
             id: id_bill,
             uuid_from: params.get('uuid_from'),
             date_req: params.get('date_req'),
@@ -904,11 +906,16 @@ $(document).ready(function() {
             <tr>
                 <td class="text-center">${rowCount}</td>
                 <input type="hidden" name="id_detail[]" value="${id_detail_row}"/>
-                <td><input type="text" class="form-control" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
-                <td><input type="number" class="form-control" required name="qty[]" min="1" value="${qty}"></td>
-                <td><input type="number" class="form-control" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
                 <td>
-                    <select class="select2-account form-control" required name="account_id[]" style="width:100%;">
+                    <select class="select2-item form-control" required name="item_code[]" style="width:100%;">
+                        <option value="">Pilih Item...</option>
+                    </select>
+                </td>
+                <td><input type="text" class="form-control desc-input" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
+                <td><input type="number" class="form-control qty-input" required name="qty[]" min="1" value="${qty}"></td>
+                <td><input type="number" class="form-control price-input" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
+                <td>
+                    <select class="select2-account form-control" required name="account_id[]" required style="width:100%;">
                         <option value="">Pilih Account...</option>
                     </select>
                 </td>
@@ -923,13 +930,59 @@ $(document).ready(function() {
                         <option value="">Pilih Divisi...</option>
                     </select>
                 </td>
-                <td><input type="text" class="form-control text-right" name="amount[]" value="${amount}" readonly></td>
+                <td><input type="text" class="form-control text-right amount-row" name="amount[]" value="${amount}" readonly></td>
                 <td><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)">×</button></td>
             </tr>`;
 
         $('#itemTable tbody').append(newRow);
 
         let $lastRow = $('#itemTable tbody tr:last');
+        //select2-item
+
+        $lastRow.find('.select2-item').select2({
+            placeholder: "Pilih Item...",
+            allowClear: true,
+            dropdownParent: $('#modalCreateHotel'),
+            ajax: {
+                url: '{{ route("list-paket-select2") }}',
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+                },
+                processResults: function(response) {
+                    if (response.status != 'success') return { results: [], pagination: { more: false } };;
+                    return {
+                        results: $.map(response.data.results, function(item) {
+                            console.log('code',item)
+                            return { 
+                                id        : item.code,
+                                text      : item.nama_paket,
+                                harga     : item.price_sales,
+                                item_code : item.code,
+                                paket_id  : item.id, 
+                            };
+                        }),
+                    }
+                },
+                cache: true
+                },
+            templateResult: function(item) {
+                if (!item.id) return item.text;
+                return $(`<span>${item.text} <small class="text-muted">(${formatCurrency(item.harga)})</small></span>`);
+            }
+        }).on('select2:select', function (e) {
+            // Auto-fill desc dari field nama_paket response
+            const d = e.params.data;
+            const $row = $(this).closest('tr');
+            $row.find('.desc-input').val(d.text || '');
+
+            if (d.harga !== undefined && d.harga !== null) {
+               $row.find('.price-input').val(parseFloat(d.harga).toFixed(2));
+            }
+            $row.find('.price-input').trigger('input');
+        });
 
         $lastRow.find('.select2-account').select2({
             placeholder: "Pilih Account...",
@@ -1005,6 +1058,11 @@ $(document).ready(function() {
         });
 
         if (item) {
+            if (item.item_code) {
+                let itemLabel = item.desc || item.item_code; // fallback ke code kalau desc kosong
+                let itemOpt = new Option(itemLabel, item.item_code, true, true);
+                $lastRow.find('.select2-item').append(itemOpt).trigger('change');
+            }
             if (item.account_id_coa) {
                 ajaxRequest(`{{ route('coaDetail') }}`, 'get', {id: item.account_id_coa}, localStorage.getItem("token"))
                 .then(response => {
@@ -1076,7 +1134,7 @@ $(document).ready(function() {
             $('#itemTable').append(`
                 <tfoot>
                     <tr class="table-info">
-                        <td colspan="8" class="text-right font-weight-bold">Total Amount</td>
+                        <td colspan="9" class="text-right font-weight-bold">Total Amount</td>
                         <td class="text-right font-weight-bold" id="grandTotal" style="font-size: 1.1em;">0.00</td>
                         <td></td>
                     </tr>

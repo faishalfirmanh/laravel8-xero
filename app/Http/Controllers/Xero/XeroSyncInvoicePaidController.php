@@ -209,6 +209,7 @@ class XeroSyncInvoicePaidController extends Controller
         $query = ItemsPaketAllFromXero::query()
             ->where('jenis_item', 1)
             ->select([
+                'code',
                 'id',
                 'jenis_item',
                 'uuid_proudct_and_service',

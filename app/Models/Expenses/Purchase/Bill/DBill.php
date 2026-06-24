@@ -2,6 +2,7 @@
 
 namespace App\Models\Expenses\Purchase\Bill;
 
+use App\Models\ItemsPaketAllFromXero;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,7 +12,7 @@ class DBill extends Model
 
     protected $fillable = [
         'bills_parent_id',
-        'item_code',
+        'item_code',//ambil code
         'desc',
         'qty',
         'unit_price',
@@ -26,5 +27,11 @@ class DBill extends Model
     public function getParent()
     {
         return $this->belongsTo(PBill::class, 'bills_parent_id', 'id');
+    }
+
+
+    public function getItemPaket()
+    {
+        return $this->hasOne(ItemsPaketAllFromXero::class, 'code', 'item_code');
     }
 }
