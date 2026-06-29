@@ -46,6 +46,10 @@
                         <i class="ti ti-arrow-up-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Receive Money</span>
                     </button>
+                    <button type="button" id="button_trans_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
+                        <i class="ti ti-switch-horizontal" style="font-size: 1.2rem;"></i>
+                        <span> Transfer</span>
+                    </button>
                     <button type="button" id="button_spend_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                         <i class="ti ti-arrow-down-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Spend Money</span>
@@ -76,6 +80,154 @@
                 </tr>
             </thead>
         </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTransfer" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title font-weight-bold">
+                    Enter Transfer Details
+                </h5>
+                <button class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+
+            <form id="formTransfer">
+                @csrf
+
+                <div class="modal-body">
+                    <div class="border rounded p-3 bg-light">
+
+                        <h6 class="text-primary font-weight-bold mb-3">
+                            Enter Transfer Details
+                        </h6>
+
+                        <!-- FROM -->
+                        <div class="form-row align-items-center mb-2">
+                            <div class="col-md-1 d-flex align-items-end" style="padding-bottom: 0;">
+                                <label class="font-weight-bold mb-0">From</label>
+                            </div>
+                            <div class="col-md-11">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="small mb-1">Account</label>
+                                        <select class="form-control form-control-sm select2-account"
+                                                id="from_account"
+                                                name="bank_id_from">
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small mb-1">Nama Paket</label>
+                                        <select class="form-control form-control-sm select2-paket"
+                                                id="from_paket"
+                                                name="code_tracking_paket_from">
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small mb-1">Divisi</label>
+                                        <select class="form-control form-control-sm select2-divisi"
+                                                id="from_divisi"
+                                                name="code_tracking_divisi_from">
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-2">
+
+                        <!-- TO -->
+                        <div class="form-row align-items-center mb-3">
+                            <div class="col-md-1 d-flex align-items-end" style="padding-bottom: 0;">
+                                <label class="font-weight-bold mb-0">To</label>
+                            </div>
+                            <div class="col-md-11">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="small mb-1">Account</label>
+                                        <select class="form-control form-control-sm select2-account"
+                                                id="to_account"
+                                                name="bank_id_to">
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small mb-1">Nama Paket</label>
+                                        <select class="form-control form-control-sm select2-paket"
+                                                id="to_paket"
+                                                name="code_tracking_paket_to">
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small mb-1">Divisi</label>
+                                        <select class="form-control form-control-sm select2-divisi"
+                                                id="to_divisi"
+                                                name="code_tracking_divisi_to">
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BOTTOM -->
+                        <div class="form-row">
+                            <div class="col-md-3">
+                                <label class="small mb-1">Date</label>
+                                <input type="date"
+                                       class="form-control form-control-sm"
+                                       name="date_trans"
+                                       id="date_trans_transfer"
+                                       value="{{ date('Y-m-d') }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="small mb-1">Amount</label>
+                                <input type="number"
+                                       step="0.01"
+                                       class="form-control form-control-sm text-right"
+                                       name="amount"
+                                       id="amount_tranfser"
+                                       value="0.00">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small mb-1">Reference</label>
+                                <input type="text"
+                                id="reference_transfer_bank"
+                                       class="form-control form-control-sm"
+                                       name="reference_transfer_bank">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm"
+                            data-dismiss="modal"
+                            type="button">
+                        Cancel
+                    </button>
+
+                    <div class="btn-group">
+                        <button type="submit"
+                                class="btn btn-success btn-sm font-weight-bold">
+                            Transfer
+                        </button>
+                        <button class="btn btn-success btn-sm"
+                                data-toggle="dropdown"
+                                type="button">
+                        </button>
+                        {{-- <div class="dropdown-menu dropdown-menu-right"> --}}
+                            {{-- <button class="dropdown-item" type="button">Save Draft</button> --}}
+                            {{-- <button class="dropdown-item" type="button">Transfer & New</button> --}}
+                        {{-- </div> --}}
+                    </div>
+                </div>
+
+            </form>
+        </div>
     </div>
 </div>
 
@@ -144,6 +296,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th width="40" class="text-center">No</th>
+                                        <th style="min-width: 200px;">Item</th>
                                         <th style="min-width: 280px;">Item / Description</th>
                                         <th width="80" class="text-center">Qty</th>
                                         <th width="130" class="text-right">Unit Price</th>
@@ -254,8 +407,9 @@
 $(document).ready(function() {
     var table;
     let full_url = window.location.href;
-    const segments = full_url.split('/').filter(Boolean);
-    const lastSegment = segments.pop();
+   // const segments = full_url.split('/').filter(Boolean);
+    const segments = window.location.pathname.split('/');
+    const lastSegment = segments.filter(Boolean).pop();//segments.pop();
     // --- HELPER FUNCTIONS ---
     function formatCurrency(amount) {
         return new Intl.NumberFormat('en-US', {
@@ -263,6 +417,22 @@ $(document).ready(function() {
             maximumFractionDigits: 2
         }).format(amount);
     }
+
+    //untuk auto open dari report
+    const urlParams = new URLSearchParams(window.location.search);
+    const openId = urlParams.get('open');
+
+    if (openId) {
+        openDetailModal(openId);
+    }
+
+    function openDetailModal(p_transBank) {
+        $('#idHotelInput').val(p_transBank);
+        $('.modal-title').text(`Edit Bank Trans `);
+        loadBankTrans(p_transBank); 
+        $('#modalCreateHotel').modal('show');
+    }
+    //untuk auto open dari report
 
     // FIX 2: Added missing convertStringDate function to prevent ReferenceError
     function convertStringDate(dateString) {
@@ -308,7 +478,6 @@ $(document).ready(function() {
             data: 'reference_detail', 
             name: 'reference_detail', 
             render: function(data,type,row){
-                console.log(data)
                 return data
             } 
         },
@@ -361,7 +530,7 @@ $(document).ready(function() {
         '#tableHotel',
         `{{ route('bank-trans-allByIdBank') }}`,
         columnBills,
-        { "kolom_name": "reference_detail" ,'bank_id_xero' : lastSegment}
+        { "kolom_name": "reference" ,'bank_id_xero' : lastSegment}
     );
 
 
@@ -398,6 +567,46 @@ $(document).ready(function() {
         }
         Swal.fire('Berhasil', 'Anda memilih Reference: ' + selectedRowData.reference, 'success');
     });
+
+
+
+     $('#formTransfer').on('submit', function(e) {
+        e.preventDefault();
+        const $btn = $(this).find('button[type="submit"]');
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
+        let payload_trans = {
+            'bank_id_from' : $("#from_account").val(),
+            'bank_id_to' : $('#to_account').val(),
+            'code_tracking_divisi_to' : $("#to_divisi").val(),
+            'code_tracking_divisi_from' : $("#from_divisi").val(),
+            'code_tracking_paket_to' : $("#to_paket").val(),
+            'code_tracking_paket_from' : $("#from_paket").val(),
+            'date_trans' :$("#date_trans_transfer").val(),
+            'amount' : $("#amount_tranfser").val(),
+            'reference_transfer_bank' :$("#reference_transfer_bank").val()
+        }
+        console.log('sss',payload_trans)
+         ajaxRequest(`{{ route('save-bank-transfer') }}`, 'POST', payload_trans, localStorage.getItem("token"))
+            .then(response =>{
+                    if(response.status == 200){
+                        let data_res = response.data.data;
+                        Swal.fire({
+                            icon : 'success',
+                            title: 'Berhasil',
+                            text : response.message || 'Transfer berhasil disimpan.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            $('#modalTransfer').modal('hide');
+                            // table.ajax.reload();
+                        });
+                    }
+            })
+            .catch((err)=>{
+                cathError(err)
+            })
+    });
+   
 
     // --- 2. INITIALIZE GLOBAL SELECT2 ---
     function initAllSelect2() {
@@ -476,6 +685,11 @@ $(document).ready(function() {
     //     $('.modal-title').text('Tambah Invoice / Bill Baru');
     // });
 
+    $("#button_trans_money").on("click",function(){
+        $("#modalTransfer").modal('show');
+        initSelect2ModalTransfer();
+    });
+
 
      $("#button_receive_money").on("click", function(){
         $("#modalCreateHotel").modal('show');
@@ -490,6 +704,200 @@ $(document).ready(function() {
         
         $('.modal-title').text('Create New Receive Money');
     });
+
+
+    function initSelect2ModalTransfer() {
+
+        // --- FROM ACCOUNT ---
+        $('#from_account').select2({
+            placeholder: "Cari nama bank...",
+            allowClear: true,
+            dropdownParent: $('#modalTransfer'),
+            ajax: {
+                url: "{{ route('getbankselect2') }}",
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        page: params.page || 1,
+                        keyword: params.term || '',
+                        limit: 10,
+                        kolom_name: 'name'
+                    };
+                },
+                processResults: function(response, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(response.data.data, function(item) {
+                            return {
+                                id: item.id,
+                                text: item.name,
+                                currency_code: item.currency_code || '-'
+                            };
+                        }),
+                        pagination: { more: response.data.next_page_url !== null }
+                    };
+                },
+                cache: true
+            },
+            templateResult: function(item) {
+                if (!item.id) return item.text;
+                return $(`<span>${item.text} <small class="text-muted">(${item.currency_code})</small></span>`);
+            }
+        });
+
+        // --- TO ACCOUNT ---
+        $('#to_account').select2({
+            placeholder: "Cari nama bank...",
+            allowClear: true,
+            dropdownParent: $('#modalTransfer'),
+            ajax: {
+                url: "{{ route('getbankselect2') }}",
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        page: params.page || 1,
+                        keyword: params.term || '',
+                        limit: 10,
+                        kolom_name: 'name'
+                    };
+                },
+                processResults: function(response, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(response.data.data, function(item) {
+                            return {
+                                id: item.id,
+                                text: item.name,
+                                currency_code: item.currency_code || '-'
+                            };
+                        }),
+                        pagination: { more: response.data.next_page_url !== null }
+                    };
+                },
+                cache: true
+            },
+            templateResult: function(item) {
+                if (!item.id) return item.text;
+                return $(`<span>${item.text} <small class="text-muted">(${item.currency_code})</small></span>`);
+            }
+        });
+
+        // --- FROM PAKET ---
+        $('#from_paket').select2({
+            placeholder: "Pilih Paket...",
+            allowClear: true,
+            dropdownParent: $('#modalTransfer'),
+            ajax: {
+                url: "{{ route('tracking-by-parent') }}",
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function() {
+                    return { name_parent_category: 'nama paket' };
+                },
+                processResults: function(response) {
+                    if (!response.status || !response.data?.lines_category) return { results: [] };
+                    return {
+                        results: $.map(response.data.lines_category, function(item) {
+                            return {
+                                id: item.item_uuid_category || item.id,
+                                text: item.item_name_category
+                            };
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // --- TO PAKET ---
+        $('#to_paket').select2({
+            placeholder: "Pilih Paket...",
+            allowClear: true,
+            dropdownParent: $('#modalTransfer'),
+            ajax: {
+                url: "{{ route('tracking-by-parent') }}",
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function() {
+                    return { name_parent_category: 'nama paket' };
+                },
+                processResults: function(response) {
+                    if (!response.status || !response.data?.lines_category) return { results: [] };
+                    return {
+                        results: $.map(response.data.lines_category, function(item) {
+                            return {
+                                id: item.item_uuid_category || item.id,
+                                text: item.item_name_category
+                            };
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // --- FROM DIVISI ---
+        $('#from_divisi').select2({
+            placeholder: "Pilih Divisi...",
+            allowClear: true,
+            dropdownParent: $('#modalTransfer'),
+            ajax: {
+                url: "{{ route('tracking-by-parent') }}",
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function() {
+                    return { name_parent_category: 'divisi' };
+                },
+                processResults: function(response) {
+                    if (!response.status || !response.data?.lines_category) return { results: [] };
+                    return {
+                        results: $.map(response.data.lines_category, function(item) {
+                            return {
+                                id: item.item_uuid_category || item.id,
+                                text: item.item_name_category
+                            };
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // --- TO DIVISI ---
+        $('#to_divisi').select2({
+            placeholder: "Pilih Divisi...",
+            allowClear: true,
+            dropdownParent: $('#modalTransfer'),
+            ajax: {
+                url: "{{ route('tracking-by-parent') }}",
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function() {
+                    return { name_parent_category: 'divisi' };
+                },
+                processResults: function(response) {
+                    if (!response.status || !response.data?.lines_category) return { results: [] };
+                    return {
+                        results: $.map(response.data.lines_category, function(item) {
+                            return {
+                                id: item.item_uuid_category || item.id,
+                                text: item.item_name_category
+                            };
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+    }
 
 
      $("#button_spend_money").on("click", function(){
@@ -519,9 +927,8 @@ $(document).ready(function() {
     // --- 4. EDIT FUNCTIONALITY ---
     $('#tableHotel').on('click', '.edit-hotel', function() {
         let id = $(this).data('id');
+        console.log('id',id)
         let rowData = table.row($(this).parents('tr')).data(); 
-
-        console.log('addd edit ',rowData)
         let kondisi_bank = rowData.is_spend ? 'Spend ' : ' Receive'
         $('#idHotelInput').val(id);
         $('.modal-title').text(`Edit Bank Trans ${kondisi_bank}` + (rowData.reference || ''));
@@ -546,7 +953,7 @@ $(document).ready(function() {
                     let data_res = response.data.data;
                    
                     $("#ammounts_are").val(data_res.amounts_are).trigger('change');
-                    
+                    console.log('data',data_res)
                     let contactId = data_res.uuid_to;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
                     let newOption = new Option(contactName, contactId, true, true);
@@ -627,6 +1034,8 @@ $(document).ready(function() {
         let id_bill = (idInput && idInput > 0) ? idInput : null;
         let action_selected = params.get('action_type');
 
+        console.log('aaa',id_bill)
+
         let selectedData = {
             id: id_bill,
             uuid_to: params.get('uuid_to'),
@@ -636,6 +1045,7 @@ $(document).ready(function() {
             bank_id_xero :lastSegment,
             reference: params.get('reference'),
             account_id: $('select[name="account_id[]"]').map(function(){ return $(this).val(); }).get(),
+            item_code: $('select[name="item_code[]"]').map(function(){ return $(this).val(); }).get(),
             desc: $('input[name="description[]"]').map(function(){ return $(this).val(); }).get(),
             qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
             unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
@@ -648,6 +1058,7 @@ $(document).ready(function() {
         ajaxRequest(`{{ route('save-p-bank-trans') }}`, 'POST', selectedData, localStorage.getItem("token"))
             .then(response => {
                 if(response.status == 200){
+                    console.log('saved',response)
                     Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
                     $('#modalCreateHotel').modal('hide');
                     table.ajax.reload(null, false);
@@ -674,18 +1085,25 @@ $(document).ready(function() {
 
         let id_detail_row = item ? item.id : 0;
         let desc = item ? (item.desc || '') : '';
+        let item_select = item ? (item.item_code || '') : '';
         let qty = item ? item.qty : 1;
         let price = item ? parseFloat(item.unit_price) : '';
         let taxRate = item ? (item.tax_rate !== null ? item.tax_rate : 0) : 0;
         let amount = item ? parseFloat(item.amount) : '';
 
+        console.log('select',item_select)
         let newRow = `
             <tr>
                 <td class="text-center">${rowCount}</td>
                 <input type="hidden" name="id_detail[]" value="${id_detail_row}"/>
-                <td><input type="text" class="form-control" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
+                <td>
+                    <select class="form-control select2-item" name="item_code[]" value="${item_select}"
+                            style="width:100%;" required>
+                    </select>
+                </td>
+                <td><input type="text" class="form-control desc-input" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
                 <td><input type="number" class="form-control" required name="qty[]" min="1" value="${qty}"></td>
-                <td><input type="number" class="form-control" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
+                <td><input type="number" class="form-control price-input" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
                 <td>
                     <select class="select2-account form-control" required name="account_id[]" style="width:100%;">
                         <option value="">Pilih Account...</option>
@@ -711,6 +1129,46 @@ $(document).ready(function() {
         let $lastRow = $('#itemTable tbody tr:last');
 
         let cek_spend_for_coa = $("#is_spend").val() == 1 ? 'EXPENSE' : 'REVENUE';
+
+        // --- ITEM select2 ---
+        $lastRow.find('.select2-item').select2({
+            theme: 'bootstrap4',
+            dropdownParent: $('#modalCreateHotel'),
+            placeholder: 'Pilih Item',
+            allowClear: true,
+            ajax: {
+                url: '{{ route("list-paket-select2") }}',
+                dataType: 'json',
+                delay: 300,
+                data: function(params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+                },
+                processResults: function(response) {
+                    if (response.status != 'success') return { results: [], pagination: { more: false } };
+                    return {
+                        results: $.map(response.data.results, function(item) {
+                            return {
+                                id   : item.id,
+                                text : item.nama_paket,
+                                harga: item.price_sales
+                            };
+                        }),
+                    };
+                },
+                cache: true
+            }
+        }).on('select2:select', function(e) {
+            const d = e.params.data;
+            // Auto-fill desc dari nama_paket response
+            $(this).closest('tr').find('.desc-input')
+                .val(d.nama_paket || d.text || '');
+            // Auto-fill unit price
+            $(this).closest('tr').find('.price-input')
+                .val(Number(d.harga) || '').trigger('keyup');
+        }).on('select2:clear', function() {
+            $(this).closest('tr').find('.desc-input').val('');
+            $(this).closest('tr').find('.price-input').val('').trigger('keyup');
+        });
 
         $lastRow.find('.select2-account').select2({
             placeholder: "Pilih Account...",
@@ -786,6 +1244,15 @@ $(document).ready(function() {
         });
 
         if (item) {
+            if (item.item_code) {
+                // Restore selected item — buat Option langsung tanpa ajax call tambahan
+                // (item.item_name sudah tersimpan saat save, atau pakai desc sebagai fallback)
+                let itemLabel = item.item_name || item.desc || ('Item ID: ' + item.item_code);
+                console.log('itemid',item)
+                let itemOpt = new Option(itemLabel, item.item_code, true, true);
+                $lastRow.find('.select2-item').append(itemOpt).trigger('change');
+            }
+
             if (item.account_id_coa) {
                 ajaxRequest(`{{ route('coaDetail') }}`, 'get', {id: item.account_id_coa}, localStorage.getItem("token"))
                 .then(response => {
@@ -858,7 +1325,7 @@ $(document).ready(function() {
             $('#itemTable').append(`
                 <tfoot>
                     <tr class="table-info">
-                        <td colspan="8" class="text-right font-weight-bold">Total Amount</td>
+                        <td colspan="9" class="text-right font-weight-bold">Total Amount</td>
                         <td class="text-right font-weight-bold" id="grandTotal" style="font-size: 1.1em;">0.00</td>
                         <td></td>
                     </tr>

@@ -20,6 +20,7 @@
                     <th>Name Contact</th>
                     <th>Item</th>
                     <th>Total</th>
+                    <th>Action</th>
                 </tr>
             </thead>
         </table>
@@ -99,6 +100,23 @@ $(document).ready(function() {
                 // Pastikan fungsi formatCurrency sudah ada secara global
                 return formatCurrency(data);
             }
+        },
+        {
+            data: "id",
+            orderable: false,
+            searchable: false,
+            className: "text-center",
+            render: function(data, type, row) {
+              
+                let base_url = window.location.origin  
+               let urlnya = row.d_bank
+                ? `${base_url}/travel/admin/transaksi/bank-trans/${row.d_bank.get_parent.bank_id_xero}?open=${row.d_bank.get_parent.id}`
+                : `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}`;
+
+                return `<a href="${urlnya}" data-id="${data}" class="text-primary edit-hotel mr-2">
+                            <i class="ti ti-eye"></i>
+                        </a>`;
+            },
         }
     ];
 

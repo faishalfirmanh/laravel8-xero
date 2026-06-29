@@ -104,7 +104,8 @@ class InvoiceXeroLocalController extends Controller
         //     'status' => 'pending',
         // ]);
 
-        SyncXeroInvoiceJobV2::dispatch($tokenData, $jobId);
+        // SyncXeroInvoiceJobV2::dispatch($tokenData, $jobId);
+        SyncXeroInvoiceJob::dispatch($tokenData, $jobId);
 
         return response()->json([
             'status' => 'queued',

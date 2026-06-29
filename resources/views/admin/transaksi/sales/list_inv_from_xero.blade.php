@@ -1257,6 +1257,25 @@
         return `${d}/${m}/${y}`;
     }
 
+    //--open modal dari report
+    //untuk auto open dari report
+    const urlParams = new URLSearchParams(window.location.search);
+    const openId = urlParams.get('open');
+
+    if (openId) {
+        openDetailModal(openId);
+    }
+
+    function openDetailModal(id_inv) {
+        $('#idHotelInput').val(id_inv);
+        $('.modal-title').text(`Edit Invoice `);
+        loadInvoice(id_inv);
+        loadDropzoneImages(id_inv);
+        $('#modalCreateHotel').modal('show');
+    }
+    //untuk auto open dari report
+    //--open modal dari report
+
      $('#tableHotel').on('click', '.edit-hotel', function() {
         const id      = $(this).data('id');
         const rowData = table.row($(this).parents('tr')).data();

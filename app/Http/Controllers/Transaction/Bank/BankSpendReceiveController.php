@@ -10,6 +10,7 @@ use App\Http\Repository\Transaction\TransBankDRepository;
 use App\Http\Repository\Transaction\TransBankPRepository;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
+use App\Http\Repository\Transaction\TransferBankRepo;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\Expenses\DPackageExpensesRepository;
@@ -34,7 +35,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class BankSpendReceiveController extends Controller
 {
     //
-    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_all_bank;
+    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_all_bank, $repo_transfer_bank;
     protected $repo_bank_p_trans, $repo_bank_d_trans;
     use ConfigRefreshXero;
     use ApiResponse;
@@ -45,7 +46,8 @@ class BankSpendReceiveController extends Controller
         TransCoaRepo $repo_all_trans,
         TransBankRepo $repo_trans_all_bank,
         TransBankPRepository $repo_bank_p_trans,
-        TransBankDRepository $repo_bank_d_trans
+        TransBankDRepository $repo_bank_d_trans,
+        TransferBankRepo $repo_transfer_bank
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -55,6 +57,7 @@ class BankSpendReceiveController extends Controller
 
         $this->repo_bank_p_trans = $repo_bank_p_trans;
         $this->repo_bank_d_trans = $repo_bank_d_trans;
+        $this->repo_transfer_bank = $repo_transfer_bank;
     }
 
     //used
@@ -104,6 +107,30 @@ class BankSpendReceiveController extends Controller
 
 
 
+    public function getAllPaginateDetaiaal(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'page' => 'required|integer',
+            'keyword' => 'nullable|string',
+            'kolom_name' => 'required|string',
+            'limit' => 'required|integer',
+            'bank_id_xero' => 'required|integer|exists:bank_xeros,id'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+        $where = ['bank_id_xero' => $request->bank_id_xero];
+        if ($request->keyword != null) {
+            $data = $this->repo_bank_p_trans->searchData($where, $request->limit, $request->page, 'reference', strtoupper($request->keyword), ['getPbill', 'getPBank', 'getInv']);
+        } else {
+            $data = $this->repo_bank_p_trans->getAllDataWithDefault($where, $request->limit, $request->page, 'date_h', 'DESC', ['getDetail']);//getDataPaginate("name",10,$request->keyword);
+        }
+
+        return $this->autoResponse($data);
+    }
+
+
     public function storeParent(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -115,6 +142,7 @@ class BankSpendReceiveController extends Controller
             'is_spend' => 'required|boolean',
             'bank_id_xero' => 'required|integer|exists:bank_xeros,id',
 
+            'item_code' => 'nullable|array',
             'desc' => 'required|array|min:1',
             'qty' => 'required|array|min:1',
             'unit_price' => 'required|array|min:1',
@@ -136,7 +164,7 @@ class BankSpendReceiveController extends Controller
         try {
             // 1. Save Parent
             $saveP = $this->repo_bank_p_trans->CreateOrUpdate(
-                $request->except(['account_id', 'desc', 'qty', 'unit_price', 'tax_rate', 'nama_paket', 'divisi']),
+                $request->except(['item_code', 'account_id', 'desc', 'qty', 'unit_price', 'tax_rate', 'nama_paket', 'divisi']),
                 $request->id
             );
 
@@ -183,6 +211,7 @@ class BankSpendReceiveController extends Controller
                     'amount' => ($request->qty[$key] ?? 0) * ($request->unit_price[$key] ?? 0),
                     'paket_tracking_uuid' => $request->paket_tracking_uuid[$key] ?? null,
                     'divisi_travel_tracking_uuid' => $request->divisi_travel_tracking_uuid[$key] ?? null,
+                    'item_code' => $request->item_code[$key] ?? null
                 ];
 
                 // FIX: Hanya generate UUID_DETAIL jika ini adalah baris baru (bukan edit)
@@ -218,7 +247,8 @@ class BankSpendReceiveController extends Controller
                         'is_speend' => true,
                         'nominal' => $save_d->amount,
                         'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
-                        'uuid_detail' => $save_d->uuid_detail_trans_bank
+                        'uuid_detail' => $save_d->uuid_detail_trans_bank,
+                        'trans_transfer_bank_id' => null
                     ];
                     $this->repo_all_trans->CreateOrUpdate($data_trans_create, null);
                 }
@@ -272,6 +302,38 @@ class BankSpendReceiveController extends Controller
     }
 
 
+    public function storeTranserBank(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'nullable|integer|exists:transaction_transfer_banks,id',
+            'bank_id_from' => 'required|integer|exists:bank_xeros,id',
+            'bank_id_to' => 'required|integer|exists:bank_xeros,id',
+            'date_trans' => 'required|date',
+            'amount' => 'required|numeric|min:0',
+            'reference_transfer_bank' => 'nullable|string|max:255',
+            'code_tracking_paket_from' => 'nullable|string',
+            'code_tracking_divisi_from' => 'nullable|string',
+            'code_tracking_paket_to' => 'nullable|string',
+            'code_tracking_divisi_to' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+
+        $data = $this->repo_transfer_bank->CreateOrUpdate($request->all(), $request->id);
+        $save_p = [
+            'nominal_transfer' => $request->amount,
+            'uuid_bank' => $request->bank_id_to,
+            'reference_detail' => $request->reference_transfer_bank ?? null,
+            'date_transaction' => $request->date_trans,
+            'trans_transfer_bank_id' => $data->id
+        ];
+        $trans = $this->repo_trans_all_bank->CreateOrUpdate($save_p, null);
+
+        return $this->autoResponse($data);
+    }
 
 
 

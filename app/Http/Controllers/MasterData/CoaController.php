@@ -112,9 +112,9 @@ class CoaController extends Controller
         //dd($request->menu);
         $where = self::chekWhere($request->type);
         if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
+            $data = $this->repo->searchData($where, $request->limit, $request->page, 'code', strtoupper($request->keyword));
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'name', 'ASC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'code', 'ASC');//getDataPaginate("name",10,$request->keyword);
         }
 
         return $this->autoResponse($data);

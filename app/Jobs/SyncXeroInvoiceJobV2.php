@@ -246,20 +246,6 @@ class SyncXeroInvoiceJobV2 implements ShouldQueue
      * (cron harian) menarik ulang SEMUA payment dari Xero walau sudah ada
      * di DB. Ini salah satu penyebab terbesar kuota cepat habis.
      */
-    private function syncPayment(string $paymentId): void
-    {
-        if ($this->shouldRelease) {
-            return;
-        }
-
-        $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
-
-        if ($alreadySynced) {
-            return; // tidak perlu hit Xero sama sekali
-        }
-
-        $this->getDetailPayment($paymentId);
-    }
 
     public function getDetailPayment(string $idPayment, ?int $knownParentId = null): void
     {
@@ -305,13 +291,14 @@ class SyncXeroInvoiceJobV2 implements ShouldQueue
         $date = $this->parseXeroDate($payment['Date'] ?? null);
         $invoiceUuid = data_get($payment, 'Invoice.InvoiceID');
         $invoiceNumber = data_get($payment, 'Invoice.InvoiceNumber');
+        $refPayment = data_get($payment, 'Reference');//
 
         // Pakai parent id yang sudah diketahui (dilempar dari processInvoice)
         // dulu kalau ada — hindari query tambahan ke InvoicesAllFromXero.
         $idParentInv = $knownParentId
             ?? ($invoiceUuid ? InvoicesAllFromXero::where('invoice_uuid', $invoiceUuid)->value('id') : null);
 
-        $this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $invoiceUuid, $idParentInv);
+        $this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $refPayment, $idParentInv);
 
         usleep(self::THROTTLE_PAYMENT_US);
     }

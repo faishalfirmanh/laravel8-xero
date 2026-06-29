@@ -29,7 +29,8 @@
             <thead class="table-dark">
                 <tr>
                     <th width="5%">No</th>
-                     <th>Name</th>
+                    <th>Name</th>
+                    <th>Code</th>
                     <th>Account Type</th>
                     <th>Diskripsi</th>
                     <th>Nominal</th>
@@ -61,6 +62,13 @@ $(document).ready(function() {
         {
             data: 'name',
             name: 'name'
+        },
+        {
+            data: 'code',
+            name: 'code' ,
+            render: function(data,type, row) {
+                return data;
+            }
         },
         {
             data: 'account_type',

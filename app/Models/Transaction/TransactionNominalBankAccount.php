@@ -14,6 +14,7 @@ class TransactionNominalBankAccount extends Model
     use HasFactory;
 
 
+    //saat transaksi tabel ini, harus manggil update tabel ini juga : SummaryNominalBank
     protected $fillable = [
         'uuid_bank',
         'account_transaction',
@@ -25,9 +26,10 @@ class TransactionNominalBankAccount extends Model
         'id_parent_bill',
         'date_transaction',
         'created_by',
-        'id_parent_bank',//relation with TransactionBankTransP ->id,
+        'id_parent_bank',//relation with TransactionBankTransP ->id,saat receive dan spend money
         'id_parent_invoice',
-        'payment_uuid'//unique key id
+        'payment_uuid',//unique key id,
+        'trans_transfer_bank_id'//untuk transaksi bank transfer
     ];
 
     protected $appends = [
