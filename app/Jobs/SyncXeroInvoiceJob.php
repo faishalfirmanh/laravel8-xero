@@ -15,35 +15,123 @@ use App\Models\Transaction\TransactionNominalBankAccount;
 use App\Services\GlobalService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class SyncXeroInvoiceJob implements ShouldQueue
+/**
+ * ====================================================================
+ * UPDATE 30 Juni 2026 — Perbaikan akar penyebab sering kena rate limit
+ * ====================================================================
+ *
+ * HASIL ANALISA root cause sebelumnya MASIH sering kena limit walau
+ * sudah ada FIX #1 & #2 (cache tenant id, resume page), karena:
+ *
+ *  A) N+1 REQUEST PAYMENT (penyebab terbesar)
+ *     processInvoice() memanggil getDetailPayment() SATU KALI PER
+ *     PAYMENT (GET /Payments/{id}). Untuk 100 invoice/halaman dengan
+ *     rata-rata 2-3 payment/invoice, itu 200-300 request Xero EKSTRA
+ *     hanya untuk 1 halaman invoice. Limit per-menit Xero cuma 60
+ *     request, jadi pasti jebol meski sudah ada dedup
+ *     ($alreadySynced) — karena pas testing/sync pertama kali, hampir
+ *     semua payment memang belum ada di DB, jadi dedup-nya tidak
+ *     membantu banyak.
+ *
+ *  B) PACING REAKTIF, BUKAN PROAKTIF, DAN TERLALU CEPAT
+ *     THROTTLE_PAYMENT_US lama = 200ms antar payment = maks 5
+ *     request/detik = 300 request/menit, padahal limit asli Xero
+ *     cuma 60/menit. Guard rate limit baru "ngerem" SETELAH baca
+ *     header X-MinLimit-Remaining dari response sebelumnya — di titik
+ *     itu kuota menit ini sudah nyaris habis, sehingga 429 sering
+ *     baru "ketahuan" setelah beberapa request gagal duluan.
+ *
+ *  C) TIDAK ADA PROTEKSI JOB DOBEL JALAN BERSAMAAN
+ *     Kalau saat testing job_id yang sama ke-dispatch 2x (klik tombol
+ *     sync dobel, worker + tinker bersamaan, dst), dua instance job
+ *     berebut kuota Xero yang SAMA tanpa saling tahu — masing-masing
+ *     instance terlihat "aman" dari sisi pacing-nya sendiri, tapi
+ *     totalnya tetap nabrak limit.
+ *
+ * PERBAIKAN:
+ *
+ *  FIX #3 — Payment sync diganti dari "1 request per payment ID" jadi
+ *  BULK FETCH via GET /Payments yang di-page (sama seperti pola
+ *  invoice, 100 payment per request). Ini memotong ratusan request
+ *  jadi tinggal beberapa request saja per job run. Disimpan sebagai
+ *  PHASE terpisah ("payments") yang resumable sendiri, dijalankan
+ *  SETELAH phase invoice selesai (supaya parent invoice id sudah ada
+ *  di DB untuk SEMUA invoice, bukan cuma yang sudah lewat saat itu).
+ *
+ *  FIX #4 — Rate limiter PROAKTIF berbasis Cache (waitForXeroSlot):
+ *  dipanggil SEBELUM setiap request ke Xero (bukan sesudahnya), jaga
+ *  jarak minimum antar request supaya laju request dari awal sudah
+ *  di bawah limit asli Xero (~54 request/menit, ada margin aman dari
+ *  60/menit). Bekerja lintas proses karena disimpan di Cache, bukan
+ *  in-memory per-instance — jadi tetap aman walau ada >1 job/worker
+ *  yang menyentuh tenant Xero yang sama.
+ *
+ *  FIX #5 — Implement ShouldBeUnique berdasarkan $jobId, cegah 2
+ *  instance job dengan job_id sama berjalan bersamaan. release()
+ *  tetap aman dipakai bareng ShouldBeUnique karena release() bekerja
+ *  di level queue driver, bukan lewat Bus::dispatch() lagi, sehingga
+ *  tidak kena cek unique lock dari dispatch awal.
+ *  PERLU: cache driver yang aktif harus bisa menyimpan key dengan TTL
+ *  (file/database/redis semua bisa). Kalau mau atomic lock yang lebih
+ *  kuat lintas worker, disarankan pindah ke driver 'redis' atau
+ *  'database' untuk Cache.
+ *
+ *  FIX #6 — Guard day-limit juga (X-DayLimit-Remaining), tidak cuma
+ *  per-menit. Kalau kuota harian sudah kritis, job di-release sampai
+ *  reset harian (~tengah malam UTC), bukan cuma nunggu 60 detik.
+ *
+ * MIGRATION YANG DIPERLUKAN (lihat file migration terpisah):
+ *   sync_job_statuses perlu 3 kolom tambahan:
+ *     - current_phase        VARCHAR, default 'invoices'
+ *     - total_pages_payment  INTEGER, default 0
+ *     - total_payment_synced INTEGER, default 0
+ *
+ *   transaction_nominal_bank_accounts.payment_uuid SEBAIKNYA punya
+ *   UNIQUE INDEX di level database (upsert() butuh constraint asli,
+ *   beda dengan updateOrCreate() yang dipakai kode lama).
+ * ====================================================================
+ */
+class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
 {
-    //update 26 Juni 2026
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, ConfigRefreshXero;
 
     public int $timeout = 700;
 
-    // Xero hanya kembalikan 100 invoice per halaman
+    // Xero hanya kembalikan 100 invoice/payment per halaman
     private const PER_PAGE = 100;
+    private const PAYMENT_PER_PAGE = 100;
 
     // Berhenti & release job kalau sisa kuota per-menit sudah sekritis ini
     private const MIN_REM_THRESHOLD = 5;
 
-    // Mulai memperlambat (proaktif) begitu sisa kuota per-menit di bawah ini,
-    // supaya tidak nabrak ke MIN_REM_THRESHOLD / 429
+    // Mulai memperlambat (proaktif tambahan) begitu sisa kuota per-menit
+    // di bawah ini — lapisan KEDUA di atas pacing utama (FIX #4).
     private const SLOWDOWN_THRESHOLD = 15;
 
-    private const THROTTLE_PAGE_US = 400_000; // 400ms antar halaman invoice
-    private const THROTTLE_PAYMENT_US = 200_000; // 200ms antar payment fetch
-    private const THROTTLE_SLOW_US = 1_000_000; // 1s extra saat sisa kuota menipis
+    // FIX #6 — kalau sisa kuota HARIAN sudah sekritis ini, release sampai
+    // reset harian, jangan cuma nunggu 60 detik (karena pasti masih kena
+    // 429 lagi kalau cuma nunggu sebentar).
+    private const DAY_REM_CRITICAL = 50;
+
+    private const THROTTLE_SLOW_US = 1_000_000; // 1s extra saat sisa kuota menipis (lapisan kedua)
+
+    // FIX #4 — jarak minimum PROAKTIF antar SEMUA request ke Xero
+    // (invoice page ATAUPUN payment page), dicek SEBELUM request dikirim.
+    // 1.1s antar request → maksimal ~54 request/menit, aman di bawah
+    // limit asli Xero (60 request/menit per tenant).
+    private const XERO_MIN_INTERVAL_US = 1_100_000;
+    private const XERO_PACING_CACHE_PREFIX = 'xero_api:last_request_at:';
 
     private array $tokenData;
     private string $jobId;
@@ -52,37 +140,35 @@ class SyncXeroInvoiceJob implements ShouldQueue
     protected $service_global;
 
     /**
-     * Flag global: begitu true, SEMUA pemanggilan ke Xero (baik fetch invoice
-     * list maupun fetch payment) langsung dihentikan di titik manapun dia
-     * sedang berjalan (loop invoice, loop payment, dst), lalu job di-release.
-     *
-     * Ini mencegah job "kebelet" tetap lanjut request padahal kuota sudah kritis,
-     * yang sebelumnya jadi penyebab utama 429 beruntun.
+     * Flag global: begitu true, SEMUA pemanggilan ke Xero (baik fetch
+     * invoice list, payment list, dst) langsung dihentikan di titik
+     * manapun dia sedang berjalan, lalu job di-release.
      */
     private bool $shouldRelease = false;
     private int $releaseAfterSecs = 60;
 
     /**
      * In-memory cache untuk tracking category UUID (Nama Paket / Divisi).
-     * Tanpa ini, setiap line item dengan tracking akan query DB sendiri-sendiri.
-     *
-     * @var array<string, string|null>
      */
     private array $trackingCache = [];
 
     /**
-     * FIX #1 — Cache tenant ID untuk SELURUH job run.
-     *
-     * Sebelumnya getDetailPayment() memanggil $this->getTenantId($accessToken)
-     * lagi untuk SETIAP payment. Kalau getTenantId() melakukan request ke Xero
-     * (misal endpoint /connections), maka tiap payment diam-diam membakar 1
-     * request EKSTRA ke Xero di luar request GET /Payments/{id} itu sendiri.
-     * Untuk invoice yang punya banyak payment, ini bisa melipatgandakan jumlah
-     * request ke Xero per job run — salah satu penyebab tersembunyi job cepat
-     * kena limit. Tenant ID tidak berubah selama 1 job run, jadi cukup diambil
-     * sekali lalu dipakai ulang.
+     * FIX #1 — Cache tenant ID untuk SELURUH job run (tetap dipertahankan).
      */
     private ?string $cachedTenantId = null;
+
+    /**
+     * FIX #5 — ShouldBeUnique: job dengan job_id yang sama tidak boleh
+     * ke-dispatch dobel selagi salah satu instance-nya masih "hidup" di
+     * antrian (termasuk selama menunggu release()).
+     * Diset sama dengan jangka waktu retryUntil() di bawah.
+     */
+    public int $uniqueFor = 26 * 3600;
+
+    public function uniqueId(): string
+    {
+        return $this->jobId;
+    }
 
     public function __construct(array $tokenData, string $jobId)
     {
@@ -92,12 +178,9 @@ class SyncXeroInvoiceJob implements ShouldQueue
     }
 
     /**
-     * Gunakan retryUntil() bukan $tries.
-     *
-     * Xero bisa mengirim Retry-After hingga puluhan ribu detik (reset limit
-     * harian). Dengan $tries kecil, job akan permanent-failed jauh sebelum
-     * kuota benar-benar reset. retryUntil() membiarkan job tetap hidup di
-     * antrian selama 26 jam sehingga otomatis lanjut begitu kuota pulih.
+     * Gunakan retryUntil() bukan $tries — Xero bisa kirim Retry-After
+     * sampai puluhan ribu detik (reset limit harian). retryUntil()
+     * membiarkan job tetap hidup di antrian selama 26 jam.
      */
     public function retryUntil(): \DateTime
     {
@@ -114,29 +197,7 @@ class SyncXeroInvoiceJob implements ShouldQueue
             $accessToken = $this->tokenData['access_token'];
             $tenantId = $this->getTenantIdCached($accessToken);
 
-            // ── FIX #2 — Resume dari page terakhir, JANGAN mulai dari page 1 ──
-            //
-            // Job ini didesain untuk di-release() & otomatis di-retry sampai
-            // 26 jam (lihat retryUntil()) setiap kali kuota Xero kritis/429.
-            // SEBELUM fix ini, setiap kali job lanjut lagi (habis release),
-            // $page selalu di-reset ke 1 — artinya job mengulang fetch invoice
-            // dari awal, padahal page-page sebelumnya sudah pernah diambil &
-            // disimpan. Itu salah satu penyebab terbesar job TERUS-MENERUS
-            // kena limit Xero: kuota habis lagi untuk "mengejar" progress yang
-            // sebenarnya sudah pernah dicapai, sebelum sempat menyentuh data
-            // baru.
-            //
-            // job_id yang sama dipertahankan oleh queue setiap release()
-            // (job di-serialize ulang dengan properti yang sama), jadi row
-            // SyncJobStatus dengan job_id ini akan ketemu lagi di run
-            // berikutnya. firstOrCreate() dipakai supaya tetap aman kalau ini
-            // run pertama (row belum ada).
-            // Catatan: sengaja TIDAK pakai firstOrCreate([...], [...]) di sini.
-            // firstOrCreate() membuat row baru lewat Eloquent mass-assignment
-            // (create()), yang diam-diam gagal menyimpan kolom apa pun yang
-            // tidak ada di $fillable model SyncJobStatus. Set atribut satu-satu
-            // + save() di bawah ini SELALU jalan terlepas dari $fillable —
-            // sama seperti ::where(...)->update() yang dipakai kode asli.
+
             $jobStatus = SyncJobStatus::where('job_id', $this->jobId)->first();
 
             if (!$jobStatus) {
@@ -145,93 +206,57 @@ class SyncXeroInvoiceJob implements ShouldQueue
                 $jobStatus->job_type = 'SyncXeroInvoiceJob';
                 $jobStatus->total_synced = 0;
                 $jobStatus->total_pages = 0;
+                $jobStatus->total_payment_synced = 0;
+                $jobStatus->total_pages_payment = 0;
+                $jobStatus->current_phase = 'invoices';
                 $jobStatus->save();
             }
 
-            $page = $jobStatus->total_pages > 0 ? (int) $jobStatus->total_pages : 1;
-            $totalSynced = (int) ($jobStatus->total_synced ?? 0);
+            // Default 'invoices' untuk row LAMA (sebelum migration ini ada)
+            // yang current_phase-nya masih NULL.
+            $phase = $jobStatus->current_phase ?: 'invoices';
 
-            if ($page > 1) {
-                Log::info(
-                    "[SyncXeroInvoiceJob][$this->jobId] Resume dari page $page " .
-                    "(totalSynced sebelumnya: $totalSynced). Tidak mulai dari page 1 lagi."
-                );
-            }
+            if ($phase === 'invoices') {
+                Log::info("[SyncXeroInvoiceJob][$this->jobId] === PHASE: invoices ===");
 
-            Log::info("[SyncXeroInvoiceJob][$this->jobId] Mulai sync invoice...");
+                $this->syncInvoicesPhase($accessToken, $tenantId, $jobStatus);
 
-            do {
-                $response = $this->fetchPage($accessToken, $tenantId, $page);
-
-                if ($response === null) {
-                    throw new \RuntimeException("fetchPage() mengembalikan null pada page $page (exception jaringan).");
-                }
-
-                // ── 429 Too Many Requests ───────────────────────────────────
-                if ($response->status() === 429) {
-                    $retryAfter = (int) ($response->header('Retry-After') ?? 60);
-                    Log::warning("[SyncXeroInvoiceJob][$this->jobId] Rate limited (429) di page $page. Re-queue {$retryAfter}s.");
-                    $this->triggerRelease($retryAfter);
-                    break;
-                }
-
-                if (!$response->successful()) {
-                    throw new \RuntimeException(
-                        "Gagal fetch halaman $page. HTTP {$response->status()}: " . substr($response->body(), 0, 300)
+                if ($this->shouldRelease) {
+                    Log::warning(
+                        "[SyncXeroInvoiceJob][$this->jobId] Release saat phase invoices. " .
+                        "Lanjut otomatis setelah {$this->releaseAfterSecs}s."
                     );
+                    $this->release($this->releaseAfterSecs);
+                    return;
                 }
 
-                // ── Guard kuota + catat pemakaian via service_global ────────
-                $this->guardRateLimit($response, "invoice-list page $page");
-                if ($this->shouldRelease) {
-                    break;
-                }
-
-                $invoices = $response->json('Invoices') ?? [];
-
-                foreach ($invoices as $inv) {
-                    // Cek flag SEBELUM proses invoice berikutnya — kalau payment
-                    // fetch invoice sebelumnya sudah memicu release, jangan lanjut.
-                    if ($this->shouldRelease) {
-                        break;
-                    }
-
-                    $this->processInvoice($inv);
-                    $totalSynced++;
-                }
-
-                SyncJobStatus::where('job_id', $this->jobId)->update([
-                    'total_synced' => $totalSynced,
-                    'total_pages' => $page,
-                ]);
-
-                Log::info("[SyncXeroInvoiceJob][$this->jobId] Page $page selesai. Total tersimpan: $totalSynced");
-
-                if ($this->shouldRelease) {
-                    break;
-                }
-
-                $hasNextPage = count($invoices) === self::PER_PAGE;
-                $page++;
-
-                if ($hasNextPage) {
-                    usleep(self::THROTTLE_PAGE_US);
-                }
-
-            } while ($hasNextPage);
-
-            // ── Kalau ada sinyal release di titik manapun, requeue job ──────
-            if ($this->shouldRelease) {
-                Log::warning(
-                    "[SyncXeroInvoiceJob][$this->jobId] Kuota Xero kritis. " .
-                    "Job di-release, lanjut otomatis setelah {$this->releaseAfterSecs}s. " .
-                    "Progress tersimpan: $totalSynced invoice."
-                );
-                $this->release($this->releaseAfterSecs);
-                return;
+                $jobStatus->current_phase = 'payments';
+                $jobStatus->save();
+                $phase = 'payments';
             }
 
-            Log::info("[SyncXeroInvoiceJob][$this->jobId] Selesai. Total invoice: $totalSynced");
+            if ($phase === 'payments') {
+                Log::info("[SyncXeroInvoiceJob][$this->jobId] === PHASE: payments ===");
+
+                $this->syncPaymentsPhase($accessToken, $tenantId, $jobStatus);
+
+                if ($this->shouldRelease) {
+                    Log::warning(
+                        "[SyncXeroInvoiceJob][$this->jobId] Release saat phase payments. " .
+                        "Lanjut otomatis setelah {$this->releaseAfterSecs}s."
+                    );
+                    $this->release($this->releaseAfterSecs);
+                    return;
+                }
+
+                $jobStatus->current_phase = 'done';
+                $jobStatus->save();
+            }
+
+            Log::info(
+                "[SyncXeroInvoiceJob][$this->jobId] Selesai semua phase. " .
+                "Invoice: {$jobStatus->total_synced} | Payment: {$jobStatus->total_payment_synced}"
+            );
 
         } catch (\Exception $e) {
             Log::error("[SyncXeroInvoiceJob][$this->jobId] Error: " . $e->getMessage());
@@ -240,7 +265,274 @@ class SyncXeroInvoiceJob implements ShouldQueue
     }
 
     // ================================================================
-    // TENANT ID (cached per job run — lihat $cachedTenantId di atas)
+    // PHASE 1 — SYNC INVOICE (list + line items, TANPA fetch payment
+    // satu-satu — payment sekarang murni di PHASE 2)
+    // ================================================================
+
+    private function syncInvoicesPhase(string $accessToken, string $tenantId, SyncJobStatus $jobStatus): void
+    {
+        $page = $jobStatus->total_pages > 0 ? (int) $jobStatus->total_pages : 1;
+        $totalSynced = (int) ($jobStatus->total_synced ?? 0);
+
+        if ($page > 1) {
+            Log::info(
+                "[SyncXeroInvoiceJob][$this->jobId] Resume invoice dari page $page " .
+                "(totalSynced sebelumnya: $totalSynced)."
+            );
+        }
+
+        do {
+            $response = $this->fetchPage($accessToken, $tenantId, $page);
+
+            if ($response === null) {
+                throw new \RuntimeException("fetchPage() mengembalikan null pada page $page (exception jaringan).");
+            }
+
+            if ($response->status() === 429) {
+                $retryAfter = (int) ($response->header('Retry-After') ?? 60);
+                Log::warning("[SyncXeroInvoiceJob][$this->jobId] Rate limited (429) di invoice page $page. Re-queue {$retryAfter}s.");
+                $this->triggerRelease($retryAfter);
+                break;
+            }
+
+            if (!$response->successful()) {
+                throw new \RuntimeException(
+                    "Gagal fetch invoice halaman $page. HTTP {$response->status()}: " . substr($response->body(), 0, 300)
+                );
+            }
+
+            $this->guardRateLimit($response, "invoice-list page $page");
+            if ($this->shouldRelease) {
+                break;
+            }
+
+            $invoices = $response->json('Invoices') ?? [];
+
+            foreach ($invoices as $inv) {
+                $this->processInvoice($inv);
+                $totalSynced++;
+            }
+
+            $jobStatus->total_synced = $totalSynced;
+            $jobStatus->total_pages = $page;
+            $jobStatus->save();
+
+            Log::info("[SyncXeroInvoiceJob][$this->jobId] Invoice page $page selesai. Total tersimpan: $totalSynced");
+
+            if ($this->shouldRelease) {
+                break;
+            }
+
+            $hasNextPage = count($invoices) === self::PER_PAGE;
+            $page++;
+
+        } while ($hasNextPage);
+
+        if (!$this->shouldRelease) {
+            Log::info("[SyncXeroInvoiceJob][$this->jobId] Phase invoices selesai. Total invoice: $totalSynced.");
+        }
+    }
+
+    // ================================================================
+    // PHASE 2 — SYNC PAYMENT (BULK, dipaging — BUKAN 1 request/ID)
+    // ================================================================
+
+    /**
+     * FIX #3 — Sebelumnya processInvoice() panggil getDetailPayment()
+     * SATU KALI PER PAYMENT (GET /Payments/{id}). Sekarang diganti
+     * fetch SEMUA payment receivable via GET /Payments yang dipaging
+     * (100 payment per request), sama persis pola invoice. Payment di
+     * Xero sudah membawa object Account (Code) & Invoice (InvoiceID)
+     * walau diambil lewat endpoint list — jadi tidak ada informasi
+     * yang hilang dibanding fetch satu-satu, hanya jumlah request-nya
+     * yang turun drastis (dari O(jumlah payment) jadi O(jumlah
+     * payment / 100)).
+     *
+     * Dijalankan SETELAH phase invoices selesai supaya semua parent
+     * invoice (InvoicesAllFromXero) sudah pasti ada di DB untuk
+     * di-mapping, termasuk invoice dari halaman manapun.
+     */
+    private function syncPaymentsPhase(string $accessToken, string $tenantId, SyncJobStatus $jobStatus): void
+    {
+        $page = $jobStatus->total_pages_payment > 0 ? (int) $jobStatus->total_pages_payment : 1;
+        $totalSynced = (int) ($jobStatus->total_payment_synced ?? 0);
+
+        if ($page > 1) {
+            Log::info(
+                "[SyncXeroInvoiceJob][$this->jobId] Resume payment dari page $page " .
+                "(totalSynced sebelumnya: $totalSynced)."
+            );
+        }
+
+        do {
+            $response = $this->fetchPaymentsPage($accessToken, $tenantId, $page);
+
+            if ($response === null) {
+                throw new \RuntimeException("fetchPaymentsPage() mengembalikan null pada page $page (exception jaringan).");
+            }
+
+            if ($response->status() === 429) {
+                $retryAfter = (int) ($response->header('Retry-After') ?? 60);
+                Log::warning("[SyncXeroInvoiceJob][$this->jobId] Rate limited (429) di payment page $page. Re-queue {$retryAfter}s.");
+                $this->triggerRelease($retryAfter);
+                break;
+            }
+
+            if (!$response->successful()) {
+                throw new \RuntimeException(
+                    "Gagal fetch payment halaman $page. HTTP {$response->status()}: " . substr($response->body(), 0, 300)
+                );
+            }
+
+            $this->guardRateLimit($response, "payment-list page $page");
+            if ($this->shouldRelease) {
+                break;
+            }
+
+            $payments = $response->json('Payments') ?? [];
+            $totalSynced += $this->processPaymentsBatch($payments);
+
+            $jobStatus->total_payment_synced = $totalSynced;
+            $jobStatus->total_pages_payment = $page;
+            $jobStatus->save();
+
+            Log::info("[SyncXeroInvoiceJob][$this->jobId] Payment page $page selesai. Total tersimpan: $totalSynced");
+
+            if ($this->shouldRelease) {
+                break;
+            }
+
+            $hasNextPage = count($payments) === self::PAYMENT_PER_PAGE;
+            $page++;
+
+        } while ($hasNextPage);
+
+        if (!$this->shouldRelease) {
+            Log::info("[SyncXeroInvoiceJob][$this->jobId] Phase payments selesai. Total payment: $totalSynced.");
+        }
+    }
+
+    /**
+     * Proses 1 halaman payment (maks 100 baris) jadi batch upsert,
+     * tanpa request tambahan ke Xero maupun query N+1 ke DB.
+     *
+     * @return int jumlah payment yang berhasil di-upsert
+     */
+    private function processPaymentsBatch(array $payments): int
+    {
+        if (empty($payments)) {
+            return 0;
+        }
+
+        // ── Pre-load mapping parent invoice & bank, SEKALI per halaman ──
+        $invoiceUuids = collect($payments)
+            ->map(fn($p) => data_get($p, 'Invoice.InvoiceID'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $parentMap = InvoicesAllFromXero::whereIn('invoice_uuid', $invoiceUuids)
+            ->pluck('id', 'invoice_uuid')
+            ->toArray();
+
+        $accountCodes = collect($payments)
+            ->map(fn($p) => data_get($p, 'Account.Code'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $bankMap = BankXero::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
+
+        $rows = [];
+
+        foreach ($payments as $p) {
+            $paymentId = $p['PaymentID'] ?? null;
+            if (!$paymentId) {
+                continue;
+            }
+
+            $accountCode = data_get($p, 'Account.Code');
+            if (!$accountCode || !isset($bankMap[$accountCode])) {
+                Log::warning(
+                    "[processPaymentsBatch] Kode akun bank tidak ditemukan/kosong: '" . ($accountCode ?? '-') . "'. " .
+                    "Payment {$paymentId} dilewati."
+                );
+                continue;
+            }
+
+            $invoiceUuid = data_get($p, 'Invoice.InvoiceID');
+
+            $rows[] = [
+                'payment_uuid' => $paymentId,
+                'uuid_bank' => $bankMap[$accountCode],
+                'nominal_receive' => (float) ($p['Amount'] ?? 0),
+                'created_by' => 1,
+                'date_transaction' => $this->parseXeroDate($p['Date'] ?? null),
+                'nominal_spend' => 0,
+                'nominal_transfer' => 0,
+                'reference_detail' => data_get($p, 'Reference'),
+                'id_parent_invoice' => $invoiceUuid ? ($parentMap[$invoiceUuid] ?? null) : null,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ];
+        }
+
+        if (empty($rows)) {
+            return 0;
+        }
+
+        TransactionNominalBankAccount::upsert(
+            $rows,
+            ['payment_uuid'],
+            [
+                'uuid_bank',
+                'nominal_receive',
+                'date_transaction',
+                'nominal_spend',
+                'nominal_transfer',
+                'reference_detail',
+                'id_parent_invoice',
+                'updated_at',
+            ]
+        );
+
+        return count($rows);
+    }
+
+    // ================================================================
+    // RATE LIMITER PROAKTIF (FIX #4) — dipanggil SEBELUM tiap request
+    // ================================================================
+
+    /**
+     * Jaga jarak minimum antar SEMUA request ke Xero (lintas
+     * invoice-page & payment-page, lintas job/worker karena disimpan
+     * di Cache bukan in-memory). Ini lapisan PERTAMA & utama — guard
+     * header-based (guardRateLimit) di bawah cuma jaring pengaman
+     * tambahan untuk kasus di luar kendali kita (misal ada proses lain
+     * yang juga menyentuh tenant Xero yang sama).
+     */
+    private function waitForXeroSlot(string $tenantId): void
+    {
+        $key = self::XERO_PACING_CACHE_PREFIX . $tenantId;
+        $last = Cache::get($key);
+        $now = microtime(true);
+
+        if ($last !== null) {
+            $elapsedUs = (int) (($now - (float) $last) * 1_000_000);
+            $waitUs = self::XERO_MIN_INTERVAL_US - $elapsedUs;
+
+            if ($waitUs > 0) {
+                usleep($waitUs);
+            }
+        }
+
+        Cache::put($key, microtime(true), 120);
+    }
+
+    // ================================================================
+    // TENANT ID (cached per job run)
     // ================================================================
 
     private function getTenantIdCached(string $accessToken): string
@@ -253,22 +545,14 @@ class SyncXeroInvoiceJob implements ShouldQueue
     }
 
     // ================================================================
-    // RATE LIMIT GUARD (terpusat — dipakai invoice list & payment fetch)
+    // RATE LIMIT GUARD (reaktif — lapisan KEDUA, jaring pengaman)
     // ================================================================
 
-    /**
-     * Baca header limit dari response Xero, catat ke service_global, dan
-     * tentukan apakah job harus berhenti total (set $this->shouldRelease).
-     *
-     * Juga melakukan proactive slowdown: makin dekat ke limit, makin lambat
-     * — supaya tidak tiba-tiba nabrak 429 di tengah jalan.
-     */
     private function guardRateLimit(Response $response, string $context): void
     {
         $minRemHeader = $response->header('X-MinLimit-Remaining');
         $dayRemHeader = $response->header('X-DayLimit-Remaining');
 
-        // Header tidak selalu ada di semua response — jangan asumsikan 0.
         if ($minRemHeader === null || $minRemHeader === '') {
             return;
         }
@@ -276,10 +560,20 @@ class SyncXeroInvoiceJob implements ShouldQueue
         $minRem = (int) $minRemHeader;
         $dayRem = (int) ($dayRemHeader ?? 0);
 
-        // Catat pemakaian kuota ke service terpisah (sudah ada di kode asal)
         $this->service_global->requestCalculationXero($minRem, $dayRem);
 
         Log::info("[SyncXeroInvoiceJob][$this->jobId] [$context] MinRem: $minRem | DayRem: $dayRem");
+
+        // FIX #6 — guard kuota HARIAN, jangan cuma per-menit.
+        if ($dayRemHeader !== null && $dayRemHeader !== '' && $dayRem <= self::DAY_REM_CRITICAL) {
+            $secondsUntilResetUtc = (int) now('UTC')->endOfDay()->diffInSeconds(now('UTC')) + 120;
+            Log::warning(
+                "[SyncXeroInvoiceJob][$this->jobId] Kuota HARIAN kritis ($dayRem) di $context. " .
+                "Release sampai reset harian (~{$secondsUntilResetUtc}s)."
+            );
+            $this->triggerRelease($secondsUntilResetUtc);
+            return;
+        }
 
         if ($minRem <= self::MIN_REM_THRESHOLD) {
             Log::warning("[SyncXeroInvoiceJob][$this->jobId] Kuota kritis ($minRem/menit) di $context.");
@@ -287,16 +581,11 @@ class SyncXeroInvoiceJob implements ShouldQueue
             return;
         }
 
-        // ── Proactive slowdown: makin dekat limit, makin lambat ────────────
         if ($minRem <= self::SLOWDOWN_THRESHOLD) {
             usleep(self::THROTTLE_SLOW_US);
         }
     }
 
-    /**
-     * Set sinyal release. Dipanggil dari mana saja yang mendeteksi kuota kritis.
-     * Pakai nilai terbesar kalau dipanggil berkali-kali dalam 1 run.
-     */
     private function triggerRelease(int $seconds): void
     {
         $this->shouldRelease = true;
@@ -304,18 +593,11 @@ class SyncXeroInvoiceJob implements ShouldQueue
     }
 
     // ================================================================
-    // PAYMENT SYNC
+    // PAYMENT TUNGGAL (legacy — dipertahankan untuk pemakaian AD-HOC
+    // di luar job ini, misal resync 1 payment dari webhook. TIDAK lagi
+    // dipanggil dari alur bulk sync di atas, jadi tidak ikut
+    // menyumbang N+1 request.)
     // ================================================================
-
-    /**
-     * Sync satu payment — skip kalau sudah pernah tersimpan ATAU job sedang
-     * dalam proses berhenti karena kuota kritis.
-     *
-     * INI YANG SEBELUMNYA TIDAK DIPAKAI — processInvoice() memanggil
-     * getDetailPayment() langsung tanpa dedup, sehingga SETIAP sync ulang
-     * (cron harian) menarik ulang SEMUA payment dari Xero walau sudah ada
-     * di DB. Ini salah satu penyebab terbesar kuota cepat habis.
-     */
 
     public function getDetailPayment(string $idPayment, ?int $knownParentId = null): void
     {
@@ -325,6 +607,8 @@ class SyncXeroInvoiceJob implements ShouldQueue
 
         $accessToken = $this->tokenData['access_token'];
         $tenantId = $this->getTenantIdCached($accessToken);
+
+        $this->waitForXeroSlot($tenantId);
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $accessToken,
@@ -361,16 +645,12 @@ class SyncXeroInvoiceJob implements ShouldQueue
         $date = $this->parseXeroDate($payment['Date'] ?? null);
         $invoiceUuid = data_get($payment, 'Invoice.InvoiceID');
         $invoiceNumber = data_get($payment, 'Invoice.InvoiceNumber');
-        $refPayment = data_get($payment, 'Reference');//
+        $refPayment = data_get($payment, 'Reference');
 
-        // Pakai parent id yang sudah diketahui (dilempar dari processInvoice)
-        // dulu kalau ada — hindari query tambahan ke InvoicesAllFromXero.
         $idParentInv = $knownParentId
             ?? ($invoiceUuid ? InvoicesAllFromXero::where('invoice_uuid', $invoiceUuid)->value('id') : null);
 
         $this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $refPayment, $idParentInv);
-
-        usleep(self::THROTTLE_PAYMENT_US);
     }
 
     public function insertToDb(
@@ -397,7 +677,7 @@ class SyncXeroInvoiceJob implements ShouldQueue
             );
             return;
         }
-        // updateOrCreate → idempoten, aman saat job di-retry/release/cron ulang
+
         TransactionNominalBankAccount::updateOrCreate(
             ['payment_uuid' => $paymentUuid],
             [
@@ -411,12 +691,11 @@ class SyncXeroInvoiceJob implements ShouldQueue
                 'id_parent_invoice' => $idParentInv,
             ]
         );
-        //}
-
     }
 
     // ================================================================
-    // INVOICE PROCESSING
+    // INVOICE PROCESSING (payment loop DIHAPUS dari sini — lihat
+    // syncPaymentsPhase() / processPaymentsBatch() di atas, FIX #3)
     // ================================================================
 
     private function processInvoice(array $inv): void
@@ -429,11 +708,6 @@ class SyncXeroInvoiceJob implements ShouldQueue
 
         $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
 
-        // ── 1. Upsert parent invoice DULU ───────────────────────────────
-        // PENTING: ini harus jalan SEBELUM sync payment, supaya saat
-        // getDetailPayment() mencari id_parent_invoice, baris invoice-nya
-        // sudah ada di DB. Di kode sebelumnya payment disync duluan →
-        // id_parent_invoice selalu null di sync pertama kali.
         InvoicesAllFromXero::upsert(
             [
                 [
@@ -476,34 +750,11 @@ class SyncXeroInvoiceJob implements ShouldQueue
 
         $parentId = InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])->value('id');
 
-        // ── 2. Sync payment (dengan dedup + parent id yang sudah ada) ──────
-        $payments = $inv['Payments'] ?? [];
-
-        if (!empty($payments)) {
-            foreach ($payments as $paymentRow) {
-                if ($this->shouldRelease) {
-                    break; // kuota kritis terdeteksi — stop, jangan hit Xero lagi
-                }
-
-                $paymentId = $paymentRow['PaymentID'] ?? null;
-                if (!$paymentId) {
-                    continue;
-                }
-
-                $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
-                if ($alreadySynced) {
-                    continue; // sudah ada, tidak perlu hit Xero
-                }
-
-                $this->getDetailPayment($paymentId, $parentId);
-            }
-        }
-
-        if (!$parentId || empty($lineItems) || $this->shouldRelease) {
+        if (!$parentId || empty($lineItems)) {
             return;
         }
 
-        // ── 3. Pre-load COA dan Item SEKALI sebelum loop — hindari N+1 ─────
+        // ── Pre-load COA dan Item SEKALI sebelum loop — hindari N+1 ─────
         $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->toArray();
 
         $itemCodes = collect($lineItems)
@@ -516,7 +767,6 @@ class SyncXeroInvoiceJob implements ShouldQueue
         $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
         $itemMap = ItemsPaketAllFromXero::whereIn('code', $itemCodes)->pluck('id', 'code')->toArray();
 
-        // ── 4. Build batch line items — semua lookup dari array, tanpa query ──
         $batchDetails = [];
 
         foreach ($lineItems as $line) {
@@ -524,7 +774,6 @@ class SyncXeroInvoiceJob implements ShouldQueue
             $divisiUuid = null;
 
             foreach ($line['Tracking'] ?? [] as $track) {
-                // PHP 7.4 compatible: pakai strpos(), str_contains() PHP 8.0+ only
                 $categoryName = strtolower($track['Name'] ?? '');
                 $optionName = $track['Option'] ?? '';
 
@@ -585,7 +834,6 @@ class SyncXeroInvoiceJob implements ShouldQueue
             ]
         );
 
-        // ── 5. Upsert TransactionAllCoa — hanya untuk invoice AUTHORISED/PAID ──
         $status = $inv['Status'] ?? null;
 
         if ($status === 'AUTHORISED' || $status === 'PAID') {
@@ -648,11 +896,13 @@ class SyncXeroInvoiceJob implements ShouldQueue
     }
 
     // ================================================================
-    // XERO API — FETCH PAGE
+    // XERO API — FETCH INVOICE PAGE
     // ================================================================
 
     private function fetchPage(string $accessToken, string $tenantId, int $page): ?Response
     {
+        $this->waitForXeroSlot($tenantId);
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $accessToken,
@@ -667,13 +917,49 @@ class SyncXeroInvoiceJob implements ShouldQueue
                     ]);
 
             if (!$response->successful() && $response->status() !== 429) {
-                Log::error("[SyncXeroInvoiceJob] Fetch page $page gagal [{$response->status()}]: " . substr($response->body(), 0, 300));
+                Log::error("[SyncXeroInvoiceJob] Fetch invoice page $page gagal [{$response->status()}]: " . substr($response->body(), 0, 300));
             }
 
             return $response;
 
         } catch (\Exception $e) {
-            Log::error("[SyncXeroInvoiceJob] Exception fetch page $page: " . $e->getMessage());
+            Log::error("[SyncXeroInvoiceJob] Exception fetch invoice page $page: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    // ================================================================
+    // XERO API — FETCH PAYMENT PAGE (FIX #3 — bulk, bukan per-ID)
+    // ================================================================
+
+    private function fetchPaymentsPage(string $accessToken, string $tenantId, int $page): ?Response
+    {
+        $this->waitForXeroSlot($tenantId);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Payments', [
+                        // Hanya payment penerimaan invoice (ACCREC), selaras dengan
+                        // Type=ACCREC yang dipakai di fetchPage(). Kalau perlu batasi
+                        // periode untuk org dengan histori sangat besar, tambahkan
+                        // filter tanggal di sini, misal:
+                        // 'where' => 'PaymentType=="ACCRECPAYMENT"&&Date>=DateTime(2024,01,01)',
+                        'where' => 'PaymentType=="ACCRECPAYMENT"',
+                        'order' => 'Date ASC',
+                        'page' => $page,
+                    ]);
+
+            if (!$response->successful() && $response->status() !== 429) {
+                Log::error("[SyncXeroInvoiceJob] Fetch payment page $page gagal [{$response->status()}]: " . substr($response->body(), 0, 300));
+            }
+
+            return $response;
+
+        } catch (\Exception $e) {
+            Log::error("[SyncXeroInvoiceJob] Exception fetch payment page $page: " . $e->getMessage());
             return null;
         }
     }
@@ -688,7 +974,6 @@ class SyncXeroInvoiceJob implements ShouldQueue
             return null;
         }
 
-        // Format ISO: "2024-01-15T00:00:00" — PHP 7.4 compatible (strpos, bukan str_contains)
         if (strpos($dateStr, 'T') !== false || strpos($dateStr, '-') !== false) {
             try {
                 return Carbon::parse($dateStr)->format('Y-m-d');
@@ -698,7 +983,6 @@ class SyncXeroInvoiceJob implements ShouldQueue
             }
         }
 
-        // Format epoch: "/Date(1704067200000+0000)/"
         if (preg_match('/\/Date\((\d+)/', $dateStr, $matches)) {
             return Carbon::createFromTimestampMs((int) $matches[1])->format('Y-m-d');
         }

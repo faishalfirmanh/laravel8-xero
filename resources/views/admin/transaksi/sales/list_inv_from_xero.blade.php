@@ -499,6 +499,17 @@
 #buktiDropzone .dz-preview .dz-image:hover {
     transform: scale(1.05); /* Sedikit membesar saat di-hover */
 }
+
+
+#formCreateHotel {
+    display: contents;
+}
+
+/* jaga-jaga: pastikan footer tidak ikut menyusut saat body scroll */
+#modalCreateHotel .modal-footer {
+    flex-shrink: 0;
+}
+
 </style>
 
 

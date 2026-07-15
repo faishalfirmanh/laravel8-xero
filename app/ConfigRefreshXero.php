@@ -20,10 +20,10 @@ trait ConfigRefreshXero
 
         $url = 'https://login.xero.com/identity/connect/authorize?' . http_build_query([
             'response_type' => 'code',
-            'client_id'     => env('XERO_PROD_CLIENT_ID'),
-            'redirect_uri'  => env('XERO_REDIRECT_URL_PROD'),
-            'scope'         => $scope,
-            'state'         => 'SAFD2142432' // Sebaiknya generate string acak dinamis (Str::random)
+            'client_id' => env('XERO_PROD_CLIENT_ID'),
+            'redirect_uri' => env('XERO_REDIRECT_URL_PROD'),
+            'scope' => $scope,
+            'state' => 'SAFD2142432' // Sebaiknya generate string acak dinamis (Str::random)
         ]);
 
         return redirect($url);
@@ -41,8 +41,8 @@ trait ConfigRefreshXero
         // PERBAIKAN FATAL: Parameter ke-2 wajib CLIENT_SECRET, bukan REDIRECT_URL
         $response = Http::asForm()->withBasicAuth(env('XERO_PROD_CLIENT_ID'), env('XERO_PROD_CLIENT_SECRET'))
             ->post('https://identity.xero.com/connect/token', [
-                'grant_type'   => 'authorization_code',
-                'code'         => $request->code,
+                'grant_type' => 'authorization_code',
+                'code' => $request->code,
                 'redirect_uri' => env('XERO_REDIRECT_URL_PROD'),
             ]);
 
@@ -61,7 +61,7 @@ trait ConfigRefreshXero
         // Debugging dihapus (dd) agar script jalan terus.
         $response = Http::withToken($accessToken)
             ->withHeaders([
-                'Accept'       => 'application/json',
+                'Accept' => 'application/json',
                 'Content-Type' => 'application/json'
             ])
             ->get('https://identity.xero.com/connect/userinfo');
@@ -69,9 +69,9 @@ trait ConfigRefreshXero
         if ($response->successful()) {
             $data = $response->json();
 
-            $givenName  = $data['given_name']  ?? '';
+            $givenName = $data['given_name'] ?? '';
             $familyName = $data['family_name'] ?? '';
-            $email      = $data['email']       ?? 'Email tidak tersedia';
+            $email = $data['email'] ?? 'Email tidak tersedia';
 
             $fullName = trim("$givenName $familyName");
 
@@ -119,7 +119,7 @@ trait ConfigRefreshXero
         // Pastikan Client Secret benar di sini juga
         $response = Http::asForm()->withBasicAuth(env('XERO_PROD_CLIENT_ID'), env('XERO_PROD_CLIENT_SECRET'))
             ->post('https://identity.xero.com/connect/token', [
-                'grant_type'    => 'refresh_token',
+                'grant_type' => 'refresh_token',
                 'refresh_token' => $currentRefreshToken
             ]);
 
@@ -147,11 +147,11 @@ trait ConfigRefreshXero
         Storage::put($this->tokenFile, json_encode($tokens, JSON_PRETTY_PRINT));
     }
 
-    private function getTenantId($accessToken)
+    protected function getTenantId($accessToken)
     {
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $accessToken,
-            'Content-Type'  => 'application/json'
+            'Content-Type' => 'application/json'
         ])->get('https://api.xero.com/connections');
 
         if ($response->successful()) {
