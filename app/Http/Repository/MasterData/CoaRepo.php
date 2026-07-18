@@ -38,6 +38,12 @@ class CoaRepo extends BaseRepository
             ->paginate($per_page);
     }
 
+    public function wherenDataIn($column, $list_id)
+    {
+        $query = $this->model->whereIn($column, $list_id);
+
+        return $query;
+    }
 
     public function searchData($where = array(), $per_page = 10, $offset = 1, $search_column = "", $keyword = "", $modelWith = [])
     {

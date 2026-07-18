@@ -102,14 +102,21 @@ class InvXeroController extends Controller
             return $this->error($validator->errors());
         }
 
-        // Gunakan merge agar field ini terbaca dengan baik saat request->except() atau validasi lanjutan
         $request->merge([
             'status' => $request->action_save == 0 ? 'DRAFT' : 'AUTHORISED', // 0->draft, 1/2->approve, harus di perbaiki
             'reference' => strtolower($request->reference)
         ]);
 
+        $isUpdate = !empty($request->id);
+
         DB::beginTransaction();
         try {
+            // ================== SNAPSHOT "SEBELUM" — WAJIB diambil sebelum ada mutasi apapun ==================
+            $oldParent = $isUpdate ? $this->repo->whereData(['id' => $request->id])->first() : null;
+            $oldDetails = $isUpdate
+                ? $this->repo_detail->whereData(['parent_inv_id' => $request->id])->get()->keyBy('id')
+                : collect();
+
             // 1. Save Parent
             $get_contact = $this->repo_jamaah->whereData(['id' => $request->contact_id])->first();
 
@@ -123,42 +130,36 @@ class InvXeroController extends Controller
             }
             $request->merge($mergeData);
 
-
-            //$request['invoice_nuber'] = $this->service_global->generateNewInvoiceNumber();
             $saveP = $this->repo->CreateOrUpdate(
                 $request->except(['coa_id', 'desc', 'qty', 'unit_price', 'nama_paket', 'divisi', 'id_detail', 'action_save', 'invoice_nuber']),
                 $request->id
             );
 
-            // 2. Hapus Detail yang Dibuang (Lakukan DI LUAR LOOP)
-            // Pastikan kita hanya mengecek jika ini adalah proses Update (id tidak null)
+            // 2. Hapus Detail yang Dibuang
+            $deleted_array = [];
             if ($saveP->id) {
                 $allDetailIds = $this->repo_detail->whereData(['parent_inv_id' => $saveP->id])->pluck('id')->toArray();
-
-                // Hindari error jika $request->id_detail kosong/null
                 $providedDetailIds = $request->id_detail ? array_filter($request->id_detail) : [];
                 $deleted_array = array_diff($allDetailIds, $providedDetailIds);
 
                 if (!empty($deleted_array)) {
-                    // Asumsi wherenDataIn adalah fungsi custom repository Anda (mirip whereIn eloquent)
                     $deletedUuids = $this->repo_detail->wherenDataIn('id', $deleted_array)->pluck('uuid_detail_inv')->toArray();
-
-                    // B. Hapus data di tabel all_trans berdasarkan uuid_detail tersebut
                     if (!empty($deletedUuids)) {
-                        // Asumsi repo_all_trans juga memiliki fungsi wherenDataIn
                         $this->repo_all_trans->wherenDataIn('uuid_detail', $deletedUuids)->delete();
                     }
                     $this->repo_detail->wherenDataIn('id', $deleted_array)->delete();
                 }
             }
 
-            // 3. Save Details (Create / Update)
+            // 3. Save Details (Create / Update) + catat perubahan tiap baris utk log
+            $detailChangeLogs = [];
+
             foreach ($request->coa_id as $key => $accountId) {
                 $detailId = $request->id_detail[$key] ?? null;
 
                 $detailData = [
                     'invoice_number' => $saveP->invoice_number,
-                    'uuid_invoices' => 'from_local', //$saveP->invoice_uuid,
+                    'uuid_invoices' => 'from_local',
                     'uuid_item' => 'from_local',
                     'coa_id' => $accountId,
                     'desc' => $request->desc[$key] ?? null,
@@ -171,37 +172,42 @@ class InvXeroController extends Controller
                     'item_id' => $request->item_id[$key] ?? null
                 ];
 
-                // FIX: Hanya generate UUID_DETAIL jika ini adalah baris baru (bukan edit)
                 if (empty($detailId)) {
                     $detailData['uuid_detail_inv'] = $this->service_global->generateUniqueString();
                 }
 
-                // Create atau Update Detail
+                // --- Bandingkan SEBELUM disimpan, terhadap snapshot lama ---
+                if (!empty($detailId) && $oldDetails->has($detailId)) {
+                    $diffText = $this->diffDetailRow($oldDetails->get($detailId), $detailData);
+                    if ($diffText !== '') {
+                        $detailChangeLogs[] = "Item '{$detailData['desc']}' diubah ({$diffText})";
+                    }
+                } elseif (empty($detailId)) {
+                    $detailChangeLogs[] = "Item '{$detailData['desc']}' ditambahkan (Qty: {$detailData['qty']}, Harga: {$detailData['unit_price']})";
+                }
+
                 $save_d = $this->repo_detail->CreateOrUpdate($detailData, $detailId);
 
-                // 4. Manajemen Transaksi (Jika approve / action_save != 0)
+                // 4. Manajemen Transaksi
                 if ($request->action_save != 0) {
-
                     $cek_create_trans = $this->repo_all_trans->whereData([
-                        'reference' => $request->reference, // Sudah di-strtolower via merge
+                        'reference' => $request->reference,
                         'uuid_coa' => $accountId,
                         'uuid_detail' => $save_d->uuid_detail_inv
                     ])->first();
 
                     if ($cek_create_trans) {
-                        // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
                         $cek_create_trans->is_speend = false;
                         $cek_create_trans->nominal = $save_d->total_amount_each_row ?? 0;
                         $cek_create_trans->save();
                     } else {
-                        // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
                         $data_trans_create = [
                             'date_transaction' => $request->issue_date,
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => false,
-                            'nominal' => $save_d->total_amount_each_row,//abs((int) $save_d->total_amount_each_row),//agar auto positif
-                            'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
+                            'nominal' => $save_d->total_amount_each_row,
+                            'created_by' => $request->user_login->id,
                             'uuid_detail' => $save_d->uuid_detail_inv
                         ];
                         $this->repo_all_trans->CreateOrUpdate($data_trans_create, null);
@@ -209,15 +215,41 @@ class InvXeroController extends Controller
                 }
             }
 
+            // Item yang dihapus, catat juga (nama diambil dari snapshot lama)
+            foreach ($deleted_array as $delId) {
+                $old = $oldDetails->get($delId);
+                if ($old) {
+                    $detailChangeLogs[] = "Item '{$old->desc}' dihapus";
+                }
+            }
+
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_detail->sumDataWhereDinamis(['parent_inv_id' => $saveP->id], 'total_amount_each_row');
-            $this->repo->CreateOrUpdate(['invoice_total' => $sumD, 'less_nominal' => $sumD], $saveP->id);//invoice_total ->totaol, invoice_amount->totaol dibayar
+            $this->repo->CreateOrUpdate(['invoice_total' => $sumD, 'less_nominal' => $sumD], $saveP->id);
+
+            // ================== SUSUN PESAN LOG BERISI DETAIL PERUBAHAN ==================
+            $parentChangeText = $isUpdate ? $this->diffParentRow($oldParent, $request, $saveP) : '';
+
+            $summaryParts = [];
+            if ($parentChangeText !== '') {
+                $summaryParts[] = $parentChangeText;
+            }
+            if (!empty($detailChangeLogs)) {
+                $summaryParts[] = implode('; ', $detailChangeLogs);
+            }
+
+            $actionLabel = $isUpdate ? 'mengubah' : 'membuat';
+            $logMessage = $request->user_login->name . ' ' . $actionLabel . ' transaksi invoice ' . $saveP->contact_name;
+            $logMessage .= !empty($summaryParts)
+                ? '. Detail: ' . implode('. ', $summaryParts)
+                : ($isUpdate ? '. Tidak ada perubahan data.' : '.');
 
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
-                $request->user_login->name . ' save transaksi invoice ' . $saveP->contact_name,
+                $logMessage,
                 $request->userAgent(),
-                $request->ip()
+                $request->ip(),
+                $saveP->id
             );
 
             DB::commit();
@@ -225,9 +257,81 @@ class InvXeroController extends Controller
 
         } catch (\Throwable $th) {
             DB::rollBack();
-            // Memunculkan pesan error dengan lengkap sangat membantu saat debugging di network tab inspect element
             return $this->error($th->getMessage() . ' at line ' . $th->getLine(), 500);
         }
+    }
+
+    /**
+     * Bandingkan field parent invoice (lama vs baru). Tanggal dinormalisasi ke 'Y-m-d'
+     * dulu, biar '2026-01-05' vs '2026-01-05 00:00:00' tidak dianggap beda.
+     */
+    private function diffParentRow($oldParent, Request $request, $saveP): string
+    {
+        if (!$oldParent) {
+            return '';
+        }
+
+        $fieldLabels = [
+            'contact_name' => 'Kontak',
+            'issue_date' => 'Tgl Invoice',
+            'due_date' => 'Jatuh Tempo',
+            'reference' => 'Referensi',
+            'status' => 'Status',
+        ];
+        $dateFields = ['issue_date', 'due_date'];
+
+        $newValues = [
+            'contact_name' => $saveP->contact_name,
+            'issue_date' => $request->issue_date,
+            'due_date' => $request->due_date,
+            'reference' => $request->reference,
+            'status' => $request->status,
+        ];
+
+        $changes = [];
+        foreach ($fieldLabels as $field => $label) {
+            $oldVal = $oldParent->{$field} ?? null;
+            $newVal = $newValues[$field] ?? null;
+
+            if (in_array($field, $dateFields, true)) {
+                $oldVal = $oldVal ? Carbon::parse($oldVal)->format('Y-m-d') : null;
+                $newVal = $newVal ? Carbon::parse($newVal)->format('Y-m-d') : null;
+            } else {
+                $oldVal = (string) $oldVal;
+                $newVal = (string) $newVal;
+            }
+
+            if ($oldVal !== $newVal) {
+                $changes[] = "{$label}: '{$oldVal}' → '{$newVal}'";
+            }
+        }
+
+        return implode('; ', $changes);
+    }
+
+    /**
+     * Bandingkan field 1 baris detail invoice (lama vs baru).
+     */
+    private function diffDetailRow($oldDetail, array $newDetailData): string
+    {
+        $fieldLabels = [
+            'desc' => 'Deskripsi',
+            'qty' => 'Qty',
+            'unit_price' => 'Harga',
+            'coa_id' => 'Akun',
+            'item_id' => 'Item',
+        ];
+
+        $changes = [];
+        foreach ($fieldLabels as $field => $label) {
+            $oldVal = (string) ($oldDetail->{$field} ?? '');
+            $newVal = (string) ($newDetailData[$field] ?? '');
+            if ($oldVal !== $newVal) {
+                $changes[] = "{$label}: '{$oldVal}' → '{$newVal}'";
+            }
+        }
+
+        return implode(', ', $changes);
     }
     public function getImageDetail(Request $request)
     {

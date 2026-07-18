@@ -175,7 +175,7 @@ class GlobalService
         return $data;
     }
 
-    public function saveLogHistory($idUserLogin, string $action, $bowser, $ip_address)
+    public function saveLogHistory($idUserLogin, string $action, $bowser, $ip_address, $sales_inv_id = null, $bills_id = null)
     {
         try {
             LogHistory::create([
@@ -183,6 +183,8 @@ class GlobalService
                 'ip_address' => $ip_address,
                 'browser' => $bowser,
                 'action' => $action,
+                'salles_inv_id' => $sales_inv_id,
+                'bills_id' => $bills_id,
             ]);
         } catch (\Throwable $th) {
             Log::error('Gagal simpan log history: ' . $th->getMessage());

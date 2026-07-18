@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Transaction\Expenses;
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
 use App\Http\Repository\Expenses\POPBillRepository;
+use App\Http\Repository\MasterData\CoaRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ use Intervention\Image\Facades\Image;
 class BillXeroController extends Controller
 {
     //
-    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_bill;
+    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_bill, $repo_coa;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
@@ -37,13 +38,15 @@ class BillXeroController extends Controller
         PODBillRepository $repo_detail,
         GlobalService $service_global,
         TransCoaRepo $repo_all_trans,
-        TransBankRepo $repo_trans_bill
+        TransBankRepo $repo_trans_bill,
+        CoaRepo $repo_coa
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
         $this->service_global = $service_global;
         $this->repo_all_trans = $repo_all_trans;
         $this->repo_trans_bill = $repo_trans_bill;
+        $this->repo_coa = $repo_coa;
     }
 
     //used
@@ -354,14 +357,31 @@ class BillXeroController extends Controller
             'reference' => strtolower($request->reference)
         ]);
 
+        $isUpdate = !empty($request->id);
+
         DB::beginTransaction();
         try {
+            $oldParent = $isUpdate ? $this->repo->whereData(['id' => $request->id])->first() : null;
+            $oldDetails = $isUpdate
+                ? $this->repo_detail->whereData(['bills_parent_id' => $request->id])->get()->keyBy('id')
+                : collect();
+            //untuk log
+            $coaIdsInvolved = collect($oldDetails)->pluck('account_id_coa')
+                ->merge($request->account_id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray();
+
+            $coaNames = !empty($coaIdsInvolved)
+                ? $this->repo_coa->wherenDataIn('id', $coaIdsInvolved)->pluck('name', 'id')->toArray()
+                : [];
             // 1. Save Parent
             $saveP = $this->repo->CreateOrUpdate(
                 $request->except(['item_code', 'account_id', 'desc', 'qty', 'unit_price', 'tax_rate', 'nama_paket', 'divisi', 'id_detail', 'action_save']),
                 $request->id
             );
-
+            $deleted_array = [];
             // 2. Hapus Detail yang Dibuang (Lakukan DI LUAR LOOP)
             // Pastikan kita hanya mengecek jika ini adalah proses Update (id tidak null)
             if ($saveP->id) {
@@ -374,7 +394,6 @@ class BillXeroController extends Controller
                 if (!empty($deleted_array)) {
                     // Asumsi wherenDataIn adalah fungsi custom repository Anda (mirip whereIn eloquent)
                     $deletedUuids = $this->repo_detail->wherenDataIn('id', $deleted_array)->pluck('uuid_detail')->toArray();
-
                     // B. Hapus data di tabel all_trans berdasarkan uuid_detail tersebut
                     if (!empty($deletedUuids)) {
                         // Asumsi repo_all_trans juga memiliki fungsi wherenDataIn
@@ -385,12 +404,7 @@ class BillXeroController extends Controller
             }
 
 
-            $this->service_global->saveLogHistory(
-                $request->user_login->id,
-                $request->user_login->name . ' save transaksi bills ' . $saveP->name_contact,
-                $request->userAgent(),
-                $request->ip()
-            );
+            $detailChangeLogs = [];
 
             // 3. Save Details (Create / Update)
             foreach ($request->account_id as $key => $accountId) {
@@ -411,6 +425,17 @@ class BillXeroController extends Controller
                 // FIX: Hanya generate UUID_DETAIL jika ini adalah baris baru (bukan edit)
                 if (empty($detailId)) {
                     $detailData['uuid_detail'] = $this->service_global->generateUniqueString();
+                }
+
+
+                //baru untuk catat log
+                if (!empty($detailId) && $oldDetails->has($detailId)) {
+                    $diffText = $this->diffBillDetailRow($oldDetails->get($detailId), $detailData, $coaNames);
+                    if ($diffText !== '') {
+                        $detailChangeLogs[] = "Item '{$detailData['desc']}' diubah ({$diffText})";
+                    }
+                } elseif (empty($detailId)) {
+                    $detailChangeLogs[] = "Item '{$detailData['desc']}' ditambahkan (Qty: {$detailData['qty']}, Harga: {$detailData['unit_price']})";
                 }
 
                 // Create atau Update Detail
@@ -446,9 +471,43 @@ class BillXeroController extends Controller
                 }
             }
 
+            //untuk log
+            foreach ($deleted_array as $delId) {
+                $old = $oldDetails->get($delId);
+                if ($old) {
+                    $detailChangeLogs[] = "Item '{$old->desc}' dihapus";
+                }
+            }
+
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_detail->sumDataWhereDinamis(['bills_parent_id' => $saveP->id], 'amount');
             $this->repo->CreateOrUpdate(['total' => $sumD, 'nominal_due' => $sumD], $saveP->id);
+
+            // ================== SUSUN PESAN LOG BERISI DETAIL PERUBAHAN ==================
+            $parentChangeText = $isUpdate ? $this->diffBillParentRow($oldParent, $request, $saveP) : '';
+
+            $summaryParts = [];
+            if ($parentChangeText !== '') {
+                $summaryParts[] = $parentChangeText;
+            }
+            if (!empty($detailChangeLogs)) {
+                $summaryParts[] = implode('; ', $detailChangeLogs);
+            }
+
+            $actionLabel = $isUpdate ? 'mengubah' : 'membuat';
+            $logMessage = $request->user_login->name . ' ' . $actionLabel . ' transaksi bills ' . $saveP->name_contact;
+            $logMessage .= !empty($summaryParts)
+                ? '. Detail: ' . implode('. ', $summaryParts)
+                : ($isUpdate ? '. Tidak ada perubahan data.' : '.');
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $saveP->id
+            );
 
             DB::commit();
             return $this->autoResponse($saveP);
@@ -458,6 +517,124 @@ class BillXeroController extends Controller
             // Memunculkan pesan error dengan lengkap sangat membantu saat debugging di network tab inspect element
             return $this->error($th->getMessage() . ' at line ' . $th->getLine(), 500);
         }
+    }
+
+    private function diffBillParentRow($oldParent, Request $request, $saveP): string
+    {
+        if (!$oldParent) {
+            return '';
+        }
+
+        $fieldLabels = [
+            'uuid_from' => 'Kontak/Vendor',
+            'date_req' => 'Tgl Bill',
+            'due_date' => 'Jatuh Tempo',
+            'reference' => 'Referensi',
+            'currency' => 'Mata Uang',
+            'status' => 'Status',
+        ];
+        $dateFields = ['date_req', 'due_date'];
+
+        $newValues = [
+            'uuid_from' => $request->uuid_from,
+            'date_req' => $request->date_req,
+            'due_date' => $request->due_date,
+            'reference' => $request->reference,
+            'currency' => $request->currency,
+            'status' => $request->status == 1 ? 'approved' : 'draft',
+        ];
+
+        $changes = [];
+        foreach ($fieldLabels as $field => $label) {
+            $oldVal = $oldParent->{$field} ?? null;
+            $newVal = $newValues[$field] ?? null;
+
+            if ($field === 'status') {
+                $oldCompare = (string) $oldVal;
+                $newCompare = (string) $newVal;
+                $oldDisplay = $this->billStatusLabel($oldVal);
+                $newDisplay = $this->billStatusLabel($newVal);
+            } elseif (in_array($field, $dateFields, true)) {
+                $oldCompare = $oldVal ? Carbon::parse($oldVal)->format('Y-m-d') : null;
+                $newCompare = $newVal ? Carbon::parse($newVal)->format('Y-m-d') : null;
+                $oldDisplay = $oldCompare;
+                $newDisplay = $newCompare;
+            } else {
+                $oldCompare = (string) $oldVal;
+                $newCompare = (string) $newVal;
+                $oldDisplay = $oldCompare;
+                $newDisplay = $newCompare;
+            }
+
+            if ($oldCompare !== $newCompare) {
+                $changes[] = "{$label}: '{$oldDisplay}' → '{$newDisplay}'";
+            }
+        }
+        return implode('; ', $changes);
+    }
+
+    private function billStatusLabel($status): string
+    {
+        $labels = [
+            0 => 'Draft',
+            1 => 'Awaiting Payment',
+            2 => 'Paid',
+        ];
+        $key = is_numeric($status) ? (int) $status : null;
+        return ($key !== null && isset($labels[$key])) ? $labels[$key] : (string) $status;
+    }
+
+    private function normalizeNumber($val): string
+    {
+        if ($val === null || $val === '') {
+            return '0';
+        }
+        $formatted = number_format((float) $val, 4, '.', '');
+        $trimmed = rtrim(rtrim($formatted, '0'), '.');
+        return $trimmed === '' ? '0' : $trimmed;
+    }
+
+    private function diffBillDetailRow($oldDetail, array $newDetailData, array $coaNames = []): string
+    {
+        $numericFields = ['qty', 'unit_price'];
+
+        $fieldLabels = [
+            'desc' => 'Deskripsi',
+            'qty' => 'Qty',
+            'unit_price' => 'Harga',
+            'account_id_coa' => 'Akun',
+            'item_code' => 'Kode Item',
+        ];
+
+        $changes = [];
+        foreach ($fieldLabels as $field => $label) {
+            $oldRaw = $oldDetail->{$field} ?? null;
+            $newRaw = $newDetailData[$field] ?? null;
+
+            if (in_array($field, $numericFields, true)) {
+                // Bandingkan versi ternormalisasi -> '31600000.0000' vs '31600000' dianggap SAMA
+                $oldCompare = $this->normalizeNumber($oldRaw);
+                $newCompare = $this->normalizeNumber($newRaw);
+                $oldDisplay = $oldCompare;
+                $newDisplay = $newCompare;
+            } elseif ($field === 'account_id_coa') {
+                $oldCompare = (string) $oldRaw;
+                $newCompare = (string) $newRaw;
+                $oldDisplay = $oldRaw ? ($coaNames[$oldRaw] ?? "ID {$oldRaw}") : '-';
+                $newDisplay = $newRaw ? ($coaNames[$newRaw] ?? "ID {$newRaw}") : '-';
+            } else {
+                $oldCompare = (string) $oldRaw;
+                $newCompare = (string) $newRaw;
+                $oldDisplay = $oldCompare;
+                $newDisplay = $newCompare;
+            }
+
+            if ($oldCompare !== $newCompare) {
+                $changes[] = "{$label}: '{$oldDisplay}' → '{$newDisplay}'";
+            }
+        }
+
+        return implode(', ', $changes);
     }
 
     //used
