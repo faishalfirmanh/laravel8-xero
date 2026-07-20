@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Transaction\Expenses;
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
 use App\Http\Repository\Expenses\POPBillRepository;
+use App\Http\Repository\LogHistoryRepository;
 use App\Http\Repository\MasterData\CoaRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
@@ -30,7 +31,7 @@ use Intervention\Image\Facades\Image;
 class BillXeroController extends Controller
 {
     //
-    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_bill, $repo_coa;
+    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_bill, $repo_coa, $repo_log;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
@@ -39,7 +40,8 @@ class BillXeroController extends Controller
         GlobalService $service_global,
         TransCoaRepo $repo_all_trans,
         TransBankRepo $repo_trans_bill,
-        CoaRepo $repo_coa
+        CoaRepo $repo_coa,
+        LogHistoryRepository $repo_log
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -47,6 +49,25 @@ class BillXeroController extends Controller
         $this->repo_all_trans = $repo_all_trans;
         $this->repo_trans_bill = $repo_trans_bill;
         $this->repo_coa = $repo_coa;
+        $this->repo_log = $repo_log;
+    }
+
+
+    public function getLogWeb(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'tipe' => 'required|string|in:bill,inv',
+            'id' => 'required|integer',//id parent inv / bills
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $cek_tipe = $request->tipe == 'bill' ? ['bills_id' => $request->id] : ['salles_inv_id ' => $request->id];
+        $getData = $this->repo_log->whereData($cek_tipe)->get();
+        return $this->autoResponse($getData);
+
     }
 
     //used

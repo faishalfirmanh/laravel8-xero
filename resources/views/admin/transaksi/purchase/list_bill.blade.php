@@ -54,12 +54,12 @@
 
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Daftar Hotel</h5>
+        <h5 class="mb-0">Daftar Bills</h5>
 
         <div>
-            <button type="button" id="btnProsesSelected" class="btn btn-success me-2">
+            {{-- <button type="button" id="btnProsesSelected" class="btn btn-success me-2">
                 <i class="ti ti-check me-1"></i> Cek Data Terpilih
-            </button>
+            </button> --}}
 
              <button type="button" onclick="syncBillFromXero()"  id="button_sync_bill" class="btn btn-danger" data-toggle="modal" data-target="#modalSyncBill">
                 <i class="ti ti-plus me-1"></i> Sync Bills
@@ -1030,7 +1030,10 @@ $(document).ready(function() {
                 type: "GET",
                 dataType: 'json',
                 delay: 250,
-                data: function() { return { name_parent_category: 'nama paket' }; },
+                data: (params) => ({
+                    keyword: params.term,
+                    name_parent_category: 'nama paket'
+                }),
                 processResults: function(response) {
                     if (!response.status || !response.data?.lines_category) return { results: [] };
                     return {
@@ -1052,7 +1055,10 @@ $(document).ready(function() {
                 type: "GET",
                 dataType: 'json',
                 delay: 250,
-                data: function() { return { name_parent_category: 'divisi' }; },
+                data: (params) => ({
+                    keyword: params.term,
+                    name_parent_category: 'divisi'
+                }),
                 processResults: function(response) {
                     if (!response.status || !response.data?.lines_category) return { results: [] };
                     return {

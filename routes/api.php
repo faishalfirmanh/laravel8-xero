@@ -173,6 +173,7 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::get('getbankselect2', [BankXeroController::class, 'getAllPaginate'])->name('getbankselect2');
     //api update local data xero
     //
+    Route::get('get-log-invorbills', [BillXeroController::class, 'getLogWeb'])->name('logByinvorbill');
 
 });
 

@@ -17,6 +17,7 @@
     color: #555;
     margin-bottom: 4px;
     display: block;
+    white-space: nowrap;
 }
 .xero-filter-bar .form-control {
     height: 34px;
@@ -31,20 +32,19 @@
     box-shadow: none;
     outline: none;
 }
+
+/* ── Filter row: flex wrap supaya tidak overlapping di layar sempit ── */
 .filter-row {
-    display: grid;
-    grid-template-columns: auto auto auto 1fr auto;
-    gap: 10px 16px;
-    align-items: end;
-}
-.filter-row-2 {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
 }
+.filter-row > div {
+    flex: 0 0 auto;
+}
+
+/* ── Date range group ── */
 .date-range-group {
     display: flex;
     align-items: center;
@@ -53,15 +53,16 @@
 .date-range-group input {
     border-radius: 4px 0 0 4px !important;
     border-right: none !important;
-    width: 120px;
+    width: 130px;
+    height: 34px;
+    font-size: 12px;
 }
 .date-range-group input:last-of-type {
     border-radius: 0 !important;
-    border-right: 1px solid #ccc !important;
+    border-right: none !important;
 }
 .date-range-group .btn-dropdown {
     border: 1px solid #ccc;
-    border-left: none;
     border-radius: 0 4px 4px 0;
     background: #f5f5f5;
     padding: 0 10px;
@@ -71,7 +72,144 @@
     cursor: pointer;
     font-size: 14px;
     color: #555;
+    white-space: nowrap;
 }
+.date-range-group .btn-dropdown:hover { background: #ebebeb; }
+
+/* ── Select2 multiple — fix agar tidak melar ke bawah ── */
+/* Wrapper select2 untuk tracking filter */
+.tracking-select-wrap {
+    width: 200px;
+    min-width: 160px;
+    max-width: 260px;
+}
+
+/* Batasi tinggi container select2 multiple */
+.tracking-select-wrap .select2-container--bootstrap4
+    .select2-selection--multiple {
+    min-height: 34px !important;
+    max-height: 34px !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 4px !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    background: #fff !important;
+    cursor: pointer !important;
+    flex-wrap: nowrap !important;  /* tag satu baris */
+}
+
+/* Scroll horizontal tag jika banyak */
+.tracking-select-wrap .select2-container--bootstrap4
+    .select2-selection--multiple
+    .select2-selection__rendered {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    gap: 2px !important;
+    max-width: 100% !important;
+    align-items: center !important;
+}
+
+/* Tag (badge) kompak */
+.tracking-select-wrap .select2-container--bootstrap4
+    .select2-selection--multiple
+    .select2-selection__choice {
+    font-size: 10px !important;
+    padding: 1px 18px 1px 6px !important;
+    margin: 0 !important;
+    height: 20px !important;
+    line-height: 18px !important;
+    border-radius: 3px !important;
+    background: #e8f0fe !important;
+    border: 1px solid #c2d0f8 !important;
+    color: #1a56db !important;
+    white-space: nowrap !important;
+    max-width: 90px !important;        /* potong teks panjang */
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+}
+
+/* Tombol X di dalam tag */
+.tracking-select-wrap .select2-container--bootstrap4
+    .select2-selection--multiple
+    .select2-selection__choice__remove {
+    position: absolute !important;
+    right: 3px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 11px !important;
+    color: #1a56db !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+}
+
+/* Jika tag > 2, sembunyikan sisanya & tampilkan counter */
+/* (ditangani JS lewat class .s2-overflow-hidden) */
+.tracking-select-wrap .select2-selection__choice.s2-hidden {
+    display: none !important;
+}
+.s2-overflow-badge {
+    font-size: 10px;
+    background: #0070c4;
+    color: #fff;
+    border-radius: 10px;
+    padding: 1px 7px;
+    margin-left: 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Sembunyikan input search bawaan agar tidak geser layout */
+.tracking-select-wrap .select2-container--bootstrap4
+    .select2-selection--multiple
+    .select2-search--inline {
+    flex: 1 1 40px; min-width: 40px; max-width: 80px;
+}
+
+.select2-search__field  { height: 22px; font-size: 11px; min-width: 40px; }
+
+
+
+/* Dropdown normal */
+.tracking-select-wrap .select2-dropdown {
+    font-size: 12px;
+    min-width: 240px !important;
+    z-index: 9999 !important;
+}
+
+/* Override select2 width agar ikut .tracking-select-wrap */
+.tracking-select-wrap .select2-container {
+    width: 100% !important;
+}
+
+/* ── Currency select ── */
+.currency-select-wrap {
+    width: 200px;
+}
+.currency-select-wrap .form-control {
+    width: 100%;
+    height: 34px;
+    font-size: 12px;
+}
+
+.filter-row-2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
 .btn-xero-filter {
     background: #fff;
     border: 1px solid #0070c4;
@@ -85,6 +223,7 @@
     gap: 6px;
 }
 .btn-xero-filter:hover { background: #e8f1fb; }
+
 .btn-xero-more {
     background: #fff;
     border: 1px solid #d0d0d0;
@@ -97,6 +236,7 @@
     align-items: center;
     gap: 5px;
 }
+
 .btn-xero-update {
     background: #0070c4;
     border: none;
@@ -142,7 +282,6 @@
     font-size: 12px;
     font-weight: 600;
     color: #333;
-    gap: 0;
 }
 .period-header-row .col-amt {
     width: 160px;
@@ -178,9 +317,7 @@
     border-bottom: 1px solid #f0f0f0;
     cursor: pointer;
 }
-.report-table tr.detail-row:hover td {
-    background: #f0f7ff;
-}
+.report-table tr.detail-row:hover td { background: #f0f7ff; }
 .report-table tr.grand-total td {
     padding: 10px 10px 10px 12px;
     font-weight: 600;
@@ -195,12 +332,10 @@
     width: 160px;
     font-variant-numeric: tabular-nums;
 }
-/* nilai positif biru, negatif merah (dalam kurung) */
 .report-table td.amt.positive { color: #1a6abf; }
 .report-table td.amt.negative { color: #c0392b; }
 .report-table td.amt.total    { color: #222; }
 
-/* ── Net profit row ── */
 .report-table tr.net-profit td {
     padding: 10px 10px 10px 12px;
     font-weight: 600;
@@ -211,7 +346,6 @@
     border-bottom: 2px solid #0070c4;
 }
 
-/* ── Compact view toggle ── */
 .compact-toggle {
     display: flex;
     align-items: center;
@@ -222,9 +356,12 @@
     font-size: 12px;
     color: #555;
 }
-.compact-toggle input[type="checkbox"] { accent-color: #0070c4; width: 14px; height: 14px; }
+.compact-toggle input[type="checkbox"] {
+    accent-color: #0070c4;
+    width: 14px;
+    height: 14px;
+}
 
-/* loading spinner */
 #reportLoading {
     display: none;
     text-align: center;
@@ -236,19 +373,18 @@
 
 {{-- ── FILTER BAR ── --}}
 <div class="xero-filter-bar">
-    <form id="formFilter">
+    <form id="formFilter" autocomplete="off">
         <div class="filter-row">
 
             {{-- Date range --}}
             <div>
                 <span class="filter-label">
-                    Date range:
-                    <span style="font-weight:400; color:#0070c4;" id="labelDateRange">This month</span>
+                    Date range:&nbsp;<span style="font-weight:400;color:#0070c4;" id="labelDateRange">This month</span>
                 </span>
                 <div class="date-range-group">
                     <input type="date" class="form-control" id="date_from" name="date_start"
                            value="{{ now()->startOfMonth()->format('Y-m-d') }}">
-                    <input type="date" class="form-control" id="date_to" name="date_from"
+                    <input type="date" class="form-control" id="date_to" name="date_end"
                            value="{{ now()->endOfMonth()->format('Y-m-d') }}">
                     <button type="button" class="btn-dropdown" id="btnDatePreset"
                             title="Pilih preset tanggal">
@@ -257,47 +393,47 @@
                 </div>
             </div>
 
-            {{-- Compare with --}}
+            {{-- Divisi --}}
             <div>
-                <span class="filter-label">Compare with</span>
-                <select class="form-control" name="compare_with" id="compare_with" style="width:160px;">
-                    <option value="">None</option>
-                    <option value="prev_month">Previous month</option>
-                    <option value="prev_year">Previous year</option>
-                    <option value="prev_quarter">Previous quarter</option>
-                </select>
+                <span class="filter-label">Divisi</span>
+                <div class="tracking-select-wrap">
+                    <select class="select2-divisi" name="tracking_divisi[]"
+                            id="tracking_divisi" multiple="multiple" style="width:100%;">
+                    </select>
+                </div>
             </div>
 
-            {{-- Compare tracking categories --}}
+            {{-- Nama Paket --}}
             <div>
-                <span class="filter-label">Compare tracking categories</span>
-                <select class="form-control select2" name="tracking_category" id="tracking_category"
-                        style="width:200px;">
-                    <option value="">None</option>
-                </select>
+                <span class="filter-label">Nama Paket</span>
+                <div class="tracking-select-wrap">
+                    <select class="select2-paket" name="tracking_paket_name[]"
+                            id="tracking_paket_name" multiple="multiple" style="width:100%;">
+                    </select>
+                </div>
             </div>
 
             {{-- Currency --}}
             <div>
                 <span class="filter-label">Currency</span>
-                <select class="form-control" name="currency" id="currency" style="width:200px;">
-                    <option value="IDR" selected>🇮🇩 Indonesian Rupiah</option>
-                    <option value="SAR">🇸🇦 Saudi Riyal</option>
-                    <option value="USD">🇺🇸 US Dollar</option>
-                </select>
+                <div class="currency-select-wrap">
+                    <select class="form-control" name="currency" id="currency">
+                        <option value="IDR" selected>🇮🇩 Indonesian Rupiah</option>
+                        <option value="SAR">🇸🇦 Saudi Riyal</option>
+                        <option value="USD">🇺🇸 US Dollar</option>
+                    </select>
+                </div>
             </div>
 
-            {{-- spacer --}}
-            <div></div>
-        </div>
+        </div>{{-- /.filter-row --}}
 
         <div class="filter-row-2">
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center" style="gap:8px;">
                 <button type="button" class="btn-xero-filter" id="btnFilter">
                     <i class="ti ti-filter" style="font-size:13px;" aria-hidden="true"></i> Filter
                 </button>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center" style="gap:8px;">
                 <button type="button" class="btn-xero-more" id="btnMore">
                     <i class="ti ti-dots" style="font-size:13px;" aria-hidden="true"></i> More
                 </button>
@@ -306,62 +442,56 @@
                 </button>
             </div>
         </div>
+
     </form>
 </div>
 
 {{-- ── REPORT CARD ── --}}
 <div class="xero-report-card">
 
-    {{-- Loading state --}}
     <div id="reportLoading">
-        <div class="spinner-border text-primary" role="status"
-             style="width:1.6rem;height:1.6rem;">
+        <div class="spinner-border text-primary" role="status" style="width:1.6rem;height:1.6rem;">
             <span class="sr-only">Loading...</span>
         </div>
         <div class="mt-2">Memuat laporan...</div>
     </div>
 
-    {{-- Report content --}}
     <div id="reportContent">
-
-        {{-- Header --}}
         <p class="report-title">Profit and Loss</p>
         <p class="report-company">{{ config('app.company_name', 'PT An Namiroh Travelindo') }}</p>
         <p class="report-period" id="reportPeriodLabel">
             For the month ended {{ now()->endOfMonth()->isoFormat('D MMMM YYYY') }}
         </p>
 
-        {{-- Column period header --}}
         <div class="period-header-row">
-            <div class="col-amt" id="colPeriodLabel">Jun 2026</div>
+            <div class="col-amt" id="colPeriodLabel">
+                {{ now()->format('M Y') }}
+            </div>
         </div>
 
-        {{-- Report table --}}
         <table class="report-table" id="reportTable">
-            <tbody id="reportBody">
-                {{-- Diisi via AJAX / JS --}}
-            </tbody>
+            <tbody id="reportBody"></tbody>
         </table>
 
-        {{-- Compact view toggle --}}
         <div class="compact-toggle">
             <input type="checkbox" id="compactView">
-            <label for="compactView" style="cursor:pointer; margin:0;">Compact view</label>
+            <label for="compactView" style="cursor:pointer;margin:0;">Compact view</label>
         </div>
+    </div>
 
-    </div>{{-- /#reportContent --}}
 </div>
 
-{{-- ── DATE PRESET DROPDOWN (Bootstrap 4 dropdown) ── --}}
-<div class="dropdown-menu" id="datePresetMenu" style="font-size:12px; min-width:180px;">
-    <a class="dropdown-item preset-item" data-preset="this_month">This month</a>
-    <a class="dropdown-item preset-item" data-preset="last_month">Last month</a>
-    <a class="dropdown-item preset-item" data-preset="this_quarter">This quarter</a>
-    <a class="dropdown-item preset-item" data-preset="last_quarter">Last quarter</a>
-    <a class="dropdown-item preset-item" data-preset="this_year">This year (Jan – Dec)</a>
-    <a class="dropdown-item preset-item" data-preset="last_year">Last year (Jan – Dec)</a>
+{{-- ── DATE PRESET DROPDOWN ── --}}
+<div class="dropdown-menu" id="datePresetMenu"
+     style="font-size:12px;min-width:190px;position:fixed;z-index:9999;display:none;">
+    <a class="dropdown-item preset-item" data-preset="this_month"  href="javascript:void(0)">This month</a>
+    <a class="dropdown-item preset-item" data-preset="last_month"  href="javascript:void(0)">Last month</a>
+    <a class="dropdown-item preset-item" data-preset="this_quarter"href="javascript:void(0)">This quarter</a>
+    <a class="dropdown-item preset-item" data-preset="last_quarter"href="javascript:void(0)">Last quarter</a>
+    <a class="dropdown-item preset-item" data-preset="this_year"   href="javascript:void(0)">This year (Jan – Dec)</a>
+    <a class="dropdown-item preset-item" data-preset="last_year"   href="javascript:void(0)">Last year (Jan – Dec)</a>
     <div class="dropdown-divider"></div>
-    <a class="dropdown-item preset-item" data-preset="custom">Custom range</a>
+    <a class="dropdown-item preset-item" data-preset="custom"      href="javascript:void(0)">Custom range</a>
 </div>
 
 @endsection
@@ -389,16 +519,20 @@ $(function () {
         return (parseFloat(val) || 0) < 0 ? 'amt negative' : 'amt positive';
     }
 
+    function escHtml(str) {
+        return $('<div>').text(str || '').html();
+    }
+
     // =========================================================
-    // DATE PRESETS
+    // DATE PRESETS  (PHP 7.4 safe — semua pakai var / function)
     // =========================================================
     var presets = {
-        this_month   : function () { return [moment().startOf('month'), moment().endOf('month')]; },
-        last_month   : function () { return [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')]; },
-        this_quarter : function () { return [moment().startOf('quarter'), moment().endOf('quarter')]; },
-        last_quarter : function () { return [moment().subtract(1,'quarter').startOf('quarter'), moment().subtract(1,'quarter').endOf('quarter')]; },
-        this_year    : function () { return [moment().startOf('year'), moment().endOf('year')]; },
-        last_year    : function () { return [moment().subtract(1,'year').startOf('year'), moment().subtract(1,'year').endOf('year')]; },
+        this_month   : function () { return [moment().startOf('month'),                           moment().endOf('month')]; },
+        last_month   : function () { return [moment().subtract(1,'month').startOf('month'),       moment().subtract(1,'month').endOf('month')]; },
+        this_quarter : function () { return [moment().startOf('quarter'),                         moment().endOf('quarter')]; },
+        last_quarter : function () { return [moment().subtract(1,'quarter').startOf('quarter'),   moment().subtract(1,'quarter').endOf('quarter')]; },
+        this_year    : function () { return [moment().startOf('year'),                            moment().endOf('year')]; },
+        last_year    : function () { return [moment().subtract(1,'year').startOf('year'),         moment().subtract(1,'year').endOf('year')]; }
     };
 
     function applyPreset(key, label) {
@@ -414,24 +548,27 @@ $(function () {
         e.stopPropagation();
         var $menu  = $('#datePresetMenu');
         var offset = $(this).offset();
+        var visible = $menu.is(':visible');
         $menu.css({
-            display  : $menu.is(':visible') ? 'none' : 'block',
-            top      : offset.top + $(this).outerHeight() + 4,
-            left     : offset.left - 160,
-            position : 'fixed',
-            zIndex   : 9999
-        });
+            top  : offset.top + $(this).outerHeight() + 4,
+            left : offset.left - 140
+        }).toggle(!visible);
     });
 
-    $(document).on('click', '.preset-item', function () {
-        applyPreset($(this).data('preset'), $(this).text());
+    $(document).on('click', '.preset-item', function (e) {
+        e.preventDefault();
+        applyPreset($(this).data('preset'), $(this).text().trim());
         $('#datePresetMenu').hide();
     });
 
-    $(document).on('click', function () { $('#datePresetMenu').hide(); });
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('#btnDatePreset, #datePresetMenu').length) {
+            $('#datePresetMenu').hide();
+        }
+    });
 
     // =========================================================
-    // PERIOD LABEL UPDATE
+    // PERIOD LABEL
     // =========================================================
     function updatePeriodLabel() {
         var from = moment($('#date_from').val());
@@ -452,77 +589,138 @@ $(function () {
     $('#date_from, #date_to').on('change', updatePeriodLabel);
 
     // =========================================================
-    // SELECT2 — tracking category
+    // SELECT2 MULTIPLE — tracking filter
+    // Dibungkus .tracking-select-wrap supaya CSS override tepat sasaran.
+    // Dropdown ke <body> supaya tidak terpotong overflow parent.
     // =========================================================
-    $('#tracking_category').select2({
-        theme         : 'bootstrap4',
-        placeholder   : 'None',
-        allowClear    : true,
-        dropdownParent: $('body'),
-        ajax: {
-            url     : '{{ route("tracking-by-parent") }}',
-            dataType: 'json',
-            delay   : 300,
-            data    : function (p) {
-                return { keyword: p.term || '', name_parent_category: 'all' };
-            },
-            processResults: function (response) {
-                if (!response.status || !response.data) return { results: [] };
-                return {
-                    results: (response.data.lines_category || []).map(function (item) {
-                        return { id: item.item_uuid_category || item.id, text: item.item_name_category };
-                    })
-                };
-            },
-            cache: true
-        }
-    });
+    function initTrackingSelect($el, parentCategory) {
+        $el.select2({
+            theme          : 'bootstrap4',
+            placeholder    : 'None',
+            allowClear     : true,
+            width          : '100%',   /* ikut lebar .tracking-select-wrap */
+            dropdownParent : $('body'),
+            ajax: {
+                url      : '{{ route("tracking-by-parent") }}',
+                dataType : 'json',
+                delay    : 300,
+                data     : function (p) {
+                    return { keyword: p.term || '', name_parent_category: parentCategory };
+                },
+                processResults: function (response) {
+                    if (!response.status || !response.data) return { results: [] };
+                    return {
+                        results: $.map(response.data.lines_category || [], function (item) {
+                            return {
+                                id  : item.item_uuid_category || item.id,
+                                text: item.item_name_category
+                            };
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+
+        // ── Overflow handler: tampilkan "+N" badge jika tag > 2 ────────
+        // Dijalankan setiap kali selection berubah
+        $el.on('change', function () {
+            // Tunda agar DOM select2 sudah dirender
+            setTimeout(function () { trimOverflowTags($el); }, 0);
+        });
+    }
+
+    /**
+     * Batasi tampilan tag di select2 multiple:
+     * tampilkan max MAX_VISIBLE tag, sisanya sembunyikan & tambah "+N" badge.
+     * Ini murni visual — value tetap dikirim semua saat submit.
+     */
+    var MAX_VISIBLE = 2;
+
+    function trimOverflowTags($el) {
+        var $container = $el.next('.select2-container');
+        if (!$container.length) return;
+
+        // Hapus badge lama
+        $container.find('.s2-overflow-badge').remove();
+
+        // Kembalikan semua tag yang sempat disembunyikan
+        $container.find('.select2-selection__choice.s2-hidden')
+            .removeClass('s2-hidden');
+
+        var $choices = $container.find('.select2-selection__choice');
+        var total    = $choices.length;
+
+        if (total <= MAX_VISIBLE) return; // tidak perlu trim
+
+        // Sembunyikan tag kelebihan
+        $choices.each(function (i) {
+            if (i >= MAX_VISIBLE) $(this).addClass('s2-hidden');
+        });
+
+        // Tambah badge "+N"
+        var overflow = total - MAX_VISIBLE;
+        var $badge   = $('<span class="s2-overflow-badge">+' + overflow + '</span>');
+        $container.find('.select2-selection__rendered').append($badge);
+    }
+
+    initTrackingSelect($('#tracking_divisi'),     'divisi');
+    initTrackingSelect($('#tracking_paket_name'), 'nama paket');
 
     // =========================================================
-    // ADAPTER — ubah response API → format sections untuk renderReport()
+    // PRELOAD nilai tersimpan (edit mode / old())
+    // =========================================================
+    function preloadTrackingOption($el, uuid, parentCategory) {
+        if (!uuid) return;
+        ajaxRequest(
+            '{{ route("tracking-detail") }}',
+            'get',
+            { name_parent_category: parentCategory, id: uuid },
+            localStorage.getItem('token')
+        ).then(function (response) {
+            if (response.status == 200) {
+                var d    = response.data.data;
+                var text = d.item_name_category || ('ID: ' + uuid);
+                var opt  = new Option(text, uuid, true, true);
+                $el.append(opt).trigger('change');
+            }
+        }).catch(function (err) { cathError(err); });
+    }
+
+    // Contoh penggunaan:
+    // preloadTrackingOption($('#tracking_divisi'),     'uuid-divisi-xxx', 'divisi');
+    // preloadTrackingOption($('#tracking_paket_name'), 'uuid-paket-xxx',  'nama paket');
+
+    // =========================================================
+    // ADAPTER — ubah response API → format sections
     // =========================================================
     function adaptApiResponse(data) {
-        // data = response.data dari API
-        // Bangun array sections dari trading_income, cost_of_sales
-        // dan hitung gross_profit sebagai section sendiri
-
         var sections = [];
 
-        // ── Trading Income ────────────────────────────────
         if (data.trading_income) {
             sections.push({
                 name : 'Trading Income',
-                items: (data.trading_income.items || []).map(function (i) {
+                items: $.map(data.trading_income.items || [], function (i) {
                     return { name: i.name, amount: i.total };
                 }),
                 total: data.trading_income.total
             });
         }
-
-        // ── Cost of Sales ─────────────────────────────────
         if (data.cost_of_sales) {
             sections.push({
                 name : 'Cost of Sales',
-                items: (data.cost_of_sales.items || []).map(function (i) {
+                items: $.map(data.cost_of_sales.items || [], function (i) {
                     return { name: i.name, amount: i.total };
                 }),
                 total: data.cost_of_sales.total
             });
         }
 
-        // ── Gross Profit (baris sendiri, bukan section detail) ──
-        // Dikirim ke renderReport sebagai field terpisah
-        var grossProfit = parseFloat(data.gross_profit) || 0;
-        var netProfit   = parseFloat(data.net_profit)   || 0;
-
-        // Label Net Profit atau Net Loss
-        var netLabel = netProfit >= 0 ? 'Net Profit' : 'Net Loss';
-
         return {
             sections         : sections,
-            gross_profit     : grossProfit,
-            net_profit       : netProfit,
-            net_profit_label : netLabel
+            gross_profit     : parseFloat(data.gross_profit) || 0,
+            net_profit       : parseFloat(data.net_profit)   || 0,
+            net_profit_label : (parseFloat(data.net_profit) || 0) >= 0 ? 'Net Profit' : 'Net Loss'
         };
     }
 
@@ -532,13 +730,28 @@ $(function () {
     var _lastData = null;
 
     function loadReport() {
+        // Kumpulkan semua UUID tracking yang dipilih (bisa multiple)
+
+        var divisiVals = $('#tracking_divisi').val()      || [];
+        var paketVals  = $('#tracking_paket_name').val()  || [];
+
         var params = {
-            date_start        : $('#date_from').val(),
-            date_end          : $('#date_to').val(),
-            compare_with      : $('#compare_with').val(),
-            tracking_category : $('#tracking_category').val(),
-            currency          : $('#currency').val(),
+            date_start           : $('#date_from').val(),
+            date_end             : $('#date_to').val(),
+            currency             : $('#currency').val(),
+            // tracking_divisi      : divisiVals,
+            // tracking_paket_name  : paketVals
         };
+
+
+        $.each(divisiVals, function(i, val) {
+            params['tracking_divisi[' + i + ']'] = val;
+        });
+        
+        $.each(paketVals, function(i, val) {
+            params['tracking_paket_name[' + i + ']'] = val;
+        });
+
 
         $('#reportLoading').show();
         $('#reportContent').hide();
@@ -550,13 +763,13 @@ $(function () {
             localStorage.getItem('token')
         )
         .then(function (response) {
-            console.log('aaa',response)
             if (!response.status || !response.data) {
                 throw new Error(response.message || 'Gagal memuat data');
             }
             var adapted = adaptApiResponse(response.data.data);
-            _lastData = adapted;
+            _lastData   = adapted;
             renderReport(adapted);
+            console.log('params',params)
         })
         .catch(function (err) {
             cathError(err);
@@ -575,8 +788,7 @@ $(function () {
         var compact = $('#compactView').is(':checked');
         $body.empty();
 
-        // ── Sections (Trading Income, Cost of Sales, dst) ──
-        (data.sections || []).forEach(function (section) {
+        $.each(data.sections || [], function (idx, section) {
 
             $body.append(
                 '<tr class="section-header">' +
@@ -586,7 +798,7 @@ $(function () {
             );
 
             if (!compact) {
-                (section.items || []).forEach(function (item) {
+                $.each(section.items || [], function (i, item) {
                     $body.append(
                         '<tr class="detail-row">' +
                         '<td>' + escHtml(item.name) + '</td>' +
@@ -604,7 +816,6 @@ $(function () {
             );
         });
 
-        // ── Gross Profit (grand total sebelum net) ──
         if (data.gross_profit !== undefined) {
             $body.append(
                 '<tr class="grand-total">' +
@@ -614,69 +825,13 @@ $(function () {
             );
         }
 
-        // ── Net Profit / Loss ──
         var npLabel = data.net_profit_label || 'Net Profit';
-        var npVal   = parseFloat(data.net_profit) || 0;
         $body.append(
             '<tr class="net-profit">' +
             '<td>' + escHtml(npLabel) + '</td>' +
-            '<td class="amt">' + formatAmt(npVal) + '</td>' +
+            '<td class="amt">' + formatAmt(data.net_profit || 0) + '</td>' +
             '</tr>'
         );
-    }
-
-    function escHtml(str) {
-        return $('<div>').text(str || '').html();
-    }
-
-    // =========================================================
-    // DEMO DATA — fallback saat API belum tersedia
-    // =========================================================
-    function loadDemoReport() {
-        var demo = {
-            sections: [
-                {
-                    name : 'Trading Income',
-                    items: [
-                        { name: 'DISKON PENJUALAN (KOMPENSASI)',            amount: -4000000 },
-                        { name: 'PENDAPATAN LAYANAN VAKSIN',                amount: 1200000 },
-                        { name: 'PENDAPATAN PEMBUATAN PASPOR',              amount: 6000000 },
-                        { name: 'PENDAPATAN PENJUALAN PERLENGKAPAN UMROH',  amount: 383755000 },
-                        { name: 'PENDAPATAN TIKET PESAWAT ONLY',            amount: 5774565978.19 },
-                        { name: 'PPPU ANTRAV',                              amount: 161400000 },
-                        { name: 'PPPU NAMIROH',                             amount: 18686125000 },
-                        { name: 'PPPU RIHLAH',                              amount: 1172250000 },
-                        { name: 'PPPU TAJALLI',                             amount: 889350000 },
-                        { name: 'REFUND & PEMBATALAN',                      amount: -10050000 },
-                    ],
-                    total: 27060595978.19
-                },
-                {
-                    name : 'Cost of Sales',
-                    items: [
-                        { name: 'BIAYA KOMISI AGEN & KANTOR',               amount: 631575000 },
-                        { name: 'HARGA POKOK LAYANAN PASPOR',               amount: 1400000 },
-                        { name: 'HARGA POKOK PEMBELIAN PERLENGKAPAN UMROH', amount: 40312000 },
-                        { name: 'HPP HOTEL VILLA RETAJ (NIDA UTAMA)',       amount: 13.95 },
-                    ],
-                    total: 673287013.95
-                },
-                {
-                    name : 'Operating Expenses',
-                    items: [
-                        { name: 'BIAYA ADMINISTRASI',  amount: 12500000 },
-                        { name: 'BIAYA GAJI KARYAWAN', amount: 85000000 },
-                        { name: 'BIAYA PEMASARAN',     amount: 22000000 },
-                    ],
-                    total: 119500000
-                }
-            ],
-            gross_profit     : 26387308964.24,
-            net_profit       : 26267808964.24,
-            net_profit_label : 'Net Profit'
-        };
-        _lastData = demo;
-        renderReport(demo);
     }
 
     // =========================================================
@@ -687,25 +842,22 @@ $(function () {
         loadReport();
     });
 
-    // Compact toggle: re-render cache, tidak hit API lagi
     $('#compactView').on('change', function () {
         if (_lastData) renderReport(_lastData);
     });
 
     $('#btnFilter').on('click', function () {
         Swal.fire({
-            title            : 'Filter',
-            text             : 'Panel filter tambahan (implementasi sesuai kebutuhan).',
-            icon             : 'info',
+            title: 'Filter', icon: 'info',
+            text : 'Panel filter tambahan (implementasi sesuai kebutuhan).',
             confirmButtonText: 'OK'
         });
     });
 
     $('#btnMore').on('click', function () {
         Swal.fire({
-            title            : 'More options',
-            text             : 'Export PDF, Excel, dll. (implementasi sesuai kebutuhan).',
-            icon             : 'info',
+            title: 'More options', icon: 'info',
+            text : 'Export PDF, Excel, dll. (implementasi sesuai kebutuhan).',
             confirmButtonText: 'OK'
         });
     });
@@ -714,8 +866,7 @@ $(function () {
     // INIT
     // =========================================================
     updatePeriodLabel();
-    loadReport(); // ← ganti ke loadReport() setelah API live
-
+    loadReport();
 });
 </script>
 @endpush
