@@ -758,7 +758,16 @@
                         </table>
                     </div>
 
-                   
+                    <hr>
+
+                    <div class="mb-3">
+                        <h6 class="font-weight-bold mb-2">
+                            <i class="ti ti-history mr-1"></i> Log History
+                        </h6>
+                        <ul class="list-group list-group-flush small" id="history_log_list" style="max-height: 200px; overflow-y: auto;">
+                            <!-- di-render via JS -> renderHistoryLog() -->
+                        </ul>
+                    </div>
 
                     <div class="payment-form-section" id="paymentFormSection">
                         <div class="payment-form-inner">
@@ -1416,67 +1425,68 @@ function setRowSelect2Value($row, selector, id, text) {
     $el.append(new Option(text, id, true, true)).trigger('change');
 }
 
-   function loadInvoice(id) {
-    showModalLoading(true);
+    function loadInvoice(id) {
+        showModalLoading(true);
 
-    ajaxRequest(
-        `{{ route('detail-sales-inv') }}`,
-        'GET',
-        { id: id },
-        localStorage.getItem("token")
-    )
-    .then(function (response) {
-        if (!response.status) {
-            Swal.fire('Gagal!', response.message || 'Data tidak ditemukan.', 'error');
-            return;
-        }
+        ajaxRequest(
+            `{{ route('detail-sales-inv') }}`,
+            'GET',
+            { id: id },
+            localStorage.getItem("token")
+        )
+        .then(function (response) {
+            if (!response.status) {
+                Swal.fire('Gagal!', response.message || 'Data tidak ditemukan.', 'error');
+                return;
+            }
 
-        const d = response.data.data;
-        console.log(',d_invoice',d)
+            const d = response.data.data;
+          
 
-        renderPaymentHistory(d.get_payment,d.less_nominal)
-        // ── 1. Header fields ─────────────────────────────
-        $('#invoice_number_display').val(d.invoice_number || '');
-        $('#issue_date').val(d.issue_date || '');         // name="issue_date" id="issue_date"
-        $('#due_date').val(d.due_date || '');
-        $('#reference').val(d.reference || '');
-        $('#invoiceStatusBadge').text(d.status == '1' ? 'Approved' : 'Draft');
+            renderPaymentHistory(d.get_payment,d.less_nominal)
+            renderHistoryLog(d.get_history_invoice)
+            // ── 1. Header fields ─────────────────────────────
+            $('#invoice_number_display').val(d.invoice_number || '');
+            $('#issue_date').val(d.issue_date || '');         // name="issue_date" id="issue_date"
+            $('#due_date').val(d.due_date || '');
+            $('#reference').val(d.reference || '');
+            $('#invoiceStatusBadge').text(d.status == '1' ? 'Approved' : 'Draft');
 
-        // ── 2. Contact — inject option ke Select2 ────────
-        // Field: name="contact_id" id="contact_id"
-        if (d.contact_id) {
-            const contactText = d.contact_name || ('Contact #' + d.contact_id);
-            setSelect2Value('#contact_id', d.contact_id, contactText);
-        }
+            // ── 2. Contact — inject option ke Select2 ────────
+            // Field: name="contact_id" id="contact_id"
+            if (d.contact_id) {
+                const contactText = d.contact_name || ('Contact #' + d.contact_id);
+                setSelect2Value('#contact_id', d.contact_id, contactText);
+            }
 
-        // ── 3. Detail rows ───────────────────────────────
-        // Bersihkan dulu (destroy select2 dalam baris lama)
-        destroyRowSelect2();
-        $('#lineItemsBody').empty();
+            // ── 3. Detail rows ───────────────────────────────
+            // Bersihkan dulu (destroy select2 dalam baris lama)
+            destroyRowSelect2();
+            $('#lineItemsBody').empty();
 
-        const details = d.get_detail_by_id || [];
+            const details = d.get_detail_by_id || [];
 
-        if (details.length > 0) {
-            details.forEach(function (item) {
-                addRowWithData(item);
-            });
-        } else {
-            addFirstRow(); // minimal 1 baris kosong
-        }
+            if (details.length > 0) {
+                details.forEach(function (item) {
+                    addRowWithData(item);
+                });
+            } else {
+                addFirstRow(); // minimal 1 baris kosong
+            }
 
-        updateDeleteButtons();
-        syncCurrencyLabels();
-        recalcSummary();
-    })
-    .catch(function (err) {
-        cathError(err)
-        // console.error('[loadInvoice] error:', err);
-        // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan saat memuat data.', 'error');
-    })
-    .finally(function () {
-        showModalLoading(false);
-    });
-}
+            updateDeleteButtons();
+            syncCurrencyLabels();
+            recalcSummary();
+        })
+        .catch(function (err) {
+            cathError(err)
+            // console.error('[loadInvoice] error:', err);
+            // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan saat memuat data.', 'error');
+        })
+        .finally(function () {
+            showModalLoading(false);
+        });
+    }
 
 
     function printInvoice(idTes) {
@@ -2083,6 +2093,21 @@ $(function () {
                 });
         });
 
+        function renderHistoryLog(historyArr) {
+            const $list = $('#history_log_list');
+            $list.empty();
+
+            if (!historyArr || historyArr.length === 0) {
+                $list.append('<li class="list-group-item text-muted">Belum ada riwayat.</li>');
+                return;
+            }
+
+            historyArr.forEach(function (h) {
+                const action = $('<div>').text(`${convertStringDate(h.created_at)} | ${h.action}` || '-').html(); // escape biar aman dari HTML/script
+                $list.append('<li class="list-group-item">' + action + '</li>');
+            });
+        }
+
         function renderPaymentHistory(payments, totalDue) {
             const $section    = $('#paymentHistorySection');
             const $tbody      = $('#paymentHistoryBody');
@@ -2179,6 +2204,8 @@ $(function () {
         .then(function(response) {
             const d = response.data.data;
             const payments = d.get_payment || [];
+
+            console.log('dd',d)
             
             // Set View Info Modal
             $('#hotel_name_display').text(d.contact_name || '-');
@@ -2261,5 +2288,3 @@ $(function () {
 
 </script>
 @endpush
-
-```

@@ -179,6 +179,7 @@ class GlobalService
     {
         try {
             LogHistory::create([
+                'created_by' => $idUserLogin,
                 'user_id' => $idUserLogin,
                 'ip_address' => $ip_address,
                 'browser' => $bowser,

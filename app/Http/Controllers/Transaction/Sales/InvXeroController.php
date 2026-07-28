@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Transaction\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
+use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class InvXeroController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank, $repo_over;
     use ConfigRefreshXero;
     use ApiResponse;
 
@@ -40,7 +41,8 @@ class InvXeroController extends Controller
         TransCoaRepo $repo_all_trans,
         TransBankRepo $repo_trans_bank,
         GlobalService $service_global,
-        DataJamaahXeroRepository $repo_jamaah
+        DataJamaahXeroRepository $repo_jamaah,
+        OverPayRepo $repo_over
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -48,6 +50,7 @@ class InvXeroController extends Controller
         $this->service_global = $service_global;
         $this->repo_jamaah = $repo_jamaah;
         $this->repo_trans_bank = $repo_trans_bank;
+        $this->repo_over = $repo_over;
     }
 
     public function getListInvoice(Request $request)
@@ -532,7 +535,8 @@ class InvXeroController extends Controller
             'getDetailById',
             'getDetailById.getCoa',
             'getDetailById.getItem',
-            'getPayment'
+            'getPayment',
+            'getHistoryInvoice'
             // 'getDetailById.trackingCategoryPaket'
         ], ['id' => $request->id])->first();
         return $this->autoResponse($data);
@@ -559,13 +563,13 @@ class InvXeroController extends Controller
 
         $sisaTagihan = $cekData->less_nominal;
 
-        if ($request->nominal_receive > $cekData->invoice_total) {
-            return $this->error("Nominal melebihi total tagihan (due: {$cekData->invoice_total})", 400);
-        }
+        // if ($request->nominal_receive > $cekData->invoice_total) { //izinkan overpayment
+        //     return $this->error("Nominal melebihi total tagihan (due: {$cekData->invoice_total})", 400);
+        // }
 
-        if ($request->nominal_receive > $sisaTagihan) {
-            return $this->error("Nominal melebihi sisa tagihan yang belum dibayar (sisa: {$sisaTagihan})", 400);
-        }
+        // if ($request->nominal_receive > $sisaTagihan) { //izinkan overpayment
+        //     return $this->error("Nominal melebihi sisa tagihan yang belum dibayar (sisa: {$sisaTagihan})", 400);
+        // }
 
         $request->merge([
             'created_by' => $request->user_login->id,
@@ -586,9 +590,27 @@ class InvXeroController extends Controller
             ]);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
 
-            if ($invP->invoice_amount == $invP->invoice_total && $invP->less_nominal == 0) {
+            if ($invP->invoice_amount == $invP->invoice_total || $invP->invoice_amount > $invP->invoice_total && $invP->less_nominal <= 0) {
                 $this->repo->CreateOrUpdate(['status' => 'PAID'], $request->parent_inv_id);
             }
+
+            $actionLabel = 'membuat pembayaran invoice ' . $invP->invoice_number . " ";
+            $logMessage = $request->user_login->name . ' ' . $actionLabel . ' ' . $saveP->name_contact . " sebesar " . $request->nominal_receive .
+                " pada bank " . $saveP->name_bank;
+
+            if ($invP->invoice_amount > $invP->invoice_total) {//jika yang di bayarkan > total tagihan
+                $lebih = $invP->invoice_amount - $invP->invoice_total;
+                $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $lebih, 'invoice_id' => $request->parent_inv_id, 'trans_bank_id' => $saveP->id], null);
+            }
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                $invP->id,
+                null
+            );
             DB::commit();
             return $this->autoResponse($saveP);
         } catch (\Throwable $th) {

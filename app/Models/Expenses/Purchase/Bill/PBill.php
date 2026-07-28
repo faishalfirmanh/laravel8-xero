@@ -2,6 +2,7 @@
 
 namespace App\Models\Expenses\Purchase\Bill;
 
+use App\Models\LogHistory;
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use App\Models\User;
@@ -41,6 +42,11 @@ class PBill extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+
+    public function getHistoryBills()
+    {
+        return $this->hasMany(LogHistory::class, 'bills_id');
+    }
 
     public function getPayment()
     {

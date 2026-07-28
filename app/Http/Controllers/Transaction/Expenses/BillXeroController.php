@@ -341,9 +341,30 @@ class BillXeroController extends Controller
         $nominal_due_final = $findData->total - $nominal_paid_final;
 
         $param_bill_save = ['nominal_paid' => $nominal_paid_final, 'nominal_due' => $nominal_due_final];
-        $this->repo->CreateOrUpdate($param_bill_save, $request->id_parent_bill);
-        $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), null);
-        return $this->autoResponse($saveP);
+
+        DB::beginTransaction();
+        try {
+            $this->repo->CreateOrUpdate($param_bill_save, $request->id_parent_bill);
+            $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), null);
+
+            $actionLabel = 'membuat pembayaran bills ';
+            $logMessage = $request->user_login->name . ' ' . $actionLabel . ' ' . $saveP->name_contact . " sebesar " . $request->nominal_spend .
+                " pada bank " . $saveP->name_bank;
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $request->id_parent_bill
+            );
+            DB::commit();
+            return $this->autoResponse($saveP);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error($th->getMessage(), 400);
+        }
 
     }
 
@@ -668,7 +689,7 @@ class BillXeroController extends Controller
             return $this->error($validator->errors());
         }
         // dd(222);
-        $data = $this->repo->WhereDataWith(['getDetail', 'getContactFrom', 'getPayment'], ['id' => $request->id])->first();
+        $data = $this->repo->WhereDataWith(['getDetail', 'getHistoryBills', 'getContactFrom', 'getPayment'], ['id' => $request->id])->first();
         return $this->autoResponse($data);
     }
 

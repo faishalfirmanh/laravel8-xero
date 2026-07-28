@@ -12,6 +12,8 @@ use App\Http\Repository\LogHistoryRepository;
 use App\Traits\ApiResponse;
 use Validator;
 
+use Illuminate\Support\Str;
+
 class ProfitLossController extends Controller
 {
     use ApiResponse;

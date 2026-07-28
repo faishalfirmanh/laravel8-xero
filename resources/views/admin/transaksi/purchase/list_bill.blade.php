@@ -285,6 +285,14 @@
                             </table>
                         </div>
                     </div>
+                    <div class="mt-4 pt-3 border-top">
+                        <h6 class="font-weight-bold mb-2">
+                            <i class="ti ti-history mr-1"></i> Log History
+                        </h6>
+                        <ul class="list-group list-group-flush small" id="history_log_list" style="max-height: 200px; overflow-y: auto;">
+                            <!-- di-render via JS -> renderHistoryLog() -->
+                        </ul>
+                    </div>
                 </div>
             </form>
         </div>
@@ -753,7 +761,9 @@ $(document).ready(function() {
             .then(response =>{
                 if(response.status == 200){
                     let data_res = response.data.data;
-                    
+                
+                    console.log('bilss',data_res)
+
                     let contactId = data_res.uuid_from;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
                     let newOption = new Option(contactName, contactId, true, true);
@@ -816,6 +826,7 @@ $(document).ready(function() {
                     }
                 
                     calculateGrandTotal();
+                    renderHistoryLog(data_res.get_history_bills)
                 }
             })
             .catch((err)=>{
@@ -1157,6 +1168,21 @@ $(document).ready(function() {
         }
         $('#grandTotal').text(formatCurrency(total_grand));
     };
+
+    function renderHistoryLog(historyArr) {
+        const $list = $('#history_log_list');
+        $list.empty();
+
+        if (!historyArr || historyArr.length === 0) {
+            $list.append('<li class="list-group-item text-muted">Belum ada riwayat.</li>');
+            return;
+        }
+
+        historyArr.forEach(function (h) {
+            const action = $('<div>').text(`${convertStringDate(h.created_at)} | ${h.action}` || '-').html(); // escape biar aman dari HTML/script
+            $list.append('<li class="list-group-item">' + action + '</li>');
+        });
+    }
 
     function loadTable(status_type) {
          table = initGlobalDataTableTokenSelected(

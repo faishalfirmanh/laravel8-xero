@@ -13,9 +13,9 @@ class AddUniquePaymentUuidToTransactionNominalBankAccounts extends Migration
      */
     public function up()
     {
-        Schema::table('transaction_nominal_bank_accounts', function (Blueprint $table) {
-            $table->unique('payment_uuid')->change();
-        });
+        // Schema::table('transaction_nominal_bank_accounts', function (Blueprint $table) {
+        //     $table->unique('payment_uuid')->change();
+        // });
     }
 
     /**

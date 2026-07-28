@@ -36,6 +36,11 @@ class InvoicesAllFromXero extends Model
         return $this->hasMany(TransactionNominalBankAccount::class, 'id_parent_invoice');
     }
 
+    public function getHistoryInvoice()
+    {
+        return $this->hasMany(LogHistory::class, 'salles_inv_id');
+    }
+
     public function getDetailById()
     {
         return $this->hasMany(ItemDetailInvoices::class, 'parent_inv_id', 'id');
