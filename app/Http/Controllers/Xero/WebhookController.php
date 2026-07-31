@@ -11,7 +11,36 @@ class WebhookController extends Controller
 {
     //
 
+
     public function handleXero(Request $request)
+    {
+        $rawPayload = $request->getContent();
+        $signature = $request->header('x-xero-signature');
+        $webhookKey = config('services.xero.webhook_key');
+
+        $computed = base64_encode(hash_hmac('sha256', $rawPayload, $webhookKey, true));
+
+        // hash_equals untuk mencegah timing attack
+        if (!$signature || !hash_equals($computed, $signature)) {
+            Log::warning('Xero webhook: signature tidak valid');
+            return response('', 401);
+        }
+
+        $data = json_decode($rawPayload, true) ?? [];
+        $events = $data['events'] ?? [];
+
+        foreach ($events as $event) {
+            if (($event['eventCategory'] ?? null) === 'INVOICE') {
+                ProcessXeroInvoiceEvent::dispatch($event);
+            }
+        }
+
+        // Wajib balas 200 secepatnya (termasuk saat "Intent to Receive"
+        // validation waktu pertama kali setup webhook di Xero — events-nya kosong)
+        return response('', 200);
+    }
+
+    public function handleXeross(Request $request)
     {
         // 1. Ambil Signature dari Header
         $xeroSignature = $request->header('x-xero-signature');

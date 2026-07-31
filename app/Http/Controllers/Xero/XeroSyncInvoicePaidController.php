@@ -519,6 +519,101 @@ class XeroSyncInvoicePaidController extends Controller
 
     }
 
+
+    public function getInvoicePaidArrival2(Request $request)
+    {
+        // Hindari timeout PHP
+        ini_set('max_execution_time', 0);
+        set_time_limit(0);
+
+        $validator = Validator::make($request->all(), [
+            'startDate' => 'required|date',
+            'endDate' => 'required|date|after_or_equal:startDate',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+        $startStr = Carbon::parse($request->startDate)->format('Y,m,d');
+        $endStr = Carbon::parse($request->endDate)->format('Y,m,d');
+
+        $tokenData = $this->getValidToken();
+        if (!$tokenData) {
+            return response()->json(['message' => 'Token kosong/invalid.'], 401);
+        }
+
+        $tenantId = $this->getTenantId($tokenData['access_token']);
+
+        // Status DRAFT = draft, AUTHORISED = "Awaiting Payment" di tampilan Xero
+        // Kurung wajib ada supaya AND Date tidak salah presedensi sama OR di atas
+        if ($request->has('force_all') && $request->force_all == 'true') {
+            $whereClause = '(Status=="DRAFT" OR Status=="AUTHORISED")';
+            Log::warning("Melakukan Full Sync Invoice Draft/Awaiting Payment Xero");
+        } else {
+            $whereClause = '(Status=="DRAFT" OR Status=="AUTHORISED") AND Date >= DateTime(' . $startStr . ') AND Date <= DateTime(' . $endStr . ')';
+            Log::info("Melakukan Partial Sync Invoice Draft/Awaiting Payment Xero mulai dari: " . $startStr . " => " . $endStr);
+        }
+
+        $page = 1;
+        $allInvoices = [];
+        $isFinished = false;
+
+        try {
+            while (!$isFinished) {
+                $this->rateLimiter->checkAndHit($tenantId);
+
+                $response = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page, $whereClause) {
+                    return Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                        'Xero-Tenant-Id' => $tenantId,
+                        'Accept' => 'application/json',
+                    ])
+                        ->timeout(20)
+                        ->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                            'where' => $whereClause,
+                            'order' => 'Date DESC',
+                            'page' => $page,
+                            'unitdp' => 4,
+                            'SummaryOnly' => 'false', // pastikan LineItems & Contact ikut terbawa (detail penuh)
+                        ]);
+                });
+
+                if ($response->serverError()) {
+                    Log::error('Xero 500 Error Page ' . $page);
+                    break;
+                }
+
+                // Rate Limit Handling
+                $min_rem = (int) $response->header('X-MinLimit-Remaining');
+                $day_rem = (int) $response->header('X-DayLimit-Remaining');
+                $this->global->requestCalculationXero($min_rem, $day_rem);
+
+                $data_invoice_page = $response->json('Invoices') ?? [];
+
+                // Jika kosong, selesai
+                if (count($data_invoice_page) == 0) {
+                    $isFinished = true;
+                    break;
+                }
+                Log::info("Page {$page}: dapat " . count($data_invoice_page) . " invoice");
+
+                $allInvoices = array_merge($allInvoices, $data_invoice_page);
+                $page++;
+            }
+
+            Log::info("Berhasil Melakukan Sync Invoice Draft/Awaiting Payment. Total: " . count($allInvoices));
+            return response()->json([
+                'status' => 'success',
+                'data' => $allInvoices,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Sync Error: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
     //hanya sync invoice
     public function getInvoicePaidArrival(Request $request)
     {

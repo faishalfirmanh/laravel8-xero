@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\ConfigRefreshXero;
 use Illuminate\Support\Facades\Http;
 
 class XeroService
 {
+
+    use ConfigRefreshXero;
     public static function getAccessToken()
     {
         $expiredAt = env('XERO_TOKEN_EXPIRED_AT');
@@ -51,5 +54,27 @@ class XeroService
         }
 
         file_put_contents($envPath, $env);
+    }
+
+
+    public function getInvoice(string $tenantId, string $invoiceId): array
+    {
+        $tokenData = $this->getValidToken();
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $tokenData['access_token'],
+            'Xero-Tenant-Id' => $tenantId, // pakai tenantId dari event webhook, bukan hardcode
+            'Accept' => 'application/json',
+        ])
+            ->timeout(15)
+            ->get("https://api.xero.com/api.xro/2.0/Invoices/{$invoiceId}");
+
+        if ($response->failed()) {
+            throw new \RuntimeException(
+                "Gagal ambil invoice {$invoiceId} dari Xero: HTTP {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return $response->json('Invoices.0', []);
     }
 }

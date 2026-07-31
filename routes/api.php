@@ -94,6 +94,7 @@ Route::prefix("xero")->group(function () {
     Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2
     Route::post('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');//pindah invoice, detail dan item xero ke local db
     Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');
+    Route::get('get-invoice-xero', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival2']);
     Route::get('sync-bill', [XeroBillController::class, 'getBills'])->name('sync-bill-xero');
 });
 
@@ -421,8 +422,8 @@ Route::prefix("admin-web")->group(function () {
 
 
 
-Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
-
+//Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
+Route::post('/xero-webhook', [WebhookController::class, 'handleXero']);
 
 
 
