@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Xero;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessXeroInvoiceEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Jobs\ProcessXeroWebhook;
