@@ -39,7 +39,10 @@ Route::get('/cek-path', function () {
         'storage_path' => storage_path(),
     ];
 });
-Route::get('/', [DashboardController::class, 'index'])->name('home.index');
+
+// Route::get('/', [DashboardController::class, 'index'])->name('home.index');
+Route::get('/', [DashboardController::class, 'cekVa'])->name('cekVaWeb');
+
 Route::prefix('travel')->group(function () {
 
     Route::prefix('admin')->group(function () {

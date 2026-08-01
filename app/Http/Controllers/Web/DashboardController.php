@@ -31,6 +31,11 @@ class DashboardController extends Controller
     }
 
 
+    public function cekVa()
+    {
+        return view('xero.cekva');
+    }
+
     public function profitAndLoss()
     {
         return view('admin.report.profit_loss');
