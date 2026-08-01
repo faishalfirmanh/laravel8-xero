@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Transaction\Revenue;
 use App\Http\Controllers\Controller;
+use App\Http\Repository\Transaction\VaRepo;
 use App\Jobs\SyncXeroInvoiceJob;
 use App\Jobs\SyncXeroInvoiceJobV2;
 use App\Models\InvoicesAllFromXero;
@@ -29,17 +30,23 @@ class InvoiceXeroLocalController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_va;
     use ConfigRefreshXero;
     use ApiResponse;
 
 
-    public function __construct(InvoiceXeroLocalRepo $repo, HotelDetailInvoicesRepository $repo_detail, GlobalService $service_global, DataJamaahXeroRepository $repo_jamaah)
-    {
+    public function __construct(
+        InvoiceXeroLocalRepo $repo,
+        VaRepo $repo_va,
+        HotelDetailInvoicesRepository $repo_detail,
+        GlobalService $service_global,
+        DataJamaahXeroRepository $repo_jamaah
+    ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
         $this->service_global = $service_global;
         $this->repo_jamaah = $repo_jamaah;
+        $this->repo_va = $repo_va;
     }
 
     public function getSyncStatus(string $jobId)
@@ -68,6 +75,26 @@ class InvoiceXeroLocalController extends Controller
         ]);
     }
 
+    public function getVa(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'va_number' => 'required|string',
+            'key' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => $validator->errors()->first()
+            ], 400);
+        }
+
+        if (!Str::contains($request->key, 'namiroh123')) {
+            return $this->error('Key tidak valid.', 422);
+        }
+
+        $data = $this->repo_va->whereData(['va_number' => $request->va_number])->first();
+        return $this->autoResponse($data);
+    }
     public function getListInvoice(Request $request)
     {
         $tokenData = $this->getValidToken();

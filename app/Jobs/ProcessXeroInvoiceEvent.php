@@ -106,7 +106,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             VaTransUser::create([
                 'inv_number' => $invoiceNumber,
                 'va_number' => $vaNumber,
-                'paket_name' => $paketName,
+                'paket_name' => '--',
                 'bank_name' => $bankName,
                 'name_contact' => $contactName,
                 'payment' => $totPayment,

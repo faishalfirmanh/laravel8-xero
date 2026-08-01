@@ -82,6 +82,10 @@ Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logo
 
 Route::post('/extract-text', [ImageController::class, 'extractText']);
 
+
+
+Route::get('get-va-jamaah', [InvoiceXeroLocalController::class, 'getVa'])->name('get-va');
+
 Route::get('ubah-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountCodes']);//
 Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountNumbers']);
 //xero refresh token
