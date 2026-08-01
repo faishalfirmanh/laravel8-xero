@@ -58,40 +58,43 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     protected function syncVaTransFromLineItems(array $invoice, string $invoiceNumber): void
     {
         $lineItems = $invoice['LineItems'] ?? [];
-        $totalNominal = $invoice['Total'] ?? 0;
         $contactName = $invoice['Contact']['Name'] ?? null;
 
         $vaNumber = null;
         $bankName = null;
         $paketName = null;
         $totPayment = 0;
+        $totNominal = 0;
 
         foreach ($lineItems as $item) {
             $description = $item['Description'] ?? '';
-            $vaInfo = $this->extractVaInfo($description);
-
-            if (!$vaInfo) {
-                continue; // bukan baris VA, lewati
-            }
-
-            if ($vaNumber === null) {
-                // Ambil va_number/bank_name/paket_name dari baris VA PERTAMA yang ditemukan
-                $vaNumber = $vaInfo['va_number'];
-                $bankName = $vaInfo['bank_name'];
-                $paketName = $this->extractPaketName($item);
-            } elseif ($vaNumber !== $vaInfo['va_number']) {
-                // Data tidak konsisten: ada va_number lain dalam invoice yang sama
-                Log::warning("Invoice {$invoiceNumber}: va_number berbeda ({$vaInfo['va_number']}) dari yang pertama ({$vaNumber}), diabaikan.");
-            }
-
             $lineAmount = (float) ($item['LineAmount'] ?? 0);
+
+            // 1) Deteksi baris deklarasi VA - independen dari nilai amount-nya
+            $vaInfo = $this->extractVaInfo($description);
+            if ($vaInfo) {
+                if ($vaNumber === null) {
+                    $vaNumber = $vaInfo['va_number'];
+                    $bankName = $vaInfo['bank_name'];
+                    $paketName = $this->extractPaketName($item);
+                } elseif ($vaNumber !== $vaInfo['va_number']) {
+                    Log::warning("Invoice {$invoiceNumber}: va_number berbeda ({$vaInfo['va_number']}) dari yang pertama ({$vaNumber}), diabaikan.");
+                }
+            }
+
+            // 2) Baris amount negatif = riwayat pembayaran (TIDAK harus mengandung teks VA)
             if ($lineAmount < 0) {
                 $totPayment += abs($lineAmount);
+            }
+
+            // 3) Baris amount positif = nominal paket/produk asli
+            if ($lineAmount > 0) {
+                $totNominal += $lineAmount;
             }
         }
 
         if ($vaNumber === null) {
-            return; // tidak ada baris VA sama sekali di invoice ini
+            return; // tidak ada deklarasi VA di invoice ini
         }
 
         $existing = VaTransUser::where('va_number', $vaNumber)->first();
@@ -99,18 +102,18 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         if ($existing) {
             $existing->update([
                 'payment' => $totPayment,
-                'total_nominal' => $totalNominal,
+                'total_nominal' => $totNominal,
             ]);
             Log::info("Sukses update VaTransUser untuk invoice {$invoiceNumber}");
         } else {
             VaTransUser::create([
                 'inv_number' => $invoiceNumber,
                 'va_number' => $vaNumber,
-                'paket_name' => '--',
+                'paket_name' => $paketName,
                 'bank_name' => $bankName,
                 'name_contact' => $contactName,
                 'payment' => $totPayment,
-                'total_nominal' => $totalNominal,
+                'total_nominal' => $totNominal,
             ]);
             Log::info("Sukses create VaTransUser untuk invoice {$invoiceNumber}");
         }
