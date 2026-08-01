@@ -61,42 +61,58 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $totalNominal = $invoice['Total'] ?? 0;
         $contactName = $invoice['Contact']['Name'] ?? null;
 
+        $vaNumber = null;
+        $bankName = null;
+        $paketName = null;
+        $totPayment = 0;
+
         foreach ($lineItems as $item) {
             $description = $item['Description'] ?? '';
-
             $vaInfo = $this->extractVaInfo($description);
 
             if (!$vaInfo) {
                 continue; // bukan baris VA, lewati
             }
 
-            $vaNumber = $vaInfo['va_number'];
-            $bankName = $vaInfo['bank_name'];
-            $paketName = $this->extractPaketName($item);
-            $payment = $item['LineAmount'] ?? 0;
-
-            $existing = VaTransUser::where('va_number', $vaNumber)->first();
-
-            if ($existing) {
-                // Sudah ada -> tinggal update payment & total_nominal
-                Log::info('sukuses update to db ' . $invoiceNumber);
-                $existing->update([
-                    'payment' => $payment,
-                    'total_nominal' => $totalNominal,
-                ]);
-            } else {
-                // Belum ada -> buat record baru lengkap
-                Log::info('sukuses create to db ' . $invoiceNumber);
-                VaTransUser::create([
-                    'inv_number' => $invoiceNumber,
-                    'va_number' => $vaNumber,
-                    'paket_name' => $paketName,
-                    'bank_name' => $bankName,
-                    'name_contact' => $contactName,
-                    'payment' => $payment,
-                    'total_nominal' => $totalNominal,
-                ]);
+            if ($vaNumber === null) {
+                // Ambil va_number/bank_name/paket_name dari baris VA PERTAMA yang ditemukan
+                $vaNumber = $vaInfo['va_number'];
+                $bankName = $vaInfo['bank_name'];
+                $paketName = $this->extractPaketName($item);
+            } elseif ($vaNumber !== $vaInfo['va_number']) {
+                // Data tidak konsisten: ada va_number lain dalam invoice yang sama
+                Log::warning("Invoice {$invoiceNumber}: va_number berbeda ({$vaInfo['va_number']}) dari yang pertama ({$vaNumber}), diabaikan.");
             }
+
+            $lineAmount = (float) ($item['LineAmount'] ?? 0);
+            if ($lineAmount < 0) {
+                $totPayment += abs($lineAmount);
+            }
+        }
+
+        if ($vaNumber === null) {
+            return; // tidak ada baris VA sama sekali di invoice ini
+        }
+
+        $existing = VaTransUser::where('va_number', $vaNumber)->first();
+
+        if ($existing) {
+            $existing->update([
+                'payment' => $totPayment,
+                'total_nominal' => $totalNominal,
+            ]);
+            Log::info("Sukses update VaTransUser untuk invoice {$invoiceNumber}");
+        } else {
+            VaTransUser::create([
+                'inv_number' => $invoiceNumber,
+                'va_number' => $vaNumber,
+                'paket_name' => $paketName,
+                'bank_name' => $bankName,
+                'name_contact' => $contactName,
+                'payment' => $totPayment,
+                'total_nominal' => $totalNominal,
+            ]);
+            Log::info("Sukses create VaTransUser untuk invoice {$invoiceNumber}");
         }
     }
 
