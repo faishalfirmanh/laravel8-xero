@@ -76,7 +76,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 if ($vaNumber === null) {
                     $vaNumber = $vaInfo['va_number'];
                     $bankName = $vaInfo['bank_name'];
-                    $paketName = $this->extractPaketName($item);
+                    $paketName = $this->extractPaketName($item) ?? '--';
                 } elseif ($vaNumber !== $vaInfo['va_number']) {
                     Log::warning("Invoice {$invoiceNumber}: va_number berbeda ({$vaInfo['va_number']}) dari yang pertama ({$vaNumber}), diabaikan.");
                 }
