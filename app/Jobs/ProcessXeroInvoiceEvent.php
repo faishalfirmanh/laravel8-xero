@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Services\XeroService;
 use App\Models\Transaction\VaTransUser;
+use Str;
 
 class ProcessXeroInvoiceEvent implements ShouldQueue
 {
@@ -59,6 +60,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     {
         $lineItems = $invoice['LineItems'] ?? [];
         $contactName = $invoice['Contact']['Name'] ?? null;
+        $contactPhone = $this->extractContactPhone($invoice);
 
         $vaNumber = null;
         $bankName = null;
@@ -100,11 +102,15 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $existing = VaTransUser::where('va_number', $vaNumber)->first();
 
         if ($existing) {
+            $paymentChanged = (float) $existing->payment !== $totPayment;
             $existing->update([
                 'payment' => $totPayment,
                 'total_nominal' => $totNominal,
             ]);
             Log::info("Sukses update VaTransUser untuk invoice {$invoiceNumber}");
+            if ($paymentChanged) {
+                $this->dispatchVaNotification($contactPhone, $invoiceNumber, $vaNumber, $bankName, $existing->paket_name, $totPayment, $totNominal);
+            }
         } else {
             VaTransUser::create([
                 'inv_number' => $invoiceNumber,
@@ -116,9 +122,42 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'total_nominal' => $totNominal,
             ]);
             Log::info("Sukses create VaTransUser untuk invoice {$invoiceNumber}");
+            $this->dispatchVaNotification($contactPhone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal);
         }
     }
 
+    private function extractContactPhone(array $invoice): ?string
+    {
+        $phones = $invoice['Contact']['Phones'] ?? [];
+
+        $mobile = collect($phones)->firstWhere('PhoneType', 'MOBILE');
+        $phone = $mobile['PhoneNumber'] ?? (collect($phones)->first()['PhoneNumber'] ?? null);
+
+        if (!$phone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if (Str::startsWith($digits, '0')) {
+            $digits = '62' . substr($digits, 1);
+        } elseif (!Str::startsWith($digits, '62')) {
+            $digits = '62' . $digits;
+        }
+
+        return $digits;
+    }
+
+    private function dispatchVaNotification(?string $phone, string $invoiceNumber, string $vaNumber, ?string $bankName, ?string $paketName, float $totPayment, float $totNominal): void
+    {
+        if (!$phone) {
+            Log::warning("Gagal kirim notifikasi VA invoice {$invoiceNumber}: nomor HP kontak tidak ditemukan di data Xero.");
+            return;
+        }
+
+        // dispatch ke queue, jangan blocking di dalam proses webhook Xero
+        SendVaNotificationJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal);
+    }
 
     protected function extractVaInfo(string $description): ?array
     {
