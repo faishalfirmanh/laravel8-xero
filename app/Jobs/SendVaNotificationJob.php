@@ -16,15 +16,36 @@ class SendVaNotificationJob implements ShouldQueue
 
     public int $tries = 3;
 
+    protected string $phone;
+    protected string $invoiceNumber;
+    protected string $vaNumber;
+    protected ?string $bankName;
+    protected ?string $paketName;
+    protected float $totPayment;
+    protected float $totNominal;
+    protected string $user;
+    protected string $pass;
+
     public function __construct(
-        private string $phone,
-        private string $invoiceNumber,
-        private string $vaNumber,
-        private ?string $bankName,
-        private ?string $paketName,
-        private float $totPayment,
-        private float $totNominal,
+        string $phone,
+        string $invoiceNumber,
+        string $vaNumber,
+        ?string $bankName,
+        ?string $paketName,
+        float $totPayment,
+        float $totNominal,
+        string $user = '',
+        string $pass = ''
     ) {
+        $this->phone = $phone;
+        $this->invoiceNumber = $invoiceNumber;
+        $this->vaNumber = $vaNumber;
+        $this->bankName = $bankName;
+        $this->paketName = $paketName;
+        $this->totPayment = $totPayment;
+        $this->totNominal = $totNominal;
+        $this->user = $user;
+        $this->pass = $pass;
     }
 
     public function handle(): void
@@ -37,7 +58,12 @@ class SendVaNotificationJob implements ShouldQueue
             . "VA {$this->bankName}: {$this->vaNumber}\n"
             . "Total Tagihan: Rp" . number_format($this->totNominal, 0, ',', '.') . "\n"
             . "Sudah Dibayar: Rp" . number_format($this->totPayment, 0, ',', '.') . "\n"
-            . "Sisa: Rp" . number_format($sisa, 0, ',', '.');
+            . "Sisa: Rp" . number_format($sisa, 0, ',', '.') . "\n"
+            . "kunjungi url : https://an.alhidayah.id/ \n";
+
+        if ($this->user !== '' && $this->pass !== '') {
+            $message .= "username : {$this->user}\n" . "pass : {$this->pass}\n";
+        }
 
         $response = Http::withHeaders([
             'Authorization' => env('FONNTE_TOKEN'),

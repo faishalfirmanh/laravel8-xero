@@ -16,11 +16,15 @@ class DataJamaahXero extends Model
         'phone_number',
         'is_jamaah',
         'is_agen',
-        'is_mitra_trevel'
+        'is_mitra_trevel',
+        'username',
+        'pass',
+        'nik',
+        'detail_address',
     ];
 
     public function transHotel()
     {
-          return $this->hasMany(InvoicesHotel::class, 'uuid_user_order','uuid_contact');
+        return $this->hasMany(InvoicesHotel::class, 'uuid_user_order', 'uuid_contact');
     }
 }
