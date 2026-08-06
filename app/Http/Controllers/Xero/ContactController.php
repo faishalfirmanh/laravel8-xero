@@ -148,6 +148,9 @@ class ContactController extends Controller
             // Format Xero Where: Name=="Ali" OR Name=="Budi" OR Name=="Citra"
 
             $localNames = $dataLocal->pluck('nama_jamaah')
+                ->filter(function ($name) {
+                    return trim((string) $name) !== '';
+                })
                 ->map(function ($name) {
                     // Escape karakter kutip dua agar query tidak error
                     return 'Name=="' . str_replace('"', '\"', $name) . '"';
@@ -181,9 +184,18 @@ class ContactController extends Controller
             // 5. Siapkan Payload (Mixed: Create & Update)
             $payloadContacts = [];
             $ids_processed = [];
+            $ids_skipped = [];
 
             foreach ($dataLocal as $jamaah) {
-                $cleanName = trim($jamaah->nama_jamaah);
+                $cleanName = trim($jamaah->nama_jamaah ?? '');
+
+
+                if ($cleanName === '') {
+                    $ids_skipped[] = $jamaah->id_jamaah;
+                    Log::warning("Skip sync Xero (nama_jamaah kosong): id_jamaah=" . $jamaah->id_jamaah);
+                    continue;
+                }
+
                 $lowerName = strtolower($cleanName);
 
                 $contactData = [
@@ -202,6 +214,10 @@ class ContactController extends Controller
                         ]
                     ]
                 ];
+
+                if (isset($existingContacts[$lowerName])) {
+                    $contactData['ContactID'] = $existingContacts[$lowerName];
+                }
 
                 // LOGIKA PENTING:
                 // Jika nama sudah ada di Xero -> Masukkan ContactID (Xero akan melakukan UPDATE)
