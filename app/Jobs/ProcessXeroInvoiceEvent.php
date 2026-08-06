@@ -98,7 +98,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 $contactnya['pass'] = $pass_user;
                 $user_name_msg = $generate_user;
                 $user_pass_msg = $plain_password;
-                $repo_contact->CreateOrUpdate([$contactnya], null);
+                $repo_contact->CreateOrUpdate($contactnya, null);
                 Log::info("create contact sync invoice webhook " . $contactName);
             } else {
                 if ($cari_contact->username == null) {
@@ -106,7 +106,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     $contactnya['pass'] = $pass_user;
                     $user_name_msg = $generate_user;
                     $user_pass_msg = $plain_password;
-                    $repo_contact->CreateOrUpdate([$contactnya], $cari_contact->id);
+                    $repo_contact->CreateOrUpdate($contactnya, $cari_contact->id);
                     Log::info("update contact sync invoice webhook " . $contactName);
                 }
             }
