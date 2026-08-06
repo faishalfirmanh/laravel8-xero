@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Xero;
 
 use App\Servics\ConfigXero;
+use Exception;
 use Illuminate\Http\Request;
 use App\Models\DataJamaah;
 use Illuminate\Support\Facades\Http;
@@ -14,9 +15,9 @@ use App\Services\GlobalService;
 class ContactController extends Controller
 {
 
-  use ConfigRefreshXero;
+    use ConfigRefreshXero;
     protected $configXero;
-      protected $globalService;
+    protected $globalService;
     public function __construct(GlobalService $globalService)
     {
         // $this->configXero = new ConfigXero();
@@ -53,7 +54,7 @@ class ContactController extends Controller
             }
 
             $search = $request->query('name'); // ?name=andi
-            $page   = (int) $request->query('page', 1);
+            $page = (int) $request->query('page', 1);
 
             $query = [
                 'page' => $page
@@ -78,15 +79,15 @@ class ContactController extends Controller
             if ($response->failed()) {
                 return response()->json([
                     'message' => 'Xero API Error',
-                    'status'  => $response->status(),
-                    'body'    => $response->body()
+                    'status' => $response->status(),
+                    'body' => $response->body()
                 ], $response->status());
             }
 
-            $view_req =  $this->globalService->getDataAvailabeRequestXero();
-           return response()->json([
+            $view_req = $this->globalService->getDataAvailabeRequestXero();
+            return response()->json([
                 'meta' => [
-                    'request_min_tersisa_hari'  => $view_req->available_request_day,
+                    'request_min_tersisa_hari' => $view_req->available_request_day,
                     'request_min_tersisa_menit' => $view_req->available_request_min,
                 ],
                 'data' => json_decode($response->body(), true)
@@ -95,7 +96,7 @@ class ContactController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'Proxy Error',
-                'error'   => $e->getMessage()
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -109,14 +110,24 @@ class ContactController extends Controller
         try {
             // 2. Ambil Data Lokal (Limit 50 agar URL query Xero tidak kepanjangan)
             $dataLocal = DataJamaah::select(
-                "id_jamaah", "no_ktp", "title", "tempat_lahir", "estimasi_berangkat",
-                "leader", "id_status", "nama_jamaah", "alamat_jamaah",
-                "hp_jamaah", "no_tlp", "created_at", "is_updated_to_xero",
+                "id_jamaah",
+                "no_ktp",
+                "title",
+                "tempat_lahir",
+                "estimasi_berangkat",
+                "leader",
+                "id_status",
+                "nama_jamaah",
+                "alamat_jamaah",
+                "hp_jamaah",
+                "no_tlp",
+                "created_at",
+                "is_updated_to_xero",
                 DB::raw("TRIM(SUBSTRING_INDEX(hp_jamaah, '/', 1)) as hp_jamaah_bersih")
             )
-            ->where("is_updated_to_xero", false)
-            ->limit(50) // JANGAN diubah jadi besar, karena limit URL character
-            ->get();
+                ->where("is_updated_to_xero", false)
+                ->limit(50) // JANGAN diubah jadi besar, karena limit URL character
+                ->get();
 
             if ($dataLocal->isEmpty()) {
                 return response()->json(['message' => 'Data jamaah sudah sinkron semua'], 200);
@@ -125,6 +136,7 @@ class ContactController extends Controller
             // 3. Validasi Token
             $tokenData = $this->getValidToken();
             if (!$tokenData) {
+                Log::error("token kosong saat coba sync contact ");
                 return response()->json(['message' => 'Token kosong/invalid.'], 401);
             }
 
@@ -136,7 +148,7 @@ class ContactController extends Controller
             // Format Xero Where: Name=="Ali" OR Name=="Budi" OR Name=="Citra"
 
             $localNames = $dataLocal->pluck('nama_jamaah')
-                ->map(function($name) {
+                ->map(function ($name) {
                     // Escape karakter kutip dua agar query tidak error
                     return 'Name=="' . str_replace('"', '\"', $name) . '"';
                 })
@@ -149,13 +161,13 @@ class ContactController extends Controller
             $existingContacts = [];
             if (!empty($whereClause)) {//cek nama jamaah apakah ada di xero
                 $responseCheck = Http::withHeaders([
-                    'Authorization'  => 'Bearer ' . $accessToken,
+                    'Authorization' => 'Bearer ' . $accessToken,
                     'Xero-Tenant-Id' => $tenantId,
-                    'Accept'         => 'application/json',
+                    'Accept' => 'application/json',
                 ])->get('https://api.xero.com/api.xro/2.0/Contacts', [
-                    'where' => $whereClause,
-                    'summaryOnly' => 'true' // PENTING: Response lebih kecil & cepat
-                ]);
+                            'where' => $whereClause,
+                            'summaryOnly' => 'true' // PENTING: Response lebih kecil & cepat
+                        ]);
 
                 if ($responseCheck->successful()) {
                     $xeroData = $responseCheck->json()['Contacts'] ?? [];
@@ -205,12 +217,12 @@ class ContactController extends Controller
             // 6. Kirim ke Xero (Batch POST)
             if (!empty($payloadContacts)) {
                 $responsePost = Http::withHeaders([
-                    'Authorization'  => 'Bearer ' . $accessToken,
+                    'Authorization' => 'Bearer ' . $accessToken,
                     'Xero-Tenant-Id' => $tenantId,
-                    'Content-Type'   => 'application/json',
+                    'Content-Type' => 'application/json',
                 ])->post('https://api.xero.com/api.xro/2.0/Contacts', [
-                    'Contacts' => $payloadContacts
-                ]);
+                            'Contacts' => $payloadContacts
+                        ]);
 
                 // 7. Cek Hasil dan Update DB Lokal
                 if ($responsePost->successful()) {
@@ -221,7 +233,7 @@ class ContactController extends Controller
                     DataJamaah::whereIn('id_jamaah', $ids_processed)
                         ->update(['is_updated_to_xero' => true]);
 
-                    Log::info("Cron Job Contact: Sukses sync " . count($ids_processed) . " data. list ".json_encode($ids_processed));
+                    Log::info("Cron Job Contact: Sukses sync " . count($ids_processed) . " data. list " . json_encode($ids_processed));
 
                     return response()->json([
                         'status' => 'success',
@@ -273,9 +285,9 @@ class ContactController extends Controller
             "created_at",
             "is_updated_to_xero"
         )
-        ->where("is_updated_to_xero", false)
-        ->limit(50)
-        ->get();
+            ->where("is_updated_to_xero", false)
+            ->limit(50)
+            ->get();
 
         if ($dataLocal->isEmpty()) {
             return response()->json(['message' => 'Data jamaah sudah sinkron semua'], 200); // 200 OK lebih tepat daripada 404
@@ -398,10 +410,10 @@ class ContactController extends Controller
             'updated_ids' => $ids_to_update_status
         ], 200);
     }
-     public function getContactLocalv1()
+    public function getContactLocalv1()
     {
         // 1. Ambil Data Lokal
-       // dd(33);
+        // dd(33);
         $dataLocal = DataJamaah::select(
             "id_jamaah",
             "no_ktp",
@@ -422,12 +434,12 @@ class ContactController extends Controller
             "created_at",
             "is_updated_to_xero"
         )
-        ->where("is_updated_to_xero",false)
-        ->limit(50)
-        ->get();
+            ->where("is_updated_to_xero", false)
+            ->limit(50)
+            ->get();
 
-        if(count($dataLocal) < 1){
-             return response()->json(['message' => 'data jamaah sudah semua'], 404);
+        if (count($dataLocal) < 1) {
+            return response()->json(['message' => 'data jamaah sudah semua'], 404);
         }
 
         $tokenData = $this->getValidToken();
@@ -483,7 +495,7 @@ class ContactController extends Controller
                         ]
                     ]
                 ];
-            }else{
+            } else {
                 continue;
             }
         }
@@ -520,7 +532,7 @@ class ContactController extends Controller
             'status' => 'success',
             'message' => $tot_data > 0 ? "Berhasil menambahkan $tot_data kontak baru." : "Tidak ada kontak baru untuk ditambahkan.",
             'total_added' => $tot_data,
-            'berhasil_updated'=>$list_id_jamaah_updated
+            'berhasil_updated' => $list_id_jamaah_updated
         ], 200);
     }
 
