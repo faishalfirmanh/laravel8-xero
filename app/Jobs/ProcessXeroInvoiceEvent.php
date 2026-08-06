@@ -21,15 +21,12 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
     protected array $event;
 
-    private $repo_contact;
-
-    public function __construct(array $event, DataJamaahXeroRepository $repo_contact)
+    public function __construct(array $event)
     {
         $this->event = $event;
-        $this->repo_contact = $repo_contact;
     }
 
-    public function handle(XeroService $xero)
+    public function handle(XeroService $xero, DataJamaahXeroRepository $repo_contact)
     {
         $invoiceId = $this->event['resourceId'] ?? null;
         $tenantId = $this->event['tenantId'] ?? null;
@@ -39,10 +36,9 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         }
 
         try {
-            // Ambil detail invoice terbaru dari Xero API
             $invoice = $xero->getInvoice($tenantId, $invoiceId);
 
-            $invoiceNumber = $invoice['InvoiceNumber'] ?? $invoiceId; // contoh: INV-1219
+            $invoiceNumber = $invoice['InvoiceNumber'] ?? $invoiceId;
             $safeName = preg_replace('/[^A-Za-z0-9\-_]/', '', $invoiceNumber);
             $fileName = $safeName . '.json';
 
@@ -51,7 +47,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 json_encode($invoice, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
             );
 
-            $this->syncVaTransFromLineItems($invoice, $invoiceNumber);
+            $this->syncVaTransFromLineItems($invoice, $invoiceNumber, $repo_contact);
 
             Log::info("Invoice {$invoiceNumber} berhasil diupdate ke {$fileName}");
         } catch (\Throwable $e) {
@@ -60,7 +56,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         }
     }
 
-
     private static function ambilKataPertama(string $str): string
     {
         $bersih = rtrim($str, '_');
@@ -68,8 +63,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         return $parts[0];
     }
 
-
-    protected function syncVaTransFromLineItems(array $invoice, string $invoiceNumber): void
+    protected function syncVaTransFromLineItems(array $invoice, string $invoiceNumber, DataJamaahXeroRepository $repo_contact): void
     {
         $lineItems = $invoice['LineItems'] ?? [];
         $contactName = $invoice['Contact']['Name'] ?? null;
@@ -85,19 +79,18 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $user_pass_msg = '';
 
         if ($contactName) {
-            $cari_contact = $this->repo_contact->whereData(['uuid_contact' => $invoice['Contact']['ContactID']])->first();
+            $cari_contact = $repo_contact->whereData(['uuid_contact' => $invoice['Contact']['ContactID']])->first();
             $rand_number = random_int(1000, 9999);
 
             $baseName = self::ambilKataPertama($contactName);
             $generate_user = $baseName . $rand_number;
-
 
             $plain_password = $baseName;
             $pass_user = Hash::make($plain_password);
 
             $contactnya = [];
 
-            if ($cari_contact == NULL) {
+            if ($cari_contact == null) {
                 $contactnya['uuid_contact'] = $invoice['Contact']['ContactID'];
                 $contactnya['full_name'] = trim(($invoice['Contact']['FirstName'] ?? '') . ' ' . ($invoice['Contact']['LastName'] ?? ''));
                 $contactnya['phone_number'] = $invoice['Contact']['Phones'][0]['PhoneNumber'] ?? '';
@@ -105,14 +98,16 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 $contactnya['pass'] = $pass_user;
                 $user_name_msg = $generate_user;
                 $user_pass_msg = $plain_password;
-                $this->repo_contact->CreateOrUpdate([$contactnya], null);
+                $repo_contact->CreateOrUpdate([$contactnya], null);
+                Log::info("create contact sync invoice webhook " . $contactName);
             } else {
                 if ($cari_contact->username == null) {
                     $contactnya['username'] = $generate_user;
                     $contactnya['pass'] = $pass_user;
                     $user_name_msg = $generate_user;
                     $user_pass_msg = $plain_password;
-                    $this->repo_contact->CreateOrUpdate([$contactnya], $cari_contact->id);
+                    $repo_contact->CreateOrUpdate([$contactnya], $cari_contact->id);
+                    Log::info("update contact sync invoice webhook " . $contactName);
                 }
             }
         }
@@ -121,7 +116,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             $description = $item['Description'] ?? '';
             $lineAmount = (float) ($item['LineAmount'] ?? 0);
 
-            // 1) Deteksi baris deklarasi VA - independen dari nilai amount-nya
             $vaInfo = $this->extractVaInfo($description);
             if ($vaInfo) {
                 if ($vaNumber === null) {
@@ -133,19 +127,17 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 }
             }
 
-            // 2) Baris amount negatif = riwayat pembayaran (TIDAK harus mengandung teks VA)
             if ($lineAmount < 0) {
                 $totPayment += abs($lineAmount);
             }
 
-            // 3) Baris amount positif = nominal paket/produk asli
             if ($lineAmount > 0) {
                 $totNominal += $lineAmount;
             }
         }
 
         if ($vaNumber === null) {
-            return; // tidak ada deklarasi VA di invoice ini
+            return;
         }
 
         $existing = VaTransUser::where('va_number', $vaNumber)->first();
@@ -204,7 +196,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             return;
         }
 
-        // dispatch ke queue, jangan blocking di dalam proses webhook Xero
         SendVaNotificationJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal, $user, $pass);
     }
 
@@ -212,14 +203,12 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     {
         $upper = strtoupper($description);
 
-        // 1) Cari keyword VIRTUAL ACCOUNT / VA (word boundary), ambil sisa teks setelahnya
         if (!preg_match('/\b(?:VIRTUAL\s*ACCOUNT|VA)\b\s*[:\-]?\s*(.+)$/', $upper, $matches)) {
             return null;
         }
 
         $remainder = trim($matches[1]);
 
-        // 2) Angka di ujung string = nomor VA, sisanya = nama bank
         if (!preg_match('/^([A-Z\s]+?)\s+(\d{4,})\s*$/', $remainder, $parts)) {
             return null;
         }
