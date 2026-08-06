@@ -3,6 +3,7 @@
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
 use App\Http\Controllers\MasterData\ProducAndServiceXeroLocalController;
+use App\Http\Controllers\MekariWaTestController;
 use App\Http\Controllers\Report\ProfitLossController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
@@ -428,6 +429,9 @@ Route::prefix("admin-web")->group(function () {
 
 //Route::post('/xero-webhook', [WebhookController::class, 'handleXero'])->name('xero-webhook');
 Route::post('/xero-webhook', [WebhookController::class, 'handleXero']);
+
+
+Route::post('/mekari-webhook', [MekariWaTestController::class, 'sendTest']);//mekari
 
 
 
