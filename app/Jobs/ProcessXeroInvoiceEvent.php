@@ -92,7 +92,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
             if ($cari_contact == null) {
                 $contactnya['uuid_contact'] = $invoice['Contact']['ContactID'];
-                $contactnya['full_name'] = trim(($invoice['Contact']['FirstName'] ?? '') . ' ' . ($invoice['Contact']['LastName'] ?? ''));
+                $contactnya['full_name'] = isset($contactName) ? $contactName : trim(($invoice['Contact']['FirstName'] ?? '') . ' ' . ($invoice['Contact']['LastName'] ?? ''));
                 $contactnya['phone_number'] = $invoice['Contact']['Phones'][0]['PhoneNumber'] ?? '';
                 $contactnya['username'] = $generate_user;
                 $contactnya['pass'] = $pass_user;
