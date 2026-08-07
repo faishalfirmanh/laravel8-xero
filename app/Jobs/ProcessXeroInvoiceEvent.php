@@ -78,6 +78,9 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $user_name_msg = '';
         $user_pass_msg = '';
 
+
+        Log::info('job kirim va ProcessXeroInvoiceEvent.php');
+
         if ($contactName) {
             $cari_contact = $repo_contact->whereData(['uuid_contact' => $invoice['Contact']['ContactID']])->first();
             $rand_number = random_int(1000, 9999);
