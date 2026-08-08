@@ -15,6 +15,7 @@ class WebhookController extends Controller
 
     public function handleXero(Request $request)
     {
+        Log::info('xero webhook awal mulai berjalan WebhookController');
         $rawPayload = $request->getContent();
         $signature = $request->header('x-xero-signature');
         $webhookKey = config('services.xero.webhook_key');
