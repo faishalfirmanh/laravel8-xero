@@ -79,10 +79,14 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $user_pass_msg = '';
 
 
-        Log::info('job kirim va ProcessXeroInvoiceEvent.php');
+           Log::info('job kirim va ProcessXeroInvoiceEvent.php' . $contactName . " inv number " . $invoiceNumber);
 
         if ($contactName) {
+              Log::info("Cek kontak untuk invoice {$invoiceNumber}, ContactID: " . ($invoice['Contact']['ContactID'] ?? 'null'));
             $cari_contact = $repo_contact->whereData(['uuid_contact' => $invoice['Contact']['ContactID']])->first();
+               Log::info("whereData selesai, hasil: " . ($cari_contact ? "ID {$cari_contact->id}" : 'tidak ketemu'));
+
+
             $rand_number = random_int(1000, 9999);
 
             $baseName = self::ambilKataPertama($contactName);
@@ -114,6 +118,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 }
             }
         }
+        
+        Log::info("Mulai loop LineItems, jumlah item: " . count($lineItems));
 
         foreach ($lineItems as $item) {
             $description = $item['Description'] ?? '';
@@ -138,8 +144,11 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 $totNominal += $lineAmount;
             }
         }
+        
+        Log::info("Loop LineItems selesai, vaNumber: " . ($vaNumber ?? 'TIDAK ADA'));
 
         if ($vaNumber === null) {
+             Log::info("Invoice {$invoiceNumber}: tidak ditemukan baris VA (invoice mungkin masih draft/belum lengkap), skip proses VaTransUser & notifikasi.");
             return;
         }
 
@@ -199,7 +208,10 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             return;
         }
 
-        SendVaNotificationJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal, $user, $pass);
+//mekari
+ SendVaNotifMekariJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal, $user, $pass);
+//fonte
+        //SendVaNotificationJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal, $user, $pass);
     }
 
     protected function extractVaInfo(string $description): ?array
