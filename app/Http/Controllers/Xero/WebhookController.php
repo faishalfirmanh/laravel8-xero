@@ -29,13 +29,33 @@ class WebhookController extends Controller
         }
 
         $data = json_decode($rawPayload, true) ?? [];
-        $events = $data['events'] ?? [];
 
+        //old
+        // $events = $data['events'] ?? [];
+
+        // foreach ($events as $event) {
+        //     if (($event['eventCategory'] ?? null) === 'INVOICE') {
+        //         ProcessXeroInvoiceEvent::dispatch($event);
+        //     }
+        // }
+        //old
+
+        //new
+        $events = $data['events'] ?? [];
+        $invoiceEvents = [];
         foreach ($events as $event) {
             if (($event['eventCategory'] ?? null) === 'INVOICE') {
-                ProcessXeroInvoiceEvent::dispatch($event);
+                $resourceId = $event['resourceId'] ?? null;
+                if ($resourceId) {
+                    $invoiceEvents[$resourceId] = $event; // event terakhir untuk resourceId yang sama akan menimpa yang sebelumnya
+                }
             }
         }
+        Log::info('Xero webhook: ' . count($events) . ' event masuk, ' . count($invoiceEvents) . ' invoice unik akan diproses.');
+        foreach ($invoiceEvents as $event) {
+            ProcessXeroInvoiceEvent::dispatch($event);
+        }
+        //new
 
         // Wajib balas 200 secepatnya (termasuk saat "Intent to Receive"
         // validation waktu pertama kali setup webhook di Xero — events-nya kosong)
