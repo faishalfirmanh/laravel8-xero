@@ -101,7 +101,9 @@ class ContactController extends Controller
         }
     }
 
-    public function getContactLocal()//26122025 , durasi update / create 5 detik untuk 50 data,
+
+    //by name, 08-08-26
+    public function getContactLocalOld()//26122025 , durasi update / create 5 detik untuk 50 data,
     {
         // 1. Setup Resource Limit
         set_time_limit(120); // 2 Menit cukup untuk 50 data
@@ -270,6 +272,185 @@ class ContactController extends Controller
             }
 
             return response()->json(['message' => 'Tidak ada payload yang terbentuk.'], 200);
+
+        } catch (Exception $e) {
+            Log::error("Cron Job Contact Fatal Error: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getContactLocal()
+    {
+        // 1. Setup Resource Limit
+        set_time_limit(180);
+        ini_set('memory_limit', '256M');
+
+        try {
+            // 2. Ambil Data Lokal (Limit 50)
+            $dataLocal = DataJamaah::select(
+                "id_jamaah",
+                "no_ktp",
+                "title",
+                "tempat_lahir",
+                "estimasi_berangkat",
+                "leader",
+                "id_status",
+                "nama_jamaah",
+                "alamat_jamaah",
+                "hp_jamaah",
+                "no_tlp",
+                "created_at",
+                "is_updated_to_xero",
+                DB::raw("TRIM(SUBSTRING_INDEX(hp_jamaah, '/', 1)) as hp_jamaah_bersih")
+            )
+                ->where("is_updated_to_xero", false)
+                ->whereNotNull('no_ktp') // Pastikan hanya yang punya KTP yang diproses
+                ->where('no_ktp', '!=', '')
+                ->limit(50)
+                ->get();
+
+            if ($dataLocal->isEmpty()) {
+                return response()->json(['message' => 'Data jamaah sudah sinkron semua'], 200);
+            }
+
+            // 3. Validasi Token
+            $tokenData = $this->getValidToken();
+            if (!$tokenData) {
+                Log::error("token kosong saat coba sync contact ");
+                return response()->json(['message' => 'Token kosong/invalid.'], 401);
+            }
+
+            $tenantId = config('services.xero.tenant_id') ?: env('XERO_TENANT_ID');
+            $accessToken = $tokenData['access_token'];
+
+            $headers = [
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ];
+
+            // 4. --- OPTIMASI: CEK DUPLIKAT BERDASARKAN NO_KTP (ContactNumber) ---
+            // Kita ambil no_ktp yang unik untuk dicek ke Xero
+            $uniqueKTPs = $dataLocal->pluck('no_ktp')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $existingContacts = [];
+            $chunks = $uniqueKTPs->chunk(10); // Pecah jadi 10 per request agar URL tidak kepanjangan
+
+            foreach ($chunks as $chunk) {
+                // Buat query Xero: ContactNumber=="123" OR ContactNumber=="456"
+                $whereClauses = $chunk->map(function ($ktp) {
+                    $cleanKtp = str_replace('"', '', $ktp);
+                    return 'ContactNumber=="' . $cleanKtp . '"';
+                })->implode(' OR ');
+
+                $responseCheck = Http::withHeaders($headers)
+                    ->timeout(15)
+                    ->get('https://api.xero.com/api.xro/2.0/Contacts', [
+                        'where' => $whereClauses,
+                        'summaryOnly' => 'true'
+                    ]);
+
+                if ($responseCheck->successful()) {
+                    $xeroData = $responseCheck->json()['Contacts'] ?? [];
+                    foreach ($xeroData as $xContact) {
+                        // Mapping: No KTP (ContactNumber di Xero) => ContactID Xero
+                        if (isset($xContact['ContactNumber'])) {
+                            $existingContacts[$xContact['ContactNumber']] = $xContact['ContactID'];
+                        }
+                    }
+                } else {
+                    Log::warning("Gagal cek duplikat Xero untuk chunk KTP", [
+                        'status' => $responseCheck->status(),
+                        'body' => $responseCheck->body()
+                    ]);
+                }
+            }
+
+            // 5. Siapkan Payload (Mixed: Create & Update)
+            $payloadContacts = [];
+            $ids_processed = [];
+            $ids_skipped = [];
+
+            foreach ($dataLocal as $jamaah) {
+                $cleanName = trim($jamaah->nama_jamaah ?? '');
+                $cleanKtp = trim($jamaah->no_ktp ?? '');
+
+                if ($cleanName === '' || $cleanKtp === '') {
+                    $ids_skipped[] = $jamaah->id_jamaah;
+                    Log::warning("Skip sync Xero (Nama/KTP kosong): id_jamaah=" . $jamaah->id_jamaah);
+                    continue;
+                }
+
+                // Payload utama
+                $contactData = [
+                    "Name" => $cleanName,
+                    "ContactNumber" => $cleanKtp, // KUNCI UTAMA: No KTP masuk ke ContactNumber
+                    "DefaultCurrency" => "IDR",
+                    "Addresses" => [
+                        [
+                            "AddressType" => "STREET",
+                            "AddressLine1" => $jamaah->full_address . ", " . $jamaah->alamat_jamaah ?? "-"
+                        ]
+                    ],
+                    "Phones" => [
+                        [
+                            "PhoneType" => "MOBILE",
+                            "PhoneNumber" => $jamaah->hp_jamaah_bersih ?? ""
+                        ]
+                    ]
+                ];
+
+                // LOGIKA MATCHING BERDASARKAN NO KTP:
+                // Jika No KTP sudah ada di Xero -> Masukkan ContactID (Xero akan UPDATE)
+                // Jika No KTP belum ada -> Jangan masukkan ContactID (Xero akan CREATE baru, meskipun Nama sama)
+                if (isset($existingContacts[$cleanKtp])) {
+                    $contactData['ContactID'] = $existingContacts[$cleanKtp];
+                }
+
+                $payloadContacts[] = $contactData;
+                $ids_processed[] = $jamaah->id_jamaah;
+            }
+
+            if (empty($payloadContacts)) {
+                return response()->json(['message' => 'Tidak ada payload valid untuk dikirim.'], 200);
+            }
+
+            // 6. Kirim ke Xero (Batch POST)
+            $responsePost = Http::withHeaders(array_merge($headers, ['Content-Type' => 'application/json']))
+                ->timeout(30)
+                ->post('https://api.xero.com/api.xro/2.0/Contacts', [
+                    'Contacts' => $payloadContacts
+                ]);
+
+            // 7. Cek Hasil dan Update DB Lokal
+            if ($responsePost->successful()) {
+                DataJamaah::whereIn('id_jamaah', $ids_processed)
+                    ->update(['is_updated_to_xero' => true]);
+
+                Log::info("Cron Job Contact: Sukses sync " . count($ids_processed) . " data.");
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Sync kontak berhasil (Berdasarkan No KTP)',
+                    'total_processed' => count($ids_processed),
+                    'skipped' => count($ids_skipped)
+                ]);
+
+            } else {
+                $errorBody = $responsePost->json();
+                $errorMessage = $errorBody['Message'] ?? $responsePost->body();
+
+                Log::error("Cron Job Contact Gagal POST: " . $errorMessage, ['response' => $errorBody]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Gagal POST ke Xero',
+                    'details' => $errorBody
+                ], 400);
+            }
 
         } catch (Exception $e) {
             Log::error("Cron Job Contact Fatal Error: " . $e->getMessage());
