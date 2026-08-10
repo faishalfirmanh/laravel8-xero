@@ -24,7 +24,7 @@ class ItemDetailInvoices extends Model
         'coa_id',//pake id,
         'parent_inv_id',
         'item_id',//kalau pake ini uuid_item ->dihapus
-        'uuid_detail_inv',//Untuk transaction,
+        'uuid_detail_inv',//Untuk transaction, tidak boleh sama
         'paket_tracking_uuid',
         'divisi_travel_tracking_uuid',
         'id_parent_inv',

@@ -303,7 +303,27 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
         $contactId = data_get($inv, 'Contact.ContactID');
 
-        $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
+
+        //
+        $phones = $inv['Contact']['Phones'] ?? [];
+        $mobilePhone = collect($phones)->firstWhere('PhoneType', 'MOBILE');
+        $phoneNumber = $mobilePhone['PhoneNumber'] ?? ($phones[0]['PhoneNumber'] ?? null);
+
+        $addresses = $inv['Contact']['Addresses'] ?? [];
+        $streetAddress = collect($addresses)->firstWhere('AddressType', 'STREET');
+        $detailAddress = $streetAddress['AddressLine1'] ?? ($addresses[0]['AddressLine1'] ?? null);
+        //
+
+        $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id');
+        if ($findContact == NULL) {//JIKA TIDAK ADA Create baru
+            $createContactk = DataJamaahXero::create([
+                'uuid_contact' => $inv['Contact']['ContactID'],
+                'full_name' => $inv['Contact']['Name'],
+                'phone_number' => $phoneNumber,
+                'detail_address' => $detailAddress
+            ]);
+            $findContact = $createContactk->id;
+        }
 
         InvoicesAllFromXero::upsert(
             [
