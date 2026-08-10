@@ -3,23 +3,36 @@
 namespace App\Jobs;
 
 use App\Http\Repository\MasterData\DataJamaahXeroRepository;
+use App\Models\MasterData\DataJamaahXero;
+use App\Models\Transaction\VaTransUser;
+use App\Models\MasterData\Coa;
+use App\Services\XeroService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use App\Services\XeroService;
-use App\Models\Transaction\VaTransUser;
+use Carbon\Carbon;
 use Str;
-use Illuminate\Support\Facades\Hash;
+
+// TODO: sesuaikan namespace 5 model ini dengan lokasi asli di project kamu
+use App\Models\InvoicesAllFromXero;
+use App\Models\MasterData\ItemDetailInvoices;
+
+use App\Models\ItemsPaketAllFromXero;
+use App\Models\Transaction\TransactionAllCoa;
 
 class ProcessXeroInvoiceEvent implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected array $event;
+
+    private array $trackingCache = [];
 
     public function __construct(array $event)
     {
@@ -38,6 +51,12 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         try {
             $invoice = $xero->getInvoice($tenantId, $invoiceId);
 
+            // pengecekan: pastikan respons Xero valid sebelum diproses lebih lanjut
+            if (empty($invoice) || empty($invoice['InvoiceID'])) {
+                Log::warning("Invoice {$invoiceId}: respons Xero kosong/tidak valid, dilewati.");
+                return;
+            }
+
             $invoiceNumber = $invoice['InvoiceNumber'] ?? $invoiceId;
             $safeName = preg_replace('/[^A-Za-z0-9\-_]/', '', $invoiceNumber);
             $fileName = $safeName . '.json';
@@ -48,6 +67,9 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             );
 
             $this->syncVaTransFromLineItems($invoice, $invoiceNumber, $repo_contact);
+
+            // insert/update detail invoice + line items + posting COA SAVE to db
+            $this->processInvoice($invoice);
 
             Log::info("Invoice {$invoiceNumber} berhasil diupdate ke {$fileName}");
         } catch (\Throwable $e) {
@@ -79,12 +101,12 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $user_pass_msg = '';
 
 
-           Log::info('job kirim va ProcessXeroInvoiceEvent.php' . $contactName . " inv number " . $invoiceNumber);
+        Log::info('job kirim va ProcessXeroInvoiceEvent.php' . $contactName . " inv number " . $invoiceNumber);
 
         if ($contactName) {
-              Log::info("Cek kontak untuk invoice {$invoiceNumber}, ContactID: " . ($invoice['Contact']['ContactID'] ?? 'null'));
+            Log::info("Cek kontak untuk invoice {$invoiceNumber}, ContactID: " . ($invoice['Contact']['ContactID'] ?? 'null'));
             $cari_contact = $repo_contact->whereData(['uuid_contact' => $invoice['Contact']['ContactID']])->first();
-               Log::info("whereData selesai, hasil: " . ($cari_contact ? "ID {$cari_contact->id}" : 'tidak ketemu'));
+            Log::info("whereData selesai, hasil: " . ($cari_contact ? "ID {$cari_contact->id}" : 'tidak ketemu'));
 
 
             $rand_number = random_int(1000, 9999);
@@ -118,7 +140,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 }
             }
         }
-        
+
         Log::info("Mulai loop LineItems, jumlah item: " . count($lineItems));
 
         foreach ($lineItems as $item) {
@@ -144,11 +166,11 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 $totNominal += $lineAmount;
             }
         }
-        
+
         Log::info("Loop LineItems selesai, vaNumber: " . ($vaNumber ?? 'TIDAK ADA'));
 
         if ($vaNumber === null) {
-             Log::info("Invoice {$invoiceNumber}: tidak ditemukan baris VA (invoice mungkin masih draft/belum lengkap), skip proses VaTransUser & notifikasi.");
+            Log::info("Invoice {$invoiceNumber}: tidak ditemukan baris VA (invoice mungkin masih draft/belum lengkap), skip proses VaTransUser & notifikasi.");
             return;
         }
 
@@ -208,9 +230,9 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             return;
         }
 
-//mekari
- SendVaNotifMekariJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal, $user, $pass);
-//fonte
+        //mekari
+        SendVaNotifMekariJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal, $user, $pass);
+        //fonte
         //SendVaNotificationJob::dispatch($phone, $invoiceNumber, $vaNumber, $bankName, $paketName, $totPayment, $totNominal, $user, $pass);
     }
 
@@ -243,5 +265,221 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         }
 
         return null;
+    }
+
+    // ================================================================
+    // FULL INVOICE + LINE ITEM SYNC (dipindah dari SyncXeroInvoiceJob)
+    // ================================================================
+
+
+    private function parseXeroDate(?string $dateStr): ?string
+    {
+        if (!$dateStr) {
+            return null;
+        }
+
+        if (strpos($dateStr, 'T') !== false || strpos($dateStr, '-') !== false) {
+            try {
+                return Carbon::parse($dateStr)->format('Y-m-d');
+            } catch (\Exception $e) {
+                Log::warning("[parseXeroDate] Gagal parse tanggal ISO: $dateStr");
+                return null;
+            }
+        }
+
+        if (preg_match('/\/Date\((\d+)/', $dateStr, $matches)) {
+            return Carbon::createFromTimestampMs((int) $matches[1])->format('Y-m-d');
+        }
+
+        Log::warning("[parseXeroDate] Format tanggal tidak dikenali: $dateStr");
+        return null;
+    }
+
+    private function processInvoice(array $inv): void
+    {
+        $lineItems = $inv['LineItems'] ?? [];
+        $firstLine = $lineItems[0] ?? [];
+        $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
+        $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
+        $contactId = data_get($inv, 'Contact.ContactID');
+
+        $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
+
+        InvoicesAllFromXero::upsert(
+            [
+                [
+                    'invoice_uuid' => $inv['InvoiceID'],
+                    'invoice_number' => $inv['InvoiceNumber'] ?? null,
+                    'invoice_amount' => $inv['AmountPaid'] ?? 0,
+                    'invoice_total' => $inv['Total'] ?? 0,
+                    'less_nominal' => $inv['AmountDue'] ?? 0,
+                    'issue_date' => $issueDate,
+                    'due_date' => $dueDate,
+                    'status' => $inv['Status'] ?? null,
+                    'uuid_contact' => $contactId,
+                    'contact_name' => data_get($inv, 'Contact.Name'),
+                    'contact_id' => $findContact,
+                    'uuid_proudct_and_service' => $firstLine['ItemID'] ?? null,
+                    'item_name' => $firstLine['Description'] ?? null,
+                    'reference' => $inv['Reference'] ?? null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            ],
+            ['invoice_uuid'],
+            [
+                'invoice_number',
+                'invoice_amount',
+                'invoice_total',
+                'less_nominal',
+                'issue_date',
+                'due_date',
+                'status',
+                'uuid_contact',
+                'contact_name',
+                'contact_id',
+                'uuid_proudct_and_service',
+                'item_name',
+                'reference',
+                'updated_at',
+            ]
+        );
+
+        $parentId = InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])->value('id');
+
+        if (!$parentId || empty($lineItems)) {
+            return;
+        }
+
+        $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->toArray();
+        $itemCodes = collect($lineItems)
+            ->filter(fn($l) => isset($l['Item']['Code']))
+            ->map(fn($l) => $l['Item']['Code'])
+            ->unique()->values()->toArray();
+
+        $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
+        $itemMap = ItemsPaketAllFromXero::whereIn('code', $itemCodes)->pluck('id', 'code')->toArray();
+
+        $batchDetails = [];
+
+        foreach ($lineItems as $line) {
+            $paketUuid = null;
+            $divisiUuid = null;
+
+            foreach ($line['Tracking'] ?? [] as $track) {
+                $categoryName = strtolower($track['Name'] ?? '');
+                $optionName = $track['Option'] ?? '';
+
+                if (strpos($categoryName, 'nama paket') !== false) {
+                    $paketUuid = $this->resolveTrackingUuid('Nama Paket', $optionName);
+                } elseif (strpos($categoryName, 'divisi') !== false) {
+                    $divisiUuid = $this->resolveTrackingUuid('Divisi', $optionName);
+                }
+            }
+
+            $coaId = isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null;
+            $itemCode = $line['Item']['Code'] ?? null;
+            $itemIdSave = $itemCode ? ($itemMap[$itemCode] ?? null) : null;
+            $uuidItem = $line['Item']['ItemID'] ?? $line['ItemID'] ?? 'no_set';
+
+            $batchDetails[] = [
+                'invoice_number' => $inv['InvoiceNumber'] ?? null,
+                'uuid_invoices' => $inv['InvoiceID'],
+                'uuid_item' => $uuidItem,
+                'qty' => $line['Quantity'] ?? 0,
+                'unit_price' => $line['UnitAmount'] ?? 0,
+                'total_amount_each_row' => $line['LineAmount'] ?? 0,
+                'line_item_uuid' => $line['LineItemID'],
+                'coa_id' => $coaId,
+                'parent_inv_id' => $parentId,
+                'item_id' => $itemIdSave,
+                'uuid_detail_inv' => (string) Str::uuid(), // TODO: ganti balik ke $service_global->generateUniqueString() kalau ada aturan format khusus
+                'paket_tracking_uuid' => $paketUuid,
+                'divisi_travel_tracking_uuid' => $divisiUuid,
+                'desc' => $line['Description'] ?? null,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ];
+        }
+
+        if (empty($batchDetails)) {
+            return;
+        }
+
+        ItemDetailInvoices::upsert(
+            $batchDetails,
+            ['line_item_uuid'],
+            [
+                'invoice_number',
+                'uuid_invoices',
+                'uuid_item',
+                'qty',
+                'unit_price',
+                'total_amount_each_row',
+                'coa_id',
+                'parent_inv_id',
+                'item_id',
+                'paket_tracking_uuid',
+                'divisi_travel_tracking_uuid',
+                'desc',
+                'updated_at',
+                'uuid_detail_inv',
+            ]
+        );
+
+        $status = $inv['Status'] ?? null;
+
+        if ($status === 'AUTHORISED' || $status === 'PAID') {
+            $lineItemUuids = collect($batchDetails)->pluck('line_item_uuid')->toArray();
+
+            $savedDetails = ItemDetailInvoices::whereIn('line_item_uuid', $lineItemUuids)
+                ->get()->keyBy('line_item_uuid');
+
+            foreach ($batchDetails as $detail) {
+                if (empty($detail['coa_id'])) {
+                    continue;
+                }
+
+                $saved = $savedDetails[$detail['line_item_uuid']] ?? null;
+                if (!$saved) {
+                    continue;
+                }
+
+                TransactionAllCoa::firstOrCreate(
+                    ['uuid_detail' => $saved->uuid_detail_inv],
+                    [
+                        'date_transaction' => $issueDate,
+                        'uuid_coa' => $detail['coa_id'],
+                        'reference' => $inv['Reference'] ?? '-',
+                        'is_speend' => 0,
+                        'nominal' => $saved->total_amount_each_row,
+                        'uuid_detail' => $saved->uuid_detail_inv,
+                    ]
+                );
+            }
+        }
+    }
+
+    private function resolveTrackingUuid(string $parentName, string $optionName): ?string
+    {
+        $cacheKey = $parentName . '::' . $optionName;
+
+        if (array_key_exists($cacheKey, $this->trackingCache)) {
+            return $this->trackingCache[$cacheKey];
+        }
+
+        $kategori = DB::table('tracking_categories')
+            ->where('name_parent_category', $parentName)
+            ->whereJsonContains('lines_category', ['item_name_category' => $optionName])
+            ->first();
+
+        if (!$kategori) {
+            return $this->trackingCache[$cacheKey] = null;
+        }
+
+        $lines = collect(json_decode($kategori->lines_category, true));
+        $item = $lines->firstWhere('item_name_category', $optionName);
+
+        return $this->trackingCache[$cacheKey] = ($item['item_uuid_category'] ?? null);
     }
 }
