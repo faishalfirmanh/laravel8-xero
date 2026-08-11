@@ -60,6 +60,10 @@ class XeroService
     public function getInvoice(string $tenantId, string $invoiceId): array
     {
         $tokenData = $this->getValidToken();
+        
+        if (empty($tokenData['access_token'])) {
+        throw new \RuntimeException('Token Xero tidak tersedia — perlu re-autentikasi ulang.');
+    }
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $tokenData['access_token'],
