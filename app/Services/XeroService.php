@@ -40,6 +40,28 @@ class XeroService
         return env('XERO_ACCESS_TOKEN');
     }
 
+
+    public function getPayment(string $tenantId, string $paymentId): array
+    {
+        $tokenData = $this->getValidToken();
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $tokenData['access_token'],
+            'Xero-Tenant-Id' => $tenantId,
+            'Accept' => 'application/json',
+        ])
+            ->timeout(15)
+            ->get("https://api.xero.com/api.xro/2.0/Payments/{$paymentId}");
+
+        if ($response->failed()) {
+            throw new \RuntimeException(
+                "Gagal ambil payment {$paymentId} dari Xero: HTTP {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return $response->json('Payments.0', []);
+    }
+
     private static function updateEnv(array $data)
     {
         $envPath = base_path('.env');

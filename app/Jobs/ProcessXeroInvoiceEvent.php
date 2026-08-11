@@ -5,7 +5,9 @@ namespace App\Jobs;
 use App\Http\Repository\MasterData\DataJamaahXeroRepository;
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\Transaction\VaTransUser;
+use App\Models\Transaction\TransactionNominalBankAccount;
 use App\Models\MasterData\Coa;
+use App\Models\MasterData\BankXero;
 use App\Services\XeroService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,12 +21,17 @@ use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use Str;
 
-// TODO: sesuaikan namespace 5 model ini dengan lokasi asli di project kamu
+// TODO: sesuaikan namespace model-model ini dengan lokasi asli di project kamu
 use App\Models\InvoicesAllFromXero;
 use App\Models\MasterData\ItemDetailInvoices;
-
 use App\Models\ItemsPaketAllFromXero;
 use App\Models\Transaction\TransactionAllCoa;
+
+// Model sisi Bill (ACCPAY) — dipakai kalau webhook INVOICE ternyata membawa
+// Purchase Bill, bukan Sales Invoice. ADJUST namespace sesuai project kamu;
+// ini mengikuti pola yang sama dipakai di SyncBillJob.
+use App\Models\Expenses\Purchase\Bill\PBill;
+use App\Models\Expenses\Purchase\Bill\DBill;
 
 class ProcessXeroInvoiceEvent implements ShouldQueue
 {
@@ -66,12 +73,26 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 json_encode($invoice, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
             );
 
-            $this->syncVaTransFromLineItems($invoice, $invoiceNumber, $repo_contact);
+            // ── PENTING ──────────────────────────────────────────────────────
+            // Xero mengirim eventCategory "INVOICE" untuk DUA jenis objek:
+            // Sales Invoice (Type=ACCREC) DAN Purchase Bill (Type=ACCPAY) —
+            // keduanya sama-sama endpoint /Invoices di Xero API (quirk Xero,
+            // bukan typo). SEBELUM fix ini, job selalu memperlakukan setiap
+            // event sebagai Sales Invoice; kalau webhook-nya untuk Bill, data
+            // akan salah masuk ke tabel AR (InvoicesAllFromXero) dan salah
+            // tercatat sebagai pemasukan (is_speend=0), padahal itu pengeluaran.
+            $type = $invoice['Type'] ?? null;
 
-            // insert/update detail invoice + line items + posting COA SAVE to db
-            $this->processInvoice($invoice);
+            if ($type === 'ACCPAY') {
+                $this->processBillFromWebhook($xero, $tenantId, $invoice, $invoiceNumber);
+            } else {
+                $this->syncVaTransFromLineItems($invoice, $invoiceNumber, $repo_contact);
 
-            Log::info("Invoice {$invoiceNumber} berhasil diupdate ke {$fileName}");
+                // insert/update detail invoice + line items + posting COA + payment SAVE to db
+                $this->processInvoice($xero, $tenantId, $invoice);
+            }
+
+            Log::info("Invoice {$invoiceNumber} (Type: " . ($type ?? 'ACCREC') . ") berhasil diupdate ke {$fileName}");
         } catch (\Throwable $e) {
             Log::error('Gagal proses webhook invoice Xero: ' . $e->getMessage());
             $this->fail($e);
@@ -100,14 +121,12 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $user_name_msg = '';
         $user_pass_msg = '';
 
-
         Log::info('job kirim va ProcessXeroInvoiceEvent.php' . $contactName . " inv number " . $invoiceNumber);
 
         if ($contactName) {
             Log::info("Cek kontak untuk invoice {$invoiceNumber}, ContactID: " . ($invoice['Contact']['ContactID'] ?? 'null'));
             $cari_contact = $repo_contact->whereData(['uuid_contact' => $invoice['Contact']['ContactID']])->first();
             Log::info("whereData selesai, hasil: " . ($cari_contact ? "ID {$cari_contact->id}" : 'tidak ketemu'));
-
 
             $rand_number = random_int(1000, 9999);
 
@@ -268,9 +287,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     }
 
     // ================================================================
-    // FULL INVOICE + LINE ITEM SYNC (dipindah dari SyncXeroInvoiceJob)
+    // FULL INVOICE (ACCREC) + LINE ITEM SYNC
     // ================================================================
-
 
     private function parseXeroDate(?string $dateStr): ?string
     {
@@ -295,7 +313,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         return null;
     }
 
-    private function processInvoice(array $inv): void
+    private function processInvoice(XeroService $xero, string $tenantId, array $inv): void
     {
         $lineItems = $inv['LineItems'] ?? [];
         $firstLine = $lineItems[0] ?? [];
@@ -303,8 +321,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
         $contactId = data_get($inv, 'Contact.ContactID');
 
-
-        //
         $phones = $inv['Contact']['Phones'] ?? [];
         $mobilePhone = collect($phones)->firstWhere('PhoneType', 'MOBILE');
         $phoneNumber = $mobilePhone['PhoneNumber'] ?? ($phones[0]['PhoneNumber'] ?? null);
@@ -312,10 +328,9 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $addresses = $inv['Contact']['Addresses'] ?? [];
         $streetAddress = collect($addresses)->firstWhere('AddressType', 'STREET');
         $detailAddress = $streetAddress['AddressLine1'] ?? ($addresses[0]['AddressLine1'] ?? null);
-        //
 
         $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id');
-        if ($findContact == NULL) {//JIKA TIDAK ADA Create baru
+        if ($findContact == NULL) { // JIKA TIDAK ADA Create baru
             $createContactk = DataJamaahXero::create([
                 'uuid_contact' => $inv['Contact']['ContactID'],
                 'full_name' => $inv['Contact']['Name'],
@@ -367,7 +382,20 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         $parentId = InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])->value('id');
 
-        if (!$parentId || empty($lineItems)) {
+        if (!$parentId) {
+            Log::warning("Invoice {$inv['InvoiceID']}: gagal ambil parentId setelah upsert InvoicesAllFromXero, batal lanjut.");
+            return;
+        }
+
+        // ── BARU: sync payment invoice (uang MASUK) -> TransactionNominalBankAccount ──
+        // Sebelumnya job ini TIDAK PERNAH menyentuh TransactionNominalBankAccount untuk
+        // invoice — deteksi pembayaran cuma lewat parsing teks "VA" di line item (lihat
+        // syncVaTransFromLineItems di atas, tetap dipertahankan apa adanya). Ini
+        // menambah sync resmi dari field Payments milik invoice Xero, idempoten
+        // (dicek payment_uuid dulu) — pola sama seperti SyncBillJob::getDetailPayment().
+        $this->syncPaymentsFromXeroObject($xero, $tenantId, $inv, $parentId, false);
+
+        if (empty($lineItems)) {
             return;
         }
 
@@ -413,7 +441,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'coa_id' => $coaId,
                 'parent_inv_id' => $parentId,
                 'item_id' => $itemIdSave,
-                'uuid_detail_inv' => (string) Str::uuid(), // TODO: ganti balik ke $service_global->generateUniqueString() kalau ada aturan format khusus
+                'uuid_detail_inv' => (string) Str::uuid(),
                 'paket_tracking_uuid' => $paketUuid,
                 'divisi_travel_tracking_uuid' => $divisiUuid,
                 'desc' => $line['Description'] ?? null,
@@ -479,6 +507,312 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             }
         }
     }
+
+    // ================================================================
+    // BILL (ACCPAY) HANDLING — dipakai kalau webhook "INVOICE" ternyata
+    // membawa Purchase Bill, bukan Sales Invoice. Logic ini sengaja
+    // mengikuti SyncBillJob::processBills() supaya kedua jalur (webhook
+    // realtime & cron polling) menghasilkan data yang konsisten.
+    // ================================================================
+
+    private function processBillFromWebhook(XeroService $xero, string $tenantId, array $inv, string $invoiceNumber): void
+    {
+        $lineItems = $inv['LineItems'] ?? [];
+        $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
+        $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
+        $contactId = data_get($inv, 'Contact.ContactID');
+
+        // Bill (ACCPAY): p_bills tidak punya kolom uuid_contact/contact_name
+        // terpisah — default ke id=1 kalau kontak belum ada, SAMA seperti
+        // SyncBillJob::processBills(). Sengaja TIDAK membuat kontak baru +
+        // username/password di sini, karena itu cuma relevan untuk kontak
+        // jamaah/pelanggan (sisi invoice), bukan vendor/supplier.
+        $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
+
+        PBill::upsert(
+            [
+                [
+                    'bills_uuid_xero' => $inv['InvoiceID'],
+                    'uuid_from' => $findContact,
+                    'date_req' => $issueDate,
+                    'due_date' => $dueDate,
+                    'reference' => $inv['InvoiceNumber'] ?? null,
+                    'amounts_are' => $this->mapAmountsAre($inv['LineAmountTypes'] ?? null),
+                    'subtotal' => $inv['SubTotal'] ?? 0,
+                    'total' => $inv['Total'] ?? 0,
+                    'tax' => $inv['TotalTax'] ?? 0,
+                    'nominal_paid' => $inv['AmountPaid'] ?? 0,
+                    'nominal_due' => $inv['AmountDue'] ?? 0,
+                    'status' => $this->mapBillStatus($inv['Status'] ?? null),
+                    'currency' => $inv['CurrencyCode'] ?? null,
+                    'created_by' => 1,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            ],
+            ['bills_uuid_xero'],
+            [
+                'uuid_from',
+                'date_req',
+                'due_date',
+                'reference',
+                'amounts_are',
+                'subtotal',
+                'total',
+                'tax',
+                'nominal_paid',
+                'nominal_due',
+                'status',
+                'currency',
+                'updated_at',
+            ]
+        );
+
+        $parentId = PBill::where('bills_uuid_xero', $inv['InvoiceID'])->value('id');
+
+        if (!$parentId) {
+            Log::warning("Bill {$invoiceNumber}: gagal ambil parentId setelah upsert PBill, batal lanjut.");
+            return;
+        }
+
+        // sync payment bill (uang KELUAR) -> TransactionNominalBankAccount
+        $this->syncPaymentsFromXeroObject($xero, $tenantId, $inv, $parentId, true);
+
+        if (empty($lineItems)) {
+            return;
+        }
+
+        $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->toArray();
+        $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
+
+        $batchDetails = [];
+
+        foreach ($lineItems as $line) {
+            $paketUuid = null;
+            $divisiUuid = null;
+
+            foreach ($line['Tracking'] ?? [] as $track) {
+                $categoryName = strtolower($track['Name'] ?? '');
+                $optionName = $track['Option'] ?? '';
+
+                if (strpos($categoryName, 'nama paket') !== false) {
+                    $paketUuid = $this->resolveTrackingUuid('Nama Paket', $optionName);
+                } elseif (strpos($categoryName, 'divisi') !== false) {
+                    $divisiUuid = $this->resolveTrackingUuid('Divisi', $optionName);
+                }
+            }
+
+            $coaId = isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null;
+            $itemCode = $line['ItemCode'] ?? data_get($line, 'Item.Code');
+
+            // Pakai LineItemID Xero (unik & stabil) sebagai key upsert idempoten,
+            // fallback ke UUID random kalau entah kenapa Xero tidak mengirimkannya.
+            $uuidDetail = $line['LineItemID'] ?? (string) Str::uuid();
+
+            $batchDetails[] = [
+                'bills_parent_id' => $parentId,
+                'item_code' => $itemCode,
+                'desc' => $line['Description'] ?? null,
+                'qty' => $line['Quantity'] ?? 0,
+                'unit_price' => $line['UnitAmount'] ?? 0,
+                'account_id_coa' => $coaId,
+                // ADJUST: diisi TaxAmount per baris (nominal), bukan persentase.
+                // Samakan dengan konvensi di SyncBillJob.
+                'tax_rate' => $line['TaxAmount'] ?? 0,
+                'paket_tracking_uuid' => $paketUuid,
+                'divisi_travel_tracking_uuid' => $divisiUuid,
+                'amount' => $line['LineAmount'] ?? 0,
+                'uuid_detail' => $uuidDetail,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ];
+        }
+
+        if (empty($batchDetails)) {
+            return;
+        }
+
+        DBill::upsert(
+            $batchDetails,
+            ['uuid_detail'],
+            [
+                'bills_parent_id',
+                'item_code',
+                'desc',
+                'qty',
+                'unit_price',
+                'account_id_coa',
+                'tax_rate',
+                'paket_tracking_uuid',
+                'divisi_travel_tracking_uuid',
+                'amount',
+                'updated_at',
+            ]
+        );
+
+        $status = $inv['Status'] ?? null;
+
+        if ($status === 'AUTHORISED' || $status === 'PAID') {
+            $detailUuids = collect($batchDetails)->pluck('uuid_detail')->toArray();
+
+            $savedDetails = DBill::whereIn('uuid_detail', $detailUuids)
+                ->get()
+                ->keyBy('uuid_detail');
+
+            foreach ($batchDetails as $detail) {
+                if (empty($detail['account_id_coa'])) {
+                    continue;
+                }
+
+                $saved = $savedDetails[$detail['uuid_detail']] ?? null;
+                if (!$saved) {
+                    continue;
+                }
+
+                TransactionAllCoa::firstOrCreate(
+                    ['uuid_detail' => $saved->uuid_detail],
+                    [
+                        'date_transaction' => $issueDate,
+                        'uuid_coa' => $detail['account_id_coa'],
+                        'reference' => $inv['Reference'] ?? '-',
+                        // Bill = pengeluaran/expense -> is_speend = 1.
+                        'is_speend' => 1,
+                        'nominal' => $saved->amount,
+                        'uuid_detail' => $saved->uuid_detail,
+                    ]
+                );
+            }
+        }
+
+        Log::info("Bill {$invoiceNumber} berhasil disync (PBill/DBill) via webhook.");
+    }
+
+    /**
+     * p_bills.status numerik: 0=draft, 1=awaiting, 2=paid.
+     * ADJUST kalau definisi "awaiting" beda di sistemmu.
+     */
+    private function mapBillStatus(?string $xeroStatus): int
+    {
+        switch ($xeroStatus) {
+            case 'PAID':
+                return 2;
+            case 'SUBMITTED':
+            case 'AUTHORISED':
+                return 1;
+            case 'DRAFT':
+            case 'VOIDED':
+            case 'DELETED':
+            default:
+                return 0;
+        }
+    }
+
+    private function mapAmountsAre(?string $xeroLineAmountTypes): int
+    {
+        switch ($xeroLineAmountTypes) {
+            case 'Inclusive':
+                return 1;
+            case 'NoTax':
+                return 0;
+            case 'Exclusive':
+            default:
+                return 2;
+        }
+    }
+
+    // ================================================================
+    // PAYMENT SYNC — dipakai invoice (ACCREC) maupun bill (ACCPAY)
+    // ================================================================
+
+    /**
+     * Sync array Payments milik invoice/bill Xero ke TransactionNominalBankAccount.
+     * Idempoten: skip kalau payment_uuid sudah pernah tersimpan.
+     *
+     * Array Payments yang menempel di objek Invoice/Bill hasil getInvoice() Xero
+     * cuma ringkasan (PaymentID, Date, Amount, Reference) — tidak membawa data
+     * Account/bank. Supaya dapat AccountCode, di sini dipanggil
+     * $xero->getPayment($tenantId, $paymentId) untuk fetch detail payment penuh,
+     * sama seperti pola getDetailPayment() di SyncBillJob.
+     */
+    private function syncPaymentsFromXeroObject(XeroService $xero, string $tenantId, array $xeroObject, int $parentId, bool $isBill): void
+    {
+        $payments = $xeroObject['Payments'] ?? [];
+
+        if (empty($payments)) {
+            return;
+        }
+
+        $label = $isBill ? 'Bill' : 'Invoice';
+
+        foreach ($payments as $paymentRow) {
+            $paymentId = $paymentRow['PaymentID'] ?? null;
+            if (!$paymentId) {
+                continue;
+            }
+
+            $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
+            if ($alreadySynced) {
+                continue;
+            }
+
+            try {
+                $payment = $xero->getPayment($tenantId, $paymentId);
+            } catch (\Throwable $e) {
+                Log::warning("{$label} payment {$paymentId}: gagal fetch detail payment - " . $e->getMessage());
+                continue;
+            }
+
+            if (empty($payment) || empty($payment['PaymentID'])) {
+                Log::warning("{$label} payment {$paymentId}: respons Xero kosong/tidak valid, dilewati.");
+                continue;
+            }
+
+            $amount = (float) ($payment['Amount'] ?? 0);
+            $accountCode = data_get($payment, 'Account.Code');
+            $bankName = data_get($payment, 'Account.Name');
+            $date = $this->parseXeroDate($payment['Date'] ?? null);
+            $refDetail = $payment['Reference'] ?? '-';
+
+            if (!$accountCode) {
+                Log::warning("{$label} payment {$paymentId}: AccountCode kosong, dilewati. Ref: {$refDetail}");
+                continue;
+            }
+
+            $findBank = BankXero::where('code', $accountCode)->first();
+
+            if (!$findBank) {
+                Log::warning("{$label} payment {$paymentId}: kode akun bank '{$accountCode}' tidak ditemukan (nama: {$bankName}), dilewati.");
+                continue;
+            }
+
+            TransactionNominalBankAccount::updateOrCreate(
+                ['payment_uuid' => $paymentId],
+                [
+                    'uuid_bank' => $findBank->id,
+                    'nominal_receive' => $isBill ? 0 : $amount,
+                    'nominal_spend' => $isBill ? $amount : 0,
+                    'nominal_transfer' => 0,
+                    'created_by' => 1,
+                    'date_transaction' => $date,
+                    'reference_detail' => $refDetail,
+                    // id_parent_bill dan id_parent_invoice adalah KOLOM TERPISAH di
+                    // TransactionNominalBankAccount (lihat relasi getPbill()/getInv()
+                    // di model) — isi salah satunya sesuai arah transaksi, sisanya null,
+                    // supaya relasi Eloquent-nya nyantol ke tabel yang benar.
+                    'id_parent_bill' => $isBill ? $parentId : null,
+                    'id_parent_invoice' => $isBill ? null : $parentId,
+                ]
+            );
+
+            Log::info("{$label} payment {$paymentId} disync ke TransactionNominalBankAccount (uuid_bank: {$findBank->id}).");
+
+            usleep(200_000); // throttle ringan, samakan dgn SyncBillJob::THROTTLE_PAYMENT_US
+        }
+    }
+
+    // ================================================================
+    // TRACKING CATEGORY RESOLVER (dengan in-memory cache)
+    // ================================================================
 
     private function resolveTrackingUuid(string $parentName, string $optionName): ?string
     {
