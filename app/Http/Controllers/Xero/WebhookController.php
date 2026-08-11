@@ -41,9 +41,9 @@ class WebhookController extends Controller
             }
         }
         Log::info('Xero webhook: ' . count($events) . ' event masuk, ' . count($invoiceEvents) . ' invoice unik akan diproses.');
-        foreach ($invoiceEvents as $event) {
-            ProcessXeroInvoiceEvent::dispatch($event);
-        }
+        // foreach ($invoiceEvents as $event) {
+        //     ProcessXeroInvoiceEvent::dispatch($event);
+        // }
 
         return response('', 200);
     }
