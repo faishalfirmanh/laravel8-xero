@@ -48,6 +48,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
     public function handle(XeroService $xero, DataJamaahXeroRepository $repo_contact)
     {
+        Log::info('mulai berjalan jobnya');
         $invoiceId = $this->event['resourceId'] ?? null;
         $tenantId = $this->event['tenantId'] ?? null;
 
