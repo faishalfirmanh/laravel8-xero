@@ -497,6 +497,11 @@ $(document).ready(function() {
 
                 // Jika semua file berhasil diupload
                 this.on("successmultiple", function(files, response) {
+                    // FIX: tombol Approve/Save draft di-disable sebelum processQueue()
+                    // dipanggil (lihat submit handler di bawah). Kalau tidak di-enable
+                    // lagi di sini, tombol akan permanen disabled untuk modal
+                    // berikutnya karena elemen modal tidak pernah didestroy.
+                    $('.action-submit').prop('disabled', false);
                     Swal.fire('Sukses!', 'Data bill dan bukti berhasil disimpan.', 'success');
                     $('#modalCreateHotel').modal('hide');
                     table.ajax.reload(null, false);
@@ -504,6 +509,9 @@ $(document).ready(function() {
 
                 // Jika terjadi error saat upload
                 this.on("errormultiple", function(files, response) {
+                    // FIX: sama seperti successmultiple, tombol harus di-enable
+                    // kembali supaya user bisa retry submit.
+                    $('.action-submit').prop('disabled', false);
                     Swal.fire('Peringatan', 'bill tersimpan, namun gagal mengupload gambar.', 'warning');
                     table.ajax.reload(null, false);
                 });
@@ -720,6 +728,10 @@ $(document).ready(function() {
     });
 
     $('#modalCreateHotel').on('show.bs.modal', function () {
+        // FIX: safety-reset — pastikan tombol Approve/Save draft selalu aktif
+        // setiap kali modal dibuka, apapun state disabled dari sesi sebelumnya.
+        $('.action-submit').prop('disabled', false);
+
         $('#header-tab').tab('show');
         
         if ($('#idHotelInput').val() == 0) {
@@ -882,13 +894,19 @@ $(document).ready(function() {
                     // Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
                     // $('#modalCreateHotel').modal('hide');
                     // table.ajax.reload(null, false);
-                        if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
+
+                        // FIX: sebelumnya kondisi ini `action_selected == "1" && ...`,
+                        // jadi kalau user klik "Save draft" sambil ada foto yang
+                        // dipilih di dropzone, foto itu TIDAK PERNAH ke-upload
+                        // (processQueue() tidak pernah dipanggil). Sekarang proses
+                        // upload jalan untuk kedua action selama ada file di queue.
+                        if (myDropzone.getQueuedFiles().length > 0) {
                             let savedInvoiceId = id_bill ? id_bill : response.data.id; 
                             $('#idHotelInput').val(savedInvoiceId); 
                             $('.action-submit').prop('disabled', true);
                             myDropzone.processQueue(); 
                         } else {
-                            // Jika Save Draft (0) ATAU tidak ada gambar yang dipilih, langsung tutup dan sukses
+                            // Jika tidak ada gambar yang dipilih, langsung tutup dan sukses
                             Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
                             $('#modalCreateHotel').modal('hide');
                             table.ajax.reload(null, false);
