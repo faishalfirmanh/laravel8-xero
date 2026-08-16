@@ -637,7 +637,8 @@
                                 <i class="ti ti-hash"></i>
                                 <input type="text" class="form-control"
                                        id="invoice_number_display"
-                                       placeholder="Auto" readonly
+                                       name="invoice_number"
+                                       placeholder="Auto" 
                                        style="background:#f9f9f9;">
                             </div>
                         </div>
@@ -992,7 +993,7 @@
                     <div class="card-body py-2">
                         <small class="text-muted font-weight-bold text-uppercase">Sisa Kekurangan</small>
                         <h5 class="font-weight-bold text-danger mb-0" id="summary_remaining">0</h5>
-                        <h5 class="font-weight-bold text-danger mb-0" id="sum_pem_rp">0</h5>
+                        <h5 class="font-weight-bold text-danger mb-0" id="sum_pem_rp"></h5>
                     </div>
                 </div>
             </div>
@@ -2051,6 +2052,7 @@ $(function () {
                 issue_date: params.get('issue_date'),
                 due_date: params.get('due_date'),
                 reference: params.get('reference'),
+                invoice_number : params.get('invoice_number'),
                 // currency: params.get('currency'),
                 action_save : action_selected,
 
@@ -2239,7 +2241,8 @@ $(function () {
             // Set Summary Cards
             $('#summary_paid').text(formatCurrency(totalPaid));
             const remaining = parseFloat(d.invoice_total) - totalPaid;
-            $('#summary_remaining').text(formatCurrency(remaining < 0 ? 0 : remaining));
+            const cek_overpay = d.get_over_pay ? `overpayment ${formatCurrency(d.get_over_pay.nominal_overpayment)}` : ''
+            $('#summary_remaining').text(`${formatCurrency(remaining < 0 ? 0 : remaining)}  ${cek_overpay}`);
         })
         .catch(function(err) {
             $('#payment_list_body').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data riwayat pembayaran</td></tr>');

@@ -860,30 +860,30 @@ class XeroSyncInvoicePaidController extends Controller
                 continue;
             }
 
-            if (self::cekFormatStringPaket($value['Name'])) {
-                $hari = self::getTotalHari($value['Name']) ?? 0;
-                $batchItems[] = [
-                    'uuid_proudct_and_service' => $value['ItemID'],
-                    'code' => $value['Code'] ?? null,
-                    'nama_paket' => $value['Name'],
-                    'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),
-                    'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),
-                    'total_hari' => $hari,
-                    'jenis_item' => $this->global->cekJenisPaketBasePagar($value['Name']),
-                    'price_purchase' => data_get($value, 'PurchaseDetails.UnitPrice', 0),
-                    'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
-                    'desc' => $value['Description'] ?? '',
-                    'updated_at' => now(),
-                    'tax_rate_salles' => 0,
-                    'tax_rate_purchase' => 0,
-                ];
-                $totalSyncedItem++;
-            } else {
-                $totalSkipped++;
-                if (count($contohSkip) < 15) {
-                    $contohSkip[] = $value['Name']; // buat debug regex format
-                }
-            }
+            //if (self::cekFormatStringPaket($value['Name'])) {
+            $hari = self::getTotalHari($value['Name']) ?? 0;
+            $batchItems[] = [
+                'uuid_proudct_and_service' => $value['ItemID'],
+                'code' => $value['Code'] ?? null,
+                'nama_paket' => $value['Name'],
+                'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),
+                'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),
+                'total_hari' => $hari,
+                'jenis_item' => $this->global->cekJenisPaketBasePagar($value['Name']),
+                'price_purchase' => data_get($value, 'PurchaseDetails.UnitPrice', 0),
+                'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
+                'desc' => $value['Description'] ?? '',
+                'updated_at' => now(),
+                'tax_rate_salles' => 0,
+                'tax_rate_purchase' => 0,
+            ];
+            $totalSyncedItem++;
+            // } else {
+            //     $totalSkipped++;
+            //     if (count($contohSkip) < 15) {
+            //         $contohSkip[] = $value['Name']; // buat debug regex format
+            //     }
+            // }
         }
 
         Log::info("(/xero/sync-item-paket) total item Xero: " . count($itemPaketAndProduct)

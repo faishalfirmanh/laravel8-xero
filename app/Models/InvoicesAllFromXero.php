@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\MasterData\ItemDetailInvoices;
+use App\Models\Transaction\Overpayment;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -34,6 +35,11 @@ class InvoicesAllFromXero extends Model
     public function getPayment()
     {
         return $this->hasMany(TransactionNominalBankAccount::class, 'id_parent_invoice');
+    }
+
+    public function getOverPay()
+    {
+        return $this->hasOne(Overpayment::class, 'invoice_id');
     }
 
     public function getHistoryInvoice()

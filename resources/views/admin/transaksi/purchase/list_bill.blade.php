@@ -348,7 +348,7 @@ $(document).ready(function() {
         return d.toLocaleDateString('en-GB', options);
     }
 
-    function syncBillFromXero(){
+    window.syncBillFromXero = function(){
           Swal.fire({
             title: 'Sinkronisasi Bill dari Xero?',
             html: 'Apakah Anda yakin ingin mengambil <strong>semua bill </strong> dari Xero?<br><br>Proses ini akan memperbarui data bill Anda.',
@@ -373,6 +373,7 @@ $(document).ready(function() {
 
                 ajaxRequest( `{{ route('sync-bill-xero') }}`,'GET',{ is_sync: 1 }, localStorage.getItem("token"))
                 .then(response =>{
+                console.log('sync bills', response)
                     Swal.close();
                         if (response.status === 200) {
                             Swal.fire({

@@ -90,6 +90,7 @@ class InvXeroController extends Controller
             'due_date' => 'required|date',
             'reference' => 'required|string',
             'action_save' => 'required|integer|between:0,2',
+            // 'invoice_number' => 'nullable|string',
 
             'item_id' => 'required|array|min:1',
             'desc' => 'required|array|min:1',
@@ -128,7 +129,7 @@ class InvXeroController extends Controller
                 'uuid_contact' => 'from_local'
             ];
             if (empty($request->id)) {
-                $mergeData['invoice_number'] = $this->service_global->generateNewInvoiceNumber();
+                $mergeData['invoice_number'] = $request->invoice_number != 'auto' || $request->invoice_number == null ? $request->invoice_number : $this->service_global->generateNewInvoiceNumber();
                 $mergeData['invoice_uuid'] = $this->service_global->generateUniqueRandomStringInvoice();
             }
             $request->merge($mergeData);
@@ -228,7 +229,28 @@ class InvXeroController extends Controller
 
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_detail->sumDataWhereDinamis(['parent_inv_id' => $saveP->id], 'total_amount_each_row');
-            $this->repo->CreateOrUpdate(['invoice_total' => $sumD, 'less_nominal' => $sumD], $saveP->id);
+            $invoiceAmount = $saveP->invoice_amount ?? 0;
+            $newLessNominal = max(0, $sumD - $invoiceAmount);
+
+            $this->repo->CreateOrUpdate(['invoice_total' => $sumD, 'less_nominal' => $newLessNominal], $saveP->id);
+            $existingOver = $this->repo_over->whereData(['invoice_id' => $saveP->id])->first();
+            if ($invoiceAmount > $sumD) {
+                // harga BERKURANG sampai di bawah yang sudah dibayar -> overpayment baru muncul / membesar
+                $totalOverpayment = $invoiceAmount - $sumD;
+
+                if ($existingOver) {
+                    $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $totalOverpayment], $existingOver->id);
+                } else {
+                    $this->repo_over->CreateOrUpdate([
+                        'nominal_overpayment' => $totalOverpayment,
+                        'invoice_id' => $saveP->id,
+                        'trans_bank_id' => null // tidak ada transaksi bank baru di alur ini — lihat catatan di bawah
+                    ], null);
+                }
+            } elseif ($existingOver && $existingOver->nominal_overpayment > 0) {
+                // harga BERTAMBAH sampai menutup overpayment lama -> di-nol-kan, bukan dibiarkan nyangkut
+                $this->repo_over->CreateOrUpdate(['nominal_overpayment' => 0], $existingOver->id);
+            }
 
             // ================== SUSUN PESAN LOG BERISI DETAIL PERUBAHAN ==================
             $parentChangeText = $isUpdate ? $this->diffParentRow($oldParent, $request, $saveP) : '';
@@ -536,7 +558,8 @@ class InvXeroController extends Controller
             'getDetailById.getCoa',
             'getDetailById.getItem',
             'getPayment',
-            'getHistoryInvoice'
+            'getHistoryInvoice',
+            'getOverPay'
             // 'getDetailById.trackingCategoryPaket'
         ], ['id' => $request->id])->first();
         return $this->autoResponse($data);
@@ -561,7 +584,7 @@ class InvXeroController extends Controller
         $cekData = $this->repo->whereData(['id' => $request->parent_inv_id])->first();
 
 
-        $sisaTagihan = $cekData->less_nominal;
+        //$sisaTagihan = $cekData->less_nominal;
 
         // if ($request->nominal_receive > $cekData->invoice_total) { //izinkan overpayment
         //     return $this->error("Nominal melebihi total tagihan (due: {$cekData->invoice_total})", 400);
@@ -580,17 +603,19 @@ class InvXeroController extends Controller
         DB::beginTransaction();
         try {
             $nominal_paid_final = $cekData->invoice_amount + $request->nominal_receive;
-            //$nominal_due_final = $cekData->invoice_amount - $nominal_paid_final;//kekurangan bayar
-            $final_less = $cekData->less_nominal < 1 ? $cekData->invoice_total - $request->nominal_receive : $cekData->less_nominal - $request->nominal_receive;
+            // sisa tagihan = total tagihan - total dibayar, tidak boleh minus.
+// kalau sudah lebih bayar (overpay), sisa tagihan otomatis 0.
+            $final_less = max(0, $cekData->invoice_total - $nominal_paid_final);
 
             $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $final_less];
             $invP = $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);
+
             $request->merge([
                 'id_parent_invoice' => $request->parent_inv_id
             ]);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
 
-            if ($invP->invoice_amount == $invP->invoice_total || $invP->invoice_amount > $invP->invoice_total && $invP->less_nominal <= 0) {
+            if ($invP->invoice_amount >= $invP->invoice_total) {
                 $this->repo->CreateOrUpdate(['status' => 'PAID'], $request->parent_inv_id);
             }
 
@@ -598,9 +623,22 @@ class InvXeroController extends Controller
             $logMessage = $request->user_login->name . ' ' . $actionLabel . ' ' . $saveP->name_contact . " sebesar " . $request->nominal_receive .
                 " pada bank " . $saveP->name_bank;
 
-            if ($invP->invoice_amount > $invP->invoice_total) {//jika yang di bayarkan > total tagihan
-                $lebih = $invP->invoice_amount - $invP->invoice_total;
-                $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $lebih, 'invoice_id' => $request->parent_inv_id, 'trans_bank_id' => $saveP->id], null);
+            if ($invP->invoice_amount > $invP->invoice_total) {
+                $cek_over_sbelumnya = $this->repo_over->whereData(['invoice_id' => $invP->id])->first();
+
+                // invoice_amount sudah kumulatif -> ini otomatis TOTAL overpayment saat ini,
+                // jadi ditulis ulang (bukan dijumlahkan lagi ke nominal_overpayment lama)
+                $totalOverpayment = $invP->invoice_amount - $invP->invoice_total;
+
+                if ($cek_over_sbelumnya) {
+                    $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $totalOverpayment], $cek_over_sbelumnya->id);
+                } else {
+                    $this->repo_over->CreateOrUpdate([
+                        'nominal_overpayment' => $totalOverpayment,
+                        'invoice_id' => $request->parent_inv_id,
+                        'trans_bank_id' => $saveP->id
+                    ], null);
+                }
             }
 
             $this->service_global->saveLogHistory(
