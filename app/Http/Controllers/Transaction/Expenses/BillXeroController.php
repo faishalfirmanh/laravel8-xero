@@ -78,14 +78,14 @@ class BillXeroController extends Controller
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
-            'status' => 'required|integer|between:0,2'
+            'status' => 'required|integer|between:0,3'
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
 
-        $where = ['status' => $request->status];
+        $where = $request->status != 3 ? ['status' => $request->status] : [];
 
 
         $relations = ['getContactFrom', 'getDetail'];
@@ -306,11 +306,10 @@ class BillXeroController extends Controller
 
     public function storePayment(Request $request)
     {
-
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
             'uuid_bank' => 'required|integer|exists:bank_xeros,id',
-            'nominal_spend' => 'required|integer',
+            'nominal_spend' => 'required|integer|min:1',
             'reference_detail' => 'required|string',
             'date_transaction' => 'required|date',
             'id_parent_bill' => 'required|integer|exists:p_bills,id'
@@ -319,37 +318,52 @@ class BillXeroController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
-        $findData = $this->repo->whereData(['id' => $request->id_parent_bill])->first();
-
-        $sisaTagihan = $findData->nominal_due - $findData->nominal_paid;
-
-        if ($request->nominal_spend > $findData->nominal_due) {
-            return $this->error("Nominal melebihi total tagihan (due: {$findData->nominal_due})", 400);
-        }
-
-        if ($request->nominal_spend > $sisaTagihan) {
-            return $this->error("Nominal melebihi sisa tagihan yang belum dibayar (sisa: {$sisaTagihan})", 400);
-        }
-
-        $request->merge([
-            'created_by' => $request->user_login->id,
-            'nominal_transfer' => 0,
-            'nominal_receive' => 0
-        ]);
-
-        $nominal_paid_final = $findData->nominal_paid + $request->nominal_spend;
-        $nominal_due_final = $findData->total - $nominal_paid_final;
-
-        $param_bill_save = ['nominal_paid' => $nominal_paid_final, 'nominal_due' => $nominal_due_final];
 
         DB::beginTransaction();
         try {
+            $findData = $this->repo->whereData(['id' => $request->id_parent_bill])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$findData) {
+                DB::rollBack();
+                return $this->error('Tagihan tidak ditemukan', 404);
+            }
+
+            $sisaTagihan = $findData->nominal_due; // asumsi: nominal_due = sisa belum dibayar, cek lagi ke skema DB kamu
+
+            if ($request->nominal_spend > $findData->total) {
+                DB::rollBack();
+                return $this->error("Nominal melebihi total tagihan (total: {$findData->total})", 400);
+            }
+
+            if ($request->nominal_spend > $sisaTagihan) {
+                DB::rollBack();
+                return $this->error("Nominal melebihi sisa tagihan yang belum dibayar (sisa: {$sisaTagihan})", 400);
+            }
+
+            $request->merge([
+                'created_by' => $request->user_login->id,
+                'nominal_transfer' => 0,
+                'nominal_receive' => 0,
+            ]);
+
+            $nominal_paid_final = $findData->nominal_paid + $request->nominal_spend;
+            $nominal_due_final = $findData->total - $nominal_paid_final;
+            $cek_status = $nominal_due_final <= 0 ? 2 : 1;
+            // 0 = draft, 1 = awaiting payment, 2 = paid
+
+            $param_bill_save = [
+                'nominal_paid' => $nominal_paid_final,
+                'nominal_due' => $nominal_due_final,
+                'status' => $cek_status, // sesuaikan nama kolom status aslinya
+            ];
+
             $this->repo->CreateOrUpdate($param_bill_save, $request->id_parent_bill);
             $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), null);
 
-            $actionLabel = 'membuat pembayaran bills ';
-            $logMessage = $request->user_login->name . ' ' . $actionLabel . ' ' . $saveP->name_contact . " sebesar " . $request->nominal_spend .
-                " pada bank " . $saveP->name_bank;
+            $logMessage = $request->user_login->name . ' membuat pembayaran bills ' . $saveP->name_contact .
+                " sebesar " . $request->nominal_spend . " pada bank " . $saveP->name_bank;
 
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
@@ -359,13 +373,14 @@ class BillXeroController extends Controller
                 null,
                 $request->id_parent_bill
             );
+
             DB::commit();
             return $this->autoResponse($saveP);
         } catch (\Throwable $th) {
             DB::rollBack();
-            return $this->error($th->getMessage(), 400);
+            \Log::error('storePayment error: ' . $th->getMessage());
+            return $this->error('Gagal memproses pembayaran', 400);
         }
-
     }
 
     public function storeParent(Request $request)
@@ -523,7 +538,18 @@ class BillXeroController extends Controller
 
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_detail->sumDataWhereDinamis(['bills_parent_id' => $saveP->id], 'amount');
-            $this->repo->CreateOrUpdate(['total' => $sumD, 'nominal_due' => $sumD], $saveP->id);
+            $currentPaid = ($isUpdate && $oldParent) ? (float) $oldParent->nominal_paid : 0;
+            $newDue = $sumD - $currentPaid;
+            if ($newDue <= 0) {
+                $status = 2; // Lunas. Kalau $newDue < 0 berarti overpay — pertimbangkan dicatat terpisah (lihat catatan di bawah)
+                $newDue = 0;
+            } elseif ($currentPaid > 0) {
+                $status = 1; // sudah ada histori bayar tapi belum lunas -> tetap Awaiting Payment, jangan turun ke Draft
+            } else {
+                $status = $request->action_save; // belum pernah dibayar sama sekali -> ikuti pilihan user (draft/approve)
+            }
+
+            $this->repo->CreateOrUpdate(['total' => $sumD, 'nominal_due' => $newDue, 'status' => $status], $saveP->id);
 
             // ================== SUSUN PESAN LOG BERISI DETAIL PERUBAHAN ==================
             $parentChangeText = $isUpdate ? $this->diffBillParentRow($oldParent, $request, $saveP) : '';

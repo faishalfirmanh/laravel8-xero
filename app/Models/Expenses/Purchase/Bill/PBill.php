@@ -21,7 +21,7 @@ class PBill extends Model
         'reference',
         'amounts_are',////tax exclude = 2, tax inclusive = 1, no tax = 0
         'subtotal',
-        'total',
+        'total',//total tagihan
         'tax',
         'nominal_paid',//nominal di bayarkan
         'nominal_due',//nominal tagihan

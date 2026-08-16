@@ -848,7 +848,7 @@
                 <div class="modal-footer bg-white"
                      style="border-top:1px solid #eee; padding:10px 22px;">
                     <input type="hidden" name="action_type" id="actionTypeValue" value="">
-                    <button type="button" class="btn btn-secondary btn-sm"
+                    <button type="button" class="btn btn-secondary btn-sm" id="btl-save"
                             data-dismiss="modal">
                         <i class="ti ti-x mr-1"></i> Batal
                     </button>
@@ -1162,14 +1162,14 @@
                 // Jika semua file berhasil diupload
                 this.on("successmultiple", function(files, response) {
                     Swal.fire('Sukses!', 'Data invoice dan bukti berhasil disimpan.', 'success');
-                    $('#modalCreateHotel').modal('hide');
-                    table.ajax.reload(null, false);
+                    // $('#modalCreateHotel').modal('hide');
+                    // table.ajax.reload(null, false);
                 });
 
                 // Jika terjadi error saat upload
                 this.on("errormultiple", function(files, response) {
                     Swal.fire('Peringatan', 'Invoice tersimpan, namun gagal mengupload gambar.', 'warning');
-                    table.ajax.reload(null, false);
+                    // table.ajax.reload(null, false);
                 });
 
                 //hapus
@@ -2032,6 +2032,10 @@ $(function () {
         $('#actionTypeValue').val(actionValue);
     });
 
+    $("#btl-save").on('click',function(){
+          table.ajax.reload(null, false);
+    })
+
 
         $('#formCreateHotel').on('submit', function(e) {
             e.preventDefault();
@@ -2073,17 +2077,36 @@ $(function () {
                         // Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
                         // $('#modalCreateHotel').modal('hide');
                         // table.ajax.reload(null, false);
-                        if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
+                        //console.log('saved ',action_selected ,'ss',myDropzone.getQueuedFiles().length)
+                        // if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
+                        //     let savedInvoiceId = id_inv ? id_inv : response.data.id; 
+                        //     $('#idHotelInput').val(savedInvoiceId); 
+                        //     $('.action-submit').prop('disabled', true);
+                        //     myDropzone.processQueue(); 
+                        // } else {
+                        //     // Jika Save Draft (0) ATAU tidak ada gambar yang dipilih, langsung tutup dan sukses
+                        //     Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                        //     $('#modalCreateHotel').modal('hide');
+                        //     table.ajax.reload(null, false);
+                        // }
+
                             let savedInvoiceId = id_inv ? id_inv : response.data.id; 
-                            $('#idHotelInput').val(savedInvoiceId); 
-                            $('.action-submit').prop('disabled', true);
-                            myDropzone.processQueue(); 
-                        } else {
-                            // Jika Save Draft (0) ATAU tidak ada gambar yang dipilih, langsung tutup dan sukses
-                            Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                            $('#modalCreateHotel').modal('hide');
-                            table.ajax.reload(null, false);
-                        }
+                            if (savedInvoiceId) {
+                                $('#idHotelInput').val(savedInvoiceId);
+                            }
+                             Swal.fire({
+                                icon: 'success',
+                                title: 'Sukses!',
+                                text: 'Data berhasil disimpan.',
+                                timer: 2500, // Hilang otomatis setelah 2.5 detik
+                                showConfirmButton: false,
+                                toast: true, // Menjadikan notif kecil di pojok agar tidak menutupi form
+                                position: 'top-end'
+                            });
+
+                            if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
+                                myDropzone.processQueue(); 
+                            }
                     }
                 })
                 .catch((err) => {

@@ -71,6 +71,7 @@
         </div>
          <div class="form-group mb-0">
             <select id="filter_status" class="form-select form-select-sm">
+                 <option value="3">ALL</option>
                 <option value="0">DRAFT</option>
                 <option value="1">AWAITING PAYMENT</option>
                 <option value="2">PAID</option>
@@ -383,7 +384,7 @@ $(document).ready(function() {
                                 timer: 2000
                             });
                             // Refresh table
-                            $('#tableHotel').DataTable().ajax.reload();
+                            //$('#tableHotel').DataTable().ajax.reload();
                         } else {
                             Swal.fire('Gagal', response.data.data.message, 'error');
                         }
