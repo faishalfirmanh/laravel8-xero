@@ -815,33 +815,54 @@ class XeroSyncInvoicePaidController extends Controller
 
     public function getPaketHajiUmroh(Request $request)
     {
+        Log::info('mulai sync paket');
         $tokenData = $this->getValidToken();
         if (!$tokenData) {
             return response()->json(['message' => 'Token kosong/invalid.'], 401);
         }
 
         $tenantId = $this->getTenantId($tokenData['access_token']);
-        $page_item = 1;
-        $resItem = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page_item) {
-            return Http::withHeaders([
-                'Authorization' => 'Bearer ' . $tokenData['access_token'],
-                'Xero-Tenant-Id' => $tenantId,
-                'Accept' => 'application/json',
-            ])
-                ->timeout(15)
-                ->get('https://api.xero.com/api.xro/2.0/Items', [
-                    'Type' => 'ACCREC',
-                    'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',//DELETED
-                    'order' => 'Code ASC',
-                    'page' => $page_item
-                ]);
-        });
-        $min_rem = (int) $resItem->header('X-MinLimit-Remaining');
-        $day_rem = (int) $resItem->header('X-DayLimit-Remaining');
-        $this->global->requestCalculationXero($min_rem, $day_rem);
 
-        $itemPaketAndProduct = $resItem->json('Items') ?? [];
+        // Ambil SEMUA item dari Xero — Items API paginate 100 data/halaman,
+        // jadi harus di-loop sampai halaman habis
+        $itemPaketAndProduct = [];
+        $page_item = 1;
+        $maxPages = 50; // safety guard, hindari infinite loop kalau ada anomali
+        $min_rem = 0;
+        $day_rem = 0;
+
+        do {
+            $resItem = $this->xeroRequestWithRetry(function () use ($tokenData, $tenantId, $page_item) {
+                return Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $tokenData['access_token'],
+                    'Xero-Tenant-Id' => $tenantId,
+                    'Accept' => 'application/json',
+                ])
+                    ->timeout(15)
+                    ->get('https://api.xero.com/api.xro/2.0/Items', [
+                        'order' => 'Code ASC',
+                        'page' => $page_item,
+                    ]);
+            });
+
+            if (!$resItem || !$resItem->successful()) {
+                Log::error('(/xero/sync-item-paket) gagal fetch halaman ' . $page_item
+                    . ', status: ' . optional($resItem)->status());
+                break;
+            }
+
+            $min_rem = (int) $resItem->header('X-MinLimit-Remaining');
+            $day_rem = (int) $resItem->header('X-DayLimit-Remaining');
+            $this->global->requestCalculationXero($min_rem, $day_rem);
+
+            $pageItems = $resItem->json('Items') ?? [];
+            $itemPaketAndProduct = array_merge($itemPaketAndProduct, $pageItems);
+
+            $page_item++;
+        } while (count($pageItems) === 100 && $page_item <= $maxPages);
+
         $totalSyncedItem = 0;
+        $totalSkipped = 0;
         $batchItems = [];
         foreach ($itemPaketAndProduct as $value) {
             if (!isset($value['Name']) || trim($value['Name']) === '')
@@ -865,27 +886,44 @@ class XeroSyncInvoicePaidController extends Controller
                     'tax_rate_purchase' => 0,
                 ];
                 $totalSyncedItem++;
+            } else {
+                $totalSkipped++;
             }
         }
 
+        Log::info("(/xero/sync-item-paket) total item Xero: " . count($itemPaketAndProduct)
+            . ", cocok format: " . $totalSyncedItem
+            . ", tidak cocok format: " . $totalSkipped);
+
         if (!empty($batchItems) && $request->is_sync == 1) {
             ItemsPaketAllFromXero::upsert($batchItems, ['uuid_proudct_and_service'], [
-                'updated_at'
+                'code',
+                'nama_paket',
+                'purchase_AccountCode',
+                'sales_AccountCode',
+                'total_hari',
+                'jenis_item',
+                'price_purchase',
+                'price_sales',
+                'desc',
+                'updated_at',
             ]);
         } else if ($request->is_sync == 0) {
             return response()->json([
                 'status' => 'success',
                 'total' => count($itemPaketAndProduct),
-                'data' => $itemPaketAndProduct,     // versi clean
-                // 'raw_data'  => $accounts,          // uncomment jika ingin data mentah
+                'total_cocok_format' => $totalSyncedItem,
+                'total_tidak_cocok_format' => $totalSkipped,
+                'data' => $itemPaketAndProduct,
             ]);
         }
+
         $view_req = $this->global->getDataAvailabeRequestXero();
         $end_time_sync = Carbon::now()->format('d-m-Y H.i');
         Log::info("(/xero/sync-item-paket) selesai sync paket " . $end_time_sync);
         return response()->json([
             'status' => 'success',
-            'pesan_paket' => 'Total Paket tersimpan: ' . $totalSyncedItem,
+            'pesan_paket' => 'Total Paket tersimpan: ' . $totalSyncedItem . ' dari ' . count($itemPaketAndProduct) . ' item Xero',
             'request_min_tersisa_hari' => $view_req->available_request_day,
             'request_min_tersisa_menit' => $view_req->available_request_min,
         ]);

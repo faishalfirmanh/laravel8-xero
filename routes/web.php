@@ -40,8 +40,8 @@ Route::get('/cek-path', function () {
     ];
 });
 
-// Route::get('/', [DashboardController::class, 'index'])->name('home.index');
-Route::get('/', [DashboardController::class, 'cekVa'])->name('cekVaWeb');
+Route::get('/', [DashboardController::class, 'index'])->name('home.index');
+//Route::get('/', [DashboardController::class, 'cekVa'])->name('cekVaWeb');
 
 Route::prefix('travel')->group(function () {
 
