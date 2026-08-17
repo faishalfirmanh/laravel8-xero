@@ -17,9 +17,15 @@ class DataJamaahXeroRepository extends BaseRepository
         $this->model = $model;
     }
 
-    public function firstOrCreata($param_update,$create){
-       $save =  $this->model->firstOrCreate($param_update,$create);
-       return $save;
+    public function firstOrCreata($param_update, $create)
+    {
+        $save = $this->model->firstOrCreate($param_update, $create);
+        return $save;
     }
 
+    public function createOrUpdateData($param_update, $create)
+    {
+        $save = $this->model->CreateOrUpdate($param_update, $create);
+        return $save;
+    }
 }

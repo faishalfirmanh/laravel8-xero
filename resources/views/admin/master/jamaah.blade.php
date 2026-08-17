@@ -13,7 +13,7 @@
 
             <!-- Button Tambah COA -->
           
-                <div class="d-flex flex-column align-items-end">
+                {{-- <div class="d-flex flex-column align-items-end">
                     <button onclick="syncContactFromXero()" 
                             type="button" 
                             class="btn btn-success shadow-sm fw-bold">
@@ -22,6 +22,13 @@
                     <span class="text-muted mt-1 small" style="font-size: 11px;">
                         Sinkronisasi 100 Contact Xero
                     </span>
+                </div> --}}
+                 <div class="d-flex flex-column align-items-end">
+                    <button onclick="bukaModalJamaah()" 
+                            type="button" 
+                            class="btn btn-primary shadow-sm fw-bold">
+                        <i class="fas fa-sync-alt me-1"></i>Tambah jamaah
+                    </button>
                 </div>
 
             </div>
@@ -59,6 +66,47 @@
     </div>
 </div>
 
+
+<div class="modal fade" id="modalCreateJamaah" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalJamaahTitle">Tambah Jamaah</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="id_jamaah" value="">
+
+                <div class="form-group mb-3">
+                    <label for="full_name">Nama Lengkap</label>
+                    <input type="text" class="form-control" id="full_name" placeholder="Nama lengkap jamaah">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="phone_number">No. Telepon</label>
+                    <input type="text" class="form-control" id="phone_number" placeholder="Contoh: 081234567890">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="nik">NIK</label>
+                    <input type="text" class="form-control" id="nik" maxlength="16" placeholder="16 digit NIK (opsional)">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="detail_address">Alamat</label>
+                    <textarea class="form-control" id="detail_address" rows="3" placeholder="Alamat lengkap (opsional)"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                <button type="button" id="btn_save_jamaah" class="btn btn-primary" onclick="simpanJamaah()">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -67,7 +115,7 @@ $(document).ready(function() {
     //console.log("token",localStorage.getItem("token"))
     var table;
     // --- 1. DATATABLE ---
-    console.log('token',localStorage.getItem('token'))
+  
     let columnJamaah = [
         {
             data: null,
@@ -81,6 +129,17 @@ $(document).ready(function() {
             data: 'phone_number',
             name: 'phone_number'
         },
+        {
+            data: "id",
+            orderable: false,
+            searchable: false,
+            className: "text-center",
+            render: function(data, type, row) {
+                return `<a href="javascript:;" data-id="${data}" class="text-primary edit-jamaah mr-2" title="Edit">
+                            <i class="ti ti-pencil"></i>
+                        </a>`;
+            },
+        }
         // {
         //     data: "id",
         //     orderable: false,
@@ -113,6 +172,20 @@ $(document).ready(function() {
         $("#id_jamaah_xero").val(id)
 
     }
+
+
+    $('#table_jamaah').on('click', '.edit-jamaah', function() {
+        let rowData = table.row($(this).parents('tr')).data();
+
+        $('#id_jamaah').val(rowData.id);
+        $('#full_name').val(rowData.full_name);
+        $('#phone_number').val(rowData.phone_number);
+        $('#nik').val(rowData.nik);
+        $('#detail_address').val(rowData.detail_address);
+
+        $('#modalJamaahTitle').text('Edit Jamaah - ' + rowData.full_name);
+        $('#modalCreateJamaah').modal('show');
+    });
 
     $('#table_jamaah').on('click', '.deleted-hotel', function() {
         let id = $(this).data('id');
@@ -216,6 +289,50 @@ function syncContactFromXero(){
                 })
             }
         })
+}
+
+function bukaModalJamaah(){
+    $('#id_jamaah').val('');
+    $('#full_name').val('');
+    $('#phone_number').val('');
+    $('#nik').val('');
+    $('#detail_address').val('');
+    $('#modalJamaahTitle').text('Tambah Jamaah');
+    $('#modalCreateJamaah').modal('show');
+}
+
+function simpanJamaah(){
+    let payload = {
+        id: $('#id_jamaah').val() || null,
+        full_name: $('#full_name').val().trim(),
+        phone_number: $('#phone_number').val().trim(),
+        nik: $('#nik').val().trim(),
+        detail_address: $('#detail_address').val().trim(),
+    };
+
+    if(!payload.full_name || !payload.phone_number){
+        Swal.fire('Peringatan', 'Nama lengkap dan No. Telepon wajib diisi', 'warning');
+        return;
+    }
+
+    $('#btn_save_jamaah').prop('disabled', true).text('Menyimpan...');
+
+    ajaxRequest(`{{ route('save-jamaah') }}`, 'POST', payload, localStorage.getItem('token'))
+        .then(response => {
+            if(response.status == 200){
+                Swal.fire({ title: 'Berhasil', text: 'Data jamaah tersimpan', icon: 'success', timer: 2000 });
+                $('#modalCreateJamaah').modal('hide');
+                $('#table_jamaah').DataTable().ajax.reload();
+            } else {
+                Swal.fire('Gagal', response?.data?.data?.message || 'Gagal menyimpan data jamaah', 'error');
+            }
+        })
+        .catch((err) => {
+           cathError(err)
+        })
+        .finally(() => {
+            $('#btn_save_jamaah').prop('disabled', false).text('Simpan');
+        });
 }
 </script>
 @endpush

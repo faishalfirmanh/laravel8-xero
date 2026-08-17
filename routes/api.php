@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MasterData\HotelApiController;
+use App\Http\Controllers\MasterData\JamaahAlhidController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
 use App\Http\Controllers\MasterData\ProducAndServiceXeroLocalController;
 use App\Http\Controllers\MekariWaTestController;
@@ -86,6 +87,8 @@ Route::post('/extract-text', [ImageController::class, 'extractText']);
 
 
 Route::get('get-va-jamaah', [InvoiceXeroLocalController::class, 'getVa'])->name('get-va');
+Route::get('get-jamaah-alhid/{idjamaah}', [JamaahAlhidController::class, 'getById'])->name('get-jamaah-alhid');//used ambil id jamaah dari alhid
+Route::post('save-jamaah-alhidglobal', [DataApiJamaahController::class, 'storeGlobal']);//used
 
 Route::get('ubah-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountCodes']);//
 Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountNumbers']);
@@ -410,6 +413,7 @@ Route::prefix("admin-web")->group(function () {
         Route::prefix("jamaah")->group(function () {
             Route::get('/get', [DataApiJamaahController::class, 'getAllPaginate'])->name('getAllContactApi');
             Route::get('/get_by_id', [DataApiJamaahController::class, 'getById'])->name('getByIdContact');
+            Route::post('/store', [DataApiJamaahController::class, 'store'])->name('save-jamaah');
         });
         Route::prefix("maskapai")->group(function () {
             Route::get('/get-data', [MasterMaskapaiController::class, 'getData'])->name('maskapai.getdata');

@@ -46,10 +46,10 @@
                         <i class="ti ti-arrow-up-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Receive Money</span>
                     </button>
-                    <button type="button" id="button_trans_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
+                    {{-- <button type="button" id="button_trans_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                         <i class="ti ti-switch-horizontal" style="font-size: 1.2rem;"></i>
                         <span> Transfer</span>
-                    </button>
+                    </button> --}}
                     <button type="button" id="button_spend_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                         <i class="ti ti-arrow-down-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Spend Money</span>
