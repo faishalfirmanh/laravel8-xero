@@ -50,9 +50,19 @@ class MasterMenuSeeder extends Seeder
             $masterDataParent = Menu::where('nama_menu', 'master data')->first();
 
             if ($masterDataParent) {
-                $child_menus = ['hotel', 'jamaah', 'tracking-category', 'coa', 'bank-xero', 'role-user', 'business-line', 'travel', 'product-and-service'];
+                $child_menus = [
+                    // 'hotel', 
+                    'jamaah',
+                    'tracking-category',
+                    'coa',
+                    'bank-xero',
+                    'role-user',
+                    'business-line',
+                    'travel-master-data',
+                    'product-and-service'
+                ];
                 $slug_web = [
-                    'travel/admin/master-data/hotel',
+                    // 'travel/admin/master-data/hotel',
                     'travel/admin/master-data/jamaah',
                     'travel/admin/master-data/tracking-category',
                     'travel/admin/master-data/coa',
@@ -118,24 +128,24 @@ class MasterMenuSeeder extends Seeder
             $transParent = Menu::where('nama_menu', 'transaksi')->first();
             if ($transParent) {
 
-                $child_trans = [ //nama routenya yang di akses route api,
-                    'sales-invoice',
-                    'sales-overview',
-                    'sales-productAndService',
-                    'purchase-overview',
+                $child_trans = [ //nama routenya yang di akses route api,// prefix
+                    'invoice',
+                    // 'sales-overview',
+                    // 'sales-productAndService',
+                    // 'purchase-overview',
                     'bills',
-                    'purchase-orders',
-                    'purchase-suppliers',
+                    // 'purchase-orders',
+                    // 'purchase-suppliers',
                     'bank-trans'
                 ];
                 $slug_trans = [
                     'travel/admin/transaksi/sales-invoice',
-                    'travel/admin/transaksi/sales-overview',
-                    'travel/admin/transaksi/sales-productAndService',
-                    'travel/admin/transaksi/purchase-purchase',
+                    // 'travel/admin/transaksi/sales-overview',
+                    // 'travel/admin/transaksi/sales-productAndService',
+                    // 'travel/admin/transaksi/purchase-purchase',
                     'travel/admin/transaksi/purchase-bills',
-                    'travel/admin/transaksi/purchase-orders',
-                    'travel/admin/transaksi/purchase-suppliers',
+                    // 'travel/admin/transaksi/purchase-orders',
+                    // 'travel/admin/transaksi/purchase-suppliers',
                     'travel/admin/transaksi/bank-trans',
                 ];
 
@@ -165,7 +175,7 @@ class MasterMenuSeeder extends Seeder
                 $child_report = [ //nama routenya
                     'rep-coa',
                     'rep-log-history',
-                    'invoice',
+                    'profit-and-loss',
                 ];
                 $slug_report = [
                     'travel/admin/report/rep-coa',

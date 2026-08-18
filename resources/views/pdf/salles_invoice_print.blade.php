@@ -246,7 +246,7 @@
                 </table>
             </td>
             <td width="35%" class="text-right">
-                {{-- <img src="{{ public_path('assets/img/nam_min.png') }}" class="company-logo" /> --}}
+                <img src="{{ public_path('assets/img/min_2.png') }}" class="company-logo" />
                 <div class="company-info">
                     PT An Namiroh Travelindo<br>
                     Jalan Gajah Mada<br>
