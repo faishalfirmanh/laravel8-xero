@@ -552,7 +552,8 @@
 
 
 <div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog"
-     aria-labelledby="modalCreateHotelLabel" aria-hidden="true">
+     aria-labelledby="modalCreateHotelLabel" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
 
     {{-- modal-dialog dikendalikan CSS di atas --}}
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
@@ -818,7 +819,7 @@
 
                                 {{-- Reference --}}
                                 <div class="xero-field">
-                                    <label>Reference</label>
+                                    <label>Reference <span class="text-danger">*</span></label>
                                     <div class="input-icon-wrap">
                                         <i class="ti ti-bookmark"></i>
                                         <input type="text" class="form-control"
@@ -1523,6 +1524,9 @@ function setRowSelect2Value($row, selector, id, text) {
 
 
     $("#btn_add_payment_inv").on("click",function(){
+        $('#account_bank').val(null).trigger('change')
+        $("#amount_paid").val(0)
+
        
         $('#paymentFormSection').slideDown(200);
         // Set default date hari ini
@@ -2090,7 +2094,7 @@ $(function () {
                         //     table.ajax.reload(null, false);
                         // }
 
-                            let savedInvoiceId = id_inv ? id_inv : response.data.id; 
+                            let savedInvoiceId = id_inv ? id_inv : response.data.data.id; 
                             if (savedInvoiceId) {
                                 $('#idHotelInput').val(savedInvoiceId);
                             }
@@ -2107,6 +2111,8 @@ $(function () {
                             if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
                                 myDropzone.processQueue(); 
                             }
+                             $('#invoices_id_parent').val(response.data.data.id)
+                            
                     }
                 })
                 .catch((err) => {
@@ -2281,9 +2287,9 @@ $(function () {
             reference_detail : $('#input_payment_ref').val(),
             parent_inv_id    : $('#invoices_id_parent').val(),
             uuid_bank : $('#account_bank_modal_2').val(),
-            parent_inv_id : $('#invoices_id_parent').val(),
         };
 
+        console.log('payload',payload)
         // Ganti UI Button
         const $btn = $(this).find('button[type="submit"]');
         $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Menyimpan...');

@@ -89,6 +89,10 @@
             text-align: left;
         }
 
+.data-table th.text-right {
+    text-align: right;
+}
+
         .data-table td {
             padding: 4px 6px;
             font-size: 11px;
@@ -242,7 +246,7 @@
                 </table>
             </td>
             <td width="35%" class="text-right">
-                <img src="{{ public_path('assets/img/logo-namiroh-hd.png') }}" class="company-logo" />
+                {{-- <img src="{{ public_path('assets/img/nam_min.png') }}" class="company-logo" /> --}}
                 <div class="company-info">
                     PT An Namiroh Travelindo<br>
                     Jalan Gajah Mada<br>
@@ -301,8 +305,13 @@
     <table class="totals-table">
         <tr>
             <td width="60%"></td>
-            <td width="20%" class="label">Subtotal</td>
+            <td width="20%" class="label">Total bills</td>
             <td width="20%" class="value">{{ $fmt($subTotal) }}</td>
+        </tr>
+         <tr>
+            <td width="60%"></td>
+            <td width="20%" class="label">Total Payment</td>
+            <td width="20%" class="value">{{ $fmt($amountPaid) }}</td>
         </tr>
         <tr class="line-top">
             <td></td>
@@ -312,13 +321,16 @@
         <tr>
             <td></td>
             <td class="label">Less Amount Paid</td>
-            <td class="value">{{ $fmt($amountPaid) }}</td>
-        </tr>
-        <tr class="line-top">
-            <td></td>
-            <td class="label">AMOUNT DUE IDR</td>
             <td class="value">{{ $fmt($amountDue) }}</td>
         </tr>
+        @if ($invoice->getOverPay)
+            <tr class="line-top">
+                <td></td>
+                <td class="label">Overpayment</td>
+                <td class="value">{{ $fmt($invoice->getOverPay->nominal_overpayment) }}</td>
+            </tr>
+        @endif
+       
     </table>
 
     <div class="due-date">

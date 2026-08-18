@@ -143,7 +143,7 @@ class InvoiceXeroLocalController extends Controller
 
     public function printInvoice(Request $request, $id)
     {
-        $invoice = InvoicesAllFromXero::with(['getDetailById', 'getPayment', 'getDetailById.getItems'])->find($id);
+        $invoice = InvoicesAllFromXero::with(['getDetailById', 'getPayment', 'getDetailById.getItems', 'getOverPay'])->find($id);
 
         $data = [
             'invoice' => $invoice,
