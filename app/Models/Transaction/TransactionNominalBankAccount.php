@@ -29,7 +29,9 @@ class TransactionNominalBankAccount extends Model
         'id_parent_bank',//relation with TransactionBankTransP ->id,saat receive dan spend money
         'id_parent_invoice',
         'payment_uuid',//unique key id,
-        'trans_transfer_bank_id'//untuk transaksi bank transfer
+        'trans_transfer_bank_id',//untuk transaksi bank transfer,
+        'overpay_id'//terisi jika pembayarna lewat overpayment
+        //overpay yang wajib terisi : uuid_bank, nominal_spend, date_transaction,reference_detail,overpay_id
     ];
 
     protected $appends = [

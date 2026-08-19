@@ -510,6 +510,11 @@
     flex-shrink: 0;
 }
 
+/* ── APPLY CREDIT (OVERPAYMENT) ── */
+#paymentMethodWrap .btn-group-toggle .btn {
+    font-size: 11px;
+}
+
 </style>
 
 
@@ -518,7 +523,7 @@
         <h5 class="mb-0 font-weight-bold text-primary">List Invoices From Xero </h5>
 
         <button type="button" id="button_add_hotel" class="btn btn-primary shadow-sm" data-toggle="modal" data-target="#modalCreateHotel">
-            <i class="ti ti-plus me-1"></i> Add Invoices
+            <i class="ti ti-plus me-1"></i> Add Invoice
         </button>
     </div>
 
@@ -639,7 +644,7 @@
                                 <input type="text" class="form-control"
                                        id="invoice_number_display"
                                        name="invoice_number"
-                                       placeholder="Auto" 
+                                       placeholder="auto" 
                                        style="background:#f9f9f9;">
                             </div>
                         </div>
@@ -782,6 +787,19 @@
                                         title="Tutup">&times;</button>
                             </div>
 
+                            {{-- ── APPLY CREDIT: pilihan metode pembayaran, hanya tampil kalau ada overpayment ── --}}
+                            <div class="form-group" id="paymentMethodWrapAdd" style="display:none; padding:0 4px;">
+                                <label class="small font-weight-bold d-block">Metode Pembayaran</label>
+                                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                                    <label class="btn btn-outline-primary btn-sm active">
+                                        <input type="radio" name="payment_method_add" id="method_bank_add" value="bank" checked> Bank Transfer
+                                    </label>
+                                    <label class="btn btn-outline-success btn-sm">
+                                        <input type="radio" name="payment_method_add" id="method_credit_add" value="credit"> Apply Credit (Overpayment)
+                                    </label>
+                                </div>
+                            </div>
+
                             {{-- Fields sejajar --}}
                             <div class="payment-fields-grid">
 
@@ -795,14 +813,25 @@
                                     </div>
                                 </div>
 
-                                {{-- Account Bank --}}
-                                <div class="xero-field">
+                                {{-- Account Bank — dipakai untuk metode "bank" --}}
+                                <div class="xero-field" id="wrap_bank_select_add">
                                     <label>Account Bank <span class="text-danger">*</span></label>
                                     <select class="form-control select2-account-bank"
                                             name="uuid_bank" id="account_bank"
                                             style="width:100%;">
                                         <option value="">-- Pilih Akun --</option>
                                         {{-- populate via JS / AJAX --}}
+                                    </select>
+                                </div>
+
+                                {{-- Pilih Overpayment — dipakai untuk metode "credit", default hidden --}}
+                                <div class="xero-field" id="wrap_overpay_select_add" style="display:none;">
+                                    <label>Pilih Overpayment <span class="text-danger">*</span></label>
+                                    <select class="form-control select2-overpay-credit-add"
+                                            name="overpay_id" id="overpay_id_add"
+                                            style="width:100%;">
+                                        <option value="">-- Pilih Overpayment --</option>
+                                        {{-- populate via JS dari get_jamaah.list_all_overpay --}}
                                     </select>
                                 </div>
 
@@ -984,8 +1013,8 @@
                 <div class="card border-success mb-2">
                     <div class="card-body py-2">
                         <small class="text-muted font-weight-bold text-uppercase">Sudah Dibayar</small>
-                        <h5 class="font-weight-bold text-success mb-0" id="summary_paid">0</h5>
-                        <h5 class="font-weight-bold text-success mb-0" id="sum_paid_rp">0</h5>
+                        <h5 class="font-weight-bold text-success mb-0" id="summary_paid"></h5>
+                        <h5 class="font-weight-bold text-success mb-0" id="sum_paid_rp"></h5>
                     </div>
                 </div>
             </div>
@@ -993,7 +1022,7 @@
                 <div class="card border-danger mb-2">
                     <div class="card-body py-2">
                         <small class="text-muted font-weight-bold text-uppercase">Sisa Kekurangan</small>
-                        <h5 class="font-weight-bold text-danger mb-0" id="summary_remaining">0</h5>
+                        <h5 class="font-weight-bold text-danger mb-0" id="summary_remaining"></h5>
                         <h5 class="font-weight-bold text-danger mb-0" id="sum_pem_rp"></h5>
                     </div>
                 </div>
@@ -1024,6 +1053,20 @@
             <div class="card-body">
                 <h6 class="font-weight-bold mb-3 text-primary"><i class="fa fa-plus-circle mr-1"></i> Tambah Pembayaran Baru</h6>
                 <a href="javascript:;" style="margin-left:5px;" class="text-info clear-edit-pay"><i class="ti ti-plus"></i></a>
+
+                {{-- ── APPLY CREDIT: pilihan metode pembayaran, hanya tampil kalau ada overpayment ── --}}
+                <div class="form-group" id="paymentMethodWrap" style="display:none;">
+                    <label class="small font-weight-bold d-block">Metode Pembayaran</label>
+                    <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                        <label class="btn btn-outline-primary btn-sm active">
+                            <input type="radio" name="payment_method" id="method_bank" value="bank" checked> Bank Transfer
+                        </label>
+                        <label class="btn btn-outline-success btn-sm">
+                            <input type="radio" name="payment_method" id="method_credit" value="credit"> Apply Credit (Overpayment)
+                        </label>
+                    </div>
+                </div>
+
                 <form id="formSubmitPayment">
                     <input type="hidden" id="row_payment_id" name="row_payment_id">
                     <input type="hidden" id="invoices_id_parent" name="invoices_id_parent">
@@ -1032,7 +1075,9 @@
                             <label class="small font-weight-bold">Tanggal Bayar</label>
                             <input type="date" class="form-control form-control-sm" id="input_payment_date" name="date_transfer" required>
                         </div>
-                        <div class="form-group col-md-6">
+
+                        {{-- Pilih Bank — dipakai untuk metode "bank" --}}
+                        <div class="form-group col-md-6" id="wrap_bank_select">
                             <label class="small font-weight-bold">Pilih Bank</label>
                             <select class="form-control select2-account-bank-modal2"
                                     name="uuid_bank" id="account_bank_modal_2"
@@ -1041,6 +1086,18 @@
                                 {{-- populate via JS / AJAX --}}
                             </select>
                         </div>
+
+                        {{-- Pilih Overpayment — dipakai untuk metode "credit", default hidden --}}
+                        <div class="form-group col-md-6" id="wrap_overpay_select" style="display:none;">
+                            <label class="small font-weight-bold">Pilih Overpayment</label>
+                            <select class="form-control select2-overpay-credit"
+                                    name="overpay_id" id="overpay_id_modal2"
+                                    style="width:100%;">
+                                <option value="">-- Pilih Overpayment --</option>
+                                {{-- populate via JS dari get_jamaah.list_all_overpay --}}
+                            </select>
+                        </div>
+
                         <div class="form-group col-md-4">
                             <label class="small font-weight-bold">Nominal (Rupiah)</label>
                             <div class="input-group input-group-sm">
@@ -1118,7 +1175,78 @@
     const year  = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
 
+    // ── APPLY CREDIT (OVERPAYMENT) ── daftar overpayment invoice yang sedang dibuka di paymentModal
+    let listAllOverpayCurrent = [];
 
+    function populateOverpaySelect() {
+        if ($('.select2-overpay-credit').hasClass('select2-hidden-accessible')) {
+            $('.select2-overpay-credit').select2('destroy');
+        }
+        $('#overpay_id_modal2').empty().append('<option value="">-- Pilih Overpayment --</option>');
+
+        $('.select2-overpay-credit').select2({
+            theme: 'bootstrap4',
+            dropdownParent: $('#paymentModal'),
+            placeholder: '-- Pilih Overpayment --',
+            allowClear: true,
+            data: $.map(listAllOverpayCurrent, function (item) {
+                return {
+                    id: item.id, // dikirim ke backend sebagai overpay_id
+                    text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
+                };
+            })
+        });
+    }
+
+    // toggle field "Pilih Bank" <-> "Pilih Overpayment" sesuai radio yang dipilih
+    $(document).on('change', 'input[name="payment_method"]', function () {
+        const method = $(this).val();
+        if (method === 'credit') {
+            $('#wrap_bank_select').hide();
+            $('#wrap_overpay_select').show();
+            $('#account_bank_modal_2').val(null).trigger('change');
+        } else {
+            $('#wrap_overpay_select').hide();
+            $('#wrap_bank_select').show();
+            $('#overpay_id_modal2').val(null).trigger('change');
+        }
+    });
+
+    // ── APPLY CREDIT (OVERPAYMENT) ── versi form "Add Payment" inline di modalCreateHotel
+    let listAllOverpayCurrentAdd = [];
+
+    function populateOverpaySelectAdd() {
+        if ($('.select2-overpay-credit-add').hasClass('select2-hidden-accessible')) {
+            $('.select2-overpay-credit-add').select2('destroy');
+        }
+        $('#overpay_id_add').empty().append('<option value="">-- Pilih Overpayment --</option>');
+
+        $('.select2-overpay-credit-add').select2({
+            theme: 'bootstrap4',
+            dropdownParent: $('#modalCreateHotel'),
+            placeholder: '-- Pilih Overpayment --',
+            allowClear: true,
+            data: $.map(listAllOverpayCurrentAdd, function (item) {
+                return {
+                    id: item.id, // dikirim ke backend sebagai overpay_id
+                    text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
+                };
+            })
+        });
+    }
+
+    $(document).on('change', 'input[name="payment_method_add"]', function () {
+        const method = $(this).val();
+        if (method === 'credit') {
+            $('#wrap_bank_select_add').hide();
+            $('#wrap_overpay_select_add').show();
+            $('#account_bank').val(null).trigger('change');
+        } else {
+            $('#wrap_overpay_select_add').hide();
+            $('#wrap_bank_select_add').show();
+            $('#overpay_id_add').val(null).trigger('change');
+        }
+    });
 
 
 
@@ -1447,6 +1575,18 @@ function setRowSelect2Value($row, selector, id, text) {
 
             renderPaymentHistory(d.get_payment,d.less_nominal)
             renderHistoryLog(d.get_history_invoice)
+
+            // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
+            listAllOverpayCurrentAdd = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
+            if (listAllOverpayCurrentAdd.length > 0) {
+                $('#paymentMethodWrapAdd').show();
+                populateOverpaySelectAdd();
+            } else {
+                $('#paymentMethodWrapAdd').hide();
+            }
+            $('#method_bank_add').prop('checked', true);
+            $('#wrap_overpay_select_add').hide();
+            $('#wrap_bank_select_add').show();
             // ── 1. Header fields ─────────────────────────────
             $('#invoice_number_display').val(d.invoice_number || '');
             $('#issue_date').val(d.issue_date || '');         // name="issue_date" id="issue_date"
@@ -1512,14 +1652,86 @@ function setRowSelect2Value($row, selector, id, text) {
        
     })
 
+    function resetHotelModal() {
+    // ── Reset native form fields (text, date, number, hidden inputs) ──
+        $('#formCreateHotel')[0].reset();
+
+        // ── Hidden fields — reset() kadang tidak konsisten di semua browser, jadi di-set eksplisit ──
+        $('#idHotelInput').val('');
+        $('#actionTypeValue').val('');
+
+        // ── Select2 (native reset() TIDAK me-refresh tampilan Select2, harus trigger manual) ──
+        $('#contact_id').val(null).trigger('change');
+        $('#account_bank').val(null).trigger('change');
+
+        // ── APPLY CREDIT: reset radio & select overpay inline ──
+        $('#method_bank_add').prop('checked', true);
+        $('#wrap_overpay_select_add').hide();
+        $('#wrap_bank_select_add').show();
+        $('#paymentMethodWrapAdd').hide();
+        if ($('.select2-overpay-credit-add').hasClass('select2-hidden-accessible')) {
+            $('#overpay_id_add').val(null).trigger('change');
+        }
+
+        // ── Plain <select> dikembalikan ke opsi default ──
+        $('#currency_selected').val('IDR');
+        $('#amount_are').val('0');
+
+        // ── Text/date fields (extra safety net, walau harusnya sudah ke-cover reset() di atas) ──
+        $('#issue_date').val('');
+        $('#due_date').val('');
+        $('#invoice_number_display').val('auto');
+        $('#reference').val('');
+
+        // ── Info kurs ──
+        $('#text_currency').text('–');
+
+        // ── Kosongkan tabel line items (baris-baris ini di-generate via JS, bukan static HTML) ──
+        $('#lineItemsBody').empty();
+        // kalau ada fungsi default 1 baris kosong saat modal dibuka, panggil di sini, contoh:
+        // addNewLineItemRow();
+
+        // ── Reset ringkasan/summary ──
+        $('#summarySubtotalSAR').text('–');
+        $('#summarySubtotalIDR').text('Rp 0');
+        $('#summaryTax').text('0.00');
+        $('#summaryTotal').text('Rp 0');
+
+        // ── Kosongkan log history ──
+        $('#history_log_list').empty();
+
+        // ── Reset form payment & sembunyikan section-nya lagi ──
+        $('#date_paid').val('');
+        $('#amount_paid').val('');
+        $('#payment_reference').val('');
+        $('#paymentFormSection').hide();
+
+        // ── Reset Dropzone (hapus semua file yang sempat di-upload) ──
+        try {
+            const dz = Dropzone.forElement('#buktiDropzone');
+            if (dz) {
+                dz.removeAllFiles(true);
+            }
+        } catch (e) {
+            // instance belum ter-init, aman diabaikan
+        }
+        $('#dropzone-container').hide();
+
+        $('#modalInvoiceTitle').text('New invoice');
+        $('#invoiceStatusBadge').text('Draft');
+    }
+
+
+
     // Trigger Tambah Baru
     $("#button_add_hotel").on("click", function() {
-        $('.modal-title').text('Add New Invoices Hotel');
-        $('#issue_date').val('m-d-Y');
-        $('#due_date').val('m-d-Y');
-        $('#invoice_number_display').val('auto');
-        $("#reference").val('')
+        // $('.modal-title').text('Add New Invoices Hotel');
+        // $('#issue_date').val('m-d-Y');
+        // $('#due_date').val('m-d-Y');
+        // $('#invoice_number_display').val('auto');
+        // $("#reference").val('')
         // Reset handled by modal hidden event
+        resetHotelModal()
     });
 
 
@@ -1527,7 +1739,12 @@ function setRowSelect2Value($row, selector, id, text) {
         $('#account_bank').val(null).trigger('change')
         $("#amount_paid").val(0)
 
-       
+        // ── APPLY CREDIT: reset ke mode default "bank" tiap kali form dibuka ──
+        $('#method_bank_add').prop('checked', true);
+        $('#wrap_overpay_select_add').hide();
+        $('#wrap_bank_select_add').show();
+        $('#overpay_id_add').val(null).trigger('change');
+
         $('#paymentFormSection').slideDown(200);
         // Set default date hari ini
         if (!$('#date_paid').val()) {
@@ -1608,29 +1825,64 @@ function setRowSelect2Value($row, selector, id, text) {
 
 
     $("#btnSavePayment").on('click', function (e) {
-       
-       e.preventDefault();
-         const payload = {
-            date_transaction         : $('#date_paid').val(),
-            uuid_bank      : $('#account_bank').val(),
-            nominal_receive       : $('#amount_paid').val(),
-            reference_detail : $('#payment_reference').val(),
-            parent_inv_id : $('#idHotelInput').val()
-          
-        };
 
-         ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
-            .then(response => {
-                if(response.status == 200){
-                    Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                    $('#modalCreateHotel').modal('hide');
-                    table.ajax.reload(null, false);
-                }
-            })
-            .catch((err) => {
-                cathError(err)
-                //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-            });
+       e.preventDefault();
+
+       const method = $('input[name="payment_method_add"]:checked').val() || 'bank';
+       const $btn = $(this);
+
+       if (method === 'credit') {
+            // ── APPLY CREDIT (OVERPAYMENT) ──
+            const overpayId = $('#overpay_id_add').val();
+            if (!overpayId) {
+                Swal.fire('Peringatan', 'Silakan pilih overpayment terlebih dahulu.', 'warning');
+                return;
+            }
+
+            const payload = {
+                nominal_spend    : $('#amount_paid').val(),
+                reference_detail : $('#payment_reference').val(),
+                date_transaction : $('#date_paid').val(),
+                parent_inv_id    : $('#idHotelInput').val(),
+                overpay_id       : overpayId,
+            };
+
+            ajaxRequest(`{{ route('save-payover-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
+                .then(response => {
+                    if (response.status == 200) {
+                        Swal.fire('Sukses!', 'Data (apply credit) berhasil disimpan.', 'success');
+                        $('#modalCreateHotel').modal('hide');
+                        table.ajax.reload(null, false);
+                    }
+                })
+                .catch((err) => {
+                    cathError(err)
+                });
+
+       } else {
+            // ── Payment normal (bank transfer) ──
+            const payload = {
+                date_transaction         : $('#date_paid').val(),
+                uuid_bank      : $('#account_bank').val(),
+                nominal_receive       : $('#amount_paid').val(),
+                reference_detail : $('#payment_reference').val(),
+                parent_inv_id : $('#idHotelInput').val()
+
+            };
+
+            ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
+                .then(response => {
+                    if(response.status == 200){
+                        Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
+                        $('#modalCreateHotel').modal('hide');
+                        table.ajax.reload(null, false);
+                    }
+                })
+                .catch((err) => {
+                    cathError(err)
+                    //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
+                });
+       }
     });
 
 
@@ -2220,6 +2472,12 @@ $(function () {
         $("#input_payment_date").val(null)
         $("#input_payment_nominal").val(0)
         $("#input_payment_ref").val('')
+
+        // ── APPLY CREDIT: reset ke mode default "bank" tiap kali modal dibuka ──
+        $('#method_bank').prop('checked', true);
+        $('#wrap_overpay_select').hide();
+        $('#wrap_bank_select').show();
+
         // Munculkan Modal
         $('#paymentModal').modal('show');
         
@@ -2237,6 +2495,15 @@ $(function () {
             const payments = d.get_payment || [];
 
             console.log('dd',d)
+
+            // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
+            listAllOverpayCurrent = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
+            if (listAllOverpayCurrent.length > 0) {
+                $('#paymentMethodWrap').show();
+                populateOverpaySelect();
+            } else {
+                $('#paymentMethodWrap').hide();
+            }
             
             // Set View Info Modal
             $('#hotel_name_display').text(d.contact_name || '-');
@@ -2281,36 +2548,79 @@ $(function () {
     // 3. Submit Pembayaran Baru dari Modal History
     $('#formSubmitPayment').on('submit', function(e) {
         e.preventDefault();
-        const payload = {
-            date_transaction : $('#input_payment_date').val(),
-            nominal_receive  : $('#input_payment_nominal').val(),
-            reference_detail : $('#input_payment_ref').val(),
-            parent_inv_id    : $('#invoices_id_parent').val(),
-            uuid_bank : $('#account_bank_modal_2').val(),
-        };
 
-        console.log('payload',payload)
-        // Ganti UI Button
+        const method = $('input[name="payment_method"]:checked').val() || 'bank';
         const $btn = $(this).find('button[type="submit"]');
         $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Menyimpan...');
 
-        ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
-        .then(response => {
-            if(response.status == 200){
-                Swal.fire('Sukses!', 'Pembayaran berhasil ditambahkan.', 'success');
-                $('#formSubmitPayment')[0].reset(); 
-                
-                // Reload table History & DataTable Induk
-                loadPaymentHistoryModal(payload.parent_inv_id);
-                table.ajax.reload(null, false); 
+        if (method === 'credit') {
+            // ── APPLY CREDIT (OVERPAYMENT) ──
+            const overpayId = $('#overpay_id_modal2').val();
+            if (!overpayId) {
+                Swal.fire('Peringatan', 'Silakan pilih overpayment terlebih dahulu.', 'warning');
+                $btn.prop('disabled', false).html('<i class="fa fa-save mr-1"></i> Simpan Pembayaran');
+                return;
             }
-        })
-        .catch((err) => {
-            cathError(err);
-        })
-        .finally(() => {
-            $btn.prop('disabled', false).html('<i class="fa fa-save mr-1"></i> Simpan Pembayaran');
-        });
+
+            const payload = {
+                nominal_spend    : $('#input_payment_nominal').val(),
+                reference_detail : $('#input_payment_ref').val(),
+                date_transaction : $('#input_payment_date').val(),
+                parent_inv_id    : $('#invoices_id_parent').val(),
+                overpay_id       : overpayId,
+            };
+
+            console.log('payload (apply credit)', payload)
+
+            ajaxRequest(`{{ route('save-payover-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
+            .then(response => {
+                if (response.status == 200) {
+                    Swal.fire('Sukses!', 'Pembayaran (apply credit) berhasil ditambahkan.', 'success');
+                    $('#formSubmitPayment')[0].reset();
+                    $('#overpay_id_modal2').val(null).trigger('change');
+
+                    // Reload table History & DataTable Induk
+                    loadPaymentHistoryModal(payload.parent_inv_id);
+                    table.ajax.reload(null, false);
+                }
+            })
+            .catch((err) => {
+                cathError(err);
+            })
+            .finally(() => {
+                $btn.prop('disabled', false).html('<i class="fa fa-save mr-1"></i> Simpan Pembayaran');
+            });
+
+        } else {
+            // ── Payment normal (bank transfer) ──
+            const payload = {
+                date_transaction : $('#input_payment_date').val(),
+                nominal_receive  : $('#input_payment_nominal').val(),
+                reference_detail : $('#input_payment_ref').val(),
+                parent_inv_id    : $('#invoices_id_parent').val(),
+                uuid_bank : $('#account_bank_modal_2').val(),
+            };
+
+            console.log('payload',payload)
+
+            ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
+            .then(response => {
+                if(response.status == 200){
+                    Swal.fire('Sukses!', 'Pembayaran berhasil ditambahkan.', 'success');
+                    $('#formSubmitPayment')[0].reset(); 
+                    
+                    // Reload table History & DataTable Induk
+                    loadPaymentHistoryModal(payload.parent_inv_id);
+                    table.ajax.reload(null, false); 
+                }
+            })
+            .catch((err) => {
+                cathError(err);
+            })
+            .finally(() => {
+                $btn.prop('disabled', false).html('<i class="fa fa-save mr-1"></i> Simpan Pembayaran');
+            });
+        }
     });
 
     // 4. Aksi Delete Payment History

@@ -559,10 +559,83 @@ class InvXeroController extends Controller
             'getDetailById.getItem',
             'getPayment',
             'getHistoryInvoice',
-            'getOverPay'
+            'getOverPay',
+            'getJamaah.listAllOverpay'
             // 'getDetailById.trackingCategoryPaket'
         ], ['id' => $request->id])->first();
         return $this->autoResponse($data);
+    }
+
+
+    public function storePaymentOver(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'nullable|integer',
+            //'uuid_bank' => 'required|integer|exists:bank_xeros,id',
+            'nominal_spend' => 'required|integer',//nominal overpay yang dibayarkan
+            'reference_detail' => 'required|string',
+            'date_transaction' => 'required|date',
+            'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id',
+            'overpay_id' => 'required|integer|exists:overpayments,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 500);
+        }
+
+        $cekData = $this->repo->whereData(['id' => $request->parent_inv_id])->first();
+        $cekBankOver = $this->repo_over->whereData(['id' => $request->overpay_id])->first();
+
+        if ($request->nominal_spend > $cekBankOver->nominal_overpayment) {
+            return $this->error('nominal transfer melebihi total overpayment', 400);
+        }
+
+
+        $request->merge([
+            'created_by' => $request->user_login->id,
+            'nominal_transfer' => 0,
+            'nominal_receive' => 0,
+            'uuid_bank' => $cekBankOver->bank_id,
+            'overpay_id' => $request->overpay_id
+        ]);
+
+
+        DB::beginTransaction();
+        try {
+            $nominal_paid_final = $cekData->invoice_amount + $request->nominal_spend;
+            $final_less = max(0, $cekData->invoice_total - $nominal_paid_final);
+            $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $final_less];
+            $invP = $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);//update invoice nominal
+            $request->merge([
+                'id_parent_invoice' => $request->parent_inv_id
+            ]);
+            $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);//create transaksi
+
+            if ($invP->invoice_amount >= $invP->invoice_total) {//update status transinvoice
+                $this->repo->CreateOrUpdate(['status' => 'PAID'], $request->parent_inv_id);
+            }
+
+            $actionLabel = 'membuat pembayaran invoice ' . $invP->invoice_number . " ";
+            $logMessage = $request->user_login->name . ' ' . $actionLabel . ' ' . $saveP->name_contact . " sebesar " . $request->nominal_spend .
+                " pada bank overpayment ";
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                $invP->id,
+                null
+            );
+            $update_repo_ = ['nominal_overpayment' => $cekBankOver->nominal_overpayment - $request->nominal_spend];
+            $this->repo_over->CreateOrUpdate($update_repo_, $request->overpay_id);
+            DB::commit();
+            return $this->autoResponse($saveP);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error($th->getMessage(), 400);
+        }
+
     }
 
     public function storePayment(Request $request)
@@ -636,7 +709,9 @@ class InvXeroController extends Controller
                     $this->repo_over->CreateOrUpdate([
                         'nominal_overpayment' => $totalOverpayment,
                         'invoice_id' => $request->parent_inv_id,
-                        'trans_bank_id' => $saveP->id
+                        'trans_bank_id' => $saveP->id,
+                        'jamaah_contact_id' => $invP->contact_id,
+                        'bank_id' => $request->uuid_bank
                     ], null);
                 }
             }

@@ -5,13 +5,16 @@ namespace App\Http\Controllers\MasterData;
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
 use App\Http\Repository\MasterData\Finance\ItemPaketAllXeroRepo;
+use App\Http\Repository\MasterData\TrackingRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\Expenses\Purchase\Bill\DBill;
+use DB;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\MasterData\CoaRepo;
 
 
+use Str;
 use Validator;
 use App\Traits\ApiResponse;
 
@@ -21,16 +24,18 @@ class ProducAndServiceXeroLocalController extends Controller
 {
 
     use ApiResponse;
-    protected $repo, $repo_trans_all, $repo_d_bill;
+    protected $repo, $repo_trans_all, $repo_d_bill, $repo_tracking;
 
     public function __construct(
         ItemPaketAllXeroRepo $repo,
         TransCoaRepo $transCoaRepo,
-        PODBillRepository $repo_d_bill
+        PODBillRepository $repo_d_bill,
+        TrackingRepo $repo_tracking
     ) {
         $this->repo = $repo;
         $this->repo_trans_all = $transCoaRepo;
         $this->repo_d_bill = $repo_d_bill;
+        $this->repo_tracking = $repo_tracking;
     }
 
     function generateRandom4Digit()
@@ -49,11 +54,9 @@ class ProducAndServiceXeroLocalController extends Controller
             'desc_salles' => 'nullable|string',
             'account_id_purchase' => 'nullable|integer|exists:coas,id',
             'account_id_salles' => 'required|integer|exists:coas,id',
-            // 'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id',
             'price_purchase' => 'nullable|integer',
             'price_sales' => 'required|integer',
         ]);
-
         if ($validator->fails()) {
             return $this->error($validator->errors(), 500);
         }
@@ -66,12 +69,91 @@ class ProducAndServiceXeroLocalController extends Controller
             'tax_rate_purchase' => 0,
             'price_purchase' => $request->price_purchase ?? 0
         ]);
-
         $request['uuid_proudct_and_service'] = 'from_web';
+
         $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
+
+        if ($request->id == null) {
+            $cari = $this->repo_tracking->whereData(['name_parent_category' => 'Nama Paket'])->first();
+
+            if ($cari) {
+                // ambil isi lines_category yang sudah ada (array), fallback [] kalau masih null
+                $lines = $cari->lines_category ?? [];
+
+                if ($request->id == null) {
+                    // ===== CREATE: generate uuid baru, append line baru =====
+                    $usedUuids = $this->getAllUsedUuids();
+                    $newUuid = $this->generateUniqueUuid($usedUuids);
+
+                    $lines[] = [
+                        'id_parent' => $cari->id,
+                        'item_name_category' => $request->nama_paket,
+                        'item_uuid_category' => $newUuid,
+                    ];
+
+                    $cari->lines_category = $lines;
+                    $cari->save();
+
+                    // simpan uuid ini ke row paket yang baru dibuat, biar bisa dilacak balik saat diedit nanti
+                    $saved->uuid_tracking_category = $newUuid;
+                    $saved->save();
+
+                } else {
+                    $existingUuid = $saved->uuid_tracking_category ?? null;
+
+                    if ($existingUuid) {
+                        $updated = false;
+                        foreach ($lines as &$line) {
+                            if (($line['item_uuid_category'] ?? null) === $existingUuid) {
+                                $line['item_name_category'] = $request->nama_paket;
+                                $updated = true;
+                                break;
+                            }
+                        }
+                        unset($line);
+                        if ($updated) {
+                            $cari->lines_category = $lines;
+                            $cari->save();
+                        }
+                    }
+                }
+            }
+        }
+
         return $this->autoResponse($saved);
     }
 
+    private function getAllUsedUuids(): array
+    {
+        $uuids = [];
+
+        DB::table('tracking_categories')
+            ->select('lines_category')
+            ->whereNotNull('lines_category')
+            ->orderBy('id')
+            ->each(function ($row) use (&$uuids) {
+                foreach (json_decode($row->lines_category, true) ?? [] as $line) {
+                    if (!empty($line['item_uuid_category'])) {
+                        $uuids[] = $line['item_uuid_category'];
+                    }
+                }
+            });
+
+        return array_unique($uuids);
+    }
+    private function generateUniqueRandom4Digit(array &$usedUuids): string
+    {
+        for ($attempt = 0; $attempt < 200; $attempt++) {
+            $uuid = (string) Str::uuid();
+
+            if (!in_array($uuid, $usedUuids, true)) {
+                $usedUuids[] = $uuid;
+                return $uuid;
+            }
+        }
+
+        throw new \RuntimeException('Gagal menghasilkan item_uuid_category unik — coba lagi.');
+    }
 
 
     public function getAllPaginateSelect2(Request $request)
