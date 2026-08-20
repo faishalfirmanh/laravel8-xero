@@ -509,16 +509,18 @@ $(function () {
         maximumFractionDigits: 2
     });
 
-  var plRouteTemplate = "{{ route('view-report-profit-loss-detail', ['account' => '__ACCOUNT__', 'date_start' => '__DATE_START__','date_end' => '__DATE_END__',    'track_paket' => '__TRACK_PAKET__','track_divisi' => '__TRACK_DIVISI__']) }}";
-    function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) {
+  var plRouteTemplate = "{{ route('view-report-profit-loss-detail', ['account' => '__ACCOUNT__', 'date_start' => '__DATE_START__','date_end' => '__DATE_END__']) }}";
+function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) {
         var url = plRouteTemplate
             .replace('__ACCOUNT__', accountId)
             .replace('__DATE_START__', dateStart)
-            .replace('__DATE_END__', dateEnd)
-            .replace('__TRACK_PAKET__', trackPaket ?? '')
-            .replace('__TRACK_DIVISI__', trackDivisi ?? '');
+            .replace('__DATE_END__', dateEnd);
+        var qs = [];
+            if (trackPaket)  qs.push('track_paket=' + encodeURIComponent(trackPaket));
+            if (trackDivisi) qs.push('track_divisi=' + encodeURIComponent(trackDivisi));
+            if (qs.length) url += '?' + qs.join('&');
 
-        return url;
+            return url;
     }
 
     

@@ -41,10 +41,10 @@ class DashboardController extends Controller
         return view('admin.report.profit_loss');
     }
 
-    public function profitAndLossDetail($account, $date_start, $date_end, $track_paket = [], $track_divisi)
-    {
-        return view('admin.report.profit_loss_detail');
-    }
+    // public function profitAndLossDetail($account, $date_start, $date_end, $track_paket = [], $track_divisi)
+    // {
+    //     return view('admin.report.profit_loss_detail');
+    // }
 
 
     public function getWebListInvoice()
@@ -136,6 +136,16 @@ class DashboardController extends Controller
         return view('admin.transaksi.purchase.list_po');
     }
     //
+
+
+    public function profitAndLossDetail(Request $request, $account, $date_start, $date_end)
+    {
+        return view('admin.report.profitlossdetailv2', [
+            'account' => $account,
+            'dateStart' => $date_start,
+            'dateEnd' => $date_end,
+        ]);
+    }
 
     public function getTransPurchaseBill()
     {

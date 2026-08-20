@@ -276,6 +276,8 @@ Route::prefix("admin-web")->group(function () {
             });
             Route::prefix('profit-and-loss')->group(function () {
                 Route::get('index', [ProfitLossController::class, 'getHome'])->name('profit-and-loss');
+                Route::get('detail-profit-and-loss/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailData'])
+                    ->name('api-profit-loss-detail');
             });
         });
 

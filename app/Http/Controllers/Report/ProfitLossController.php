@@ -27,22 +27,35 @@ class ProfitLossController extends Controller
     }
 
 
-    public function profitAndLossDetail(Request $request, $account, $date_start, $date_end, $track_paket = null, $track_divisi = null)
+
+    public function profitAndLossDetailData(Request $request, $account, $date_start, $date_end)
     {
+        $track_paket = $request->query('track_paket');
+        $track_divisi = $request->query('track_divisi');
+
+        if ($track_paket !== null) {
+            $track_paket = str_replace('?', '', $track_paket);
+        }
+
+        if ($track_divisi !== null) {
+            $track_divisi = str_replace('?', '', $track_divisi);
+        }
+
+        $filterPaket = $track_paket ? explode(',', $track_paket) : [];
+        $filterDivisi = $track_divisi ? explode(',', $track_divisi) : [];
+
         $coa = DB::table('coas')->where('id', $account)->first();
 
         if (!$coa) {
-            abort(404, 'Akun COA tidak ditemukan');
+            return $this->error('Akun COA tidak ditemukan', 404);
         }
-
-        // '0' = sentinel dari JS untuk "tidak ada filter"
-        $filterPaket = ($track_paket && $track_paket !== '0') ? explode(',', $track_paket) : [];
-        $filterDivisi = ($track_divisi && $track_divisi !== '0') ? explode(',', $track_divisi) : [];
 
         $query = DB::table('transaction_all_coas as t')
             ->join('coas as c', 'c.id', '=', 't.uuid_coa')
             ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
+            ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id') // ⚠️ sesuaikan kolom FK
             ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
+            ->leftJoin('p_bills as pbi', 'pbi.id', '=', 'dbi.bills_parent_id')
             ->where('t.uuid_coa', $account)
             ->whereBetween('t.date_transaction', [$date_start, $date_end]);
 
@@ -66,30 +79,37 @@ class ProfitLossController extends Controller
             t.date_transaction,
             t.nominal,
             t.is_speend,
-            t.uuid_detail
+            t.uuid_detail,
+            inv.invoice_number,   -- ⚠️ sesuaikan nama kolom no. invoice
+            pbi.reference   as bill_reference,  -- ⚠️ sesuaikan nama kolom no. bill
+            di.desc  as invoice_desc,    -- ⚠️ sesuaikan kalau nama kolomnya beda
+            dbi.desc as bill_desc        -- ⚠️ sesuaikan kalau nama kolomnya beda
         ')
             ->orderBy('t.date_transaction')
             ->get();
 
-        // Sign nominal sama seperti logika agregat di getHome()
         $isRevenue = $coa->account_type === 'REVENUE';
         $total = 0;
-
-        foreach ($transactions as $t) {
-            $t->signed_nominal = $isRevenue
+        $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
+            $signed = $isRevenue
                 ? ($t->is_speend == 0 ? $t->nominal : -$t->nominal)
                 : ($t->is_speend == 1 ? $t->nominal : -$t->nominal);
-            $total += $t->signed_nominal;
-        }
+            $total += $signed;
 
-        return view('admin.report.profitlossdetailv2', [
-            'coa' => $coa,
-            'transactions' => $transactions,
-            'total' => $total,
-            'dateStart' => $date_start,
-            'dateEnd' => $date_end,
-            'trackPaket' => $filterPaket,
-            'trackDivisi' => $filterDivisi,
+            return [
+                'date' => $t->date_transaction,
+                'nominal' => (float) $signed,
+                'reference' => $t->invoice_number ?: $t->bill_reference,
+                'description' => $t->invoice_desc ?: $t->bill_desc,
+                'source' => $t->invoice_number ? 'invoice' : ($t->bill_reference ? 'bill' : null),
+            ];
+        })->values();
+
+        return $this->autoResponse([
+            'coa' => ['id' => $coa->id, 'name' => $coa->name, 'account_type' => $coa->account_type],
+            'period' => ['date_start' => $date_start, 'date_end' => $date_end],
+            'transactions' => $items,
+            'total' => (float) $total,
         ]);
     }
 
