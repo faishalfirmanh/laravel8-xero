@@ -50,6 +50,27 @@
     #buktiDropzone .dz-preview .dz-image:hover {
         transform: scale(1.05); /* Sedikit membesar saat di-hover */
     }
+
+    #itemTable {
+        table-layout: fixed;
+        width: 100%;
+    }
+    #itemTable td { overflow: hidden; }
+
+    #itemTable .qty-input,
+    #itemTable .price-input,
+    #itemTable .amount-row {
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* Cegah teks panjang di Select2 (Item/Account/Paket/Divisi) ikut merampas lebar kolom lain */
+    #itemTable .select2-container { width: 100% !important; }
+    #itemTable .select2-selection--single .select2-selection__rendered {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
 </style>
 
 <div class="card shadow mb-5">
@@ -105,7 +126,8 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog"
+     aria-hidden="true" data-backdrop="static" data-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered" 
          style="max-width: 95% !important; width: 95% !important;" 
          role="document">
@@ -132,19 +154,19 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>From (Supplier / Contact)</label>
+                                    <label>From (Supplier / Contact)  <span class="text-danger">*</span></label>
                                     <select class="form-control select2-contact" name="uuid_from" id="contact_id" style="width: 100%;" required></select>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label>Date</label>
+                                    <label>Date  <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" id="date_req" name="date_req" value="{{ date('Y-m-d') }}" required>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label>Due Date</label>
+                                    <label>Due Date  <span class="text-danger">*</span></label>
                                     <input type="date" id="due_date" class="form-control" name="due_date" value="{{ date('Y-m-d', strtotime('+30 days')) }}">
                                 </div>
                             </div>
@@ -153,8 +175,8 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label>Reference</label>
-                                    <input type="text" id="ref_id" class="form-control" name="reference">
+                                    <label>Reference <span class="text-danger">*</span></label>
+                                    <input type="text" id="ref_id" required class="form-control" name="reference">
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -173,20 +195,33 @@
                     <div class="tab-pane fade p-3" id="detailTab">
                         <div class="table-responsive">
                             <input type="hidden" id="d_id_parent_bill" name="bills_parent_id"/>
-                            <table class="table table-bordered table-hover" id="itemTable">
+                           <table class="table table-bordered table-hover" id="itemTable">
+                                <colgroup>
+                                    <col style="width:40px;">   <!-- No -->
+                                    <col style="width:170px;">  <!-- Item -->
+                                    <col style="width:260px;">  <!-- Description -->
+                                    <col style="width:70px;">   <!-- Qty -->
+                                    <col style="width:120px;">  <!-- Unit Price -->
+                                    <col style="width:200px;">  <!-- Account -->
+                                    <col style="width:90px;">   <!-- Tax Rate -->
+                                    <col style="width:170px;">  <!-- Nama Paket -->
+                                    <col style="width:150px;">  <!-- Divisi -->
+                                    <col style="width:130px;">  <!-- Amount -->
+                                    <col style="width:50px;">   <!-- Action -->
+                                </colgroup>
                                 <thead class="table-light">
                                     <tr>
-                                        <th width="40" class="text-center">No</th>
-                                        <th style="min-width: 150px;">Item</th>
-                                        <th style="min-width: 280px;">Description</th>
-                                        <th width="80" class="text-center">Qty</th>
-                                        <th width="130" class="text-right">Unit Price</th>
-                                        <th style="min-width: 220px;">Account</th>
-                                        <th width="100" class="text-center">Tax Rate (%)</th>
-                                        <th style="min-width: 180px;">Nama Paket</th>
-                                        <th style="min-width: 160px;">Divisi</th>
-                                        <th width="140" class="text-right">Amount (IDR)</th>
-                                        <th width="50" class="text-center">Action</th>
+                                        <th class="text-center">No</th>
+                                        <th>Item</th>
+                                        <th>Description</th>
+                                        <th class="text-center">Qty</th>
+                                        <th class="text-right">Unit Price</th>
+                                        <th>Account  <span class="text-danger">*</span></th>
+                                        <th class="text-center">Tax Rate (%)</th>
+                                        <th>Nama Paket</th>
+                                        <th>Divisi</th>
+                                        <th class="text-right">Amount (IDR)</th>
+                                        <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="lineItemsBody"></tbody>
@@ -492,6 +527,7 @@ $(document).ready(function() {
             },
             init: function() {
                 // Saat proses upload berjalan, kirimkan ID Invoice
+                console.log('idbill dropzone',$('#idHotelInput').val())
                 this.on("sending", function(file, xhr, formData) {
                     // Ambil ID dari hidden input (Bisa dari edit, atau ID baru setelah save form)
                     formData.append("bill_id", $('#idHotelInput').val()); 
@@ -514,7 +550,8 @@ $(document).ready(function() {
                     // FIX: sama seperti successmultiple, tombol harus di-enable
                     // kembali supaya user bisa retry submit.
                     $('.action-submit').prop('disabled', false);
-                    Swal.fire('Peringatan', 'bill tersimpan, namun gagal mengupload gambar.', 'warning');
+                    Swal.fire('Peringatan', 'bill tersimpan, namun gagal mengupload gambar. <br> simpan bill dulu, lalu edit ', 'warning');
+                    $('#modalCreateHotel').modal('hide');
                     table.ajax.reload(null, false);
                 });
 
@@ -657,7 +694,7 @@ $(document).ready(function() {
        $('.select2-contact').select2({
             placeholder: "Cari nama contact...",
             allowClear: true,
-            dropdownParent: $('#modalCreateHotel'),
+            dropdownParent: $('#modalCreateHotel .modal-content'),
             ajax: {
                 url: "{{ route('list-contact-select2') }}",  
                 type: "GET",
@@ -871,6 +908,9 @@ $(document).ready(function() {
         let id_bill = (idInput && idInput > 0) ? idInput : null;
         let action_selected = params.get('action_type');
 
+        console.log('id bills submited',id_bill)
+        console.log('idInput---',idInput)
+
         let selectedData = {
             item_code : $('select[name="item_code[]"]').map(function(){ return $(this).val(); }).get(),
             id: id_bill,
@@ -902,9 +942,11 @@ $(document).ready(function() {
                         // dipilih di dropzone, foto itu TIDAK PERNAH ke-upload
                         // (processQueue() tidak pernah dipanggil). Sekarang proses
                         // upload jalan untuk kedua action selama ada file di queue.
-                        if (myDropzone.getQueuedFiles().length > 0) {
-                            let savedInvoiceId = id_bill ? id_bill : response.data.id; 
-                            $('#idHotelInput').val(savedInvoiceId); 
+                        let savedInvoiceId = id_bill ? id_bill : response.data.id; 
+                        $('#idHotelInput').val(savedInvoiceId); 
+
+                      
+                        if (myDropzone.getQueuedFiles().length > 0) {  
                             $('.action-submit').prop('disabled', true);
                             myDropzone.processQueue(); 
                         } else {
@@ -994,7 +1036,7 @@ $(document).ready(function() {
                     if (response.status != 'success') return { results: [], pagination: { more: false } };;
                     return {
                         results: $.map(response.data.results, function(item) {
-                            console.log('code',item)
+                           
                             return { 
                                 id        : item.code,
                                 text      : item.nama_paket,

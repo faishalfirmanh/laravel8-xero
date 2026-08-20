@@ -37,7 +37,27 @@ class ResetTransSeeder extends Seeder
         Overpayment::truncate();
         // 3. Aktifkan kembali foreign key checks
         Schema::enableForeignKeyConstraints();
+        $paths = [
+            public_path('uploads/images/invoices'),
+            public_path('uploads/images/purchase_bill'),
+        ];
 
-        $this->command->info('Semua data berhasil dihapus dan primary key telah di-reset ke 1!');
+        $aa = 0;
+        foreach ($paths as $path) {
+            if (!is_dir($path)) {
+                continue;
+            }
+
+            $files = glob($path . '/*');
+
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                    $aa++;
+                }
+            }
+        }
+
+        $this->command->info('Semua data berhasil dihapus dan primary key telah di-reset ke 1! ' . 'file dihapus ' . $aa);
     }
 }

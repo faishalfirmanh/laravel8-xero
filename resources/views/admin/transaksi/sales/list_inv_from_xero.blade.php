@@ -601,7 +601,7 @@
 
                     <div class="invoice-title-row">
                         <h5 id="modalInvoiceTitle">New invoice</h5>
-                        <span class="badge-draft" id="invoiceStatusBadge">Draft</span>
+                        <span class="badge-draft" id="invoiceStatusBadge"></span>
                     </div>
 
                     <input type="hidden" name="idHotelInput" id="idHotelInput">
@@ -1190,10 +1190,13 @@
             placeholder: '-- Pilih Overpayment --',
             allowClear: true,
             data: $.map(listAllOverpayCurrent, function (item) {
-                return {
-                    id: item.id, // dikirim ke backend sebagai overpay_id
-                    text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
-                };
+                if(item.nominal_overpayment > 0)
+                {
+                    return {
+                        id: item.id, // dikirim ke backend sebagai overpay_id
+                        text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
+                    };
+                }
             })
         });
     }
@@ -1227,10 +1230,13 @@
             placeholder: '-- Pilih Overpayment --',
             allowClear: true,
             data: $.map(listAllOverpayCurrentAdd, function (item) {
-                return {
-                    id: item.id, // dikirim ke backend sebagai overpay_id
-                    text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
-                };
+                if(item.nominal_overpayment > 0){
+                    return {
+                       id: item.id, // dikirim ke backend sebagai overpay_id
+                       text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
+                    };
+                }
+              
             })
         });
     }
@@ -2423,7 +2429,7 @@ $(function () {
 
             payments.forEach((p, i) => {
                 // console.log('aa',p.get_bank.name)
-                const nominal = parseFloat(p.nominal_receive || 0);
+                const nominal = p.nominal_receive > 0 ? parseFloat(p.nominal_receive) : parseFloat(p.nominal_spend)
                 totalPaid += nominal;
 
                 $tbody.append(`
@@ -2516,10 +2522,15 @@ $(function () {
             if (payments.length === 0) {
                 tbody = '<tr><td colspan="5" class="text-muted text-center">Belum ada data pembayaran</td></tr>';
             } else {
-                payments.forEach((p, index) => {
-                  
-                    const nominal = parseFloat(p.nominal_receive || 0);
+                payments
+                .sort((a, b) => new Date(b.date_transaction) - new Date(a.date_transaction))
+                .forEach((p, index) => {
+                    const nominal = p.nominal_receive > 0
+                        ? parseFloat(p.nominal_receive)
+                        : parseFloat(p.nominal_spend);
+
                     totalPaid += nominal;
+
                     tbody += `
                         <tr>
                             <td>${index + 1}</td>

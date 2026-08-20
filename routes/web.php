@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MasterData\HotelApiController;
+use App\Http\Controllers\Report\ProfitLossController;
 use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
 use App\Http\Controllers\Web\MasterData\HotelController;
 use Illuminate\Support\Facades\Route;
@@ -93,6 +94,7 @@ Route::prefix('travel')->group(function () {
             Route::get('/rep-coa', [DashboardController::class, 'caoList'])->name('web-rep-coa');
             Route::get('rep-coa/{idCoa}', [DashboardController::class, 'detailCoaReport'])->name('view-report-detail-coa');
             Route::get('profit-and-loss', [DashboardController::class, 'profitAndLoss'])->name('view-report-profit-loss');
+            Route::get('detail-profit-and-loss/{account}/{date_start}/{date_end}/{track_paket?}/{track_divisi?}', [ProfitLossController::class, 'profitAndLossDetail'])->name('view-report-profit-loss-detail');
         });
     });
 });

@@ -27,6 +27,71 @@ class ProfitLossController extends Controller
     }
 
 
+    public function profitAndLossDetail(Request $request, $account, $date_start, $date_end, $track_paket = null, $track_divisi = null)
+    {
+        $coa = DB::table('coas')->where('id', $account)->first();
+
+        if (!$coa) {
+            abort(404, 'Akun COA tidak ditemukan');
+        }
+
+        // '0' = sentinel dari JS untuk "tidak ada filter"
+        $filterPaket = ($track_paket && $track_paket !== '0') ? explode(',', $track_paket) : [];
+        $filterDivisi = ($track_divisi && $track_divisi !== '0') ? explode(',', $track_divisi) : [];
+
+        $query = DB::table('transaction_all_coas as t')
+            ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+            ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
+            ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
+            ->where('t.uuid_coa', $account)
+            ->whereBetween('t.date_transaction', [$date_start, $date_end]);
+
+        if (count($filterDivisi) > 0) {
+            $query->where(function ($sub) use ($filterDivisi) {
+                $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
+                    ->orWhereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi);
+            });
+        }
+
+        if (count($filterPaket) > 0) {
+            $query->where(function ($sub) use ($filterPaket) {
+                $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
+                    ->orWhereIn('dbi.paket_tracking_uuid', $filterPaket);
+            });
+        }
+
+        $transactions = $query
+            ->selectRaw('
+            t.id,
+            t.date_transaction,
+            t.nominal,
+            t.is_speend,
+            t.uuid_detail
+        ')
+            ->orderBy('t.date_transaction')
+            ->get();
+
+        // Sign nominal sama seperti logika agregat di getHome()
+        $isRevenue = $coa->account_type === 'REVENUE';
+        $total = 0;
+
+        foreach ($transactions as $t) {
+            $t->signed_nominal = $isRevenue
+                ? ($t->is_speend == 0 ? $t->nominal : -$t->nominal)
+                : ($t->is_speend == 1 ? $t->nominal : -$t->nominal);
+            $total += $t->signed_nominal;
+        }
+
+        return view('admin.report.profitlossdetailv2', [
+            'coa' => $coa,
+            'transactions' => $transactions,
+            'total' => $total,
+            'dateStart' => $date_start,
+            'dateEnd' => $date_end,
+            'trackPaket' => $filterPaket,
+            'trackDivisi' => $filterDivisi,
+        ]);
+    }
 
     public function getHome(Request $request)
     {
@@ -137,6 +202,7 @@ class ProfitLossController extends Controller
             'trading_income' => [
                 'items' => $tradingIncomeRows->map(function ($r) {
                     return [
+                        'coa_id' => $r->id,
                         'name' => $r->name,
                         'total' => (float) $r->total,
                     ];
@@ -147,6 +213,7 @@ class ProfitLossController extends Controller
             'cost_of_sales' => [
                 'items' => $costOfSalesRows->map(function ($r) {
                     return [
+                        'coa_id' => $r->id,
                         'name' => $r->name,
                         'total' => (float) $r->total,
                     ];

@@ -41,6 +41,11 @@ class DashboardController extends Controller
         return view('admin.report.profit_loss');
     }
 
+    public function profitAndLossDetail($account, $date_start, $date_end, $track_paket = [], $track_divisi)
+    {
+        return view('admin.report.profit_loss_detail');
+    }
+
 
     public function getWebListInvoice()
     {

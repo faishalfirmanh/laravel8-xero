@@ -43,6 +43,7 @@
                     <th>Name Bank</th>
                     <th>Nominal Spend</th>
                     <th>Nominal Receive</th>
+                    <th>Final Nominal</th>
                     <th width="15%">Action</th>
                 </tr>
             </thead>
@@ -271,6 +272,13 @@ $(document).ready(function() {
         { 
             data: 'sum_receive', 
             name: 'sum_receive',
+            render: function(data, type, row) { 
+                return `Rp. ${formatCurrency(data)}`
+            },  
+        },
+        { 
+            data: 'final_nominal', 
+            name: 'final_nominal',
             render: function(data, type, row) { 
                 return `Rp. ${formatCurrency(data)}`
             },  

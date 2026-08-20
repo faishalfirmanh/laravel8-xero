@@ -509,6 +509,19 @@ $(function () {
         maximumFractionDigits: 2
     });
 
+  var plRouteTemplate = "{{ route('view-report-profit-loss-detail', ['account' => '__ACCOUNT__', 'date_start' => '__DATE_START__','date_end' => '__DATE_END__',    'track_paket' => '__TRACK_PAKET__','track_divisi' => '__TRACK_DIVISI__']) }}";
+    function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) {
+        var url = plRouteTemplate
+            .replace('__ACCOUNT__', accountId)
+            .replace('__DATE_START__', dateStart)
+            .replace('__DATE_END__', dateEnd)
+            .replace('__TRACK_PAKET__', trackPaket ?? '')
+            .replace('__TRACK_DIVISI__', trackDivisi ?? '');
+
+        return url;
+    }
+
+    
     function formatAmt(val) {
         val = parseFloat(val) || 0;
         if (val < 0) return '(' + fmt.format(Math.abs(val)) + ')';
@@ -701,7 +714,7 @@ $(function () {
             sections.push({
                 name : 'Trading Income',
                 items: $.map(data.trading_income.items || [], function (i) {
-                    return { name: i.name, amount: i.total };
+                     return { coa_id: i.coa_id, name: i.name, amount: i.total };
                 }),
                 total: data.trading_income.total
             });
@@ -710,7 +723,7 @@ $(function () {
             sections.push({
                 name : 'Cost of Sales',
                 items: $.map(data.cost_of_sales.items || [], function (i) {
-                    return { name: i.name, amount: i.total };
+                   return { coa_id: i.coa_id, name: i.name, amount: i.total }; 
                 }),
                 total: data.cost_of_sales.total
             });
@@ -763,13 +776,14 @@ $(function () {
             localStorage.getItem('token')
         )
         .then(function (response) {
+            console.log('res',response)
             if (!response.status || !response.data) {
                 throw new Error(response.message || 'Gagal memuat data');
             }
             var adapted = adaptApiResponse(response.data.data);
             _lastData   = adapted;
             renderReport(adapted);
-            console.log('params',params)
+            console.log('adp',adapted)
         })
         .catch(function (err) {
             cathError(err);
@@ -783,10 +797,19 @@ $(function () {
     // =========================================================
     // RENDER REPORT
     // =========================================================
+
+    
+    
     function renderReport(data) {
         var $body   = $('#reportBody');
         var compact = $('#compactView').is(':checked');
         $body.empty();
+
+        // Ambil sekali di luar loop
+        var dateStart  = $('#date_from').val();
+        var dateEnd    = $('#date_to').val();
+        var divisiVals = ($('#tracking_divisi').val() || []).join(',');
+        var paketVals  = ($('#tracking_paket_name').val() || []).join(',');
 
         $.each(data.sections || [], function (idx, section) {
 
@@ -799,10 +822,14 @@ $(function () {
 
             if (!compact) {
                 $.each(section.items || [], function (i, item) {
+                    var detailUrl = buildDetailUrl(item.coa_id, dateStart, dateEnd, paketVals, divisiVals);
+
                     $body.append(
                         '<tr class="detail-row">' +
                         '<td>' + escHtml(item.name) + '</td>' +
-                        '<td class="' + amtClass(item.amount) + '">' + formatAmt(item.amount) + '</td>' +
+                        '<td class="' + amtClass(item.amount) + '">' +
+                            '<a href="' + detailUrl + '" target="_blank">' + formatAmt(item.amount) + '</a>' +
+                        '</td>' +
                         '</tr>'
                     );
                 });
@@ -833,7 +860,6 @@ $(function () {
             '</tr>'
         );
     }
-
     // =========================================================
     // EVENT BINDINGS
     // =========================================================

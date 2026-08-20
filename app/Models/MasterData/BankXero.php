@@ -25,6 +25,7 @@ class BankXero extends Model
     protected $appends = [
         'sum_receive',
         'sum_spend',
+        'final_nominal'
     ];
 
 
@@ -41,5 +42,9 @@ class BankXero extends Model
     public function getSumSpendAttribute()
     {
         return $this->nominalTransactions()->sum('nominal_spend');
+    }
+    public function getFinalNominalAttribute()
+    {
+        return $this->sum_receive - $this->sum_spend;
     }
 }

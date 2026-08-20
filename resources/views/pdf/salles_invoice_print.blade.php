@@ -292,11 +292,27 @@
         </thead>
         <tbody>
             @foreach($payments as $item_pay)
-            <tr>
-                <td>{{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}</td>
-                <td>{{ $item_pay->name_bank ?? '-' }}</td>
-                <td class="text-right amount-blue">{{ $fmt($item_pay->nominal_receive ?? null) }}</td>
-            </tr>
+                <tr>
+                    @php
+                        $cek_over = $item_pay->nominal_receive > 0
+                            ? $item_pay->nominal_receive
+                            : $item_pay->nominal_spend;
+
+                        $desc_over = $item_pay->nominal_spend > 0
+                            ? '<b style="color: red">overpayment</b>&nbsp;'
+                            : '';
+                    @endphp
+
+                    <td>{{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}</td>
+
+                    <td>
+                        {!! $desc_over !!}{{ $item_pay->name_bank ?? '-' }}
+                    </td>
+
+                    <td class="text-right amount-blue">
+                        {{ $fmt($cek_over) }}
+                    </td>
+                </tr>
             @endforeach
         </tbody>
     </table>
