@@ -111,6 +111,7 @@ class InvXeroController extends Controller
             'reference' => strtolower($request->reference)
         ]);
 
+        $total_pay = 0;
         $isUpdate = !empty($request->id);
 
         DB::beginTransaction();
@@ -228,15 +229,23 @@ class InvXeroController extends Controller
             }
 
             // 5. Update Total Keseluruhan Parent
+
+            if ($isUpdate) {
+                $total_pay = $this->repo_trans_bank
+                    ->whereData(['id_parent_invoice' => $request->id]) // <- perbaiki di sini
+                    ->get()
+                    ->sum(fn($t) => $t->nominal_receive + $t->nominal_spend);
+            }
+
             $sumD = $this->repo_detail->sumDataWhereDinamis(['parent_inv_id' => $saveP->id], 'total_amount_each_row');
             $invoiceAmount = $saveP->invoice_amount ?? 0;
-            $newLessNominal = max(0, $sumD - $invoiceAmount);
+            $newLessNominal = max(0, $sumD - $total_pay); //max(0, $sumD - $invoiceAmount);
 
             $this->repo->CreateOrUpdate(['invoice_total' => $sumD, 'less_nominal' => $newLessNominal], $saveP->id);
             $existingOver = $this->repo_over->whereData(['invoice_id' => $saveP->id])->first();
-            if ($invoiceAmount > $sumD) {
+            if ($total_pay > $sumD) {//if ($invoiceAmount > $sumD) {
                 // harga BERKURANG sampai di bawah yang sudah dibayar -> overpayment baru muncul / membesar
-                $totalOverpayment = $invoiceAmount - $sumD;
+                $totalOverpayment = $total_pay - $sumD;
 
                 if ($existingOver) {
                     $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $totalOverpayment], $existingOver->id);
