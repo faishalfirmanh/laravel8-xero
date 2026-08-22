@@ -27,6 +27,7 @@ use App\ConfigRefreshXero;
 use Illuminate\Support\Facades\File;
 
 use Intervention\Image\Facades\Image;
+use Cache;
 
 class BillXeroController extends Controller
 {
@@ -348,18 +349,31 @@ class BillXeroController extends Controller
                 'nominal_receive' => 0,
             ]);
 
+            $rate = (float) $findData->nominal_currency;
+            $nominalSpendBase = ceil($request->nominal_spend * $rate);
+
             $nominal_paid_final = $findData->nominal_paid + $request->nominal_spend;
             $nominal_due_final = $findData->total - $nominal_paid_final;
+
+            $nominal_paid_base_final = $findData->nominal_paid_base + $nominalSpendBase;
+            $nominal_due_base_final = $findData->total_base - $nominal_paid_base_final;
+
             $cek_status = $nominal_due_final <= 0 ? 2 : 1;
-            // 0 = draft, 1 = awaiting payment, 2 = paid
+
 
             $param_bill_save = [
                 'nominal_paid' => $nominal_paid_final,
                 'nominal_due' => $nominal_due_final,
-                'status' => $cek_status, // sesuaikan nama kolom status aslinya
+                'nominal_paid_base' => $nominal_paid_base_final,
+                'nominal_due_base' => $nominal_due_base_final,
+                'status' => $cek_status,
             ];
 
             $this->repo->CreateOrUpdate($param_bill_save, $request->id_parent_bill);
+            $request->merge([
+                'nominal_currency' => $rate,
+                'total_base_spend' => $nominalSpendBase
+            ]);
             $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), null);
 
             $logMessage = $request->user_login->name . ' membuat pembayaran bills ' . $saveP->name_contact .
@@ -383,6 +397,75 @@ class BillXeroController extends Controller
         }
     }
 
+
+    private function getRates()
+    {
+        // Cache selama 60 menit agar hemat kuota API dan loading cepat
+        return Cache::remember('currency_rates', 60 * 60, function () {
+            $apiKey = 'f759b7cefeb24896bc934f6a01c498a1';
+
+            $response = Http::get("https://api.currencyfreaks.com/v2.0/rates/latest", [
+                'apikey' => $apiKey,
+                'symbols' => 'IDR,SAR,USD'
+            ]);
+
+            if ($response->successful()) {
+                return $response->json()['rates'];
+            }
+
+            return null; // Handle jika error
+        });
+    }
+
+
+    private function getRateToIdr(string $currencyCode): float
+    {
+        $currencyCode = strtoupper($currencyCode);
+
+        if ($currencyCode === 'IDR') {
+            return 1.0;
+        }
+
+        $rates = $this->getRates();
+        if (!$rates || empty($rates['IDR']) || empty($rates[$currencyCode])) {
+            throw new \RuntimeException("Gagal mengambil rate untuk currency: {$currencyCode}");
+        }
+
+        return floatval($rates['IDR']) / floatval($rates[$currencyCode]); // 1 unit currency = X IDR
+    }
+    public function idrToSar($nominal)
+    {
+        // Validasi input
+
+        $amountRp = $nominal;
+        $rates = $this->getRates();
+
+        if (!$rates)
+            return response()->json(['error' => 'Gagal ambil rate'], 500);
+
+        $rateIDR = floatval($rates['IDR']);
+        $rateSAR = floatval($rates['SAR']);
+
+        $result = ($amountRp / $rateIDR) * $rateSAR;
+
+        return round($result, 2);
+    }
+
+    public function sarToIdr($amount)
+    {
+        $amountSar = $amount;
+        $rates = $this->getRates();
+
+        if (!$rates)
+            return response()->json(['error' => 'Gagal ambil rate'], 500);
+
+        $rateIDR = floatval($rates['IDR']);
+        $rateSAR = floatval($rates['SAR']);
+        $result = ($amountSar / $rateSAR) * $rateIDR;
+        return round($result, 2);
+    }
+
+    //belm suppor mutly currency
     public function storeParent(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -408,17 +491,27 @@ class BillXeroController extends Controller
             return $this->error($validator->errors());
         }
 
+        $isUpdate = !empty($request->id);
+        $oldParent = $isUpdate ? $this->repo->whereData(['id' => $request->id])->first() : null;
+
+        $currencyChanged = $isUpdate && $oldParent && $oldParent->currency !== $request->currency;
+
+        $cek_nominal_currency = ($isUpdate && $oldParent && !$currencyChanged)
+            ? $oldParent->nominal_currency
+            : $this->getRateToIdr($request->currency);
+
         // Gunakan merge agar field ini terbaca dengan baik saat request->except() atau validasi lanjutan
         $request->merge([
             'status' => $request->action_save, // 0->draft, 1/2->approve
-            'reference' => strtolower($request->reference)
+            'reference' => strtolower($request->reference),
+            'nominal_currency' => $cek_nominal_currency,
+            'created_by' => $request->user_login->id
         ]);
 
-        $isUpdate = !empty($request->id);
 
         DB::beginTransaction();
         try {
-            $oldParent = $isUpdate ? $this->repo->whereData(['id' => $request->id])->first() : null;
+
             $oldDetails = $isUpdate
                 ? $this->repo_detail->whereData(['bills_parent_id' => $request->id])->get()->keyBy('id')
                 : collect();
@@ -466,6 +559,8 @@ class BillXeroController extends Controller
             // 3. Save Details (Create / Update)
             foreach ($request->account_id as $key => $accountId) {
                 $detailId = $request->id_detail[$key] ?? null;
+                $amountForeign = ($request->qty[$key] ?? 0) * ($request->unit_price[$key] ?? 0);
+
 
                 $detailData = [
                     'bills_parent_id' => $saveP->id,
@@ -474,7 +569,8 @@ class BillXeroController extends Controller
                     'desc' => $request->desc[$key] ?? null,
                     'qty' => $request->qty[$key] ?? 0,
                     'unit_price' => $request->unit_price[$key] ?? 0,
-                    'amount' => ($request->qty[$key] ?? 0) * ($request->unit_price[$key] ?? 0),
+                    'amount' => $amountForeign,                              // tetap simpan versi mata uang asli
+                    'total_base' => ceil($amountForeign * $cek_nominal_currency),  // BARU — dipakai utk GL
                     'paket_tracking_uuid' => $request->paket_tracking_uuid[$key] ?? null,
                     'divisi_travel_tracking_uuid' => $request->divisi_travel_tracking_uuid[$key] ?? null,
                 ];
@@ -510,7 +606,7 @@ class BillXeroController extends Controller
                     if ($cek_create_trans) {
                         // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
                         $cek_create_trans->is_speend = true;
-                        $cek_create_trans->nominal = $save_d->amount;
+                        $cek_create_trans->nominal = $save_d->total_base;// $save_d->amount;
                         $cek_create_trans->save();
                     } else {
                         // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
@@ -519,7 +615,7 @@ class BillXeroController extends Controller
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => true,
-                            'nominal' => $save_d->amount,//abs((int) $save_d->amount),//auto positif
+                            'nominal' => $save_d->total_base,//amount,//abs((int) $save_d->amount),//auto positif
                             'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
                             'uuid_detail' => $save_d->uuid_detail
                         ];
@@ -538,18 +634,27 @@ class BillXeroController extends Controller
 
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_detail->sumDataWhereDinamis(['bills_parent_id' => $saveP->id], 'amount');
+            $sumDBase = $this->repo_detail->sumDataWhereDinamis(['bills_parent_id' => $saveP->id], 'total_base'); // BARU
+
+
             $currentPaid = ($isUpdate && $oldParent) ? (float) $oldParent->nominal_paid : 0;
+            $currentPaidBase = ($isUpdate && $oldParent) ? (float) $oldParent->nominal_paid_base : 0; // BARU
+
+
             $newDue = $sumD - $currentPaid;
-            if ($newDue <= 0) {
-                $status = 2; // Lunas. Kalau $newDue < 0 berarti overpay — pertimbangkan dicatat terpisah (lihat catatan di bawah)
+            $newDueBase = $sumDBase - $currentPaidBase;
+
+            if ($newDueBase <= 0) {
+                $status = 2;
                 $newDue = 0;
-            } elseif ($currentPaid > 0) {
-                $status = 1; // sudah ada histori bayar tapi belum lunas -> tetap Awaiting Payment, jangan turun ke Draft
+                $newDueBase = 0;
+            } elseif ($currentPaidBase > 0) {
+                $status = 1;
             } else {
-                $status = $request->action_save; // belum pernah dibayar sama sekali -> ikuti pilihan user (draft/approve)
+                $status = $request->action_save;
             }
 
-            $this->repo->CreateOrUpdate(['total' => $sumD, 'nominal_due' => $newDue, 'status' => $status], $saveP->id);
+            $this->repo->CreateOrUpdate(['total' => $sumD, 'total_base' => $sumDBase, 'nominal_due' => $newDue, 'nominal_due_base' => $newDueBase, 'status' => $status], $saveP->id);
 
             // ================== SUSUN PESAN LOG BERISI DETAIL PERUBAHAN ==================
             $parentChangeText = $isUpdate ? $this->diffBillParentRow($oldParent, $request, $saveP) : '';

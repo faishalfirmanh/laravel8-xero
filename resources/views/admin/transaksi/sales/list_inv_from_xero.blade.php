@@ -663,10 +663,10 @@
 
                         <div class="xero-field">
                             <label>Currency <span class="text-danger">*</span></label>
-                            <select class="form-control" name="currency_selected"
+                            <select class="form-control" name="code_curr"
                                     id="currency_selected" required>
                                 <option value="IDR" selected>IDR &ndash; Rupiah</option>
-                                <option value="SAR">SAR &ndash; Saudi Riyal</option>
+                                {{-- <option value="SAR">SAR &ndash; Saudi Riyal</option> --}}
                             </select>
                         </div>
 
@@ -891,10 +891,10 @@
                                 <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Approve</span>
                             </button>
-                            <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
+                            {{-- <button type="submit" style="display: none" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                                 <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Save draft</span>
-                            </button>
+                            </button> --}}
                         </div>
                     </div>
                 </div>
@@ -1911,7 +1911,7 @@ function buildRow() {
         {{-- Item — Select2 AJAX --}}
         <td>
             <select class="form-control select2-item" name="item_id[]"
-                    style="width:100%;" required>
+                    style="width:100%;">
             </select>
         </td>
 
@@ -2319,6 +2319,7 @@ $(function () {
                 due_date: params.get('due_date'),
                 reference: params.get('reference'),
                 invoice_number : params.get('invoice_number'),
+                code_curr:$("#currency_selected").val(), //params.get('currency_selected'),
                 // currency: params.get('currency'),
                 action_save : action_selected,
 

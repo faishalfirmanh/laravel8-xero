@@ -132,7 +132,6 @@ class ProfitLossController extends Controller
         $dateStart = $request->date_start;
         $dateEnd = $request->date_end;
 
-        // Filter tracking — bersifat opsional, kosong = tidak difilter
         $filterDivisi = array_filter((array) ($request->tracking_divisi ?? []));
         $filterPaket = array_filter((array) ($request->tracking_paket_name ?? []));
 
@@ -140,14 +139,8 @@ class ProfitLossController extends Controller
         $hasFilterPaket = count($filterPaket) > 0;
 
         // ================================================================
-        // BASE QUERY BUILDER — dipakai ulang untuk income & cost of sales
+        // BASE QUERY BUILDER — dipakai ulang untuk semua section
         // ================================================================
-        // LEFT JOIN ke item_detail_invoices karena:
-        //   - Transaksi dari invoice (REVENUE) → punya uuid_detail_inv
-        //   - Transaksi dari bill/spend (EXPENSE) → bisa tidak punya relasi di sana
-        // Filter tracking hanya berlaku kalau ada isinya (whereIn kondisional).
-        // ================================================================
-
         $baseQuery = function () use ($dateStart, $dateEnd, $filterDivisi, $filterPaket, $hasFilterDivisi, $hasFilterPaket) {
             $q = DB::table('transaction_all_coas as t')
                 ->join('coas as c', 'c.id', '=', 't.uuid_coa')
@@ -155,7 +148,6 @@ class ProfitLossController extends Controller
                 ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
                 ->whereBetween('t.date_transaction', [$dateStart, $dateEnd]);
 
-            // Filter tracking_divisi — hanya aktif kalau ada nilai
             if ($hasFilterDivisi) {
                 $q->where(function ($sub) use ($filterDivisi) {
                     $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
@@ -163,7 +155,6 @@ class ProfitLossController extends Controller
                 });
             }
 
-            // Filter tracking_paket_name — hanya aktif kalau ada nilai
             if ($hasFilterPaket) {
                 $q->where(function ($sub) use ($filterPaket) {
                     $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
@@ -174,74 +165,62 @@ class ProfitLossController extends Controller
             return $q;
         };
 
-        // ── Trading Income (REVENUE) ─────────────────────────────────────
-        // is_speend = 0 → income; is_speend = 1 → koreksi/retur (nilai negatif)
-        $tradingIncomeRows = $baseQuery()
-            ->where('c.account_type', 'REVENUE')
-            ->selectRaw('
-            c.id,
-            c.name,
-            SUM(CASE WHEN t.is_speend = 0 THEN t.nominal ELSE -t.nominal END) as total
-        ')
-            ->groupBy('c.id', 'c.name')
-            ->get();
+        // ================================================================
+        // Helper ambil rows + total per kelompok account_type.
+        // $isExpenseLike:
+        //   true  -> normal balance positif saat is_speend = 1 (DIRECTCOSTS, EXPENSE)
+        //   false -> normal balance positif saat is_speend = 0 (REVENUE, OTHERINCOME)
+        // ================================================================
+        $getSection = function (array $accountTypes, bool $isExpenseLike) use ($baseQuery) {
+            $normalSpend = $isExpenseLike ? 1 : 0;
 
-        $totalTradingIncome = $tradingIncomeRows->sum('total');
+            $rows = $baseQuery()
+                ->whereIn('c.account_type', $accountTypes)
+                ->selectRaw("
+                c.id,
+                c.name,
+                SUM(CASE WHEN t.is_speend = {$normalSpend} THEN t.nominal ELSE -t.nominal END) as total
+            ")
+                ->groupBy('c.id', 'c.name')
+                ->get();
 
-        // ── Cost of Sales (EXPENSE) ──────────────────────────────────────
-        // is_speend = 1 → pengeluaran; is_speend = 0 → koreksi (nilai negatif)
-        $costOfSalesRows = $baseQuery()
-            ->where('c.account_type', 'EXPENSE')
-            ->selectRaw('
-            c.id,
-            c.name,
-            SUM(CASE WHEN t.is_speend = 1 THEN t.nominal ELSE -t.nominal END) as total
-        ')
-            ->groupBy('c.id', 'c.name')
-            ->get();
+            return [
+                'items' => $rows->map(fn($r) => [
+                    'coa_id' => $r->id,
+                    'name' => $r->name,
+                    'total' => (float) $r->total,
+                ])->values(),
+                'total' => (float) $rows->sum('total'),
+            ];
+        };
 
-        $totalCostOfSales = $costOfSalesRows->sum('total');
+        // Mapping ke section P&L Xero:
+        //   Trading Income     -> REVENUE
+        //   Cost of Sales      -> DIRECTCOSTS
+        //   Other Income       -> OTHERINCOME
+        //   Operating Expenses -> EXPENSE
+        $tradingIncome = $getSection(['REVENUE'], false);
+        $costOfSales = $getSection(['DIRECTCOSTS'], true);
+        $otherIncome = $getSection(['OTHERINCOME'], false);
+        $operatingExpenses = $getSection(['EXPENSE'], true);
 
-        // ── Gross & Net Profit ───────────────────────────────────────────
-        $grossProfit = (float) $totalTradingIncome - (float) $totalCostOfSales;
-        $netProfit = $grossProfit; // tambah operating expense di sini kalau ada
+        $grossProfit = $tradingIncome['total'] - $costOfSales['total'];
+        $netProfit = $grossProfit + $otherIncome['total'] - $operatingExpenses['total'];
 
-        // ── Build response ───────────────────────────────────────────────
         $data = [
             'period' => [
                 'date_start' => $dateStart,
                 'date_end' => $dateEnd,
             ],
-
-            // Filter yang aktif — berguna untuk debug / label di frontend
             'active_filters' => [
                 'tracking_divisi' => $hasFilterDivisi ? array_values($filterDivisi) : null,
                 'tracking_paket_name' => $hasFilterPaket ? array_values($filterPaket) : null,
             ],
-
-            'trading_income' => [
-                'items' => $tradingIncomeRows->map(function ($r) {
-                    return [
-                        'coa_id' => $r->id,
-                        'name' => $r->name,
-                        'total' => (float) $r->total,
-                    ];
-                })->values(),
-                'total' => (float) $totalTradingIncome,
-            ],
-
-            'cost_of_sales' => [
-                'items' => $costOfSalesRows->map(function ($r) {
-                    return [
-                        'coa_id' => $r->id,
-                        'name' => $r->name,
-                        'total' => (float) $r->total,
-                    ];
-                })->values(),
-                'total' => (float) $totalCostOfSales,
-            ],
-
+            'trading_income' => $tradingIncome,
+            'cost_of_sales' => $costOfSales,
             'gross_profit' => $grossProfit,
+            'other_income' => $otherIncome,
+            'operating_expenses' => $operatingExpenses,
             'net_profit' => $netProfit,
         ];
 

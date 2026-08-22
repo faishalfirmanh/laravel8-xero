@@ -6,6 +6,7 @@ use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
 use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
+use Cache;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
 use App\Http\Repository\MasterData\DataJamaahXeroRepository;
@@ -59,6 +60,57 @@ class InvXeroController extends Controller
 
     }
 
+    private function getRates()
+    {
+        // Cache selama 60 menit agar hemat kuota API dan loading cepat
+        return Cache::remember('currency_rates', 60 * 60, function () {
+            $apiKey = 'f759b7cefeb24896bc934f6a01c498a1';
+
+            $response = Http::get("https://api.currencyfreaks.com/v2.0/rates/latest", [
+                'apikey' => $apiKey,
+                'symbols' => 'IDR,SAR,USD'
+            ]);
+
+            if ($response->successful()) {
+                return $response->json()['rates'];
+            }
+
+            return null; // Handle jika error
+        });
+    }
+
+
+    public function idrToSar($nominal)
+    {
+        // Validasi input
+
+        $amountRp = $nominal;
+        $rates = $this->getRates();
+
+        if (!$rates)
+            return response()->json(['error' => 'Gagal ambil rate'], 500);
+
+        $rateIDR = floatval($rates['IDR']);
+        $rateSAR = floatval($rates['SAR']);
+
+        $result = ($amountRp / $rateIDR) * $rateSAR;
+
+        return round($result, 2);
+    }
+
+    public function sarToIdr($amount)
+    {
+        $amountSar = $amount;
+        $rates = $this->getRates();
+
+        if (!$rates)
+            return response()->json(['error' => 'Gagal ambil rate'], 500);
+
+        $rateIDR = floatval($rates['IDR']);
+        $rateSAR = floatval($rates['SAR']);
+        $result = ($amountSar / $rateSAR) * $rateIDR;
+        return round($result, 2);
+    }
 
     public function getAllPaginate(Request $request)
     {
@@ -90,6 +142,7 @@ class InvXeroController extends Controller
             'due_date' => 'required|date',
             'reference' => 'required|string',
             'action_save' => 'required|integer|between:0,2',
+            'code_curr' => 'required|string',
             // 'invoice_number' => 'nullable|string',
 
             'item_id' => 'required|array|min:1',
@@ -106,9 +159,12 @@ class InvXeroController extends Controller
             return $this->error($validator->errors());
         }
 
+        $cek_nominal_currency = $request->code_curr == 'SAR' ? self::sarToIdr(1) : 1;
+
         $request->merge([
             'status' => $request->action_save == 0 ? 'DRAFT' : 'AUTHORISED', // 0->draft, 1/2->approve, harus di perbaiki
-            'reference' => strtolower($request->reference)
+            'reference' => strtolower($request->reference),
+            'nominal_currency' => $cek_nominal_currency
         ]);
 
         $total_pay = 0;
@@ -272,7 +328,7 @@ class InvXeroController extends Controller
                 $summaryParts[] = implode('; ', $detailChangeLogs);
             }
 
-            $actionLabel = $isUpdate ? 'mengubah' : 'membuat';
+            $actionLabel = $isUpdate ? 'currency ' . $request->code_curr . "-" . $cek_nominal_currency . ' | mengubah' : 'currency ' . $request->code_curr . "-" . $cek_nominal_currency . '| membuat';
             $logMessage = $request->user_login->name . ' ' . $actionLabel . ' transaksi invoice ' . $saveP->contact_name;
             $logMessage .= !empty($summaryParts)
                 ? '. Detail: ' . implode('. ', $summaryParts)

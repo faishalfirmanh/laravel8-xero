@@ -30,8 +30,11 @@ class TransactionNominalBankAccount extends Model
         'id_parent_invoice',
         'payment_uuid',//unique key id,
         'trans_transfer_bank_id',//untuk transaksi bank transfer,
-        'overpay_id'//terisi jika pembayarna lewat overpayment
+        'overpay_id',//terisi jika pembayarna lewat overpayment
         //overpay yang wajib terisi : uuid_bank, nominal_spend, date_transaction,reference_detail,overpay_id
+        'nominal_currency',//nominal currency ke rupiah
+        'total_base_spend',//hasil final conversi nominal_speend / nominal trasfer * 
+        'total_base_receive'
     ];
 
     protected $appends = [

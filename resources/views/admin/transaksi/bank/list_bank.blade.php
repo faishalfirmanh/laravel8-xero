@@ -262,8 +262,8 @@ $(document).ready(function() {
         { data: 'name', name: 'name' },
     
         { 
-            data: 'sum_spend', 
-            name: 'sum_spend',
+            data: 'sum_curr_spend', 
+            name: 'sum_curr_spend',
             render: function(data, type, row) {
                
                return `Rp. ${formatCurrency(data)}`
@@ -277,8 +277,8 @@ $(document).ready(function() {
             },  
         },
         { 
-            data: 'final_nominal', 
-            name: 'final_nominal',
+            data: 'final_nominal_currency', //'final_nominal', 
+            name: 'final_nominal_currency', //'final_nominal',
             render: function(data, type, row) { 
                 return `Rp. ${formatCurrency(data)}`
             },  

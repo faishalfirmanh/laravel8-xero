@@ -109,10 +109,11 @@ $(document).ready(function() {
             render: function(data, type, row) {
               
                 let base_url = window.location.origin  
+                let cek_inv = row.d_invoice ? `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}` : ''
                let urlnya = row.d_bank
                 ? `${base_url}/travel/admin/transaksi/bank-trans/${row.d_bank.get_parent.bank_id_xero}?open=${row.d_bank.get_parent.id}`
-                : `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}`;
-
+                : `${cek_inv}`;//${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}
+                console.log('ss',row.d_invoice)
                 return `<a href="${urlnya}" data-id="${data}" class="text-primary edit-hotel mr-2">
                             <i class="ti ti-eye"></i>
                         </a>`;

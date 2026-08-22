@@ -30,6 +30,8 @@ class InvoicesAllFromXero extends Model
         'less_nominal',//nominal kurang
         //0 ->draft,  1->awaiting payment (AUTHORISED),3,->paid ,4->void (VOIDED) = batal.
         //semua coa / account yang tercatat ketika approved / awaiting payment.
+        'code_curr',//code mata 
+        'nominal_currency'//mata uang currency,//RATE
     ];
 
 

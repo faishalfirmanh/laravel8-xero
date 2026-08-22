@@ -709,36 +709,47 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
     // =========================================================
     // ADAPTER — ubah response API → format sections
     // =========================================================
-    function adaptApiResponse(data) {
-        var sections = [];
+   function adaptApiResponse(data) {
+        function toSection(name, sectionData) {
+            if (!sectionData) return null;
+            return {
+                type : 'section',
+                name : name,
+                items: $.map(sectionData.items || [], function (i) {
+                    return { coa_id: i.coa_id, name: i.name, amount: i.total };
+                }),
+                total: sectionData.total
+            };
+        }
 
-        if (data.trading_income) {
-            sections.push({
-                name : 'Trading Income',
-                items: $.map(data.trading_income.items || [], function (i) {
-                     return { coa_id: i.coa_id, name: i.name, amount: i.total };
-                }),
-                total: data.trading_income.total
+        var blocks = [];
+
+        var tradingIncome = toSection('Trading Income', data.trading_income);
+        if (tradingIncome) blocks.push(tradingIncome);
+
+        var costOfSales = toSection('Cost of Sales', data.cost_of_sales);
+        if (costOfSales) blocks.push(costOfSales);
+
+        if (data.gross_profit !== undefined) {
+            blocks.push({
+                type  : 'total',
+                label : 'Gross Profit',
+                amount: parseFloat(data.gross_profit) || 0
             });
         }
-        if (data.cost_of_sales) {
-            sections.push({
-                name : 'Cost of Sales',
-                items: $.map(data.cost_of_sales.items || [], function (i) {
-                   return { coa_id: i.coa_id, name: i.name, amount: i.total }; 
-                }),
-                total: data.cost_of_sales.total
-            });
-        }
+
+        var otherIncome = toSection('Other Income', data.other_income);
+        if (otherIncome) blocks.push(otherIncome);
+
+        var operatingExpenses = toSection('Operating Expenses', data.operating_expenses);
+        if (operatingExpenses) blocks.push(operatingExpenses);
 
         return {
-            sections         : sections,
-            gross_profit     : parseFloat(data.gross_profit) || 0,
-            net_profit       : parseFloat(data.net_profit)   || 0,
+            blocks           : blocks,
+            net_profit       : parseFloat(data.net_profit) || 0,
             net_profit_label : (parseFloat(data.net_profit) || 0) >= 0 ? 'Net Profit' : 'Net Loss'
         };
     }
-
     // =========================================================
     // LOAD REPORT — AJAX
     // =========================================================
@@ -802,28 +813,38 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
 
     
     
+   
     function renderReport(data) {
         var $body   = $('#reportBody');
         var compact = $('#compactView').is(':checked');
         $body.empty();
 
-        // Ambil sekali di luar loop
         var dateStart  = $('#date_from').val();
         var dateEnd    = $('#date_to').val();
         var divisiVals = ($('#tracking_divisi').val() || []).join(',');
         var paketVals  = ($('#tracking_paket_name').val() || []).join(',');
 
-        $.each(data.sections || [], function (idx, section) {
+        $.each(data.blocks || [], function (idx, block) {
+
+            if (block.type === 'total') {
+                $body.append(
+                    '<tr class="grand-total">' +
+                    '<td>' + escHtml(block.label) + '</td>' +
+                    '<td class="amt total ' + amtClass(block.amount) + '">' + formatAmt(block.amount) + '</td>' +
+                    '</tr>'
+                );
+                return; // lanjut ke block berikutnya, bukan section
+            }
 
             $body.append(
                 '<tr class="section-header">' +
-                '<td>' + escHtml(section.name) + '</td>' +
+                '<td>' + escHtml(block.name) + '</td>' +
                 '<td class="amt total"></td>' +
                 '</tr>'
             );
 
             if (!compact) {
-                $.each(section.items || [], function (i, item) {
+                $.each(block.items || [], function (i, item) {
                     var detailUrl = buildDetailUrl(item.coa_id, dateStart, dateEnd, paketVals, divisiVals);
 
                     $body.append(
@@ -839,20 +860,11 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
 
             $body.append(
                 '<tr class="section-total">' +
-                '<td>Total ' + escHtml(section.name) + '</td>' +
-                '<td class="amt total">' + formatAmt(section.total) + '</td>' +
+                '<td>Total ' + escHtml(block.name) + '</td>' +
+                '<td class="amt total">' + formatAmt(block.total) + '</td>' +
                 '</tr>'
             );
         });
-
-        if (data.gross_profit !== undefined) {
-            $body.append(
-                '<tr class="grand-total">' +
-                '<td>Gross Profit</td>' +
-                '<td class="amt total ' + amtClass(data.gross_profit) + '">' + formatAmt(data.gross_profit) + '</td>' +
-                '</tr>'
-            );
-        }
 
         var npLabel = data.net_profit_label || 'Net Profit';
         $body.append(
@@ -862,6 +874,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
             '</tr>'
         );
     }
+
     // =========================================================
     // EVENT BINDINGS
     // =========================================================

@@ -25,9 +25,28 @@ class BankXero extends Model
     protected $appends = [
         'sum_receive',
         'sum_spend',
-        'final_nominal'
+        'final_nominal',
+        'sum_curr_spend',
+        'sum_curr_receive',
+        'final_nominal_currency'
     ];
 
+
+    public function getSumCurrSpendAttribute()
+    {
+        return $this->nominalTransactions()->sum('total_base_spend');
+    }
+
+
+    public function getSumCurrReceiveAttribute()
+    {
+        return $this->nominalTransactions()->sum('nominal_receive');
+    }
+
+    public function getFinalNominalCurrencyAttribute()//untuk mata uang
+    {
+        return $this->sum_curr_receive - $this->sum_curr_spend;
+    }
 
     public function nominalTransactions()
     {

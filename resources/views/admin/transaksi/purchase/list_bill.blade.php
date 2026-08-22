@@ -258,10 +258,10 @@
                                 <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Approve</span>
                             </button>
-                            <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
+                            {{-- <button type="submit" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                                 <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Save draft</span>
-                            </button>
+                            </button> --}}
                         </div>
                     </div>
                 </div>
@@ -455,8 +455,8 @@ $(document).ready(function() {
         { data: 'date_req', name: 'date_req' },
         { data: 'due_date', name: 'due_date' },
         { 
-            data: 'total', 
-            name: 'total', 
+            data: 'total_base', 
+            name: 'total_base', 
             render: function(data,type,row){
                 return formatCurrency(data)
             } 
@@ -465,6 +465,7 @@ $(document).ready(function() {
             data: 'nominal_paid', 
             name: 'nominal_paid', 
             render: function(data,type,row){
+                console.log('pain',row)
                 return formatCurrency(data)
             } 
         },
@@ -472,7 +473,7 @@ $(document).ready(function() {
             data: 'nominal_due', 
             name: 'nominal_due' ,
             render: function(data,type,row){
-                return formatCurrency(data)
+                return `${formatCurrency(data)}-<b>${row.currency}</b>`
             }
         },
         {

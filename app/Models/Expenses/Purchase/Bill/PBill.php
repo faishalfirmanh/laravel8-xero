@@ -28,7 +28,14 @@ class PBill extends Model
         'status',//0=draft,1=awaiting,  2=paid,
         'currency',
         'created_by',
-        'bills_uuid_xero'//isi ketika sync xero
+        'bills_uuid_xero',//isi ketika sync xero
+        'nominal_currency',//NOMINAL 1 rupiah, //rate
+        //untuk currency yang sudah di kalikan
+        'total_base',
+        'subtotal_base',
+        'tax_base',
+        'nominal_paid_base',
+        'nominal_due_base',
     ];
     //status 0 /draft tidak tercatat pada
 
