@@ -22,9 +22,12 @@ class TransactionAllCoa extends Model
         'uuid_coa',//id coa, coas->id
         'reference',
         'is_speend',
-        'nominal',
+        'nominal',//nilai asli (ssebelum konversi) jika rupiah tetap
         'uuid_detail',//bisa relasi bank, bisa bill, bisa invoice
-        'created_by'
+        'created_by',
+        'code_curr',//code curency USD, IDR, SAR
+        'nominal_currency',//nominal 1 real atau 1 dolar ke rupiah, kalau rupiah = 1
+        'base_nominal',//total setelah di conversi
     ];
 
     public $appends = ['name_trans', 'name_coa'];

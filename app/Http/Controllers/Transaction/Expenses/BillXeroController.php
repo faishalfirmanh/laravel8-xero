@@ -606,7 +606,10 @@ class BillXeroController extends Controller
                     if ($cek_create_trans) {
                         // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
                         $cek_create_trans->is_speend = true;
-                        $cek_create_trans->nominal = $save_d->total_base;// $save_d->amount;
+                        $cek_create_trans->nominal = $save_d->amount; //$save_d->total_base;// $save_d->amount;
+                        $cek_create_trans->code_curr = $request->currency;
+                        $cek_create_trans->nominal_currency = $cek_nominal_currency;
+                        $cek_create_trans->base_nominal = $save_d->total_base;
                         $cek_create_trans->save();
                     } else {
                         // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
@@ -615,9 +618,12 @@ class BillXeroController extends Controller
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => true,
-                            'nominal' => $save_d->total_base,//amount,//abs((int) $save_d->amount),//auto positif
+                            'nominal' => $save_d->amount,//amount,//abs((int) $save_d->amount),//auto positif
                             'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
-                            'uuid_detail' => $save_d->uuid_detail
+                            'uuid_detail' => $save_d->uuid_detail,
+                            'code_curr' => $request->currency,
+                            'nominal_currency' => $cek_nominal_currency,
+                            'base_nominal' => $save_d->total_base
                         ];
                         $this->repo_all_trans->CreateOrUpdate($data_trans_create, null);
                     }

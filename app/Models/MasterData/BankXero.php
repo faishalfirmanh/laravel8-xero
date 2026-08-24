@@ -40,7 +40,7 @@ class BankXero extends Model
 
     public function getSumCurrReceiveAttribute()
     {
-        return $this->nominalTransactions()->sum('nominal_receive');
+        return $this->nominalTransactions()->sum('total_base_receive');
     }
 
     public function getFinalNominalCurrencyAttribute()//untuk mata uang

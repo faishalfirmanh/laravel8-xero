@@ -270,8 +270,8 @@ $(document).ready(function() {
             }, 
         },
         { 
-            data: 'sum_receive', 
-            name: 'sum_receive',
+            data: 'sum_curr_receive', 
+            name: 'sum_curr_receive',
             render: function(data, type, row) { 
                 return `Rp. ${formatCurrency(data)}`
             },  

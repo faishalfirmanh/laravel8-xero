@@ -80,23 +80,7 @@ class InvXeroController extends Controller
     }
 
 
-    public function idrToSar($nominal)
-    {
-        // Validasi input
 
-        $amountRp = $nominal;
-        $rates = $this->getRates();
-
-        if (!$rates)
-            return response()->json(['error' => 'Gagal ambil rate'], 500);
-
-        $rateIDR = floatval($rates['IDR']);
-        $rateSAR = floatval($rates['SAR']);
-
-        $result = ($amountRp / $rateIDR) * $rateSAR;
-
-        return round($result, 2);
-    }
 
     public function sarToIdr($amount)
     {
@@ -133,7 +117,672 @@ class InvXeroController extends Controller
         return $this->autoResponse($data);
     }
 
-    public function storeParent(Request $request)
+    private function getRateToIdr(string $currency): float
+    {
+        $currency = strtoupper(trim($currency));
+
+        if ($currency === 'IDR') {
+            return 1.0;
+        }
+
+        $rates = $this->service_global->getRatesApi([
+            'IDR',
+            $currency
+        ]);
+
+        if (!isset($rates['IDR'], $rates[$currency])) {
+            throw new \RuntimeException(
+                "Rate {$currency} -> IDR tidak tersedia."
+            );
+        }
+
+        $rateIdr = (float) $rates['IDR'];
+        $rateCurrency = (float) $rates[$currency];
+
+        if ($rateIdr <= 0 || $rateCurrency <= 0) {
+            throw new \RuntimeException(
+                "Rate {$currency} tidak valid."
+            );
+        }
+
+        return round(
+            $rateIdr / $rateCurrency,
+            8
+        );
+    }
+
+    public function storeParent(Request $request)//store with multy currency
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'nullable|integer|exists:invoices_all_from_xeros,id',
+            'contact_id' => 'required|integer|exists:data_jamaah_xeros,id',
+            'issue_date' => 'required|date',
+            'due_date' => 'required|date',
+            'reference' => 'required|string',
+            'action_save' => 'required|integer|between:0,2',
+
+            // contoh 3 huruf ISO currency
+            'code_curr' => [
+                'required',
+                'string',
+                'size:3',
+                'regex:/^[A-Za-z]{3}$/'
+            ],
+
+            'item_id' => 'required|array|min:1',
+            'desc' => 'required|array|min:1',
+            'qty' => 'required|array|min:1',
+            'unit_price' => 'required|array|min:1',
+            'coa_id' => 'required|array|min:1',
+
+            'paket_tracking_uuid' => 'nullable|array',
+            'divisi_travel_tracking_uuid' => 'nullable|array',
+            'id_detail' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+
+        $currency = strtoupper(trim($request->code_curr));
+        $isUpdate = !empty($request->id);
+
+        DB::beginTransaction();
+
+        try {
+
+            /*
+            |--------------------------------------------------------------------------
+            | 1. Snapshot data lama
+            |--------------------------------------------------------------------------
+            */
+
+            $oldParent = $isUpdate
+                ? $this->repo->whereData(['id' => $request->id])->first()
+                : null;
+
+            if ($isUpdate && !$oldParent) {
+                throw new \RuntimeException('Invoice tidak ditemukan.');
+            }
+
+            $oldDetails = $isUpdate
+                ? $this->repo_detail
+                    ->whereData(['parent_inv_id' => $request->id])
+                    ->get()
+                    ->keyBy('id')
+                : collect();
+
+            /*
+            |--------------------------------------------------------------------------
+            | 2. Cek payment
+            |--------------------------------------------------------------------------
+            */
+
+            $paymentCount = 0;
+
+            if ($isUpdate) {
+                $paymentCount = $this->repo_trans_bank
+                    ->whereData([
+                        'id_parent_invoice' => $request->id
+                    ])
+                    ->get()
+                    ->count();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3. Currency change protection
+            |--------------------------------------------------------------------------
+            */
+
+            $oldCurrency = $oldParent
+                ? strtoupper((string) $oldParent->code_curr)
+                : null;
+
+            $currencyChanged = $isUpdate
+                && $oldCurrency
+                && $oldCurrency !== $currency;
+
+            if ($currencyChanged && $paymentCount > 0) {
+                throw new \RuntimeException(
+                    "Currency invoice tidak boleh diubah dari {$oldCurrency} ke {$currency} "
+                    . "karena invoice sudah memiliki {$paymentCount} transaksi payment. "
+                    . "Buat invoice baru atau lakukan proses revaluation terpisah."
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 4. Tentukan RATE
+            |--------------------------------------------------------------------------
+            |
+            | Invoice existing + currency sama:
+            |    JANGAN ambil rate baru.
+            |
+            | Currency berubah / invoice baru:
+            |    Ambil rate baru.
+            |
+            */
+
+            if (
+                $isUpdate
+                && !$currencyChanged
+                && !empty($oldParent->nominal_currency)
+            ) {
+                $nominalCurrency = (float) $oldParent->nominal_currency;
+            } else {
+                $nominalCurrency = $this->getRateToIdr($currency);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 5. Status
+            |--------------------------------------------------------------------------
+            */
+
+            $status = $request->action_save == 0
+                ? 'DRAFT'
+                : 'AUTHORISED';
+
+            /*
+            |--------------------------------------------------------------------------
+            | 6. Contact
+            |--------------------------------------------------------------------------
+            */
+
+            $getContact = $this->repo_jamaah
+                ->whereData(['id' => $request->contact_id])
+                ->first();
+
+            if (!$getContact) {
+                throw new \RuntimeException('Contact tidak ditemukan.');
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 7. Parent invoice
+            |--------------------------------------------------------------------------
+            */
+
+            $mergeData = [
+                'contact_name' => $getContact->full_name,
+                'uuid_contact' => 'from_local',
+                'status' => $status,
+                'reference' => strtolower(trim($request->reference)),
+                'code_curr' => $currency,
+
+                // snapshot rate
+                'nominal_currency' => $nominalCurrency,
+            ];
+
+            if (!$isUpdate) {
+                // $mergeData['invoice_number'] =
+                //     $request->invoice_number != 'auto'
+                //     || $request->invoice_number == null
+                //     ? $request->invoice_number
+                //     : $this->service_global->generateNewInvoiceNumber();
+
+                if (empty($request->invoice_number) || $request->invoice_number === 'auto') {
+                    $mergeData['invoice_number'] =
+                        $this->service_global->generateNewInvoiceNumber();
+                } else {
+                    $mergeData['invoice_number'] =
+                        $request->invoice_number;
+                }
+
+                $mergeData['invoice_uuid'] =
+                    $this->service_global->generateUniqueRandomStringInvoice();
+
+                // invoice baru selalu 0
+                $mergeData['invoice_amount'] = 0;
+                $mergeData['invoice_total'] = 0;
+                $mergeData['less_nominal'] = 0;
+            }
+
+            $request->merge($mergeData);
+
+            $saveP = $this->repo->CreateOrUpdate(
+                $request->except([
+                    'coa_id',
+                    'desc',
+                    'qty',
+                    'unit_price',
+                    'nama_paket',
+                    'divisi',
+                    'id_detail',
+                    'action_save',
+                    'invoice_nuber'
+                ]),
+                $request->id
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | 8. Hapus detail yang dihapus user
+            |--------------------------------------------------------------------------
+            */
+
+            $allDetailIds = $this->repo_detail
+                ->whereData(['parent_inv_id' => $saveP->id])
+                ->pluck('id')
+                ->toArray();
+
+            $providedDetailIds = $request->id_detail
+                ? array_filter($request->id_detail)
+                : [];
+
+            $deletedArray = array_diff(
+                $allDetailIds,
+                $providedDetailIds
+            );
+
+            if (!empty($deletedArray)) {
+
+                $deletedUuids = $this->repo_detail
+                    ->wherenDataIn('id', $deletedArray)
+                    ->pluck('uuid_detail_inv')
+                    ->toArray();
+
+                if (!empty($deletedUuids)) {
+                    $this->repo_all_trans
+                        ->wherenDataIn('uuid_detail', $deletedUuids)
+                        ->delete();
+                }
+
+                $this->repo_detail
+                    ->wherenDataIn('id', $deletedArray)
+                    ->delete();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 9. Save details + transaction
+            |--------------------------------------------------------------------------
+            */
+
+            $detailChangeLogs = [];
+
+            foreach ($request->coa_id as $key => $accountId) {
+
+                $detailId = $request->id_detail[$key] ?? null;
+
+                $qty = (float) ($request->qty[$key] ?? 0);
+                $unitPrice = (float) ($request->unit_price[$key] ?? 0);
+
+                $totalRow = round(
+                    $qty * $unitPrice,
+                    4
+                );
+
+                $detailData = [
+                    'invoice_number' => $saveP->invoice_number,
+                    'uuid_invoices' => 'from_local',
+                    'uuid_item' => 'from_local',
+
+                    'coa_id' => $accountId,
+                    'desc' => $request->desc[$key] ?? null,
+
+                    'qty' => $qty,
+                    'unit_price' => $unitPrice,
+                    'total_amount_each_row' => $totalRow,
+
+                    'paket_tracking_uuid' =>
+                        $request->paket_tracking_uuid[$key] ?? null,
+
+                    'divisi_travel_tracking_uuid' =>
+                        $request->divisi_travel_tracking_uuid[$key] ?? null,
+
+                    'parent_inv_id' => $saveP->id,
+                    'item_id' => $request->item_id[$key] ?? null,
+                ];
+
+                if (empty($detailId)) {
+                    $detailData['uuid_detail_inv'] =
+                        $this->service_global->generateUniqueString();
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Log perubahan detail
+                |--------------------------------------------------------------------------
+                */
+
+                if (!empty($detailId) && $oldDetails->has($detailId)) {
+
+                    $diffText = $this->diffDetailRow(
+                        $oldDetails->get($detailId),
+                        $detailData
+                    );
+
+                    if ($diffText !== '') {
+                        $detailChangeLogs[] =
+                            "Item '{$detailData['desc']}' diubah ({$diffText})";
+                    }
+
+                } elseif (empty($detailId)) {
+
+                    $detailChangeLogs[] =
+                        "Item '{$detailData['desc']}' ditambahkan "
+                        . "(Qty: {$qty}, Harga: {$unitPrice})";
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Save detail
+                |--------------------------------------------------------------------------
+                */
+
+                $saveD = $this->repo_detail->CreateOrUpdate(
+                    $detailData,
+                    $detailId
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Transaction COA
+                |--------------------------------------------------------------------------
+                */
+
+                if ($request->action_save != 0) {
+
+                    $nominal = (float) $saveD->total_amount_each_row;
+
+                    $baseNominal = round(
+                        $nominal * $nominalCurrency,
+                        2
+                    );
+
+                    // Cari berdasarkan uuid_detail saja.
+                    // Jangan pakai reference + coa sebagai identitas utama.
+                    $trans = $this->repo_all_trans
+                        ->whereData([
+                            'uuid_detail' => $saveD->uuid_detail_inv
+                        ])
+                        ->first();
+
+                    $transactionData = [
+                        'date_transaction' => $request->issue_date,
+                        'uuid_coa' => $accountId,
+                        'reference' => $request->reference,
+
+                        'is_speend' => false,
+
+                        // nominal dalam currency invoice
+                        'nominal' => $nominal,
+
+                        'created_by' => $request->user_login->id,
+                        'uuid_detail' => $saveD->uuid_detail_inv,
+
+                        // MULTI CURRENCY
+                        'code_curr' => $currency,
+                        'nominal_currency' => $nominalCurrency,
+
+                        // base IDR
+                        'base_nominal' => $baseNominal,
+                    ];
+
+                    $this->repo_all_trans->CreateOrUpdate(
+                        $transactionData,
+                        $trans ? $trans->id : null
+                    );
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 10. Jika DRAFT -> hapus semua transaksi COA invoice
+            |--------------------------------------------------------------------------
+            */
+
+            if ($request->action_save == 0) {
+
+                $currentDetailUuids = $this->repo_detail
+                    ->whereData(['parent_inv_id' => $saveP->id])
+                    ->pluck('uuid_detail_inv')
+                    ->filter()
+                    ->toArray();
+
+                if (!empty($currentDetailUuids)) {
+                    $this->repo_all_trans
+                        ->wherenDataIn(
+                            'uuid_detail',
+                            $currentDetailUuids
+                        )
+                        ->delete();
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 11. Hitung total invoice
+            |--------------------------------------------------------------------------
+            */
+
+            $sumD = (float) $this->repo_detail
+                ->sumDataWhereDinamis(
+                    ['parent_inv_id' => $saveP->id],
+                    'total_amount_each_row'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | 12. Hitung payment
+            |--------------------------------------------------------------------------
+            |
+            | Semua payment harus dikonversi ke BASE IDR dahulu.
+            | Kemudian baru dibandingkan dengan invoice.
+            |
+            */
+
+            $payments = $this->repo_trans_bank
+                ->whereData([
+                    'id_parent_invoice' => $saveP->id
+                ])
+                ->get();
+
+            $totalPaidBase = 0;
+
+            foreach ($payments as $payment) {
+
+                if (!empty($payment->total_base_receive)) {
+
+                    $totalPaidBase +=
+                        (float) $payment->total_base_receive;
+
+                    continue;
+                }
+
+                /*
+                | Backward compatibility untuk data lama.
+                */
+
+                if (
+                    !empty($payment->nominal_currency)
+                    && !empty($payment->nominal_receive)
+                ) {
+                    $totalPaidBase +=
+                        (float) $payment->nominal_receive
+                        * (float) $payment->nominal_currency;
+                }
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 13. Convert total payment BASE -> invoice currency
+            |--------------------------------------------------------------------------
+            */
+
+            $totalPayInvoiceCurrency = 0;
+
+            if ($nominalCurrency > 0) {
+                $totalPayInvoiceCurrency = round(
+                    $totalPaidBase / $nominalCurrency,
+                    4
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 14. Update parent totals
+            |--------------------------------------------------------------------------
+            */
+
+            $newLessNominal = max(
+                0,
+                $sumD - $totalPayInvoiceCurrency
+            );
+
+            $invoiceStatus = $status;
+
+            if (
+                $request->action_save != 0
+                && $sumD > 0
+                && $totalPayInvoiceCurrency >= $sumD
+            ) {
+                $invoiceStatus = 'PAID';
+            }
+
+            $updateParent = [
+                'invoice_total' => $sumD,
+
+                // disimpan dalam currency invoice
+                'invoice_amount' => $totalPayInvoiceCurrency,
+
+                'less_nominal' => $newLessNominal,
+
+                'status' => $invoiceStatus,
+
+                'code_curr' => $currency,
+                'nominal_currency' => $nominalCurrency,
+            ];
+
+            $saveP = $this->repo->CreateOrUpdate(
+                $updateParent,
+                $saveP->id
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | 15. Overpayment
+            |--------------------------------------------------------------------------
+            */
+
+            $existingOver = $this->repo_over
+                ->whereData([
+                    'invoice_id' => $saveP->id
+                ])
+                ->first();
+
+            if ($totalPayInvoiceCurrency > $sumD) {
+
+                $totalOverpayment = round(
+                    $totalPayInvoiceCurrency - $sumD,
+                    4
+                );
+
+                if ($existingOver) {
+
+                    $this->repo_over->CreateOrUpdate([
+                        'nominal_overpayment' => $totalOverpayment,
+                    ], $existingOver->id);
+
+                } else {
+
+                    $this->repo_over->CreateOrUpdate([
+                        'nominal_overpayment' => $totalOverpayment,
+                        'invoice_id' => $saveP->id,
+                        'trans_bank_id' => null,
+                    ], null);
+                }
+
+            } elseif (
+                $existingOver
+                && (float) $existingOver->nominal_overpayment > 0
+            ) {
+
+                $this->repo_over->CreateOrUpdate([
+                    'nominal_overpayment' => 0,
+                ], $existingOver->id);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 16. Log perubahan currency/rate
+            |--------------------------------------------------------------------------
+            */
+
+            $parentChangeText = $isUpdate
+                ? $this->diffParentRow(
+                    $oldParent,
+                    $request,
+                    $saveP
+                )
+                : '';
+
+            if ($currencyChanged) {
+                $parentChangeText .=
+                    ($parentChangeText !== '' ? '; ' : '')
+                    . "Currency: {$oldCurrency} → {$currency}"
+                    . "; Rate: {$nominalCurrency}";
+            }
+
+            $summaryParts = [];
+
+            if ($parentChangeText !== '') {
+                $summaryParts[] = $parentChangeText;
+            }
+
+            if (!empty($detailChangeLogs)) {
+                $summaryParts[] = implode(
+                    '; ',
+                    $detailChangeLogs
+                );
+            }
+
+            $actionLabel = $isUpdate
+                ? 'mengubah'
+                : 'membuat';
+
+            $logMessage =
+                $request->user_login->name
+                . " {$actionLabel} transaksi invoice "
+                . $saveP->contact_name
+                . " [{$currency}, rate {$nominalCurrency}]";
+
+            if (!empty($summaryParts)) {
+                $logMessage .=
+                    '. Detail: '
+                    . implode('. ', $summaryParts);
+            } else {
+                $logMessage .= '.';
+            }
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                $saveP->id
+            );
+
+            DB::commit();
+
+            return $this->autoResponse($saveP);
+
+        } catch (\Throwable $th) {
+
+            DB::rollBack();
+
+            return $this->error(
+                $th->getMessage()
+                . ' at line '
+                . $th->getLine(),
+                422
+            );
+        }
+    }
+
+    public function storeParentNoCurrency(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
@@ -367,6 +1016,8 @@ class InvXeroController extends Controller
             'due_date' => 'Jatuh Tempo',
             'reference' => 'Referensi',
             'status' => 'Status',
+            'code_curr' => 'Currency',
+            'nominal_currency' => 'Rate',
         ];
         $dateFields = ['issue_date', 'due_date'];
 
@@ -376,6 +1027,8 @@ class InvXeroController extends Controller
             'due_date' => $request->due_date,
             'reference' => $request->reference,
             'status' => $request->status,
+            'code_curr' => $saveP->code_curr,
+            'nominal_currency' => $saveP->nominal_currency,
         ];
 
         $changes = [];
@@ -383,16 +1036,20 @@ class InvXeroController extends Controller
             $oldVal = $oldParent->{$field} ?? null;
             $newVal = $newValues[$field] ?? null;
 
-            if (in_array($field, $dateFields, true)) {
-                $oldVal = $oldVal ? Carbon::parse($oldVal)->format('Y-m-d') : null;
-                $newVal = $newVal ? Carbon::parse($newVal)->format('Y-m-d') : null;
+            if ($field === 'nominal_currency') {
+                $oldVal = round((float) $oldVal, 8);
+                $newVal = round((float) $newVal, 8);
+            } elseif (in_array($field, $dateFields, true)) {
+                $oldVal = $oldVal
+                    ? Carbon::parse($oldVal)->format('Y-m-d')
+                    : null;
+
+                $newVal = $newVal
+                    ? Carbon::parse($newVal)->format('Y-m-d')
+                    : null;
             } else {
                 $oldVal = (string) $oldVal;
                 $newVal = (string) $newVal;
-            }
-
-            if ($oldVal !== $newVal) {
-                $changes[] = "{$label}: '{$oldVal}' → '{$newVal}'";
             }
         }
 
@@ -747,9 +1404,10 @@ class InvXeroController extends Controller
 
             $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $final_less];
             $invP = $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);
-
+            $nominalReceiveBase = ceil($request->nominal_receive * $cekData->nominal_currency);
             $request->merge([
-                'id_parent_invoice' => $request->parent_inv_id
+                'id_parent_invoice' => $request->parent_inv_id,
+                'total_base_receive' => $nominalReceiveBase
             ]);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
 

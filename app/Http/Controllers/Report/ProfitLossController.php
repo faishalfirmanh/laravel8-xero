@@ -179,7 +179,7 @@ class ProfitLossController extends Controller
                 ->selectRaw("
                 c.id,
                 c.name,
-                SUM(CASE WHEN t.is_speend = {$normalSpend} THEN t.nominal ELSE -t.nominal END) as total
+                SUM(CASE WHEN t.is_speend = {$normalSpend} THEN t.base_nominal ELSE -t.base_nominal END) as total
             ")
                 ->groupBy('c.id', 'c.name')
                 ->get();

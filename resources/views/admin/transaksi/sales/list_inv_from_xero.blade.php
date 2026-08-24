@@ -666,7 +666,7 @@
                             <select class="form-control" name="code_curr"
                                     id="currency_selected" required>
                                 <option value="IDR" selected>IDR &ndash; Rupiah</option>
-                                {{-- <option value="SAR">SAR &ndash; Saudi Riyal</option> --}}
+                                <option value="SAR">SAR &ndash; Saudi Riyal</option>
                             </select>
                         </div>
 
@@ -1377,7 +1377,11 @@
         {
             data: 'invoice_total', 
             render: function(data,type,row){
-                return formatCurrency(data)
+            const formatter = new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+                return `<b>${row.code_curr} </b>|${formatter.format(data)}`;
             } 
         }, // Sesuaikan jika nama hotel ada relasi
         {

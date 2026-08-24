@@ -7,6 +7,7 @@ use App\Models\InvoicesAllFromXero;
 use App\Models\Xero\XeroRequestUsedLimit;
 use App\Models\PaymentsHistoryFix;
 use App\Models\Revenue\Hotel\InvoicesHotel;
+use Cache;
 use DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -44,6 +45,46 @@ class GlobalService
         }
     }
 
+
+    public function getRatesApi(array $symbols = [])
+    {
+        $symbols = array_values(array_unique(array_map('strtoupper', $symbols)));
+
+        if (!in_array('IDR', $symbols, true)) {
+            $symbols[] = 'IDR';
+        }
+
+        sort($symbols);
+
+        $cacheKey = 'currency_rates_' . md5(implode(',', $symbols));
+
+        return Cache::remember($cacheKey, 60 * 60, function () use ($symbols) {
+
+            $apiKey = env('KEY_CEK_CURRENCY');
+
+            $response = Http::timeout(10)->get(
+                'https://api.currencyfreaks.com/v2.0/rates/latest',
+                [
+                    'apikey' => $apiKey,
+                    'symbols' => implode(',', $symbols),
+                ]
+            );
+
+            if (!$response->successful()) {
+                throw new \RuntimeException(
+                    'Gagal mengambil currency rate: HTTP ' . $response->status()
+                );
+            }
+
+            $rates = $response->json('rates');
+
+            if (!is_array($rates)) {
+                throw new \RuntimeException('Response currency rate tidak valid.');
+            }
+
+            return $rates;
+        });
+    }
 
     public function getTotalLocalPaymentByuuidInvoice($uuid)
     {
