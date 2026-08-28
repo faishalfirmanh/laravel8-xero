@@ -44,7 +44,7 @@ function formatCurrency(value, currency = 'IDR', decimals = 0) {
       locale = 'en-US'; // Format Amerika (1,000.00)
       break;
     case 'SAR':
-      locale = 'ar-SA'; //'ar-SA';
+      locale = 'id-ID'; //'ar-SA';
       break;
     default:
       locale = 'id-ID'; // Default Rupiah (1.000,00)

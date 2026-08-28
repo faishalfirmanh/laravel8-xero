@@ -2505,7 +2505,6 @@ $(function () {
             const d = response.data.data;
             const payments = d.get_payment || [];
 
-            console.log('dd',d)
 
             // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
             listAllOverpayCurrent = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
@@ -2519,7 +2518,7 @@ $(function () {
             // Set View Info Modal
             $('#hotel_name_display').text(d.contact_name || '-');
             $('#no_invoice_display').text(d.invoice_number || '-');
-            $('#summary_total').text(formatCurrency(d.invoice_total));
+            $('#summary_total').text(formatCurrency(d.invoice_total,d.code_curr));
             
             let totalPaid = 0;
             let tbody = '';
@@ -2547,14 +2546,16 @@ $(function () {
                     `;
                 });
             }
+
+            
             
             $('#payment_list_body').html(tbody);
             
             // Set Summary Cards
-            $('#summary_paid').text(formatCurrency(totalPaid));
+            $('#summary_paid').text(formatCurrency(totalPaid,d.code_curr));
             const remaining = parseFloat(d.invoice_total) - totalPaid;
-            const cek_overpay = d.get_over_pay ? `overpayment ${formatCurrency(d.get_over_pay.nominal_overpayment)}` : ''
-            $('#summary_remaining').text(`${formatCurrency(remaining < 0 ? 0 : remaining)}  ${cek_overpay}`);
+            const cek_overpay = d.get_over_pay ? `overpayment ${formatCurrency(d.get_over_pay.nominal_overpayment,remaining,d.code_curr)}` : ''
+            $('#summary_remaining').text(`${formatCurrency(remaining < 0 ? 0 : remaining,d.code_curr)}  ${cek_overpay}`);
         })
         .catch(function(err) {
             $('#payment_list_body').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data riwayat pembayaran</td></tr>');
