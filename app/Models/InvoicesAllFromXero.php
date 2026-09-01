@@ -13,6 +13,15 @@ class InvoicesAllFromXero extends Model
 {
     use HasFactory;
 
+    //     InvoicesAllFromXero : untuk parent invoice,
+// ItemDetailInvoices : untuk detail item invoice,
+// TransactionNominalBankAccount : untuk transaksi ketika terjadi payment di bank,
+// TransactionAllCoa : untuk menyimpan detail invoice, masuk ke coa (account mana)
+// Overpayment : ketika ada pembayaran, yang ada overpaymentnya,
+// SaveLogHistory :
+// SummaryNominalBank : opsional
+
+
     protected $fillable = [
         'invoice_number',
         'invoice_uuid',

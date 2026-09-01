@@ -102,6 +102,42 @@ class InvoiceXeroLocalController extends Controller
             return response()->json(['message' => 'Token kosong/invalid.'], 401);
         }
 
+        $validator = Validator::make($request->all(), [
+            'is_sync' => 'required|in:0,1',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+        if ($request->is_sync == 1) {
+            $jobId = (string) Str::uuid();
+            SyncXeroInvoiceJob::dispatch($tokenData, $jobId);
+
+            return response()->json([
+                'status' => 'queued',
+                'job_id' => $jobId,
+                'message' => 'Sync invoice dimulai. Gunakan job_id untuk cek status.',
+            ]);
+        } else {
+            $accessToken = $tokenData['access_token'];
+            $tenantId = $this->getTenantId($accessToken);
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Invoices', [
+                        'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',
+                        'Type' => 'ACCREC',
+                        'order' => 'Date DESC',
+                        'page' => 1,
+                        'unitdp' => 4,
+                        'pageSize' => 200
+                    ]);
+
+            //dd($response['Invoices'][0]['CurrencyCode']);
+            return $response;
+        }
         // SyncJobStatus::where('job_type', 'SyncXeroInvoiceJob')
         //     ->where('status', 'running')
         //     ->where('started_at', '<', now()->subMinutes(15))
@@ -123,7 +159,7 @@ class InvoiceXeroLocalController extends Controller
         //     ], 409);
         // }
 
-        $jobId = (string) Str::uuid();
+
 
         // SyncJobStatus::create([
         //     'job_id' => $jobId,
@@ -132,13 +168,7 @@ class InvoiceXeroLocalController extends Controller
         // ]);
 
         // SyncXeroInvoiceJobV2::dispatch($tokenData, $jobId);
-        SyncXeroInvoiceJob::dispatch($tokenData, $jobId);
 
-        return response()->json([
-            'status' => 'queued',
-            'job_id' => $jobId,
-            'message' => 'Sync invoice dimulai. Gunakan job_id untuk cek status.',
-        ]);
     }
 
     public function printInvoice(Request $request, $id)

@@ -32,6 +32,107 @@ class XeroSyncInvoicePaidController extends Controller
         $this->global = $global;
     }
 
+
+
+    public function getDetailInvoice1($invoiceId)
+    {
+
+        $tokenData = $this->getValidToken();
+        $accessToken = $tokenData['access_token'];
+        $tenantId = $this->getTenantId($accessToken);
+
+        try {
+            if (empty($invoiceId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice ID wajib diisi',
+                    'data' => null,
+                ], 422);
+            }
+
+
+            if (
+                empty($tokenData) ||
+                empty($tokenData['access_token'])
+            ) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access token Xero tidak tersedia',
+                    'data' => null,
+                ], 401);
+            }
+
+
+
+            if (empty($tenantId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Xero Tenant ID belum dikonfigurasi',
+                    'data' => null,
+                ], 500);
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])
+                ->timeout(30)
+                ->retry(3, 1000)
+                ->get(
+                    'https://api.xero.com/api.xro/2.0/Invoices/' . urlencode($invoiceId)
+                );
+
+            if (!$response->successful()) {
+                Log::error('Gagal mengambil detail invoice dari Xero', [
+                    'invoice_id' => $invoiceId,
+                    'status' => $response->status(),
+                    'response' => $response->json(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mengambil detail invoice dari Xero',
+                    'status_code' => $response->status(),
+                    'error' => $response->json(),
+                    'data' => null,
+                ], $response->status());
+            }
+
+            $invoices = $response->json('Invoices', []);
+
+            if (empty($invoices) || !isset($invoices[0])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice tidak ditemukan',
+                    'data' => null,
+                ], 404);
+            }
+
+            $data = $invoices[0];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Detail invoice berhasil diambil',
+                'data' => $data,
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('Exception get detail invoice Xero', [
+                'invoice_id' => $invoiceId,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil detail invoice',
+                'data' => null,
+            ], 500);
+        }
+    }
+
     public function syncSingleInvoice($invoiceId)
     {
         $tokenData = $this->getValidToken();

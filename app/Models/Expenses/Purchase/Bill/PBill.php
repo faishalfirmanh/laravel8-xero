@@ -35,7 +35,7 @@ class PBill extends Model
         'subtotal_base',
         'tax_base',
         'nominal_paid_base',
-        'nominal_due_base',
+        'nominal_due_base',//total nominal yang sudah di conversi ke rupiah
     ];
     //status 0 /draft tidak tercatat pada
 

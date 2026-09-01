@@ -70,6 +70,7 @@ class SyncBillJob implements ShouldQueue
      */
     private array $trackingCache = [];
 
+    private ?string $tenantId = null;
     public function __construct(array $tokenData, string $jobId)
     {
         $this->tokenData = $tokenData;
@@ -90,6 +91,30 @@ class SyncBillJob implements ShouldQueue
         return now()->addHours(26);
     }
 
+    public static function getCurrencyRate($current_rate, float $amount, string $currency): float
+    {
+        // Kurs: 1 IDR = X currency (sesuai data yang kamu kasih)
+        $idrToRate = [
+            'SAR' => $current_rate, // 1 IDR = 0.000210526 SAR
+            // tambahkan currency lain di sini kalau perlu
+        ];
+
+        $currency = strtoupper($currency);
+        if ($currency == 'IDR') {
+            return 1;
+        }
+
+        if (!array_key_exists($currency, $idrToRate)) {
+            throw new \InvalidArgumentException("Kurs untuk currency {$currency} tidak tersedia.");
+        }
+
+        // Karena 1 IDR = rate SAR, maka 1 SAR = 1 / rate IDR
+        $rupiah = $amount / $idrToRate[$currency];
+
+        return round($rupiah, 2);
+    }
+
+
     // ================================================================
     // MAIN ENTRY POINT
     // ================================================================
@@ -103,6 +128,8 @@ class SyncBillJob implements ShouldQueue
             ]);
 
             $accessToken = $this->tokenData['access_token'];
+            $this->tenantId = $this->getTenantId($accessToken);
+            $tenantId = $this->tenantId;
 
             $tenantId = $this->getTenantId($accessToken);
             $page = 1;
@@ -290,6 +317,43 @@ class SyncBillJob implements ShouldQueue
      * payment walau sudah ada di DB, salah satu penyebab terbesar kuota habis.
      */
 
+    private function convertToBase(float $amount, float $currencyRate): int
+    {
+        if ($amount <= 0) {
+            return 0;
+        }
+
+        if ($currencyRate <= 0) {
+            throw new \InvalidArgumentException(
+                "Currency rate tidak valid: {$currencyRate}"
+            );
+        }
+
+        return (int) round($amount / $currencyRate, 0);
+    }
+
+    private function getXeroCurrencyRate(array $data, string $currency): float
+    {
+        $currency = strtoupper(trim($currency));
+        // Base currency perusahaan
+        if ($currency === 'IDR') {
+            return 1.0;
+        }
+
+        $rate = isset($data['CurrencyRate'])
+            ? (float) $data['CurrencyRate']
+            : 0;
+
+        if ($rate <= 0) {
+            throw new \InvalidArgumentException(
+                "CurrencyRate Xero tidak ditemukan/invalid untuk currency {$currency}."
+            );
+        }
+
+        return $rate;
+    }
+
+
     private function mapAmountsAre(?string $xeroLineAmountTypes): int
     {
         switch ($xeroLineAmountTypes) {
@@ -337,10 +401,32 @@ class SyncBillJob implements ShouldQueue
 
         $payment = $response->json('Payments.0');
 
+        $paymentCurrency = strtoupper(
+            $payment['CurrencyCode']
+            ?? data_get($payment, 'Account.CurrencyCode')
+            ?? 'IDR'
+        );
+
+        $paymentCurrencyRate = $paymentCurrency === 'IDR'
+            ? 1.0
+            : (float) ($payment['CurrencyRate'] ?? 0);
+
+        if ($paymentCurrency !== 'IDR' && $paymentCurrencyRate <= 0) {
+            Log::warning(
+                "[SyncBillJob][getDetailPayment] CurrencyRate payment tidak valid. " .
+                "Payment: {$idPayment}, Currency: {$paymentCurrency}"
+            );
+
+            return;
+        }
+
+
         if (!$payment) {
             Log::warning("[SyncBillJob][getDetailPayment] Payment $idPayment tidak ditemukan/kosong di response Xero, dilewati.");
             return;
         }
+
+
 
         $amount = (float) ($payment['Amount'] ?? 0);
         $accountCode = data_get($payment, 'Account.Code');
@@ -356,7 +442,38 @@ class SyncBillJob implements ShouldQueue
         $idParentInv = $knownParentId
             ?? ($invoiceUuid ? PBill::where('bills_uuid_xero', $invoiceUuid)->value('id') : null);
 
-        $this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $ref_payment, $idParentInv);
+        $paymentCurrency = strtoupper(
+            $payment['CurrencyCode']
+            ?? data_get($payment, 'Account.CurrencyCode')
+            ?? 'IDR'
+        );
+
+        Log::info('ada payment ' . $invoiceNumber . "| nama bank : " . $bankName . "| " . $idPayment . "| amount " . $amount
+            . "| " . $accountCode . "| date " . $date . " |ref pay " . $ref_payment . "| parent inv bills " . $idParentInv . " ||
+            payment currency " . $paymentCurrency);
+        Log::info('--payment--');
+
+        $nomCurrencyPay = $this->getXeroCurrencyRate(
+            $payment['CurrencyRate'] ?? 0,
+            $paymentCurrency
+        );
+        // //dd($payment['CurrencyRate']);
+        // dd($nom_currency_pay);
+
+        //$this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $ref_payment, $idParentInv);
+        $this->insertToDb(
+            $invoiceNumber,
+            $bankName,
+            $idPayment,
+            $amount,
+            $accountCode,
+            $date,
+            $ref_payment,
+            $idParentInv,
+            //$payment['CurrencyRate'],//$paymentCurrency
+            $paymentCurrency,
+            $nomCurrencyPay
+        );
 
         usleep(self::THROTTLE_PAYMENT_US);
     }
@@ -369,10 +486,15 @@ class SyncBillJob implements ShouldQueue
         ?string $accountCode,
         ?string $date,
         ?string $refDetail,
-        ?int $idParentInv
+        ?int $idParentInv,
+        ?string $paymentCurrency = null,
+        float $paymentCurrencyRate = 1.0
     ): void {
         if (!$accountCode) {
-            Log::warning("[SyncBillJob][insertToDb] AccountCode kosong. Payment {$paymentUuid} dilewati. Bill: $invNumber");
+            Log::warning(
+                "[SyncBillJob][insertToDb] AccountCode kosong bank kosong. " .
+                "Payment {$paymentUuid} dilewati. Bill: {$invNumber}"
+            );
             return;
         }
 
@@ -381,21 +503,45 @@ class SyncBillJob implements ShouldQueue
         if (!$findBank) {
             Log::warning(
                 "[SyncBillJob][insertToDb] Kode akun bank tidak ditemukan: '{$accountCode}'. " .
-                "Payment {$paymentUuid} dilewati. Nama bank: {$namaBank}. Bill: $invNumber"
+                "Payment {$paymentUuid} dilewati. Nama bank: {$namaBank}. Bill: {$invNumber}"
             );
             return;
         }
 
-        // updateOrCreate → idempoten, aman saat job di-retry/release/cron ulang
+        $bankCurrency = strtoupper(
+            trim((string) ($findBank->currency_code ?: $paymentCurrency ?: 'IDR'))
+        );
+
+        //$currencyRate = $this->getCurrencyRate($bankCurrency);
+
+        $totalBaseSpend = $this->convertToBase(
+            $amount,
+            $paymentCurrencyRate
+        );
+
+        // $this->convertToBase(
+        //                 (float) ($inv['SubTotal'] ?? 0),
+        //                 $currencyRate
+        //             ),
+
         TransactionNominalBankAccount::updateOrCreate(
-            ['payment_uuid' => $paymentUuid],
+            [
+                'payment_uuid' => $paymentUuid,
+            ],
             [
                 'uuid_bank' => $findBank->id,
-                // Bill (ACCPAY) = uang KELUAR, bukan masuk — kebalikan dari
-                // sync Invoice (ACCREC). Sebelumnya kode ini salah taruh di
-                // nominal_receive (warisan dari job invoice).
+
+                // nominal asli sesuai currency rekening bank
                 'nominal_receive' => 0,
                 'nominal_spend' => $amount,
+
+                // rate 1 currency ke IDR
+                'nominal_currency' => $paymentCurrency,
+
+                // hasil konversi ke base/IDR
+                'total_base_receive' => 0,
+                'total_base_spend' => $totalBaseSpend,
+
                 'created_by' => 1,
                 'date_transaction' => $date,
                 'nominal_transfer' => 0,
@@ -411,6 +557,13 @@ class SyncBillJob implements ShouldQueue
 
     private function processBills(array $inv): void
     {
+
+        $currencyCode = strtoupper($inv['CurrencyCode'] ?? 'IDR');
+        $currencyRate = $this->getXeroCurrencyRate(
+            $inv,
+            $currencyCode
+        );
+
         $lineItems = $inv['LineItems'] ?? [];
         $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
         $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
@@ -431,17 +584,43 @@ class SyncBillJob implements ShouldQueue
                     'uuid_from' => $findContact,
                     'date_req' => $issueDate,
                     'due_date' => $dueDate,
-                    'reference' => $inv['InvoiceNumber'] ?? null,//$inv['InvoiceNumber'] ?? null,
-                    // ADJUST: cek apakah "amounts_are" memang dimaksudkan
-                    // menyimpan LineAmountTypes Xero (Exclusive/Inclusive/NoTax).
-                    'amounts_are' => self::mapAmountsAre($inv['LineAmountTypes'] ?? null),
+                    'reference' => $inv['InvoiceNumber'] ?? null,
+                    'amounts_are' => $this->mapAmountsAre($inv['LineAmountTypes'] ?? null),
+
+                    // Nominal asli currency
                     'subtotal' => $inv['SubTotal'] ?? 0,
                     'total' => $inv['Total'] ?? 0,
                     'tax' => $inv['TotalTax'] ?? 0,
                     'nominal_paid' => $inv['AmountPaid'] ?? 0,
                     'nominal_due' => $inv['AmountDue'] ?? 0,
-                    'status' => self::mapBillStatus($inv['Status'] ?? null),
-                    'currency' => $inv['CurrencyCode'] ?? null,
+
+                    'status' => $this->mapBillStatus($inv['Status'] ?? null),
+
+                    // Currency
+                    'currency' => $currencyCode,
+                    'nominal_currency' => $currencyRate,
+
+                    // Nominal base / IDR
+                    'subtotal_base' => $this->convertToBase(
+                        (float) ($inv['SubTotal'] ?? 0),
+                        $currencyRate
+                    ),
+
+                    'total_base' => $this->convertToBase(
+                        (float) ($inv['Total'] ?? 0),
+                        $currencyRate
+                    ),
+                    'tax_base' => ceil(((float) ($inv['TotalTax'] ?? 0)) * $currencyRate),
+                    'nominal_paid_base' => $this->convertToBase(
+                        (float) ($inv['AmountPaid'] ?? 0),
+                        $currencyRate
+                    ),
+
+                    'nominal_due_base' => $this->convertToBase(
+                        (float) ($inv['AmountDue'] ?? 0),
+                        $currencyRate
+                    ),
+
                     'created_by' => 1,
                     'updated_at' => now(),
                     'created_at' => now(),
@@ -461,6 +640,12 @@ class SyncBillJob implements ShouldQueue
                 'nominal_due',
                 'status',
                 'currency',
+                'nominal_currency',
+                'subtotal_base',
+                'total_base',
+                'tax_base',
+                'nominal_paid_base',
+                'nominal_due_base',
                 'updated_at',
             ]
         );
@@ -481,10 +666,10 @@ class SyncBillJob implements ShouldQueue
                     continue;
                 }
 
-                $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
-                if ($alreadySynced) {
-                    continue; // sudah ada, tidak perlu hit Xero
-                }
+                // $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
+                // if ($alreadySynced) {
+                //     continue; // sudah ada, tidak perlu hit Xero
+                // }
 
                 $this->getDetailPayment($paymentId, $parentId);
             }
@@ -530,6 +715,8 @@ class SyncBillJob implements ShouldQueue
             // bukan random string, supaya upsert idempoten saat sync ulang.
             $uuidDetail = $line['LineItemID'] ?? $this->service_global->generateUniqueString();
 
+            $lineAmount = (float) ($line['LineAmount'] ?? 0);
+
             $batchDetails[] = [
                 'bills_parent_id' => $parentId,
                 'item_code' => $itemCode,
@@ -537,13 +724,16 @@ class SyncBillJob implements ShouldQueue
                 'qty' => $line['Quantity'] ?? 0,
                 'unit_price' => $line['UnitAmount'] ?? 0,
                 'account_id_coa' => $coaId,
-                // ADJUST: ini saya isi dengan TaxAmount per baris (nominal),
-                // bukan persentase. Kalau "tax_rate" memang harus berupa %,
-                // hitung dari (TaxAmount / LineAmount * 100) atau dari TaxType.
                 'tax_rate' => $line['TaxAmount'] ?? 0,
                 'paket_tracking_uuid' => $paketUuid,
                 'divisi_travel_tracking_uuid' => $divisiUuid,
-                'amount' => $line['LineAmount'] ?? 0,
+
+                // nominal asli
+                'amount' => $lineAmount,
+
+                // nominal dalam IDR/base
+                'total_base' => $this->convertToBase($lineAmount, $currencyRate),
+
                 'uuid_detail' => $uuidDetail,
                 'updated_at' => now(),
                 'created_at' => now(),
@@ -568,6 +758,7 @@ class SyncBillJob implements ShouldQueue
                 'paket_tracking_uuid',
                 'divisi_travel_tracking_uuid',
                 'amount',
+                'total_base',
                 'updated_at',
             ]
         );
@@ -603,6 +794,9 @@ class SyncBillJob implements ShouldQueue
                         'is_speend' => 1,
                         'nominal' => $saved->amount,
                         'uuid_detail' => $saved->uuid_detail,
+                        'code_curr' => $currencyCode,
+                        'nominal_currency' => $currencyRate,
+                        'base_nominal' => $saved->total_base,
                     ]
                 );
             }
@@ -656,6 +850,7 @@ class SyncBillJob implements ShouldQueue
                         'order' => 'Date DESC',
                         'page' => $page,
                         'unitdp' => 4,
+                        // 'pageSize' => 5,
                     ]);
 
             if (!$response->successful() && $response->status() !== 429) {

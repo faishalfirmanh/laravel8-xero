@@ -104,6 +104,8 @@ Route::prefix("xero")->group(function () {
     Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');
     Route::get('get-invoice-xero', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival2']);
     Route::get('sync-bill', [XeroBillController::class, 'getBills'])->name('sync-bill-xero');//sync bill final
+    Route::get('get-detail-bill/{billUuidfetchBillDetail}', [XeroBillController::class, 'fetchBillDetail'])->name('get-detail-bill');
+    Route::get('get-detail-inv/{invoiceId}', [XeroSyncInvoicePaidController::class, 'getDetailInvoice1'])->name('get-detail-invxero');//cek detail invoice
 });
 
 Route::get('status-job/{jobId}', [InvoiceXeroLocalController::class, 'getSyncStatus'])->name('cek-sync-job-inv-xero');

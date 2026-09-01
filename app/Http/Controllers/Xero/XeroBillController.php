@@ -9,6 +9,7 @@ use App\Models\SyncJobStatus;
 use App\Services\GlobalService;
 use App\Services\XeroRateLimitService;
 use App\Traits\ApiResponse;
+use Facade\FlareClient\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Log;
@@ -236,6 +237,46 @@ class XeroBillController extends Controller
     {
         $this->shouldRelease = true;
         $this->releaseAfterSecs = max($this->releaseAfterSecs, $seconds);
+    }
+
+
+    public function fetchBillDetail(string $billUuid)
+    {
+        $tokenData = $this->getValidToken();
+        $accessToken = $tokenData['access_token'];
+        $tenantId = $this->getTenantId($accessToken);
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken,
+                'Xero-Tenant-Id' => $tenantId,
+                'Accept' => 'application/json',
+            ])
+                ->timeout(25)
+                ->get(
+                    'https://api.xero.com/api.xro/2.0/Invoices/' . $billUuid,
+                    [
+                        'unitdp' => 4,
+                    ]
+                );
+
+            if (!$response->successful() && $response->status() !== 429) {
+                Log::error(
+                    "[SyncBillJob] Fetch bill detail {$billUuid} gagal " .
+                    "[{$response->status()}]: " .
+                    substr($response->body(), 0, 500)
+                );
+            }
+
+            return $response;
+
+        } catch (\Exception $e) {
+            Log::error(
+                "[SyncBillJob] Exception fetch bill detail {$billUuid}: " .
+                $e->getMessage()
+            );
+
+            return null;
+        }
     }
 
 

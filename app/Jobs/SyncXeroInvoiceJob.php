@@ -272,6 +272,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
     private function syncInvoicesPhase(string $accessToken, string $tenantId, SyncJobStatus $jobStatus): void
     {
         $page = $jobStatus->total_pages > 0 ? (int) $jobStatus->total_pages : 1;
+        // $page = 1;
         $totalSynced = (int) ($jobStatus->total_synced ?? 0);
 
         if ($page > 1) {
@@ -307,7 +308,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
             }
 
             $invoices = $response->json('Invoices') ?? [];
-
+            //$invoices = collect($data['Invoices'] ?? [])->take(5)->toArray();
             foreach ($invoices as $inv) {
                 $this->processInvoice($inv);
                 $totalSynced++;
@@ -352,6 +353,13 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
      * invoice (InvoicesAllFromXero) sudah pasti ada di DB untuk
      * di-mapping, termasuk invoice dari halaman manapun.
      */
+    public function getCurrentRate($inv)
+    {
+        $invoiceRate = $inv['CurrencyRate'];
+        $sarToIdr = 1 / $invoiceRate;
+        $formattedRate = number_format($sarToIdr, 2, '.', '');
+        return $formattedRate;
+    }
     private function syncPaymentsPhase(string $accessToken, string $tenantId, SyncJobStatus $jobStatus): void
     {
         $page = $jobStatus->total_pages_payment > 0 ? (int) $jobStatus->total_pages_payment : 1;
@@ -464,6 +472,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
 
             $invoiceUuid = data_get($p, 'Invoice.InvoiceID');
 
+            $cek_is_sar = data_get($p, 'Invoice.CurrencyCode') == 'SAR' ? $this->getCurrentRate(data_get($p, 'Invoice.Payments.CurrencyRate')) : 1;
             $rows[] = [
                 'payment_uuid' => $paymentId,
                 'uuid_bank' => $bankMap[$accountCode],
@@ -476,6 +485,8 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 'id_parent_invoice' => $invoiceUuid ? ($parentMap[$invoiceUuid] ?? null) : null,
                 'updated_at' => now(),
                 'created_at' => now(),
+                'nominal_currency' => $cek_is_sar,
+                'total_base_receive' => data_get($p, 'Invoice.CurrencyCode') == 'SAR' ? $p['Amount'] * $cek_is_sar : (float) $p['Amount'],
             ];
         }
 
@@ -495,6 +506,8 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 'reference_detail',
                 'id_parent_invoice',
                 'updated_at',
+                'nominal_currency',
+                'total_base_receive'
             ]
         );
 
@@ -727,6 +740,9 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                     'reference' => $inv['Reference'] ?? null,
                     'updated_at' => now(),
                     'created_at' => now(),
+                    //new CUrrency
+                    'code_curr' => $inv['CurrencyCode'],
+                    'nominal_currency' => $inv['CurrencyCode'] == 'SAR' ? $this->getCurrentRate($inv) : 1, //$inv['Total']
                 ]
             ],
             ['invoice_uuid'],
@@ -862,6 +878,9 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                         'is_speend' => 0,
                         'nominal' => $saved->total_amount_each_row,
                         'uuid_detail' => $saved->uuid_detail_inv,
+                        'code_curr' => $inv['CurrencyCode'],
+                        'nominal_currency' => $inv['CurrencyCode'] == 'SAR' ? $this->getCurrentRate($inv) : 1,
+                        'base_nominal' => $inv['CurrencyCode'] == 'SAR' ? $this->getCurrentRate($inv) * $saved->total_amount_each_row : $saved->total_amount_each_row
                     ]
                 );
             }
@@ -914,6 +933,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                         'order' => 'Date DESC',
                         'page' => $page,
                         'unitdp' => 4,
+                        'pageSize' => 100,
                     ]);
 
             if (!$response->successful() && $response->status() !== 429) {
