@@ -1631,6 +1631,10 @@ function setRowSelect2Value($row, selector, id, text) {
             recalcSummary();
         })
         .catch(function (err) {
+         
+            if(err.status == 423){
+                 $('#modalCreateHotel').modal('hide');
+            }
             cathError(err)
             // console.error('[loadInvoice] error:', err);
             // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan saat memuat data.', 'error');
@@ -1658,8 +1662,15 @@ function setRowSelect2Value($row, selector, id, text) {
 
 
     $("#close_modal_payment").on('click',function(){
-         table.ajax.reload();
-       
+            ajaxRequest(`{{ route('unlock-sales-inv') }}`, 'POST', {'id':$('#idHotelInput').val()}, localStorage.getItem("token"))
+            .then(response => {
+                if (response.status == 200) {
+                    table.ajax.reload();
+                }
+            })
+            .catch((err) => {
+                cathError(err)
+            });
     })
 
     function resetHotelModal() {
@@ -2299,7 +2310,18 @@ $(function () {
     });
 
     $("#btl-save").on('click',function(){
-          table.ajax.reload(null, false);
+        console.log('no inv',$('#idHotelInput').val())
+
+         ajaxRequest(`{{ route('unlock-sales-inv') }}`, 'POST', {'id':$('#idHotelInput').val()}, localStorage.getItem("token"))
+            .then(response => {
+                if (response.status == 200) {
+                    table.ajax.reload(null, false);
+                }
+            })
+            .catch((err) => {
+                cathError(err)
+            });
+         // table.ajax.reload(null, false);
     })
 
 
@@ -2558,7 +2580,13 @@ $(function () {
             $('#summary_remaining').text(`${formatCurrency(remaining < 0 ? 0 : remaining,d.code_curr)}  ${cek_overpay}`);
         })
         .catch(function(err) {
-            $('#payment_list_body').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data riwayat pembayaran</td></tr>');
+              $('#payment_list_body').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data riwayat pembayaran</td></tr>');
+            if(err.status == 423){
+                 cathError(err);
+                $('#paymentModal').modal('hide');
+            }
+          
+          
         });
     }
 

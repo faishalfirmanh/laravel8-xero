@@ -66,5 +66,6 @@ class Kernel extends HttpKernel
         'xero.limit' => \App\Http\Middleware\XeroRateLimit::class,
         'xss' => \App\Http\Middleware\XssSanitization::class,
         'role.menu' => \App\Http\Middleware\CheckRoleMenuAccess::class,
+        'reclock' => \App\Http\Middleware\LockRecord::class,
     ];
 }

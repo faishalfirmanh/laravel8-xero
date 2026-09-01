@@ -356,6 +356,24 @@ class InvoiceXeroLocalController extends Controller
         }
     }
 
+    public function hapusLock(Request $request)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+        DB::table('record_locks')
+            ->where('lockable_type', 'invoice')
+            ->where('lockable_id', $request->id)
+            ->where('locked_by', $request->user_login->id)
+            ->delete();
+        return response()->json(['success' => true], 200);
+    }
+
     public function cekPaymentAda($paymentId)
     {
         $responsePayment = Http::withHeaders($this->getHeaders())->get($this->xeroBaseUrl . '/Payments/' . $paymentId);

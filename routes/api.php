@@ -63,7 +63,7 @@ use App\Http\Controllers\Transaction\Sales\InvXeroController;
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
 use App\Http\Controllers\Report\LogHistoryController;
 
-
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -92,6 +92,11 @@ Route::post('save-jamaah-alhidglobal', [DataApiJamaahController::class, 'storeGl
 
 Route::get('ubah-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountCodes']);//
 Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountNumbers']);
+
+
+Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
+
+
 //xero refresh token
 // 1. Route untuk inisiasi login (Jalankan ini saat xero_token.json masih kosong)
 Route::prefix("xero")->group(function () {
@@ -256,10 +261,10 @@ Route::prefix("admin-web")->group(function () {
                 Route::prefix('invoice')->group(function () {
                     Route::get('list', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
                     //Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('sales-inv');
-                    Route::post('saveP', [InvXeroController::class, 'storeParent'])->name('save-sales-inv');
+                    Route::post('saveP', [InvXeroController::class, 'storeParent'])->middleware('reclock:invoice')->name('save-sales-inv');
                     Route::post('pay_inv', [InvXeroController::class, 'storePayment'])->name('save-pay-sales-inv');
                     Route::post('pay_inv_with_over', [InvXeroController::class, 'storePaymentOver'])->name('save-payover-sales-inv');
-                    Route::get('detailInv', [InvXeroController::class, 'detailInvoice'])->name('detail-sales-inv');
+                    Route::get('detailInv', [InvXeroController::class, 'detailInvoice'])->middleware('reclock:invoice')->name('detail-sales-inv');
                     Route::post('uploadImage', [InvXeroController::class, 'uploadMultiple'])->name('uploadImage-sales-inv');
                     Route::get('getImage', [InvXeroController::class, 'getImageDetail'])->name('get-image-sales-inv');
                     Route::post('removeImage', [InvXeroController::class, 'removeImage'])->name('remove-image-sales-inv');
