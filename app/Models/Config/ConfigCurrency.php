@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class ConfigCurrency extends Model
 {
-    use HasFactory;
+   use HasFactory;
 
-     protected $fillable = [
-        'nominal_rupiah_1_riyal'
-     ];
+   protected $fillable = [
+      'nominal_rupiah_1_riyal',
+      'code'
+   ];
 }

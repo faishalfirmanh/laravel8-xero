@@ -454,12 +454,14 @@ class SyncBillJob implements ShouldQueue
         Log::info('--payment--');
 
         $nomCurrencyPay = $this->getXeroCurrencyRate(
-            $payment['CurrencyRate'] ?? 0,
+            $payment,
             $paymentCurrency
         );
         // //dd($payment['CurrencyRate']);
         // dd($nom_currency_pay);
-
+        // var_dump($paymentCurrency);
+        // echo "<br>";
+        // dd($nomCurrencyPay);
         //$this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $ref_payment, $idParentInv);
         $this->insertToDb(
             $invoiceNumber,
@@ -487,8 +489,8 @@ class SyncBillJob implements ShouldQueue
         ?string $date,
         ?string $refDetail,
         ?int $idParentInv,
-        ?string $paymentCurrency = null,
-        float $paymentCurrencyRate = 1.0
+        ?string $paymentCurrency = null,//code
+        float $paymentCurrencyRate = 1.0//'nominal
     ): void {
         if (!$accountCode) {
             Log::warning(
@@ -519,6 +521,8 @@ class SyncBillJob implements ShouldQueue
             $paymentCurrencyRate
         );
 
+
+        // dd($paymentCurrencyRate);
         // $this->convertToBase(
         //                 (float) ($inv['SubTotal'] ?? 0),
         //                 $currencyRate
@@ -536,7 +540,7 @@ class SyncBillJob implements ShouldQueue
                 'nominal_spend' => $amount,
 
                 // rate 1 currency ke IDR
-                'nominal_currency' => $paymentCurrency,
+                'nominal_currency' => $paymentCurrency == 'SAR' ? number_format(1 / $paymentCurrencyRate, 2, '.', '') : 1,
 
                 // hasil konversi ke base/IDR
                 'total_base_receive' => 0,
@@ -598,7 +602,7 @@ class SyncBillJob implements ShouldQueue
 
                     // Currency
                     'currency' => $currencyCode,
-                    'nominal_currency' => $currencyRate,
+                    'nominal_currency' => $currencyCode == 'SAR' ? number_format(1 / $currencyRate, 2, '.', '') : 1,
 
                     // Nominal base / IDR
                     'subtotal_base' => $this->convertToBase(
@@ -795,7 +799,7 @@ class SyncBillJob implements ShouldQueue
                         'nominal' => $saved->amount,
                         'uuid_detail' => $saved->uuid_detail,
                         'code_curr' => $currencyCode,
-                        'nominal_currency' => $currencyRate,
+                        'nominal_currency' => $currencyCode == 'SAR' ? number_format(1 / $currencyRate, 2, '.', '') : 1,
                         'base_nominal' => $saved->total_base,
                     ]
                 );

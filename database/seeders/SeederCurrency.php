@@ -23,6 +23,7 @@ class SeederCurrency extends Seeder
             ], [
                 'satu_rupiah' => 1,
                 'nominal_currency' => $nominal[$key],
+                'is_active' => true
             ]);
         }
 

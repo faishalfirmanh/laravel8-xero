@@ -540,6 +540,7 @@
                 <tr>
                     <th width="5%" class="text-center">No</th>
                     <th>No Invoice</th>
+                      <th>Reference</th>
                     <th>Nama Contact</th>
                     <th>Issue Date</th>
                     <th>Due Date</th>
@@ -665,7 +666,7 @@
                             <label>Currency <span class="text-danger">*</span></label>
                             <select class="form-control" name="code_curr"
                                     id="currency_selected" required>
-                                <option value="IDR" selected>IDR &ndash; Rupiah</option>
+                                <option value="IDR">IDR &ndash; Rupiah</option>
                                 <option value="SAR">SAR &ndash; Saudi Riyal</option>
                             </select>
                         </div>
@@ -1099,7 +1100,7 @@
                         </div>
 
                         <div class="form-group col-md-4">
-                            <label class="small font-weight-bold">Nominal (Rupiah)</label>
+                            <label class="small font-weight-bold">Nominal </label>
                             <div class="input-group input-group-sm">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text font-weight-bold">Rupiah</span>
@@ -1371,6 +1372,7 @@
             render: (data, type, row, meta) => meta.row + meta.settings._iDisplayStart + 1
         },
         { data: 'invoice_number', name: 'invoice_number' },
+        { data: 'reference', name: 'reference' },
         { data: 'contact_name', name: 'contact_name' },
         { data: 'issue_date', name: 'issue_date' },
         { data: 'due_date', name: 'due_date' },
@@ -1603,6 +1605,7 @@ function setRowSelect2Value($row, selector, id, text) {
             $('#due_date').val(d.due_date || '');
             $('#reference').val(d.reference || '');
             $('#invoiceStatusBadge').text(d.status == '1' ? 'Approved' : 'Draft');
+            $("#currency_selected").val(d.code_curr).trigger('change')
 
             // ── 2. Contact — inject option ke Select2 ────────
             // Field: name="contact_id" id="contact_id"
@@ -1662,6 +1665,7 @@ function setRowSelect2Value($row, selector, id, text) {
 
 
     $("#close_modal_payment").on('click',function(){
+        console.log('close payment',$('#idHotelInput').val())
             ajaxRequest(`{{ route('unlock-sales-inv') }}`, 'POST', {'id':$('#idHotelInput').val()}, localStorage.getItem("token"))
             .then(response => {
                 if (response.status == 200) {
@@ -2494,7 +2498,7 @@ $(function () {
     $('#tableHotel').on('click', '.show-payment-modal', function() {
         const id = $(this).data('id');
         $('#invoices_id_parent').val(id); // Set hidden ID untuk form tambah bayar
-        
+        $("#idHotelInput").val(id)
         
 
 
@@ -2563,7 +2567,7 @@ $(function () {
                             <td>${p.date_transaction || '-'}</td>
                             <td>${p.name_bank}</td>
                             <td>${p.reference_detail || p.name_bank || '-'}</td>
-                            <td class="text-right">${formatCurrency(nominal)}</td>
+                            <td class="text-right">${formatCurrency(nominal,d.code_curr)}</td>
                         </tr>
                     `;
                 });

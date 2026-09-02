@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\MasterData\MasterCurrency;
 use Illuminate\Http\Request;
 use App\Models\MasterData\Menu;
 use App\Models\MasterData\MasterRoleUser;
@@ -49,7 +50,8 @@ class DashboardController extends Controller
 
     public function getWebListInvoice()
     {
-        return view('admin.list_invoices');
+        $list_currency = MasterCurrency::where("is_active", 1)->get();
+        return view('admin.list_invoices', compact('list_currency'));
     }
 
     public function getWebListPengeluaran()
@@ -149,7 +151,8 @@ class DashboardController extends Controller
 
     public function getTransPurchaseBill()
     {
-        return view('admin.transaksi.purchase.list_bill');
+        $list_currency = MasterCurrency::where("is_active", 1)->get();
+        return view('admin.transaksi.purchase.list_bill', compact('list_currency'));
     }
 
     public function getTransBank()

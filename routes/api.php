@@ -331,8 +331,9 @@ Route::prefix("admin-web")->group(function () {
 
         //Config
         Route::prefix("config-currency")->group(function () {
-            Route::get('/getById', [ConfigCurrencyApiController::class, 'fingById'])->name('getByIdCurrency');
-            Route::post('/save', [ConfigCurrencyApiController::class, 'store'])->name('saveConfigCurrency');
+            Route::get('getAllConfig', [ConfigCurrencyApiController::class, 'getAllPaginate'])->name('get_config_currency_all');
+            Route::get('/getById/{idMaster}', [ConfigCurrencyApiController::class, 'fingByIdMaster'])->name('getByIdCurrency');
+            Route::post('/save', [ConfigCurrencyApiController::class, 'savedMasterConfigCurrency'])->name('saveConfigCurrency');
         });
 
         Route::prefix("config-role-menu")->group(function () {

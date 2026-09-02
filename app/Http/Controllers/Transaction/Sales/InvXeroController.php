@@ -6,6 +6,7 @@ use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
 use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
+use App\Models\MasterData\MasterCurrency;
 use Cache;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
@@ -120,6 +121,9 @@ class InvXeroController extends Controller
     private function getRateToIdr(string $currency): float
     {
         $currency = strtoupper(trim($currency));
+        if (env('CONFIG_CURR_LOCAL')) {
+            return MasterCurrency::where('code_curr', $currency)->value('nominal_currency');
+        }
 
         if ($currency === 'IDR') {
             return 1.0;
@@ -808,7 +812,11 @@ class InvXeroController extends Controller
             return $this->error($validator->errors());
         }
 
-        $cek_nominal_currency = $request->code_curr == 'SAR' ? self::sarToIdr(1) : 1;
+        if (env('CONFIG_CURR_LOCAL')) {
+            $cek_nominal_currency = MasterCurrency::where('code_curr', $request->code_curr)->value('nominal_currency');
+        } else {
+            $cek_nominal_currency = $request->code_curr == 'SAR' ? self::sarToIdr(1) : 1;
+        }
 
         $request->merge([
             'status' => $request->action_save == 0 ? 'DRAFT' : 'AUTHORISED', // 0->draft, 1/2->approve, harus di perbaiki
@@ -1407,7 +1415,8 @@ class InvXeroController extends Controller
             $nominalReceiveBase = ceil($request->nominal_receive * $cekData->nominal_currency);
             $request->merge([
                 'id_parent_invoice' => $request->parent_inv_id,
-                'total_base_receive' => $nominalReceiveBase
+                'total_base_receive' => $nominalReceiveBase,
+                'nominal_currency' => $invP->nominal_currency
             ]);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
 

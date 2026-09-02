@@ -16,6 +16,8 @@ class MasterCurrency extends Model
         'code_curr',
         'satu_rupiah',
         'nominal_currency',
+        'is_active',
+        'created_by'
     ];
 
     protected $appends = [

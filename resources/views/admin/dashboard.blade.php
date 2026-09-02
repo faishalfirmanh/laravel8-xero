@@ -7,7 +7,7 @@
         <h4>Selamat Datang, Admin!</h4>
         <hr>
 
-        <div class="form-group">
+        {{-- <div class="form-group">
             <label>Pilih Cabang (Contoh Select2):</label>
             <select class="form-control select2-custom" style="width: 100%">
                 <option value="">-- Pilih --</option>
@@ -17,7 +17,7 @@
             </select>
         </div>
 
-        <button class="btn btn-primary" id="btn-test-alert">Test SweetAlert</button>
+        <button class="btn btn-primary" id="btn-test-alert">Test SweetAlert</button> --}}
     </div>
 </div>
 @endsection

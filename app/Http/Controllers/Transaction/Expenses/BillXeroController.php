@@ -9,6 +9,7 @@ use App\Http\Repository\LogHistoryRepository;
 use App\Http\Repository\MasterData\CoaRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
+use App\Models\MasterData\MasterCurrency;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\Expenses\DPackageExpensesRepository;
@@ -420,6 +421,9 @@ class BillXeroController extends Controller
 
     private function getRateToIdr(string $currencyCode): float
     {
+        if (env('CONFIG_CURR_LOCAL')) {
+            return MasterCurrency::where('code_curr', $currencyCode)->value('nominal_currency');
+        }
         $currencyCode = strtoupper($currencyCode);
 
         if ($currencyCode === 'IDR') {
