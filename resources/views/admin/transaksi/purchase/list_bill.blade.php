@@ -167,7 +167,7 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label>Due Date  <span class="text-danger">*</span></label>
-                                    <input type="date" id="due_date" class="form-control" name="due_date" value="{{ date('Y-m-d', strtotime('+30 days')) }}">
+                                    <input type="date" id="due_date" class="form-control" name="due_date" value="{{ date('Y-m-d') }}">
                                 </div>
                             </div>
                         </div>
@@ -181,7 +181,7 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label>Currency</label>
+                                    <label>Currency <span class="text-danger">*</span></label>
                                     <select class="form-control" id="cur_id" name="currency" required>
                                         <option value="0">Pilih mata uang</option>
                                         <option value="IDR">IDR - Indonesian Rupiah</option>
@@ -271,19 +271,19 @@
                     <div class="row align-items-end mb-4" id="modal_pay">
                         <div class="col-md-2">
                             <div class="form-group mb-0">
-                                <label class="small font-weight-bold text-muted mb-1">Amount Paid <span class="payment-currency" id="label_payment"></span></label>
+                                <label class="small font-weight-bold text-muted mb-1">Amount Paid <span class="text-danger">*</span><span class="payment-currency" id="label_payment"></span></label>
                                 <input type="number" step="0.01" class="form-control form-control-sm" name="nominal_spend" min="1" value="0">
                             </div>
                         </div>
                         <div class="col-md-2">
                             <div class="form-group mb-0">
-                                <label class="small font-weight-bold text-muted mb-1">Date Paid</label>
+                                <label class="small font-weight-bold text-muted mb-1">Date Paid <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control form-control-sm" name="date_transaction" value="{{ date('Y-m-d') }}">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group mb-0">
-                                <label class="small font-weight-bold text-muted mb-1">Paid From</label>
+                                <label class="small font-weight-bold text-muted mb-1">Paid From <span class="text-danger">*</span></label>
                                 <select class="form-control select2-payment-bank" id="payment_bank" name="uuid_bank" style="width: 100%;">
                                     <option value=""></option> 
                                 </select>
@@ -296,6 +296,11 @@
                             </div>
                         </div>
                         <div class="col-md-2">
+                            <input type="hidden" id="editPaymentId" value="">
+                    
+                            <button type="button" class="btn btn-secondary btn-sm w-100 mt-1" id="btnCancelEditPayment" style="display:none;">
+                                Cancel Edit
+                            </button>
                             <button type="button" class="btn btn-success btn-sm w-100 font-weight-bold" id="btnRecordPayment">Record payment</button>
                         </div>
                     </div>
@@ -314,6 +319,7 @@
                                         <th class="text-muted">Date</th>
                                         <th class="text-muted">Bank Name</th>
                                         <th class="text-muted">Nominal</th>
+                                        <th class="text-muted text-center">Action</th> 
                                     </tr>
                                 </thead>
                                 <tbody class="small text-muted">
@@ -465,7 +471,6 @@ $(document).ready(function() {
             data: 'nominal_paid', 
             name: 'nominal_paid', 
             render: function(data,type,row){
-                console.log('pain',row)
                 return formatCurrency(data)
             } 
         },
@@ -536,14 +541,22 @@ $(document).ready(function() {
 
                 // Jika semua file berhasil diupload
                 this.on("successmultiple", function(files, response) {
-                    // FIX: tombol Approve/Save draft di-disable sebelum processQueue()
-                    // dipanggil (lihat submit handler di bawah). Kalau tidak di-enable
-                    // lagi di sini, tombol akan permanen disabled untuk modal
-                    // berikutnya karena elemen modal tidak pernah didestroy.
-                    $('.action-submit').prop('disabled', false);
-                    Swal.fire('Sukses!', 'Data bill dan bukti berhasil disimpan.', 'success');
-                    $('#modalCreateHotel').modal('hide');
+                     $('.action-submit').prop('disabled', false);
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: 'Bukti berhasil diupload.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    // ✅ TIDAK close modal — reload dropzone & table saja
                     table.ajax.reload(null, false);
+
+                    let currentBillId = $('#idHotelInput').val();
+                    if (currentBillId) {
+                        loadDropzoneImages(currentBillId);
+                    }
                 });
 
                 // Jika terjadi error saat upload
@@ -552,8 +565,8 @@ $(document).ready(function() {
                     // kembali supaya user bisa retry submit.
                     $('.action-submit').prop('disabled', false);
                     Swal.fire('Peringatan', 'bill tersimpan, namun gagal mengupload gambar. <br> simpan bill dulu, lalu edit ', 'warning');
-                    $('#modalCreateHotel').modal('hide');
-                    table.ajax.reload(null, false);
+                   // $('#modalCreateHotel').modal('hide');
+                   // table.ajax.reload(null, false);
                 });
 
                 //hapus
@@ -613,6 +626,22 @@ $(document).ready(function() {
         });
     }
 
+    function resetPaymentForm() {
+        $('#editPaymentId').val('');
+        $('#modal_pay input[name="nominal_spend"]').val(0);
+        $('#modal_pay input[name="date_transaction"]').val('{{ date("Y-m-d") }}');
+        $('#modal_pay input[name="reference_detail"]').val('');
+        $('#payment_bank').val(null).trigger('change');
+        $('#btnRecordPayment')
+            .text('Record payment')
+            .removeClass('btn-warning')
+            .addClass('btn-success');
+        $('#btnCancelEditPayment').hide();
+    }
+
+    $('#btnCancelEditPayment').on('click', function() {
+        resetPaymentForm();
+    });
 
     function loadDropzoneImages(billid) {
         // Kosongkan Dropzone terlebih dahulu jika ada gambar dari sesi sebelumnya
@@ -658,28 +687,118 @@ $(document).ready(function() {
     $("#btnRecordPayment").on('click', function(e){
         e.preventDefault();
         
+        let editPaymentId  = $('#editPaymentId').val();
+        let isEdit         = editPaymentId && parseInt(editPaymentId) > 0;
+
         let send_payment = {
-            uuid_bank: $('#modal_pay select[name="uuid_bank"]').val(),
-            nominal_spend: $('#modal_pay input[name="nominal_spend"]').val(),
-            reference_detail: $('#modal_pay input[name="reference_detail"]').val(),
-            date_transaction: $('#modal_pay input[name="date_transaction"]').val(),
-            id_parent_bill: $('#idHotelInput').val()
+            id               : isEdit ? editPaymentId : null,
+            uuid_bank        : $('#modal_pay select[name="uuid_bank"]').val(),
+            nominal_spend    : $('#modal_pay input[name="nominal_spend"]').val(),
+            reference_detail : $('#modal_pay input[name="reference_detail"]').val(),
+            date_transaction : $('#modal_pay input[name="date_transaction"]').val(),
+            id_parent_bill   : $('#idHotelInput').val(),
         };
 
-         ajaxRequest(`{{ route('save-pay-bill') }}`, 'POST', send_payment, localStorage.getItem("token"))
+        let route = isEdit
+            ? `{{ route('update-save-pay-bill') }}`
+            : `{{ route('save-pay-bill') }}`;
+
+        ajaxRequest(route, 'POST', send_payment, localStorage.getItem("token"))
             .then(response => {
-                if(response.status == 200){
-                    Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                    $('#modalCreateHotel').modal('hide');
-                    table.ajax.reload(null, false);
+                if (response.status == 200) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: isEdit ? 'Berhasil diupdate!' : 'Berhasil disimpan!',
+                        text: 'Data pembayaran berhasil ' + (isEdit ? 'diperbarui.' : 'dicatat.'),
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        resetPaymentForm();
+                        loadBills($('#idHotelInput').val());
+                        table.ajax.reload(null, false);
+                    });
                 }
             })
-            .catch((err) => {
-                cathError(err)
-                // console.log('err',err)
-                // Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-            });
+        .catch((err) => {
+            cathError(err);
+        });
     });
+
+
+    $(document).on('click', '.btn-edit-payment', function() {
+        let $btn      = $(this);
+        let payId     = $btn.data('id');
+        let nominal   = $btn.data('nominal');
+        let date      = $btn.data('date');
+        let bankId    = $btn.data('bank-id');
+        let bankName  = $btn.data('bank-name');
+        let reference = $btn.data('reference') || '';
+
+        // Isi form payment
+        $('#editPaymentId').val(payId);
+        $('#modal_pay input[name="nominal_spend"]').val(parseFloat(nominal));
+        $('#modal_pay input[name="date_transaction"]').val(date);
+        $('#modal_pay input[name="reference_detail"]').val(reference);
+
+        // Set select2 bank dengan option baru
+        let bankOpt = new Option(bankName, bankId, true, true);
+        $('#payment_bank').empty().append(bankOpt).trigger('change');
+
+        // Ubah tampilan tombol ke mode edit
+        $('#btnRecordPayment')
+            .text('Update Payment')
+            .removeClass('btn-success')
+            .addClass('btn-warning');
+        $('#btnCancelEditPayment').show();
+
+        // Scroll ke form payment agar keliatan
+        $('#modal_pay')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+
+    $(document).on('click', '.btn-delete-payment', function() {
+        let payId       = $(this).data('id');
+        let parentBillId = $('#idHotelInput').val();
+
+        Swal.fire({
+            title: 'Hapus Pembayaran?',
+            html: 'Data pembayaran ini akan <strong>dihapus permanen</strong><br>dan nominal tagihan akan dikembalikan.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, Hapus!',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                ajaxRequest(
+                    `{{ route('delete-pay-bill') }}`,
+                    'POST',
+                    { id: payId, id_parent_bill: parentBillId },
+                    localStorage.getItem("token")
+                )
+                .then(response => {
+                    if (response.status == 200) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Dihapus!',
+                            text: 'Data pembayaran berhasil dihapus.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            loadBills(parentBillId);
+                            table.ajax.reload(null, false);
+                        });
+                    }
+                })
+                .catch((err) => {
+                    cathError(err);
+                });
+            }
+        });
+    });
+
 
     $('#btnProsesSelected').on('click', function() {
         let selectedRowData = table.row('.selected').data();
@@ -856,15 +975,33 @@ $(document).ready(function() {
                     if (data_res.get_payment.length > 0) {
                         console.log('ada pembayaran')
                         $.each(data_res.get_payment, function(index, payment) {
-                             let row = `
+                            let row = `
                                 <tr>
                                     <td>${index + 1}</td>
                                     <td>${convertStringDate(payment.date_transaction)}</td>
                                     <td>${payment.name_bank}</td>
-                                    <td>${formatCurrency(payment.nominal_spend)}</td> 
-                                </tr>
-                            `;
-                             tbody.append(row);
+                                    <td>${formatCurrency(payment.nominal_spend)}</td>
+                                    <td class="text-center">
+                                        <button type="button"
+                                            class="btn btn-xs btn-warning mr-1 btn-edit-payment"
+                                            title="Edit"
+                                            data-id="${payment.id}"
+                                            data-nominal="${payment.nominal_spend}"
+                                            data-date="${payment.date_transaction}"
+                                            data-bank-id="${payment.uuid_bank}"
+                                            data-bank-name="${payment.name_bank}"
+                                            data-reference="${payment.reference_detail || ''}">
+                                            <i class="ti ti-pencil"></i>
+                                        </button>
+                                        <button type="button"
+                                            class="btn btn-xs btn-danger btn-delete-payment"
+                                            title="Hapus"
+                                            data-id="${payment.id}">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>`;
+                            tbody.append(row);
                         });
                         
                     } else {
@@ -943,18 +1080,37 @@ $(document).ready(function() {
                         // dipilih di dropzone, foto itu TIDAK PERNAH ke-upload
                         // (processQueue() tidak pernah dipanggil). Sekarang proses
                         // upload jalan untuk kedua action selama ada file di queue.
-                        let savedInvoiceId = id_bill ? id_bill : response.data.id; 
-                        $('#idHotelInput').val(savedInvoiceId); 
+                         let savedInvoiceId = (id_bill && id_bill > 0)
+                            ? id_bill
+                            : response.data.data.id;
 
+                        // ✅ Update hidden input agar edit selanjutnya pakai ID yang benar
+                        $('#idHotelInput').val(savedInvoiceId);
+                        // console.log('pbill',savedInvoiceId)
+                        // console.log('resdata',response.data.data.id)
+                        // ✅ Update judul modal ke mode Edit
+                        let refLabel = params.get('reference') || savedInvoiceId;
+                        $('.modal-title').text('Edit Bill ' + refLabel);
+
+                        // ✅ Reload table di background (modal tetap terbuka)
+                        table.ajax.reload(null, false);
                       
-                        if (myDropzone.getQueuedFiles().length > 0) {  
+                        if (myDropzone.getQueuedFiles().length > 0) {
+                         // Ada file antri → proses upload, notif ditangani successmultiple
                             $('.action-submit').prop('disabled', true);
-                            myDropzone.processQueue(); 
+                            myDropzone.processQueue();
                         } else {
-                            // Jika tidak ada gambar yang dipilih, langsung tutup dan sukses
-                            Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                            $('#modalCreateHotel').modal('hide');
-                            table.ajax.reload(null, false);
+                            // Tidak ada file → tampilkan notif, lalu reload data ke form
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: 'Data berhasil disimpan.',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                // ✅ Reload form dengan data terbaru dari server
+                                loadBills(savedInvoiceId);
+                            });
                         }
                 }
             })

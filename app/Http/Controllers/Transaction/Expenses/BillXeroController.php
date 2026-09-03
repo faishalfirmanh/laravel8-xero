@@ -306,13 +306,203 @@ class BillXeroController extends Controller
         }
     }
 
+    public function EditstorePayment(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'uuid_bank' => 'required|integer|exists:bank_xeros,id',
+            'nominal_spend' => 'required|integer|min:1',
+            'reference_detail' => 'nullable|string',
+            'date_transaction' => 'required|date',
+            'id_parent_bill' => 'required|integer|exists:p_bills,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            // Cari data payment lama
+            $oldPayment = $this->repo_trans_bill
+                ->whereData(['id' => $request->id])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$oldPayment) {
+                DB::rollBack();
+                return $this->error('Data pembayaran tidak ditemukan', 404);
+            }
+
+            // Cari parent bill
+            $findData = $this->repo
+                ->whereData(['id' => $request->id_parent_bill])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$findData) {
+                DB::rollBack();
+                return $this->error('Tagihan tidak ditemukan', 404);
+            }
+
+            // --- Reverse nominal lama dulu ---
+            $nominal_paid_reversed = $findData->nominal_paid - $oldPayment->nominal_spend;
+            $nominal_paid_base_reversed = $findData->nominal_paid_base - $oldPayment->total_base_spend;
+
+            $sisa_setelah_reverse = $findData->total - $nominal_paid_reversed;
+
+            // Validasi nominal baru terhadap sisa setelah di-reverse
+            if ($request->nominal_spend > $findData->total) {
+                DB::rollBack();
+                return $this->error("Nominal melebihi total tagihan (total: {$findData->total})", 400);
+            }
+
+            if ($request->nominal_spend > $sisa_setelah_reverse) {
+                DB::rollBack();
+                return $this->error("Nominal melebihi sisa tagihan (sisa: {$sisa_setelah_reverse})", 400);
+            }
+
+            // --- Hitung nilai final dengan nominal baru ---
+            $rate = (float) $findData->nominal_currency;
+            $nominalSpendBase = ceil($request->nominal_spend * $rate);
+
+            $nominal_paid_final = $nominal_paid_reversed + $request->nominal_spend;
+            $nominal_due_final = $findData->total - $nominal_paid_final;
+            $nominal_paid_base_final = $nominal_paid_base_reversed + $nominalSpendBase;
+            $nominal_due_base_final = $findData->total_base - $nominal_paid_base_final;
+
+            $cek_status = $nominal_due_final <= 0 ? 2 : 1;
+
+            // Update p_bills
+            $this->repo->CreateOrUpdate([
+                'nominal_paid' => $nominal_paid_final,
+                'nominal_due' => $nominal_due_final,
+                'nominal_paid_base' => $nominal_paid_base_final,
+                'nominal_due_base' => $nominal_due_base_final,
+                'status' => $cek_status,
+            ], $request->id_parent_bill);
+
+            // Update payment record
+            $request->merge([
+                'created_by' => $request->user_login->id,
+                'nominal_currency' => $rate,
+                'total_base_spend' => $nominalSpendBase,
+                'nominal_transfer' => 0,
+                'nominal_receive' => 0,
+            ]);
+
+            $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), $request->id);
+
+            $logMessage = $request->user_login->name
+                . ' mengedit pembayaran bills ' . $saveP->name_contact
+                . " sebesar " . $request->nominal_spend
+                . " pada bank " . $saveP->name_bank;
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $request->id_parent_bill
+            );
+
+            DB::commit();
+            return $this->autoResponse($saveP);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            \Log::error('EditstorePayment error: ' . $th->getMessage());
+            return $this->error('Gagal mengubah pembayaran', 400);
+        }
+    }
+
+    public function DeletePaymentBill(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'id_parent_bill' => 'required|integer|exists:p_bills,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            // Cari payment yang akan dihapus
+            $oldPayment = $this->repo_trans_bill
+                ->whereData(['id' => $request->id])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$oldPayment) {
+                DB::rollBack();
+                return $this->error('Data pembayaran tidak ditemukan', 404);
+            }
+
+            // Cari parent bill
+            $findData = $this->repo
+                ->whereData(['id' => $request->id_parent_bill])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$findData) {
+                DB::rollBack();
+                return $this->error('Tagihan tidak ditemukan', 404);
+            }
+
+            // --- Reverse nominal payment yang dihapus ---
+            $nominal_paid_final = $findData->nominal_paid - $oldPayment->nominal_spend;
+            $nominal_due_final = $findData->total - $nominal_paid_final;
+            $nominal_paid_base_final = $findData->nominal_paid_base - $oldPayment->total_base_spend;
+            $nominal_due_base_final = $findData->total_base - $nominal_paid_base_final;
+
+            // Status kembali ke awaiting (1) jika masih ada sisa, lunas (2) jika tidak
+            $cek_status = $nominal_due_final <= 0 ? 2 : 1;
+
+            // Update p_bills
+            $this->repo->CreateOrUpdate([
+                'nominal_paid' => max(0, $nominal_paid_final),
+                'nominal_due' => max(0, $nominal_due_final),
+                'nominal_paid_base' => max(0, $nominal_paid_base_final),
+                'nominal_due_base' => max(0, $nominal_due_base_final),
+                'status' => $cek_status,
+            ], $request->id_parent_bill);
+
+            // Hapus record payment
+            $this->repo_trans_bill->delete($request->id);
+
+            $logMessage = $request->user_login->name
+                . ' menghapus pembayaran bills id ' . $request->id
+                . ' sebesar ' . $oldPayment->nominal_spend;
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $request->id_parent_bill
+            );
+
+            DB::commit();
+            return $this->autoResponse(['message' => 'Pembayaran berhasil dihapus']);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            \Log::error('DeletePaymentBill error: ' . $th->getMessage());
+            return $this->error('Gagal menghapus pembayaran', 400);
+        }
+    }
+
     public function storePayment(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
             'uuid_bank' => 'required|integer|exists:bank_xeros,id',
             'nominal_spend' => 'required|integer|min:1',
-            'reference_detail' => 'required|string',
+            'reference_detail' => 'nullable|string',
             'date_transaction' => 'required|date',
             'id_parent_bill' => 'required|integer|exists:p_bills,id'
         ]);

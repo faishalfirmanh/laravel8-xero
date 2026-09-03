@@ -246,6 +246,8 @@ Route::prefix("admin-web")->group(function () {
                     Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('purchase-bills');
                     Route::post('saveP', [BillXeroController::class, 'storeParent'])->name('save-p-bills');
                     Route::post('pay_bill', [BillXeroController::class, 'storePayment'])->name('save-pay-bill');
+                    Route::post('edit_pay_bill', [BillXeroController::class, 'EditstorePayment'])->name('update-save-pay-bill');
+                    Route::post('delete_pay_bill', [BillXeroController::class, 'DeletePaymentBill'])->name('delete-pay-bill');
                     Route::get('detailBill', [BillXeroController::class, 'detailBill'])->name('detail-bills');
                     //foto
                     Route::post('uploadImage', [BillXeroController::class, 'uploadMultiple'])->name('uploadImage-bill');
