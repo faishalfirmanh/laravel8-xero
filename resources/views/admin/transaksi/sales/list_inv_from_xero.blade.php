@@ -2316,7 +2316,8 @@ $(function () {
     $("#btl-save").on('click',function(){
         console.log('no inv',$('#idHotelInput').val())
 
-         ajaxRequest(`{{ route('unlock-sales-inv') }}`, 'POST', {'id':$('#idHotelInput').val()}, localStorage.getItem("token"))
+        if($('#idHotelInput').val() != ''){
+            ajaxRequest(`{{ route('unlock-sales-inv') }}`, 'POST', {'id':$('#idHotelInput').val()}, localStorage.getItem("token"))
             .then(response => {
                 if (response.status == 200) {
                     table.ajax.reload(null, false);
@@ -2325,6 +2326,7 @@ $(function () {
             .catch((err) => {
                 cathError(err)
             });
+        }
          // table.ajax.reload(null, false);
     })
 
