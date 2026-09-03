@@ -314,7 +314,7 @@ class InvXeroController extends Controller
                 'status' => $status,
                 'reference' => strtolower(trim($request->reference)),
                 'code_curr' => $currency,
-
+                'created_by' => $request->user_login->id,
                 // snapshot rate
                 'nominal_currency' => $nominalCurrency,
             ];
@@ -1466,6 +1466,183 @@ class InvXeroController extends Controller
 
     }
 
+    public function EditStorePayment(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'uuid_bank' => 'required|integer|exists:bank_xeros,id',
+            'nominal_receive' => 'required|integer|min:1',
+            'reference_detail' => 'nullable|string',
+            'date_transaction' => 'required|date',
+            'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id',
+        ]);
+        if ($validator->fails())
+            return $this->error($validator->errors(), 500);
+
+        DB::beginTransaction();
+        try {
+            $oldPayment = $this->repo_trans_bank
+                ->whereData(['id' => $request->id])
+                ->lockForUpdate()->first();
+
+            if (!$oldPayment) {
+                DB::rollBack();
+                return $this->error('Data pembayaran tidak ditemukan', 404);
+            }
+
+            $cekData = $this->repo
+                ->whereData(['id' => $request->parent_inv_id])
+                ->lockForUpdate()->first();
+
+            if (!$cekData) {
+                DB::rollBack();
+                return $this->error('Invoice tidak ditemukan', 404);
+            }
+
+            // Reverse nominal lama, apply nominal baru
+            $invoice_amount_reversed = $cekData->invoice_amount - $oldPayment->nominal_receive;
+            $nominal_paid_final = $invoice_amount_reversed + (int) $request->nominal_receive;
+            $final_less = max(0, $cekData->invoice_total - $nominal_paid_final);
+
+            $invP = $this->repo->CreateOrUpdate([
+                'invoice_amount' => $nominal_paid_final,
+                'less_nominal' => $final_less,
+            ], $request->parent_inv_id);
+
+            // Update payment record
+            $nominalBase = ceil($request->nominal_receive * $cekData->nominal_currency);
+            $request->merge([
+                'created_by' => $request->user_login->id,
+                'id_parent_invoice' => $request->parent_inv_id,
+                'total_base_receive' => $nominalBase,
+                'nominal_currency' => $cekData->nominal_currency,
+                'nominal_transfer' => 0,
+                'nominal_spend' => 0,
+            ]);
+            $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), $request->id);
+
+            // Update status invoice
+            $newStatus = $invP->invoice_amount >= $invP->invoice_total ? 'PAID' : 'AUTHORISED';
+            $invP = $this->repo->CreateOrUpdate(['status' => $newStatus], $request->parent_inv_id);
+
+            $this->_syncOverpayment($invP, $saveP, $request->uuid_bank);
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $request->user_login->name
+                . ' mengedit pembayaran invoice ' . $invP->invoice_number
+                . ' sebesar ' . $request->nominal_receive
+                . ' pada bank ' . $saveP->name_bank,
+                $request->userAgent(),
+                $request->ip(),
+                $invP->id,
+                null
+            );
+
+            DB::commit();
+            return $this->autoResponse($saveP);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error($th->getMessage(), 400);
+        }
+    }
+
+    public function DeleteStorePayment(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id',
+        ]);
+        if ($validator->fails())
+            return $this->error($validator->errors(), 500);
+
+        DB::beginTransaction();
+        try {
+            $oldPayment = $this->repo_trans_bank
+                ->whereData(['id' => $request->id])
+                ->lockForUpdate()->first();
+
+            if (!$oldPayment) {
+                DB::rollBack();
+                return $this->error('Data pembayaran tidak ditemukan', 404);
+            }
+
+            $cekData = $this->repo
+                ->whereData(['id' => $request->parent_inv_id])
+                ->lockForUpdate()->first();
+
+            if (!$cekData) {
+                DB::rollBack();
+                return $this->error('Invoice tidak ditemukan', 404);
+            }
+
+            // Reverse nominal yang dihapus
+            $invoice_amount_new = max(0, $cekData->invoice_amount - $oldPayment->nominal_receive);
+            $final_less = max(0, $cekData->invoice_total - $invoice_amount_new);
+            $newStatus = $invoice_amount_new >= $cekData->invoice_total ? 'PAID' : 'AUTHORISED';
+
+            $invP = $this->repo->CreateOrUpdate([
+                'invoice_amount' => $invoice_amount_new,
+                'less_nominal' => $final_less,
+                'status' => $newStatus,
+            ], $request->parent_inv_id);
+
+            // Sync overpayment SEBELUM hapus record
+            $this->_syncOverpayment($invP, null, null);
+
+            $this->repo_trans_bank->delete($request->id);
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $request->user_login->name
+                . ' menghapus pembayaran invoice ' . $invP->invoice_number
+                . ' id trans ' . $request->id
+                . ' sebesar ' . $oldPayment->nominal_receive,
+                $request->userAgent(),
+                $request->ip(),
+                $invP->id,
+                null
+            );
+
+            DB::commit();
+            return $this->autoResponse(['message' => 'Pembayaran berhasil dihapus']);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error($th->getMessage(), 400);
+        }
+    }
+
+    // ── Private helper: sinkronisasi record overpayment setelah invoice_amount berubah ──
+    private function _syncOverpayment($invP, $saveP, $bankId)
+    {
+        if (!$invP)
+            return;
+
+        $cek_over = $this->repo_over->whereData(['invoice_id' => $invP->id])->first();
+
+        if ($invP->invoice_amount > $invP->invoice_total) {
+            // Masih ada overpayment → buat atau update
+            $total = $invP->invoice_amount - $invP->invoice_total;
+            if ($cek_over) {
+                $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $total], $cek_over->id);
+            } elseif ($saveP) {
+                $this->repo_over->CreateOrUpdate([
+                    'nominal_overpayment' => $total,
+                    'invoice_id' => $invP->id,
+                    'trans_bank_id' => $saveP->id,
+                    'jamaah_contact_id' => $invP->contact_id,
+                    'bank_id' => $bankId,
+                ], null);
+            }
+        } else {
+            // Tidak ada overpayment → hapus record jika ada
+            if ($cek_over) {
+                $this->repo_over->delete($cek_over->id);
+            }
+        }
+    }
 
     private function getHeaders()
     {

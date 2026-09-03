@@ -270,7 +270,7 @@
             @foreach($detailItems as $item)
             <tr>
                 <td>
-                    {{ optional($item->getItems)->nama_paket ?? $item->desc ?? '-' }}
+                  {{ $item->desc }}
                 </td>
                 <td class="text-right">{{ $fmt($item->qty ?? null) }}</td>
                 <td class="text-right">{{ $fmt($item->unit_price ?? null) }}</td>
@@ -378,7 +378,7 @@
             <strong>{{ $invoice->name_created_user ?? 'Nuril Hidayati' }}</strong><br>
             Devisi keuangan
         </div>
-
+      
         <div class="registered-office">
             Registered Office: Jalan Gajah Mada, Mojokerto, Jawa Timur, 61382, Indonesia.
         </div>

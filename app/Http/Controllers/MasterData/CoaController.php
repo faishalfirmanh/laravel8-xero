@@ -112,9 +112,9 @@ class CoaController extends Controller
         //dd($request->menu);
         $where = self::chekWhere($request->type);
         if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, 'code', strtoupper($request->keyword));
+            $data = $this->repo->searchData($where, $request->limit, $request->page, $request->kolom_name, strtoupper($request->keyword));
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'code', 'ASC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, $request->kolom_name, 'ASC');//getDataPaginate("name",10,$request->keyword);
         }
 
         return $this->autoResponse($data);
@@ -151,7 +151,9 @@ class CoaController extends Controller
             'code_coa' => 'required|exists:coas,id',
             'page' => 'required|integer',
             'limit' => 'required|integer',
-            'keyword' => 'nullable|string'
+            'keyword' => 'nullable|string',
+            'date_start' => 'nullable|date',
+            'date_end' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -161,13 +163,10 @@ class CoaController extends Controller
         $where = ['uuid_coa' => $request->code_coa];
         $relations = ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent', 'd_invoice', 'd_invoice.getParent'];
 
-        // DEFINISIKAN KOLOM PENCARIAN (TABEL UTAMA + RELASI)
         $search_columns = [
-            // 1. Kolom di Tabel Utama
             'nominal',
             'date_transaction' => 'date',
 
-            // 2. Kolom di Tabel Relasi (Format: 'NamaRelasi' => ['kolom1', 'kolom2'])
             'd_bill' => ['desc'],
             'd_bill.getParent.getContactFrom' => ['full_name'],
 
@@ -178,14 +177,21 @@ class CoaController extends Controller
             'd_invoice.getParent' => ['contact_name'],
         ];
 
-        // LOGIKA PENARIKAN DATA
+        // ── DATE RANGE FILTER ──
+        $dateRange = [
+            'column' => 'date_transaction',
+            'start' => $request->date_start,
+            'end' => $request->date_end,
+        ];
+
         if ($request->keyword) {
             $data = $this->repo_trans_all->searchDataMultiColumn(
                 $where,
-                $request->limit, // Menggunakan limit dari request, bukan manual 10
+                $request->limit,
                 $search_columns,
                 $request->keyword,
-                $relations
+                $relations,
+                $dateRange
             );
         } else {
             $data = $this->repo_trans_all->getAllDataWithDefault(
@@ -194,7 +200,8 @@ class CoaController extends Controller
                 $request->page,
                 'date_transaction',
                 'ASC',
-                $relations
+                $relations,
+                $dateRange
             );
         }
 

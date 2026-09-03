@@ -181,10 +181,16 @@ class InvoiceXeroLocalController extends Controller
             'date' => date('d-m-Y'),
             // 'cetak_by'=>
         ];
+        // if ($request->user_login != null) {
         $pdf = Pdf::loadView('pdf.salles_invoice_print', $data);
         $pdf->setPaper('A4', 'portrait');
-        return $pdf->stream('Invoice-' . $invoice->invoice_number . '.pdf');//tampil
+        return $pdf->stream('Invoice-' . $invoice->invoice_number . '.pdf');
+        // } else {
+
+        // }
+        //tampil
     }
+
 
     function filterPaymentString($string)
     {

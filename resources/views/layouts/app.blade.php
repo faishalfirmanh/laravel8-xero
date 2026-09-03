@@ -135,8 +135,8 @@
                 success: function (response) {
                     //console.log(response);
                     if(response.status == "success"){
-                         localStorage.removeItem("token");
-                          localStorage.removeItem("user_menu");
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("user_menu");
                         Swal.fire({
                             title: "Logout sukses",
                             text: "Berhasil logout",

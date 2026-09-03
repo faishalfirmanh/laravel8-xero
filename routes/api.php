@@ -264,8 +264,12 @@ Route::prefix("admin-web")->group(function () {
                     Route::get('list', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
                     //Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('sales-inv');
                     Route::post('saveP', [InvXeroController::class, 'storeParent'])->middleware('reclock:invoice')->name('save-sales-inv');
+                    //***payment***
                     Route::post('pay_inv', [InvXeroController::class, 'storePayment'])->name('save-pay-sales-inv');
+                    Route::post('edit_pay_inv', [InvXeroController::class, 'EditStorePayment'])->name('update-pay-sales-inv');
+                    Route::post('delete_pay_inv', [InvXeroController::class, 'DeleteStorePayment'])->name('delete-pay-sales-inv');
                     Route::post('pay_inv_with_over', [InvXeroController::class, 'storePaymentOver'])->name('save-payover-sales-inv');
+
                     Route::get('detailInv', [InvXeroController::class, 'detailInvoice'])->middleware('reclock:invoice')->name('detail-sales-inv');
                     Route::post('uploadImage', [InvXeroController::class, 'uploadMultiple'])->name('uploadImage-sales-inv');
                     Route::get('getImage', [InvXeroController::class, 'getImageDetail'])->name('get-image-sales-inv');

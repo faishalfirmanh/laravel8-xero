@@ -109,7 +109,6 @@ $(document).ready(function() {
    
 
     function loadTable(accountType) {
-    console.log('loadd',accountType)
         table = initGlobalDataTableTokenSelected(
             '#tableCoa',
             `{{ route('get-all-coa') }}`,

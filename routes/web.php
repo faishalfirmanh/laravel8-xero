@@ -83,6 +83,9 @@ Route::prefix('travel')->group(function () {
             Route::get('bank-trans', [DashboardController::class, 'getTransBank'])->name('web-bank-trans');
             Route::get('bank-trans/{idBank}', [DashboardController::class, 'getTransDetailBank'])->name('web-bank-trans-detail');
             Route::get('sales-invoice', [DashboardController::class, 'getTransInvoice'])->name('web-sales-inv');
+            //
+            Route::get('/sales-invoice/print/{id}', [InvoiceXeroLocalController::class, 'printInvoice'])->name('salles_invoice_print');
+
             Route::get('purchase-orders', [DashboardController::class, 'getTransPurchaseOrder'])->name('web-purchase-or');
             Route::get('purchase-bills', [DashboardController::class, 'getTransPurchaseBill'])->name('web-purchase-bill');//
         });
@@ -101,7 +104,7 @@ Route::prefix('travel')->group(function () {
 
 //print-pdf
 Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
-Route::get('/sales-invoice/print/{id}', [InvoiceXeroLocalController::class, 'printInvoice'])->name('salles_invoice_print');
+
 
 
 Route::get('/coba_redirect', function () {

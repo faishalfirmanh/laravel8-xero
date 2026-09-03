@@ -2,8 +2,25 @@
 
 @section('content')
 <div class="card shadow mb-5">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center" style="gap:10px;">
         <h5 class="mb-0" id="title_trans">Daftar Transaksi</h5>
+
+        <div class="d-flex align-items-end flex-wrap" style="gap:8px;">
+            <div class="form-group mb-0">
+                <label class="small font-weight-bold mb-1 d-block">Dari Tanggal</label>
+                <input type="date" class="form-control form-control-sm" id="filter_date_start">
+            </div>
+            <div class="form-group mb-0">
+                <label class="small font-weight-bold mb-1 d-block">Sampai Tanggal</label>
+                <input type="date" class="form-control form-control-sm" id="filter_date_end">
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn_filter_date">
+                <i class="ti ti-filter mr-1"></i> Filter
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn_reset_date">
+                <i class="ti ti-x mr-1"></i> Reset
+            </button>
+        </div>
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
@@ -34,7 +51,7 @@ $(document).ready(function() {
     let full_url = window.location.href;
     const segments = full_url.split('/').filter(Boolean);
     const lastSegment = segments.pop();
-  
+
     // --- 1. DATATABLE COLUMNS ---
     let columnCoa = [
         {
@@ -107,13 +124,12 @@ $(document).ready(function() {
             searchable: false,
             className: "text-center",
             render: function(data, type, row) {
-              
-                let base_url = window.location.origin  
+
+                let base_url = window.location.origin
                 let cek_inv = row.d_invoice ? `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}` : ''
                let urlnya = row.d_bank
                 ? `${base_url}/travel/admin/transaksi/bank-trans/${row.d_bank.get_parent.bank_id_xero}?open=${row.d_bank.get_parent.id}`
-                : `${cek_inv}`;//${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}
-                console.log('ss',row.d_invoice)
+                : `${cek_inv}`;
                 return `<a href="${urlnya}" data-id="${data}" class="text-primary edit-hotel mr-2">
                             <i class="ti ti-eye"></i>
                         </a>`;
@@ -121,18 +137,51 @@ $(document).ready(function() {
         }
     ];
 
-    // --- 2. INISIALISASI DATATABLE ---
-    // Fungsi initGlobalDataTableTokenSelected akan otomatis menangkap event search
-    // dan mengirimkan "keyword" beserta "limit" dan "page" ke backend.
+    // --- 2. EXTRA PARAMS (di-mutate saat filter tanggal berubah) ---
+    // NOTE: initGlobalDataTableTokenSelected diasumsikan meng-extend request
+    // dengan object ini secara "live" (by reference) tiap kali ajax dijalankan
+    // — pola umum di helper DataTable project ini (mutasi object ini lalu
+    // panggil table.ajax.reload() akan otomatis kebawa ke request berikutnya).
+    // Kalau helper globalnya ternyata cuma snapshot nilai sekali di awal init,
+    // filter date range di bawah tidak akan ter-apply saat reload — sesuaikan
+    // cara reload-nya dengan implementasi helper tersebut.
+    let filterParams = {
+        code_coa: lastSegment,
+        kolom_name: "name",
+        date_start: '',
+        date_end: ''
+    };
+
+    // --- 3. INISIALISASI DATATABLE ---
     var table = initGlobalDataTableTokenSelected(
         '#tableDetailCoa',
-        `{{ route('rep-detail-coa') }}`, // Pastikan nama route ini sesuai di web.php/api.php
+        `{{ route('rep-detail-coa') }}`,
         columnCoa,
-        { 
-            code_coa: lastSegment, 
-            kolom_name: "name" 
-        }
+        filterParams
     );
+
+    // --- 4. FILTER DATE RANGE ---
+    $('#btn_filter_date').on('click', function() {
+        const start = $('#filter_date_start').val();
+        const end   = $('#filter_date_end').val();
+
+        if (start && end && start > end) {
+            Swal.fire('Peringatan', 'Tanggal awal tidak boleh lebih besar dari tanggal akhir.', 'warning');
+            return;
+        }
+
+        filterParams.date_start = start;
+        filterParams.date_end   = end;
+        table.ajax.reload();
+    });
+
+    $('#btn_reset_date').on('click', function() {
+        $('#filter_date_start').val('');
+        $('#filter_date_end').val('');
+        filterParams.date_start = '';
+        filterParams.date_end   = '';
+        table.ajax.reload();
+    });
 });
 </script>
 @endpush

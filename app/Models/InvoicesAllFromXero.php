@@ -40,8 +40,23 @@ class InvoicesAllFromXero extends Model
         //0 ->draft,  1->awaiting payment (AUTHORISED),3,->paid ,4->void (VOIDED) = batal.
         //semua coa / account yang tercatat ketika approved / awaiting payment.
         'code_curr',//code mata 
-        'nominal_currency'//mata uang currency,//RATE
+        'nominal_currency',//mata uang currency,//RATE
+        'created_by'
     ];
+
+    protected $appends = [
+        'name_created_user'
+    ];
+
+    public function getNameCreatedUserAttribute()
+    {
+        return $this->getCreated->name ?? '';
+    }
+
+    public function getCreated()
+    {
+        return $this->hasOne(User::class, 'id', 'created_by');
+    }
 
 
     public function getPayment()
