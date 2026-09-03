@@ -17,19 +17,28 @@ class ResetMenuSeeder extends Seeder
      */
     public function run()
     {
-        DB::beginTransaction();
         try {
+            $tables = [
+                (new RoleMenus)->getTable(),
+                (new RoleUsers)->getTable(),
+                (new Menu)->getTable(),
+            ];
+
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-            RoleMenus::truncate();
-            RoleUsers::truncate();
-            Menu::truncate();
+
+            foreach ($tables as $table) {
+                DB::statement("TRUNCATE TABLE `{$table}`;");
+            }
+
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-            DB::commit();
+
             $this->command->info('Role berhasil di hapus');
+
         } catch (\Throwable $th) {
-            //throw $th;
-            $this->command->error('SQL Error hapus.' . $th->getMessage());
-            DB::rollBack();
+            // Pastikan FK checks kembali aktif
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            $this->command->error('SQL Error hapus. ' . $th->getMessage());
+            throw $th;
         }
     }
 }

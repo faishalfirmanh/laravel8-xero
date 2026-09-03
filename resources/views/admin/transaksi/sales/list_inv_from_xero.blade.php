@@ -2382,6 +2382,8 @@ $(function () {
                         //     $('#modalCreateHotel').modal('hide');
                         //     table.ajax.reload(null, false);
                         // }
+                    
+                        $("#invoice_number_display").val(response.data.data.invoice_number)
 
                             let savedInvoiceId = id_inv ? id_inv : response.data.data.id; 
                             if (savedInvoiceId) {

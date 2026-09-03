@@ -419,8 +419,8 @@
                 <div class="currency-select-wrap">
                     <select class="form-control" name="currency" id="currency">
                         <option value="IDR" selected>🇮🇩 Indonesian Rupiah</option>
-                        <option value="SAR">🇸🇦 Saudi Riyal</option>
-                        <option value="USD">🇺🇸 US Dollar</option>
+                        {{-- <option value="SAR">🇸🇦 Saudi Riyal</option>
+                        <option value="USD">🇺🇸 US Dollar</option> --}}
                     </select>
                 </div>
             </div>

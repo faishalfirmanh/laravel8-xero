@@ -15,7 +15,6 @@ class RoleMenus extends Model
         'menu_id'
     ];
 
-
     protected $appends = [
         'nama_menu'
     ];
