@@ -29,6 +29,7 @@ class ItemDetailInvoices extends Model
         'divisi_travel_tracking_uuid',
         'id_parent_inv',
         'desc',
+        'sort_order'
     ];
 
     public $appends = [

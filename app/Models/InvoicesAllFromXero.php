@@ -81,7 +81,8 @@ class InvoicesAllFromXero extends Model
 
     public function getDetailById()
     {
-        return $this->hasMany(ItemDetailInvoices::class, 'parent_inv_id', 'id');
+        return $this->hasMany(ItemDetailInvoices::class, 'parent_inv_id', 'id')->orderBy('sort_order')
+            ->orderBy('id');
     }
 
     public function getDetailByUUID()

@@ -182,6 +182,7 @@ class InvXeroController extends Controller
             'paket_tracking_uuid' => 'nullable|array',
             'divisi_travel_tracking_uuid' => 'nullable|array',
             'id_detail' => 'nullable|array',
+            'sort_order' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -438,6 +439,9 @@ class InvXeroController extends Controller
 
                     'parent_inv_id' => $saveP->id,
                     'item_id' => $request->item_id[$key] ?? null,
+                    'sort_order' => isset($request->sort_order[$key])
+                        ? (int) $request->sort_order[$key]
+                        : $key,
                 ];
 
                 if (empty($detailId)) {

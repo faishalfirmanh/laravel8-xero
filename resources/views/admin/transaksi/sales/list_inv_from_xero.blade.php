@@ -515,6 +515,113 @@
     font-size: 11px;
 }
 
+/*-- drag item inv --*/
+/* ── SORTABLE DRAG ROW ── */
+.drag-handle {
+    color: #bbb;
+    font-size: 16px;
+    cursor: grab;
+    user-select: none;
+    display: block;
+    text-align: center;
+    padding: 2px 0;
+    transition: color .15s;
+}
+.drag-handle:hover  { color: #1ab394; }
+.drag-handle:active { cursor: grabbing; }
+
+/* Ghost = baris yang "ditinggalkan" saat drag */
+.row-sortable-ghost {
+    opacity: 0.35;
+    background: #e8f4fd !important;
+}
+/* Chosen = baris yang sedang dipegang */
+.row-sortable-chosen {
+    background: #f0faf8 !important;
+    box-shadow: 0 2px 8px rgba(26,179,148,.25);
+}
+/*fix select2 pilih bank mmodal multi paymnet*/
+/* ══════════════════════════════════════════════
+   PAYMENT MODAL — WIDTH & LAYOUT
+   ══════════════════════════════════════════════ */
+#paymentModal .modal-dialog {
+    max-width: 860px !important;
+    width: calc(100vw - 40px) !important;
+    margin: 20px auto !important;
+}
+
+/* ══════════════════════════════════════════════
+   SELECT2 FIX — di dalam #newPaymentRowsTable
+   ══════════════════════════════════════════════ */
+
+/* Container harus 100% lebar cell */
+#newPaymentRowsTable td .select2-container {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+/* Selection box */
+#newPaymentRowsTable .select2-container--bootstrap4
+    .select2-selection--single {
+    height: 31px !important;
+    position: relative !important;          /* wajib: agar clear btn bisa absolute */
+    display: flex !important;
+    align-items: center !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+}
+
+/* Teks yang terpilih — beri ruang kanan agar tidak ketimpa × dan ▾ */
+#newPaymentRowsTable .select2-container--bootstrap4
+    .select2-selection--single
+    .select2-selection__rendered {
+    display: block !important;
+    padding-left  : 8px  !important;
+    padding-right : 42px !important;    /* ← ruang untuk × + ▾ */
+    line-height   : 29px !important;
+    font-size     : 12px !important;
+    overflow      : hidden !important;
+    text-overflow : ellipsis !important;
+    white-space   : nowrap !important;
+    max-width     : 100% !important;
+    color         : #333 !important;
+}
+
+/* Tombol × (clear) — pin ke kanan, jangan ikut flow teks */
+#newPaymentRowsTable .select2-container--bootstrap4
+    .select2-selection--single
+    .select2-selection__clear {
+    position    : absolute !important;
+    right       : 22px !important;     /* taruh sebelum panah ▾ */
+    top         : 50% !important;
+    transform   : translateY(-50%) !important;
+    font-size   : 14px !important;
+    line-height : 1 !important;
+    color       : #888 !important;
+    z-index     : 1 !important;
+}
+#newPaymentRowsTable .select2-container--bootstrap4
+    .select2-selection--single
+    .select2-selection__clear:hover { color: #e74c3c !important; }
+
+/* Panah ▾ */
+#newPaymentRowsTable .select2-container--bootstrap4
+    .select2-selection--single
+    .select2-selection__arrow {
+    height   : 29px !important;
+    width    : 20px !important;
+    right    : 2px !important;
+    position : absolute !important;
+    top      : 0 !important;
+}
+
+/* Placeholder sedikit redup */
+#newPaymentRowsTable .select2-container--bootstrap4
+    .select2-selection--single
+    .select2-selection__placeholder {
+    color   : #aaa !important;
+    font-size: 12px !important;
+}
 </style>
 
 
@@ -1092,11 +1199,11 @@
                             id="newPaymentRowsTable" style="font-size:12px;">
                             <thead class="thead-dark">
                                 <tr>
-                                    <th style="min-width:130px;">Tanggal Bayar</th>
-                                    <th style="min-width:200px;">Bank</th>
-                                    <th style="min-width:140px;">Nominal (IDR)</th>
-                                    <th>Catatan / Ref</th>
-                                    <th width="36px"></th>
+                                    <th style="min-width:130px; width:150px;">Tanggal Bayar</th>
+                                    <th style="min-width:240px;">Bank</th>
+                                    <th style="min-width:130px; width:150px;">Nominal (IDR)</th>
+                                    <th style="min-width:120px;">Catatan / Ref</th>
+                                    <th style="width:36px;"></th>
                                 </tr>
                             </thead>
                             <tbody id="newPaymentRowsBody"></tbody>
@@ -1185,6 +1292,7 @@
 
 @endsection
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 @push('scripts')
 <script>
      function printInvoice() {
@@ -1197,6 +1305,8 @@
         url = url.replace(':id', id_nya);
         window.open(url, '_blank');
     }
+
+    let lineSortable = null;
 
     // ========================================================
 // PAYMENT FORM HELPERS (multi-row + edit mode)
@@ -1239,6 +1349,33 @@ let payFormMode = 'new'; // 'new' | 'edit'
             </tr>`;
     }
 
+
+
+        function initLineSortable() {
+            const el = document.getElementById('lineItemsBody');
+            if (!el) return;
+
+            // Destroy dulu kalau sudah ada (misal setelah reload)
+            if (lineSortable) { lineSortable.destroy(); lineSortable = null; }
+
+            lineSortable = new Sortable(el, {
+                handle      : '.drag-handle',   // hanya drag dari handle
+                animation   : 150,
+                ghostClass  : 'row-sortable-ghost',
+                chosenClass : 'row-sortable-chosen',
+                // Setelah drop selesai, update nilai sort_order di semua baris
+                onEnd: function () {
+                    updateSortOrders();
+                }
+            });
+        }
+
+        function updateSortOrders() {
+            $('#lineItemsBody tr').each(function (i) {
+                $(this).find('.sort-order-input').val(i + 1);
+            });
+        }
+
     function initBankSelectOnRow($row, bankId = null, bankName = null) {
         const $sel = $row.find('.pay-bank-select');
 
@@ -1247,6 +1384,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
             dropdownParent  : $('#paymentModal'),
             placeholder     : 'Ketik nama bank...',
             allowClear      : true,
+            width             : '100%', 
 
             // ✅ FIX 1: wajib ketik minimal 1 karakter sebelum load
             // Mencegah auto-fetch + cascade page requests saat dropdown dibuka
@@ -1279,6 +1417,11 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 // ✅ FIX 3: matikan cache — shared cache antar row menyebabkan
                 // satu row bisa trigger load page milik row lain
                 cache: false
+            },
+              // ✅ templateSelection: pastikan teks render dengan bersih
+             templateSelection: function(data) {
+                if (!data.id) return data.text;
+                return data.text;
             }
         });
 
@@ -1734,7 +1877,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
-                return `<b>${row.code_curr} </b>|${data}`;
+                return `<b>${row.code_curr} </b>|${parseFloat(data).toLocaleString()}`;
             } 
         }, // Sesuaikan jika nama hotel ada relasi
         {
@@ -1858,7 +2001,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
     }
 
 
-    function addRowWithData(item) {
+    function addRowWithData(item,index) {
     // 1. Buat baris kosong dan append
         const $row = $(buildRow());
         $('#lineItemsBody').append($row);
@@ -1866,6 +2009,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
         // 2. Isi hidden id_detail (untuk update, bukan insert baru)
         $row.find('input[name="id_detail[]"]').val(item.id || '');
 
+        $row.find('.sort-order-input').val(item.sort_order ?? index ?? 0);
         // 3. Isi field teks sederhana
         $row.find('.desc-input').val(item.desc || '');
         $row.find('.qty-input').val(item.qty || 1);
@@ -1973,8 +2117,8 @@ function setRowSelect2Value($row, selector, id, text) {
             const details = d.get_detail_by_id || [];
 
             if (details.length > 0) {
-                details.forEach(function (item) {
-                    addRowWithData(item);
+                details.forEach(function (item, index) {
+                    addRowWithData(item,index);
                 });
             } else {
                 addFirstRow(); // minimal 1 baris kosong
@@ -2272,33 +2416,33 @@ function setRowSelect2Value($row, selector, id, text) {
 let kursRate = 0;  // set dari luar: kursRate = 4350;
 
 // ── Template HTML satu baris item ────────────────────────
+
 function buildRow() {
     return `
     <tr class="line-item-row">
-        <td><span class="drag-handle">&#x28FF;</span></td>
-
-          <input type="hidden" name="id_detail[]"/>
-        {{-- Item — Select2 AJAX --}}
-        <td>
-            <select class="form-control select2-item" name="item_id[]"
-                    style="width:100%;">
-            </select>
+        <td style="text-align:center; vertical-align:middle; width:28px;">
+            <span class="drag-handle" title="Geser untuk urutkan">&#x2630;</span>
         </td>
 
-        {{-- Desc — auto-fill dari item --}}
-        <td>
-            <input type="text" class="form-control desc-input"
-                   name="desc[]" placeholder="(otomatis dari item)" required>
+        <td style="display:none;">
+            <input type="hidden" name="id_detail[]"    class="id-detail-input">
+            <input type="hidden" name="sort_order[]"   class="sort-order-input" value="0">
         </td>
 
-        {{-- Qty --}}
+        <td>
+            <select class="form-control select2-item" name="item_id[]" style="width:100%;"></select>
+        </td>
+        <td>
+            <label for="desc">Pesan:</label>
+            <textarea id="desc" class="form-control desc-input" name="desc[]" rows="4" cols="50"></textarea>
+
+              {{--  <input type="text" class="form-control desc-input"
+                    name="desc[]" placeholder="(otomatis dari item)" required> --}}
+        </td>
         <td>
             <input type="number" class="form-control qty-input"
-                   name="qty[]" min="1" value="1"
-                   style="text-align:right;" required>
+                   name="qty[]" min="1" value="1" style="text-align:right;" required>
         </td>
-
-        {{-- Price dengan label currency --}}
         <td>
             <div class="price-col-wrap">
                 <span class="currency-label price-currency-label">SAR</span>
@@ -2306,56 +2450,34 @@ function buildRow() {
                        name="unit_price[]" placeholder="0" required>
             </div>
         </td>
-
-        {{-- Disc --}}
         <td>
-            <input type="text" class="form-control"
-                   name="disc[]" placeholder="0%">
+            <input type="text" class="form-control" name="disc[]" placeholder="0%">
         </td>
-
-        {{-- Account — Select2 AJAX --}}
         <td>
-            <select class="form-control select2-account" name="coa_id[]" required
-                    style="width:100%;">
-            </select>
+            <select class="form-control select2-account" name="coa_id[]" required style="width:100%;"></select>
         </td>
-
-        {{-- Tax rate --}}
         <td>
             <select class="form-control" name="tax_rate[]">
                 <option value="0">No tax</option>
                 <option value="11">11% PPN</option>
             </select>
         </td>
-
-        {{-- Tax amount (readonly) --}}
         <td>
             <input type="text" class="form-control tax-amount"
                    name="tax_amount[]" placeholder="0.00"
                    readonly style="text-align:right;background:#fafafa;">
         </td>
-
-        {{-- Amount IDR (readonly) --}}
         <td>
             <input type="text" class="form-control amount-idr"
                    name="amount_idr[]" placeholder="0" required
                    readonly style="text-align:right;background:#fafafa;">
         </td>
-
-        {{-- Nama Paket — Select2 AJAX --}}
         <td>
-            <select class="form-control select2-paket" name="paket_tracking_uuid[]"
-                    style="width:100%;">
-            </select>
+            <select class="form-control select2-paket" name="paket_tracking_uuid[]" style="width:100%;"></select>
         </td>
-
-        {{-- Divisi — Select2 AJAX --}}
         <td>
-            <select class="form-control select2-divisi" name="divisi_travel_tracking_uuid[]"
-                    style="width:100%;">
-            </select>
+            <select class="form-control select2-divisi" name="divisi_travel_tracking_uuid[]" style="width:100%;"></select>
         </td>
-
         <td>
             <button type="button" class="btn-del-line" title="Hapus baris">
                 <i class="ti ti-trash"></i>
@@ -2363,6 +2485,8 @@ function buildRow() {
         </td>
     </tr>`;
 }
+
+
 
 // ── Init semua Select2 pada satu baris ($row) ─────────────
 function initRowSelect2($row) {
@@ -2671,6 +2795,7 @@ $(function () {
     initContactSelect2();
     addFirstRow();
     syncCurrencyLabels();
+     initLineSortable();
 });
 
 //submit
@@ -2704,6 +2829,7 @@ $(function () {
                 if ($(this).data('select2')) { $(this).trigger('change'); }
             });
 
+            updateSortOrders();
             let formData = $(this).serialize();
             let params = new URLSearchParams(formData);
             let idInput = params.get('idHotelInput');
@@ -2723,13 +2849,16 @@ $(function () {
 
                 item_id : $('select[name="item_id[]"]').map(function(){ return $(this).val(); }).get(),
                 coa_id: $('select[name="coa_id[]"]').map(function(){ return $(this).val(); }).get(),
-                desc: $('input[name="desc[]"]').map(function(){ return $(this).val(); }).get(),
+                desc:   $('textarea[name="desc[]"]').map(function(){
+                            return $(this).val();
+                        }).get(),
                 qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
                 unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
                 //tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),
                 paket_tracking_uuid: $('select[name="paket_tracking_uuid[]"]').map(function(){ return $(this).val(); }).get(),
                 divisi_travel_tracking_uuid: $('select[name="divisi_travel_tracking_uuid[]"]').map(function(){ return $(this).val(); }).get(),
                 id_detail:$('input[name="id_detail[]"]').map(function(){ return $(this).val(); }).get(),
+                sort_order: $('input[name="sort_order[]"]').map(function(){ return $(this).val(); }).get(),
             };
 
             ajaxRequest(`{{ route('save-sales-inv') }}`, 'POST', selectedData, localStorage.getItem("token"))
