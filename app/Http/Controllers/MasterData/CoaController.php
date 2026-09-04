@@ -121,6 +121,12 @@ class CoaController extends Controller
 
     }
 
+    public function getCoaBycode($code)
+    {
+        $data = $this->repo->whereData(['code' => $code])->first();
+        return $this->autoResponse($data);
+    }
+
     public function chekWhere($requestType)
     {
         // Jika ALL, kembalikan array kosong (agar ->where([]) tidak memfilter apapun)

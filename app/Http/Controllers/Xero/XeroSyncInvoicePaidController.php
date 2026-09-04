@@ -308,6 +308,7 @@ class XeroSyncInvoicePaidController extends Controller
         $keyword = strtoupper(trim($request->get('keyword', '')));
 
         $query = ItemsPaketAllFromXero::query()
+            ->with('getCoaSallesByCode')
             ->where('jenis_item', 1)
             ->select([
                 'code',
@@ -317,7 +318,8 @@ class XeroSyncInvoicePaidController extends Controller
                 'nama_paket',
                 'total_hari',
                 'created_at',
-                'price_sales'
+                'price_sales',
+                'sales_AccountCode'
             ]);
 
         if ($keyword !== '') {

@@ -1955,7 +1955,7 @@ function setRowSelect2Value($row, selector, id, text) {
             $('#issue_date').val(d.issue_date || '');         // name="issue_date" id="issue_date"
             $('#due_date').val(d.due_date || '');
             $('#reference').val(d.reference || '');
-            $('#invoiceStatusBadge').text(d.status == '1' ? 'Approved' : 'Draft');
+            $('#invoiceStatusBadge').text(d.status);
             $("#currency_selected").val(d.code_curr).trigger('change')
 
             // ── 2. Contact — inject option ke Select2 ────────
@@ -2382,13 +2382,14 @@ function initRowSelect2($row) {
                 return { page: params.page || 1, keyword: params.term || '', limit: 5 };
             },
             processResults: function(response) {
-                if (response.status != 'success') return { results: [], pagination: { more: false } };;
+                if (response.status != 'success') return { results: [], pagination: { more: false } };
                 return {
                     results: $.map(response.data.results, function(item) {
                         return { 
                             id        : item.id,
                             text      : item.nama_paket,
-                            harga     : item.price_sales
+                            harga     : item.price_sales,
+                            id_coa : item.get_coa_salles_by_code
                         };
                     }),
                 }
@@ -2398,9 +2399,23 @@ function initRowSelect2($row) {
     }).on('select2:select', function (e) {
         // Auto-fill desc dari field nama_paket response
         const d = e.params.data;
-        $(this).closest('tr').find('.desc-input')
-               .val(d.nama_paket || d.text || '');
-        $(this).closest('tr').find('.price-input').val(Number(d.harga) || ''); 
+        const $row = $(this).closest('tr');
+        // Auto-fill desc & price
+        $row.find('.desc-input').val(d.nama_paket || d.text || '');
+        $row.find('.price-input').val(Number(d.harga) || '');
+
+        // ✅ Auto-fill .select2-account dari id_coa
+        if (d.id_coa && d.id_coa.id) {
+            const coa = d.id_coa;
+            const $accountSelect = $row.find('.select2-account');
+
+            // Untuk select2 AJAX: buat Option baru lalu set sebagai selected
+            const newOption = new Option(coa.name, coa.id, true, true);
+            $accountSelect
+                .empty()              // hapus option lama
+                .append(newOption)    // inject option dari id_coa
+                .trigger('change');   // trigger select2 supaya UI update
+        }
         recalcSummary();
     });
 

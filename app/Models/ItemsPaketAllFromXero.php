@@ -38,9 +38,17 @@ class ItemsPaketAllFromXero extends Model
     ];
 
 
+
+
+
     public function getCoaSalles()
     {
         return $this->hasOne(Coa::class, 'id', 'account_id_salles');
+    }
+
+    public function getCoaSallesByCode()
+    {
+        return $this->belongsTo(Coa::class, 'sales_AccountCode', 'code');
     }
 
     public function getCoaPurchase()

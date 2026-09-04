@@ -261,6 +261,7 @@ Route::prefix("admin-web")->group(function () {
 
             Route::prefix('sales')->group(function () {
                 Route::prefix('invoice')->group(function () {
+                    Route::get('getCoaByCode/{code}', [CoaController::class, 'getCoaBycode'])->name('find-coa-bycode');
                     Route::get('list', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
                     //Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('sales-inv');
                     Route::post('saveP', [InvXeroController::class, 'storeParent'])->middleware('reclock:invoice')->name('save-sales-inv');
