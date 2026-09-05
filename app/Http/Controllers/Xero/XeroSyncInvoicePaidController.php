@@ -319,7 +319,8 @@ class XeroSyncInvoicePaidController extends Controller
                 'total_hari',
                 'created_at',
                 'price_sales',
-                'sales_AccountCode'
+                'sales_AccountCode',
+                'uuid_tracking_category'
             ]);
 
         if ($keyword !== '') {

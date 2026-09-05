@@ -24,14 +24,15 @@ class ProducAndServiceXeroLocalController extends Controller
 {
 
     use ApiResponse;
-    protected $repo, $repo_trans_all, $repo_d_bill, $repo_tracking, $global;
+    protected $repo, $repo_trans_all, $repo_d_bill, $repo_tracking, $global, $repo_coa;
 
     public function __construct(
         ItemPaketAllXeroRepo $repo,
         TransCoaRepo $transCoaRepo,
         PODBillRepository $repo_d_bill,
         TrackingRepo $repo_tracking,
-        GlobalService $globalService
+        GlobalService $globalService,
+        CoaRepo $repo_coa
 
     ) {
         $this->repo = $repo;
@@ -39,6 +40,7 @@ class ProducAndServiceXeroLocalController extends Controller
         $this->repo_d_bill = $repo_d_bill;
         $this->repo_tracking = $repo_tracking;
         $this->global = $globalService;
+        $this->repo_coa = $repo_coa;
     }
 
     function generateRandom4Digit()
@@ -77,10 +79,13 @@ class ProducAndServiceXeroLocalController extends Controller
 
         if ($request->code == null)
             $request['code'] = $this->global->generateUniqueString();
+
+        $cariAccountSales = $this->repo_coa->whereData(['id' => $request->account_id_salles])->value('code') ?? 'null from web';
+
         $request->merge([
             'uuid_product_and_service' => 'from_web',
             'purchase_AccountCode' => 'from_web',
-            'sales_AccountCode' => 'from_web',
+            'sales_AccountCode' => $cariAccountSales,
             'tax_rate_salles' => 0,
             'tax_rate_purchase' => 0,
             'price_purchase' => $request->price_purchase ?? 0

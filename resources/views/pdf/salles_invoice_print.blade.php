@@ -265,22 +265,38 @@
     <table class="data-table">
         <thead>
             <tr>
-                <th width="46%">Description</th>
-                <th width="14%" class="text-right">Quantity</th>
-                <th width="20%" class="text-right">Unit Price</th>
-                <th width="20%" class="text-right">Amount IDR</th>
+                <th width="46%">Penjelasan</th>
+                <th width="14%" class="text-right">Qty</th>
+                <th width="20%" class="text-right">Harga Satuan</th>
+                <th width="20%" class="text-right">Total IDR</th>
             </tr>
         </thead>
         <tbody>
             @foreach($detailItems as $item)
             <tr>
                <!-- Di table row -->
-<td class="invoice-desc">
-    {!! nl2br(e($item->desc)) !!}
-</td>
-                <td class="text-right">{{ $fmt($item->qty ?? null) }}</td>
-                <td class="text-right">{{ $fmt($item->unit_price ?? null) }}</td>
-                <td class="text-right amount-blue">{{ $fmt($item->total_amount_each_row ?? null) }}</td>
+                @php
+                    $cek_bold =  $item->qty<1 ? 'font-weight: bold;font-size:16px;':''
+                @endphp
+                <td class="invoice-desc" style="{{ $cek_bold }}">
+                  
+                    {!! nl2br(e($item->desc)) !!}
+                </td>
+                <td class="text-right">
+                    @if ($item->qty>0)
+                        {{ ($item->qty ?? null) }}
+                    @endif
+                </td>
+                <td class="text-right">
+                    @if ($item->qty>0)
+                        {{ $fmt($item->unit_price ?? null) }}
+                    @endif
+                </td>
+                <td class="text-right amount-blue">
+                    @if ($item->qty >0)
+                        {{ $fmt($item->total_amount_each_row ?? null) }}
+                    @endif
+                </td>
             </tr>
             @endforeach
         </tbody>
@@ -326,13 +342,13 @@
 
     <table class="totals-table">
         <tr>
-            <td width="60%"></td>
-            <td width="20%" class="label">Total bills</td>
+            <td width="20%"></td>
+            <td width="60%" class="label">Total Tagihan</td>
             <td width="20%" class="value">{{ $fmt($subTotal) }}</td>
         </tr>
          <tr>
             <td width="60%"></td>
-            <td width="20%" class="label">Total Payment</td>
+            <td width="20%" class="label">Total Pembayaran</td>
             <td width="20%" class="value">{{ $fmt($amountPaid) }}</td>
         </tr>
         <tr class="line-top">
@@ -356,7 +372,7 @@
     </table>
 
     <div class="due-date">
-        Due Date: {{ $fmtDate($invoice->due_date ?? null) ?? '-' }}
+        Jatuh Tempo: {{ $fmtDate($invoice->due_date ?? null) ?? '-' }}
     </div>
 
     <div class="footer-section">

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\MasterData\Coa;
+use App\Models\MasterData\TrackingCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -36,11 +37,34 @@ class ItemsPaketAllFromXero extends Model
         'tax_rate_salles',//0->salles tax on imports, 1 tax exempt, 2 tax on purchase, 3 tax on salles
         'tax_rate_purchase',
 
-        'uuid_tracking_category'//UNTUK tracking
+        'uuid_tracking_category'//UNTUK tracking kategory paket
     ];
 
 
 
+
+    public $appends = [
+        'tracking_category_paket',
+    ];
+
+
+    public function getTrackingCategoryPaketAttribute(): ?string
+    {
+        static $category = null; // cache dalam 1 request lifecycle
+
+        if ($category === null) {
+            $category = TrackingCategory::where('name_parent_category', 'nama paket')
+                ->first();
+        }
+
+        if (!$category)
+            return null;
+
+        $matched = collect($category->lines_category)
+            ->firstWhere('item_uuid_category', $this->uuid_tracking_category);
+
+        return $matched['item_name_category'] ?? null;
+    }
 
 
     public function getCoaSalles()

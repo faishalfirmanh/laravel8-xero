@@ -173,9 +173,9 @@ class InvXeroController extends Controller
                 'regex:/^[A-Za-z]{3}$/'
             ],
 
-            'item_id' => 'required|array|min:1',
+            'item_id' => 'nullable|array|min:1',
             'desc' => 'required|array|min:1',
-            'qty' => 'required|array|min:1',
+            'qty' => 'required|array',
             'unit_price' => 'required|array|min:1',
             'coa_id' => 'required|array|min:1',
 
@@ -184,6 +184,34 @@ class InvXeroController extends Controller
             'id_detail' => 'nullable|array',
             'sort_order' => 'nullable|array',
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $itemIds = $request->item_id ?? [];
+
+            foreach ($itemIds as $i => $itemId) {
+                if (empty($itemId)) {
+                    continue;
+                }
+
+                $qty = $request->qty[$i] ?? null;
+                $price = $request->unit_price[$i] ?? null;
+                $coa = $request->coa_id[$i] ?? null;
+                $rowLabel = 'Baris ke-' . ($i + 1);
+
+                if ($qty === null || $qty === '' || (float) $qty <= 0) {
+                    $validator->errors()->add("qty.$i", "$rowLabel: Qty wajib diisi dan lebih dari 0.");
+                }
+
+                if ($price === null || $price === '' || (float) $price <= 0) {
+                    $validator->errors()->add("unit_price.$i", "$rowLabel: Harga wajib diisi dan lebih dari 0.");
+                }
+
+                if (empty($coa)) {
+                    $validator->errors()->add("coa_id.$i", "$rowLabel: Account (COA) wajib dipilih.");
+                }
+            }
+
+        });
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 422);
@@ -490,8 +518,9 @@ class InvXeroController extends Controller
                 | Transaction COA
                 |--------------------------------------------------------------------------
                 */
+                $rowItemId = $request->item_id[$key] ?? null;
 
-                if ($request->action_save != 0) {
+                if ($request->action_save != 0 && !empty($rowItemId)) { //kusus detail yang ada itemnya
 
                     $nominal = (float) $saveD->total_amount_each_row;
 
@@ -533,6 +562,12 @@ class InvXeroController extends Controller
                         $transactionData,
                         $trans ? $trans->id : null
                     );
+                } else {
+                    $this->repo_all_trans
+                        ->whereData([
+                            'uuid_detail' => $saveD->uuid_detail_inv
+                        ])
+                        ->delete();
                 }
             }
 

@@ -2175,7 +2175,26 @@ function setRowSelect2Value($row, selector, id, text) {
     function resetHotelModal() {
     // ── Reset native form fields (text, date, number, hidden inputs) ──
         $('#formCreateHotel')[0].reset();
+         const today = new Date();
 
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+
+    const issueDate = `${year}-${month}-${day}`;
+
+    // Set issue date
+    $('#issue_date').val(issueDate);
+
+    // Issue date + 30 hari
+    const dueDate = new Date(today);
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    const dueYear = dueDate.getFullYear();
+    const dueMonth = String(dueDate.getMonth() + 1).padStart(2, '0');
+    const dueDay = String(dueDate.getDate()).padStart(2, '0');
+
+    $('#due_date').val(`${dueYear}-${dueMonth}-${dueDay}`);
         // ── Hidden fields — reset() kadang tidak konsisten di semua browser, jadi di-set eksplisit ──
         $('#idHotelInput').val('');
         $('#actionTypeValue').val('');
@@ -2198,8 +2217,7 @@ function setRowSelect2Value($row, selector, id, text) {
         $('#amount_are').val('0');
 
         // ── Text/date fields (extra safety net, walau harusnya sudah ke-cover reset() di atas) ──
-        $('#issue_date').val('');
-        $('#due_date').val('');
+     
         $('#invoice_number_display').val('auto');
         $('#reference').val('');
 
@@ -2441,20 +2459,20 @@ function buildRow() {
         </td>
         <td>
             <input type="number" class="form-control qty-input"
-                   name="qty[]" min="1" value="1" style="text-align:right;" required>
+                   name="qty[]" min="0" value="0" style="text-align:right;">
         </td>
         <td>
             <div class="price-col-wrap">
                 <span class="currency-label price-currency-label">SAR</span>
                 <input type="number" class="form-control price-input"
-                       name="unit_price[]" placeholder="0" required>
+                       name="unit_price[]" placeholder="0">
             </div>
         </td>
         <td>
             <input type="text" class="form-control" name="disc[]" placeholder="0%">
         </td>
         <td>
-            <select class="form-control select2-account" name="coa_id[]" required style="width:100%;"></select>
+            <select class="form-control select2-account" name="coa_id[]" style="width:100%;"></select>
         </td>
         <td>
             <select class="form-control" name="tax_rate[]">
@@ -2513,7 +2531,9 @@ function initRowSelect2($row) {
                             id        : item.id,
                             text      : item.nama_paket,
                             harga     : item.price_sales,
-                            id_coa : item.get_coa_salles_by_code
+                            id_coa : item.get_coa_salles_by_code,
+                            track_id : item.uuid_tracking_category,
+                            name_paket_track :item.tracking_category_paket
                         };
                     }),
                 }
@@ -2527,6 +2547,7 @@ function initRowSelect2($row) {
         // Auto-fill desc & price
         $row.find('.desc-input').val(d.nama_paket || d.text || '');
         $row.find('.price-input').val(Number(d.harga) || '');
+        $row.find('.qty-input').val(1);
 
         // ✅ Auto-fill .select2-account dari id_coa
         if (d.id_coa && d.id_coa.id) {
@@ -2540,6 +2561,27 @@ function initRowSelect2($row) {
                 .append(newOption)    // inject option dari id_coa
                 .trigger('change');   // trigger select2 supaya UI update
         }
+
+        if(d.track_id){
+            const $trackingPaketSelect = $row.find('.select2-paket');
+            const option = new Option(
+                d.name_paket_track,
+                d.track_id,
+                true,
+                true
+            );
+
+            $trackingPaketSelect
+                .empty()
+                .append(option)
+                .trigger('change'); 
+        }
+        setRowRequiredState($row, true);
+        recalcSummary();
+    }).on('select2:unselect select2:clear', function () {
+        const $row = $(this).closest('tr');
+        // ✅ item dikosongkan -> tidak wajib lagi
+        setRowRequiredState($row, false);
         recalcSummary();
     });
 
@@ -2798,6 +2840,25 @@ $(function () {
      initLineSortable();
 });
 
+// ── Toggle required pada qty, price, account berdasarkan item terpilih ──
+function setRowRequiredState($row, isRequired) {
+    const $qty     = $row.find('.qty-input');
+    const $price   = $row.find('.price-input');
+    const $account = $row.find('.select2-account');
+
+    if (isRequired) {
+        $qty.prop('required', true).attr('required', 'required');
+        $price.prop('required', true).attr('required', 'required');
+        $account.prop('required', true).attr('required', 'required');
+        $row.addClass('row-required-active');
+    } else {
+        $qty.prop('required', false).removeAttr('required');
+        $price.prop('required', false).removeAttr('required');
+        $account.prop('required', false).removeAttr('required');
+        $row.removeClass('row-required-active');
+    }
+}
+
 //submit
     $('.action-submit').on('click', function() {
         let actionValue = $(this).val();
@@ -2822,19 +2883,29 @@ $(function () {
     })
 
 
-        $('#formCreateHotel').on('submit', function(e) {
+    
+    $('#formCreateHotel').on('submit', function(e) {
             e.preventDefault();
+
             
-            $('.select2-account, .select2-paket, select2-item, .select2-divisi').each(function() {
+            $('.select2-account, .select2-paket, .select2-item, .select2-divisi').each(function() {
                 if ($(this).data('select2')) { $(this).trigger('change'); }
             });
 
             updateSortOrders();
+
             let formData = $(this).serialize();
             let params = new URLSearchParams(formData);
             let idInput = params.get('idHotelInput');
             let id_inv = (idInput && idInput > 0) ? idInput : null;
             let action_selected = params.get('action_type');
+
+            // ✅ Helper: pastikan tidak pernah null, agar tidak dibuang oleh $.map()
+            const getVals = (selector) =>
+                $(selector).map(function () {
+                    const v = $(this).val();
+                    return v === null || v === undefined ? '' : v;
+                }).get();
 
             let selectedData = {
                 id: id_inv,
@@ -2842,68 +2913,82 @@ $(function () {
                 issue_date: params.get('issue_date'),
                 due_date: params.get('due_date'),
                 reference: params.get('reference'),
-                invoice_number : params.get('invoice_number'),
-                code_curr:$("#currency_selected").val(), //params.get('currency_selected'),
-                // currency: params.get('currency'),
-                action_save : action_selected,
+                invoice_number: params.get('invoice_number'),
+                code_curr: $("#currency_selected").val(),
+                action_save: action_selected,
 
-                item_id : $('select[name="item_id[]"]').map(function(){ return $(this).val(); }).get(),
-                coa_id: $('select[name="coa_id[]"]').map(function(){ return $(this).val(); }).get(),
-                desc: $('.desc-input').map(function(){ return $(this).val(); }).get(),
-                qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
-                unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
-                //tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),
-                paket_tracking_uuid: $('select[name="paket_tracking_uuid[]"]').map(function(){ return $(this).val(); }).get(),
-                divisi_travel_tracking_uuid: $('select[name="divisi_travel_tracking_uuid[]"]').map(function(){ return $(this).val(); }).get(),
-                id_detail:$('input[name="id_detail[]"]').map(function(){ return $(this).val(); }).get(),
-                sort_order: $('input[name="sort_order[]"]').map(function(){ return $(this).val(); }).get(),
+                item_id: getVals('select[name="item_id[]"]'),
+                coa_id: getVals('select[name="coa_id[]"]'),
+                desc: getVals('.desc-input'),
+                qty: getVals('input[name="qty[]"]'),
+                unit_price: getVals('input[name="unit_price[]"]'),
+                paket_tracking_uuid: getVals('select[name="paket_tracking_uuid[]"]'),
+                divisi_travel_tracking_uuid: getVals('select[name="divisi_travel_tracking_uuid[]"]'),
+                id_detail: getVals('input[name="id_detail[]"]'),
+                sort_order: getVals('input[name="sort_order[]"]'),
             };
+
+            // ✅ Validasi manual per baris (item terisi -> qty/price/account wajib)
+            let hasError = false;
+            let errorMessages = [];
+
+            selectedData.item_id.forEach((itemVal, i) => {
+                if (itemVal) {
+                    const qty = selectedData.qty[i];
+                    const price = selectedData.unit_price[i];
+                    const account = selectedData.coa_id[i];
+
+                    if (!qty || Number(qty) <= 0) {
+                        hasError = true;
+                        errorMessages.push(`Baris ${i + 1}: Qty wajib diisi.`);
+                    }
+                    if (!price || Number(price) <= 0) {
+                        hasError = true;
+                        errorMessages.push(`Baris ${i + 1}: Harga wajib diisi.`);
+                    }
+                    if (!account) {
+                        hasError = true;
+                        errorMessages.push(`Baris ${i + 1}: Account (COA) wajib dipilih.`);
+                    }
+                }
+            });
+
+            if (hasError) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Data belum lengkap',
+                    html: errorMessages.join('<br>')
+                });
+                return;
+            }
 
             ajaxRequest(`{{ route('save-sales-inv') }}`, 'POST', selectedData, localStorage.getItem("token"))
                 .then(response => {
-                    if(response.status == 200){
-                        // Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                        // $('#modalCreateHotel').modal('hide');
-                        // table.ajax.reload(null, false);
-                        //console.log('saved ',action_selected ,'ss',myDropzone.getQueuedFiles().length)
-                        // if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
-                        //     let savedInvoiceId = id_inv ? id_inv : response.data.id; 
-                        //     $('#idHotelInput').val(savedInvoiceId); 
-                        //     $('.action-submit').prop('disabled', true);
-                        //     myDropzone.processQueue(); 
-                        // } else {
-                        //     // Jika Save Draft (0) ATAU tidak ada gambar yang dipilih, langsung tutup dan sukses
-                        //     Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                        //     $('#modalCreateHotel').modal('hide');
-                        //     table.ajax.reload(null, false);
-                        // }
-                    
+                    if (response.status == 200) {
                         $("#invoice_number_display").val(response.data.data.invoice_number)
 
-                            let savedInvoiceId = id_inv ? id_inv : response.data.data.id; 
-                            if (savedInvoiceId) {
-                                $('#idHotelInput').val(savedInvoiceId);
-                            }
-                             Swal.fire({
-                                icon: 'success',
-                                title: 'Sukses!',
-                                text: 'Data berhasil disimpan.',
-                                timer: 2500, // Hilang otomatis setelah 2.5 detik
-                                showConfirmButton: false,
-                                toast: true, // Menjadikan notif kecil di pojok agar tidak menutupi form
-                                position: 'top-end'
-                            });
+                        let savedInvoiceId = id_inv ? id_inv : response.data.data.id;
+                        if (savedInvoiceId) {
+                            $('#idHotelInput').val(savedInvoiceId);
+                        }
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Sukses!',
+                            text: 'Data berhasil disimpan.',
+                            timer: 2500,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
 
-                            if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
-                                myDropzone.processQueue(); 
-                            }
-                             $('#invoices_id_parent').val(response.data.data.id)
-                            
+                        if (action_selected == "1" && myDropzone.getQueuedFiles().length > 0) {
+                            myDropzone.processQueue();
+                        }
+                        $('#invoices_id_parent').val(response.data.data.id)
                     }
                 })
                 .catch((err) => {
                     cathError(err)
-                    //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
                 })
                 .finally(() => {
                     $('.action-submit').prop('disabled', false);
