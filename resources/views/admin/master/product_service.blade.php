@@ -749,6 +749,7 @@ $(document).ready(function () {
         $('#modalItemTitle').text('New item');
         $('#chkPurchase, #chkSell').prop('checked', false);
         $('#purchaseFields, #sellFields').removeClass('show');
+     $('#account_id_salles').val(null).trigger('change');
     }
 
     // =========================================================

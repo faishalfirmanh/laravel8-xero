@@ -34,7 +34,9 @@ class ItemsPaketAllFromXero extends Model
         'account_id_salles',//untuk coa id local kalau insert dari web, tidak sync dari xero,
         'desc_salles',
         'tax_rate_salles',//0->salles tax on imports, 1 tax exempt, 2 tax on purchase, 3 tax on salles
-        'tax_rate_purchase'
+        'tax_rate_purchase',
+
+        'uuid_tracking_category'//UNTUK tracking
     ];
 
 

@@ -2011,7 +2011,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
 
         $row.find('.sort-order-input').val(item.sort_order ?? index ?? 0);
         // 3. Isi field teks sederhana
-        $row.find('.desc-input').val(item.desc || '');
+       $row.find('.desc-input').val(item.desc || '').trigger('change');
         $row.find('.qty-input').val(item.qty || 1);
         $row.find('.price-input').val(parseFloat(item.unit_price) || 0);
 
@@ -2849,9 +2849,7 @@ $(function () {
 
                 item_id : $('select[name="item_id[]"]').map(function(){ return $(this).val(); }).get(),
                 coa_id: $('select[name="coa_id[]"]').map(function(){ return $(this).val(); }).get(),
-                desc:   $('textarea[name="desc[]"]').map(function(){
-                            return $(this).val();
-                        }).get(),
+                desc: $('.desc-input').map(function(){ return $(this).val(); }).get(),
                 qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
                 unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
                 //tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),

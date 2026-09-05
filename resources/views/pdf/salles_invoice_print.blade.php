@@ -176,6 +176,11 @@
             color: #777;
             text-align: center;
         }
+
+    .invoice-desc {
+        display: block !important;
+        line-height: 1.5 !important;
+    }
     </style>
 </head>
 
@@ -269,9 +274,10 @@
         <tbody>
             @foreach($detailItems as $item)
             <tr>
-                <td>
-                  {{ $item->desc }}
-                </td>
+               <!-- Di table row -->
+<td class="invoice-desc">
+    {!! nl2br(e($item->desc)) !!}
+</td>
                 <td class="text-right">{{ $fmt($item->qty ?? null) }}</td>
                 <td class="text-right">{{ $fmt($item->unit_price ?? null) }}</td>
                 <td class="text-right amount-blue">{{ $fmt($item->total_amount_each_row ?? null) }}</td>

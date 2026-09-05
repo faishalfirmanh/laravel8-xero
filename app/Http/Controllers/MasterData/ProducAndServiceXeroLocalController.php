@@ -10,10 +10,10 @@ use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\Expenses\Purchase\Bill\DBill;
 use DB;
 use Illuminate\Http\Request;
-
+use App\Services\GlobalService;
 use App\Http\Repository\MasterData\CoaRepo;
 
-
+use Illuminate\Validation\Rule;
 use Str;
 use Validator;
 use App\Traits\ApiResponse;
@@ -24,18 +24,21 @@ class ProducAndServiceXeroLocalController extends Controller
 {
 
     use ApiResponse;
-    protected $repo, $repo_trans_all, $repo_d_bill, $repo_tracking;
+    protected $repo, $repo_trans_all, $repo_d_bill, $repo_tracking, $global;
 
     public function __construct(
         ItemPaketAllXeroRepo $repo,
         TransCoaRepo $transCoaRepo,
         PODBillRepository $repo_d_bill,
-        TrackingRepo $repo_tracking
+        TrackingRepo $repo_tracking,
+        GlobalService $globalService
+
     ) {
         $this->repo = $repo;
         $this->repo_trans_all = $transCoaRepo;
         $this->repo_d_bill = $repo_d_bill;
         $this->repo_tracking = $repo_tracking;
+        $this->global = $globalService;
     }
 
     function generateRandom4Digit()
@@ -46,9 +49,20 @@ class ProducAndServiceXeroLocalController extends Controller
 
     public function store(Request $request)
     {
+        $id = $request->id ?? null;
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
-            'code' => 'required|string',
+            'code' => [
+                'required',
+                'string',
+                // Saat new  → cek seluruh tabel, tidak boleh sama
+                // Saat edit → cek tabel KECUALI row miliknya sendiri (by id)
+                Rule::unique('items_paket_all_from_xeros', 'code')
+                    ->when(
+                        $id && (int) $id > 0,
+                        fn($rule) => $rule->ignore($id)
+                    )
+            ],
             'nama_paket' => 'required|string',
             'desc' => 'nullable|string',
             'desc_salles' => 'nullable|string',
@@ -61,6 +75,8 @@ class ProducAndServiceXeroLocalController extends Controller
             return $this->error($validator->errors(), 500);
         }
 
+        if ($request->code == null)
+            $request['code'] = $this->global->generateUniqueString();
         $request->merge([
             'uuid_product_and_service' => 'from_web',
             'purchase_AccountCode' => 'from_web',
@@ -83,7 +99,7 @@ class ProducAndServiceXeroLocalController extends Controller
                 if ($request->id == null) {
                     // ===== CREATE: generate uuid baru, append line baru =====
                     $usedUuids = $this->getAllUsedUuids();
-                    $newUuid = $this->generateUniqueUuid($usedUuids);
+                    $newUuid = $this->global->generateUniqueString();
 
                     $lines[] = [
                         'id_parent' => $cari->id,

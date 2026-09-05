@@ -71,6 +71,12 @@
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
     }
+
+    /**/
+    /* Dropdown bank muncul di atas modal (karena dropdownParent: body) */
+    .select2-container--open .select2-dropdown {
+        z-index: 1060 !important;
+    }
 </style>
 
 <div class="card shadow mb-5">
@@ -631,7 +637,10 @@ $(document).ready(function() {
         $('#modal_pay input[name="nominal_spend"]').val(0);
         $('#modal_pay input[name="date_transaction"]').val('{{ date("Y-m-d") }}');
         $('#modal_pay input[name="reference_detail"]').val('');
-        $('#payment_bank').val(null).trigger('change');
+       
+         $('#payment_bank').find('option:not([value=""])').remove();
+         $('#payment_bank').val('').trigger('change');
+
         $('#btnRecordPayment')
             .text('Record payment')
             .removeClass('btn-warning')
@@ -725,6 +734,7 @@ $(document).ready(function() {
     });
 
 
+    // SESUDAH
     $(document).on('click', '.btn-edit-payment', function() {
         let $btn      = $(this);
         let payId     = $btn.data('id');
@@ -734,24 +744,23 @@ $(document).ready(function() {
         let bankName  = $btn.data('bank-name');
         let reference = $btn.data('reference') || '';
 
-        // Isi form payment
         $('#editPaymentId').val(payId);
         $('#modal_pay input[name="nominal_spend"]').val(parseFloat(nominal));
         $('#modal_pay input[name="date_transaction"]').val(date);
         $('#modal_pay input[name="reference_detail"]').val(reference);
 
-        // Set select2 bank dengan option baru
-        let bankOpt = new Option(bankName, bankId, true, true);
-        $('#payment_bank').empty().append(bankOpt).trigger('change');
+        // FIX: JANGAN pakai .empty() — menghapus <option value=""> yang wajib ada untuk Select2.
+        // Hapus hanya option non-placeholder, lalu append option bank yang dipilih.
+        $('#payment_bank').find('option:not([value=""])').remove();
+        var bankOpt = new Option(bankName, bankId, true, true);
+        $('#payment_bank').append(bankOpt).trigger('change');
 
-        // Ubah tampilan tombol ke mode edit
         $('#btnRecordPayment')
             .text('Update Payment')
             .removeClass('btn-success')
             .addClass('btn-warning');
         $('#btnCancelEditPayment').show();
 
-        // Scroll ke form payment agar keliatan
         $('#modal_pay')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
@@ -846,6 +855,8 @@ $(document).ready(function() {
        $('.select2-payment-bank').select2({
             placeholder: "Cari nama bank...",
             allowClear: true,
+             dropdownParent: $('body'),   // FIX: hindari scroll-positioning bug
+             width: '100%',    
             dropdownParent: $('#modalCreateHotel'),
             ajax: {
                 url: "{{ route('getbankselect2') }}",  

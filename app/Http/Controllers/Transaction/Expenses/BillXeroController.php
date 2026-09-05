@@ -354,7 +354,8 @@ class BillXeroController extends Controller
             // Validasi nominal baru terhadap sisa setelah di-reverse
             if ($request->nominal_spend > $findData->total) {
                 DB::rollBack();
-                return $this->error("Nominal melebihi total tagihan (total: {$findData->total})", 400);
+                $view_nom = number_format($findData->total, 0, ',', '.');
+                return $this->error("Nominal melebihi total tagihan (total: {$view_nom})", 400);
             }
 
             if ($request->nominal_spend > $sisa_setelah_reverse) {
@@ -526,7 +527,8 @@ class BillXeroController extends Controller
 
             if ($request->nominal_spend > $findData->total) {
                 DB::rollBack();
-                return $this->error("Nominal melebihi total tagihan (total: {$findData->total})", 400);
+                $view_nom = number_format($findData->total, 0, ',', '.');
+                return $this->error("Nominal melebihi total tagihan (total: {$view_nom})", 400);
             }
 
             if ($request->nominal_spend > $sisaTagihan) {
