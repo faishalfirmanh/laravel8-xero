@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Transaction\Sales;
 
 use App\Http\Controllers\Controller;
+use App\Http\Repository\MasterData\JamaahAlhidRepository;
 use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
 use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
@@ -32,7 +33,7 @@ class InvXeroController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank, $repo_over;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank, $repo_over, $repo_jamaah_alhid;
     use ConfigRefreshXero;
     use ApiResponse;
 
@@ -44,7 +45,8 @@ class InvXeroController extends Controller
         TransBankRepo $repo_trans_bank,
         GlobalService $service_global,
         DataJamaahXeroRepository $repo_jamaah,
-        OverPayRepo $repo_over
+        OverPayRepo $repo_over,
+        JamaahAlhidRepository $repo_jamaah_alhid
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -53,6 +55,7 @@ class InvXeroController extends Controller
         $this->repo_jamaah = $repo_jamaah;
         $this->repo_trans_bank = $repo_trans_bank;
         $this->repo_over = $repo_over;
+        $this->repo_jamaah_alhid = $repo_jamaah_alhid;
     }
 
     public function getListInvoice(Request $request)
@@ -159,7 +162,9 @@ class InvXeroController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer|exists:invoices_all_from_xeros,id',
-            'contact_id' => 'required|integer|exists:data_jamaah_xeros,id',
+            // 'contact_id' => 'nullable|integer'|exists:data_jamaah_xeros,id',
+            'contact_id' => 'nullable|integer|required_without:id_jamaah_alhid',
+            'id_jamaah_alhid' => 'nullable|integer|required_without:contact_id',
             'issue_date' => 'required|date',
             'due_date' => 'required|date',
             'reference' => 'required|string',
@@ -185,6 +190,9 @@ class InvXeroController extends Controller
             'sort_order' => 'nullable|array',
         ]);
 
+        // var_dump($request->contact_id);
+        // echo "<br>";
+        // dd($request->id_jamaah_alhid);
         $validator->after(function ($validator) use ($request) {
             $itemIds = $request->item_id ?? [];
 
@@ -323,9 +331,11 @@ class InvXeroController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $getContact = $this->repo_jamaah
+            $getContact = $request->contact_id ? $this->repo_jamaah
                 ->whereData(['id' => $request->contact_id])
-                ->first();
+                ->first() : $this->repo_jamaah_alhid
+                    ->whereData(['id_jamaah' => $request->id_jamaah_alhid])
+                    ->first();
 
             if (!$getContact) {
                 throw new \RuntimeException('Contact tidak ditemukan.');
@@ -337,8 +347,12 @@ class InvXeroController extends Controller
             |--------------------------------------------------------------------------
             */
 
+            $cekIdContact = $request->contact_id
+                ? ['contact_id' => $request->contact_id]
+                : ['id_jamaah_alhid' => $request->id_jamaah_alhid];
+
             $mergeData = [
-                'contact_name' => $getContact->full_name,
+                'contact_name' => $getContact->full_name ?? $getContact->nama_jamaah,
                 'uuid_contact' => 'from_local',
                 'status' => $status,
                 'reference' => strtolower(trim($request->reference)),
@@ -346,6 +360,7 @@ class InvXeroController extends Controller
                 'created_by' => $request->user_login->id,
                 // snapshot rate
                 'nominal_currency' => $nominalCurrency,
+                $cekIdContact//untuk kondisi conatc atau alhid
             ];
 
             if (!$isUpdate) {

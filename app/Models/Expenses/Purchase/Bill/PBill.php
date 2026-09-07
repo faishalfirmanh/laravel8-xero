@@ -36,6 +36,7 @@ class PBill extends Model
         'tax_base',
         'nominal_paid_base',
         'nominal_due_base',//total nominal yang sudah di conversi ke rupiah
+        'id_jamaah_alhid'//untuk relasi dengan bill pada jamaah alhid (beda server)
     ];
     //status 0 /draft tidak tercatat pada
 

@@ -22,7 +22,8 @@ class TransactionBankTransP extends Model
         'subtotal',
         'total',
         'is_spend',
-        'bank_id_xero'
+        'bank_id_xero',
+        'id_jamaah_alhid'
     ];
 
     protected $appends = [

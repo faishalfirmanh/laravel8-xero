@@ -35,13 +35,14 @@ class InvoicesAllFromXero extends Model
         'contact_name',
         'item_name',
         'reference',
-        'contact_id',//pengganti uuid_contact,masih tidak tau mau di join dengan tabel apa
+        'contact_id',//pengganti uuid_contact
         'less_nominal',//nominal kurang
         //0 ->draft,  1->awaiting payment (AUTHORISED),3,->paid ,4->void (VOIDED) = batal.
         //semua coa / account yang tercatat ketika approved / awaiting payment.
         'code_curr',//code mata 
         'nominal_currency',//mata uang currency,//RATE
-        'created_by'
+        'created_by',
+        'id_jamaah_alhid'//jamaah id dari server alhidayah
     ];
 
     protected $appends = [
@@ -67,6 +68,11 @@ class InvoicesAllFromXero extends Model
     public function getJamaah()
     {
         return $this->hasOne(DataJamaahXero::class, 'id', 'contact_id');
+    }
+
+    public function jamaahDirectAlhid()//data jamaah dari alhidayah
+    {
+        return $this->belongsTo(DataJamaah::class, 'id_jamaah_alhid', 'id_jamaah_alhid');
     }
 
     public function getOverPay()

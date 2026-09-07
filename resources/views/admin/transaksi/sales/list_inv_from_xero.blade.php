@@ -727,6 +727,17 @@
                             </div>
                         </div>
 
+                        {{-- <div class="xero-field">
+                            <label>Contact Alhid<span class="text-danger">*</span></label>
+                            <div class="input-icon-wrap">
+                                <i class="ti ti-user"></i>
+                                <select class="form-control select2-contact"
+                                        name="id_jamaah_alhid" id="id_jamaah_alhid"
+                                        style="width:100%;" required>
+                                </select>
+                            </div>
+                        </div> --}}
+
                         <div class="xero-field">
                             <label>Issue date <span class="text-danger">*</span></label>
                             <div class="input-icon-wrap">
@@ -2107,6 +2118,9 @@ function setRowSelect2Value($row, selector, id, text) {
             if (d.contact_id) {
                 const contactText = d.contact_name || ('Contact #' + d.contact_id);
                 setSelect2Value('#contact_id', d.contact_id, contactText);
+            }else if(d.id_jamaah_alhid){
+                 const contactText = d.contact_name || ('Contact #' + d.id_jamaah_alhid);
+                setSelect2Value('#id_jamaah_alhid', d.id_jamaah_alhid, contactText);
             }
 
             // ── 3. Detail rows ───────────────────────────────
@@ -2664,6 +2678,60 @@ function initRowSelect2($row) {
 }
 
 // ── Init Contact Select2 di form atas ─────────────────────
+
+function initContactAlhidSelect2() {
+    $('#id_jamaah_alhid').select2({
+        theme: 'bootstrap4',
+        dropdownParent: $('#modalCreateHotel'),
+        placeholder: 'Pilih Agent / Contact',
+        allowClear: true,
+        minimumInputLength: 1,
+        language: {
+            inputTooShort: function () {
+                return 'Ketik minimal 1 huruf untuk mencari contact...';
+            },
+            searching: function () {
+                return 'Mencari...';
+            },
+            noResults: function () {
+                return 'Contact jamaah tidak ditemukan';
+            }
+        },
+        ajax: {
+            url: '{{ route("list-select2-jamaahalhid") }}',
+            dataType: 'json',
+            delay: 1200,
+            data: function (params) {
+                return {
+                    keyword: params.term || '',
+                    limit: 5
+                };
+            },
+            processResults: function (response) {
+                return {
+                    results: $.map(
+                        response.data || [],
+                        function (item) {
+                            return {
+                                id: item.id_jamaah,
+                                text: item.nama_jamaah,
+                                phone: item.hp_jamaah || '-'
+                            };
+
+                        }
+                    ),
+                    pagination: {
+                        more: false
+                    }
+                };
+            },
+            cache: true
+        }
+
+    });
+
+}
+
 function initContactSelect2() {
     $('#contact_id').select2({
         theme: 'bootstrap4',
@@ -2834,7 +2902,8 @@ function loadDropzoneImages(invoiceId) {
 }
 
 $(function () {
-    initContactSelect2();
+   initContactSelect2();
+   // initContactAlhidSelect2(); //ini untuk jamaah alhidayah
     addFirstRow();
     syncCurrencyLabels();
      initLineSortable();
@@ -2906,10 +2975,13 @@ function setRowRequiredState($row, isRequired) {
                     const v = $(this).val();
                     return v === null || v === undefined ? '' : v;
                 }).get();
+           
+                let contactId = params.get('contact_id');
+                let idJamaahAlhid = params.get('id_jamaah_alhid');
 
             let selectedData = {
                 id: id_inv,
-                contact_id: params.get('contact_id'),
+                // contact_id: params.get('contact_id'),
                 issue_date: params.get('issue_date'),
                 due_date: params.get('due_date'),
                 reference: params.get('reference'),
@@ -2927,6 +2999,14 @@ function setRowRequiredState($row, isRequired) {
                 id_detail: getVals('input[name="id_detail[]"]'),
                 sort_order: getVals('input[name="sort_order[]"]'),
             };
+
+            if (contactId) {
+                selectedData.contact_id = contactId;
+            } 
+            else if (idJamaahAlhid) {
+                selectedData.id_jamaah_alhid = idJamaahAlhid;
+            }
+
 
             // ✅ Validasi manual per baris (item terisi -> qty/price/account wajib)
             let hasError = false;

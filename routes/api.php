@@ -63,6 +63,7 @@ use App\Http\Controllers\Transaction\Sales\InvXeroController;
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
 use App\Http\Controllers\Report\LogHistoryController;
 
+use App\Models\DataJamaah;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -182,6 +183,7 @@ Route::prefix("xero-integrasi")->group(function () {
     Route::prefix('contact')->group(function () {
         Route::get('/get-all', [JamaahApiXeroController::class, 'getAllContact'])->name('list-contact-xero');//sync
         Route::get('/select2', [JamaahApiXeroController::class, 'getAllSelect2'])->name('list-contact-select2');
+        Route::get('select2-alhid', [JamaahApiXeroController::class, 'getSelect2JamaahAlhid'])->name('list-select2-jamaahalhid');
     });
 
     Route::get('get-track-category', [TrackingLocalController::class, 'trackByParent'])->name('tracking-by-parent');

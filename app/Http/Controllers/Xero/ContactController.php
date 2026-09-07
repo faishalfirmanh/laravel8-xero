@@ -748,7 +748,12 @@ class ContactController extends Controller
                 'Xero-Tenant-Id' => env('XERO_TENANT_ID'),
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-            ])->get('https://api.xero.com/api.xro/2.0/Contacts');
+            ])->timeout(30)
+                ->get('https://api.xero.com/api.xro/2.0/Contacts', [
+                    'page' => 1,
+                    'pageSize' => 10,
+                    'order' => 'UpdatedDateUTC DESC',
+                ]);
 
             // Mengembalikan respons Xero, termasuk status code (misalnya 200, 400, 401)
             return response()->json($response->json() ?: ['message' => 'Xero API Error'], $response->status());

@@ -2,6 +2,7 @@
 
 namespace App\Models\MasterData;
 
+use App\Models\DataJamaah;
 use App\Models\Transaction\Overpayment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,11 +23,22 @@ class DataJamaahXero extends Model
         'pass',
         'nik',
         'detail_address',
+        'id_jamaah_alhid'
     ];
 
     public $appends = [
         'tot_over'
     ];
+
+
+    public function jamaahAlhid()
+    {
+        return $this->belongsTo(
+            DataJamaah::class,
+            'id_jamaah',
+            'id_jamaah_alhid'
+        );
+    }
 
     public function transHotel()
     {

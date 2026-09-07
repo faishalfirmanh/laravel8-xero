@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\ConfigRefreshXero;
 use App\Http\Controllers\Controller;
+use App\Http\Repository\MasterData\JamaahAlhidRepository;
 use Illuminate\Http\Request;
 use Validator;
 use Illuminate\Support\Facades\Http;
@@ -15,12 +16,13 @@ class JamaahApiXeroController extends Controller
 {
     //
 
-    protected $repo;
+    protected $repo, $repo_alhid;
     use ApiResponse, ConfigRefreshXero;
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    public function __construct(JamaahXeroRepository $repo)
+    public function __construct(JamaahXeroRepository $repo, JamaahAlhidRepository $repo_alhid)
     {
         $this->repo = $repo;
+        $this->repo_alhid = $repo_alhid;
     }
 
 
@@ -37,6 +39,36 @@ class JamaahApiXeroController extends Controller
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ];
+    }
+
+    public function getSelect2JamaahAlhid(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            // 'page' => 'required|integer',
+            'keyword' => 'required|string',
+            'kolom_name' => 'nullable|string',
+            'limit' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+        $where = [];
+        $keyword = trim($request->keyword ?? '');
+
+        $limit = (int) ($request->limit ?? 5);
+
+        // Safety limit
+        $limit = min(max($limit, 1), 10);
+        $data = $this->repo_alhid->searchDataAlhidd(
+            $where,
+            $limit,
+            0,
+            'nama_jamaah',
+            $keyword
+        );
+
+        return $this->autoResponse($data);
     }
 
     public function getAllSelect2(Request $request)

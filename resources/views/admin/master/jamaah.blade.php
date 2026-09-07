@@ -13,7 +13,7 @@
 
             <!-- Button Tambah COA -->
           
-                {{-- <div class="d-flex flex-column align-items-end">
+                <div class="d-flex flex-column align-items-end">
                     <button onclick="syncContactFromXero()" 
                             type="button" 
                             class="btn btn-success shadow-sm fw-bold">
@@ -22,7 +22,7 @@
                     <span class="text-muted mt-1 small" style="font-size: 11px;">
                         Sinkronisasi 100 Contact Xero
                     </span>
-                </div> --}}
+                </div>
                  <div class="d-flex flex-column align-items-end">
                     <button onclick="bukaModalJamaah()" 
                             type="button" 
