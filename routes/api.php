@@ -98,6 +98,8 @@ Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyB
 Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
 
 
+Route::get('get_inv_external/{uuid_inv}', [InvoiceXeroLocalController::class, 'InvExternal'])->name('get_inv_external');
+
 //xero refresh token
 // 1. Route untuk inisiasi login (Jalankan ini saat xero_token.json masih kosong)
 Route::prefix("xero")->group(function () {

@@ -263,6 +263,31 @@ class InvoiceXeroLocalController extends Controller
 
     // ── Print → PDF stream (tidak berubah banyak) ────────────────────────────
 
+
+    public function InvExternal(Request $request, $uuid_inv)
+    {
+        // $validator = Validator::make(
+        //     $request->all(),
+        //     [
+        //         'key' => 'required|string|in:namiroh123',
+        //     ]
+        // );
+        // if ($validator->fails()) {
+        //     return $this->error($validator->errors(), 404);
+        // }
+        $invoice = InvoicesAllFromXero::with([
+            'getDetailById',
+            'getPayment',
+            'getDetailById.getItems',
+            'getOverPay'
+        ])
+            ->where('invoice_uuid', $uuid_inv)
+            ->first();
+
+        return $this->autoResponse($invoice);
+    }
+
+
     public function printInvoice(Request $request, $id)
     {
         $invoice = InvoicesAllFromXero::with([
