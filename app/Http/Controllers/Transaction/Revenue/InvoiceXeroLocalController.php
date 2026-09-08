@@ -266,15 +266,15 @@ class InvoiceXeroLocalController extends Controller
 
     public function InvExternal(Request $request, $uuid_inv)
     {
-        // $validator = Validator::make(
-        //     $request->all(),
-        //     [
-        //         'key' => 'required|string|in:namiroh123',
-        //     ]
-        // );
-        // if ($validator->fails()) {
-        //     return $this->error($validator->errors(), 404);
-        // }
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'key' => 'required|string|in:namiroh123',
+            ]
+        );
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
         $invoice = InvoicesAllFromXero::with([
             'getDetailById',
             'getPayment',
@@ -303,9 +303,10 @@ class InvoiceXeroLocalController extends Controller
             abort(404, 'Invoice tidak ditemukan.');
         }
 
-        $urlTujuan = route('salles_invoice_print', [
-            'id' => $invoice->invoice_uuid
-        ]);
+        $urlTujuan = "https://inv.alhidayah.id/" . $id;
+        // route('salles_invoice_print', [
+        //     'id' => $invoice->invoice_uuid
+        // ]);
 
         $webpLogoPath = public_path('assets/img/nam_min.webp');
 
