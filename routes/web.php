@@ -85,6 +85,9 @@ Route::prefix('travel')->group(function () {
             Route::get('sales-invoice', [DashboardController::class, 'getTransInvoice'])->name('web-sales-inv');
             //
             Route::get('/sales-invoice/print/{id}', [InvoiceXeroLocalController::class, 'printInvoice'])->name('salles_invoice_print');
+            // routes/web.php
+            Route::get('/sales-invoice/preview/{id}', [InvoiceXeroLocalController::class, 'previewInvoice'])
+                ->name('salles_invoice_preview');
 
             Route::get('purchase-orders', [DashboardController::class, 'getTransPurchaseOrder'])->name('web-purchase-or');
             Route::get('purchase-bills', [DashboardController::class, 'getTransPurchaseBill'])->name('web-purchase-bill');//

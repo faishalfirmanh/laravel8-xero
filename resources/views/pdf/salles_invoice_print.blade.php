@@ -251,7 +251,7 @@
                 </table>
             </td>
             <td width="35%" class="text-right">
-                <img src="{{ public_path('assets/img/min_2.png') }}" class="company-logo" />
+                <img src="{{ public_path('assets/img/nam_min.webp') }}" class="company-logo" />
                 <div class="company-info">
                     PT An Namiroh Travelindo<br>
                     Jalan Gajah Mada<br>
@@ -370,6 +370,19 @@
         @endif
        
     </table>
+
+    <div style="margin-top:-30px;">
+        <img 
+            src="{{ $qrCode }}" 
+            width="120"
+            height="120"
+            alt="QR Code"
+        >
+
+        <div style="font-size: 10px; margin-top: 5px;">
+            Scan untuk melihat invoice
+        </div>
+    </div>
 
     <div class="due-date">
         Jatuh Tempo: {{ $fmtDate($invoice->due_date ?? null) ?? '-' }}

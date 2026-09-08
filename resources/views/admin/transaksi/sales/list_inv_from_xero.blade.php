@@ -1088,9 +1088,9 @@
 
       <div class="modal-footer d-print-none">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
-        <button type="button" class="btn btn-primary" onclick="printInvoice()">
+        {{-- <button type="button" class="btn btn-primary" onclick="printInvoice()">
           <i class="fa fa-print"></i> Download PDF
-        </button>
+        </button> --}}
       </div>
 
     </div>
@@ -1285,6 +1285,7 @@
   </div>
 </div>
 
+@include('admin.transaksi.sales.preview_invoice_modal')
 
 <div class="modal fade" id="previewImageModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
@@ -1306,16 +1307,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 @push('scripts')
 <script>
-     function printInvoice() {
-      let id_nya = $("#id_invoice_view_detail").val();
-        if(!id_nya) {
-            alert("ID Invoice tidak ditemukan");
-            return;
-        }
-        let url = "{{ route('invoice_hotel_print', ':id') }}";
-        url = url.replace(':id', id_nya);
-        window.open(url, '_blank');
-    }
+    //  function printInvoice() {
+    //   let id_nya = $("#id_invoice_view_detail").val();
+    //     if(!id_nya) {
+    //         alert("ID Invoice tidak ditemukan");
+    //         return;
+    //     }
+    //     let url = "{{ route('invoice_hotel_print', ':id') }}";
+    //     url = url.replace(':id', id_nya);
+    //     window.open(url, '_blank');
+    // }
 
     let lineSortable = null;
 
@@ -1772,6 +1773,9 @@ let payFormMode = 'new'; // 'new' | 'edit'
         });
     }
 
+
+    
+
     // FUNGSI UTAMA: Membuat HTML Baris Kamar (Bisa dipakai Edit & Tambah Baru)
    
 
@@ -1908,11 +1912,26 @@ let payFormMode = 'new'; // 'new' | 'edit'
             searchable: false,
             className: "text-center",
             render: function(data, type, row) {
+                let uuid_nya = row.invoice_uuid;
                 return `
                     <a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2" title="Edit Invoice"><i class="ti ti-pencil"></i></a>
                     <a href="javascript:;" data-id="${data}" class="text-success show-payment-modal mr-2" title="Payment History"><i class="ti ti-credit-card"></i></a>
-                    <a href="javascript:;" data-id="${data}" onclick="printInvoice(${data})" class="text-success show-invoice-modal" title="invoice"><i class="ti ti-clipboard"></i></a>
-                `;
+                    <a href="javascript:;" 
+                        data-id="${uuid_nya}" 
+                        onclick="privewiInvoice('${uuid_nya}')"
+                        class="text-danger show-invoice-privew" 
+                        title="preview invoice">
+                        <i class="ti ti-eye"></i>
+                    </a>
+                    <a style="margin-left:5px;" href="javascript:;" 
+                        data-id="${uuid_nya}" 
+                        onclick="printInvoice('${uuid_nya}')"
+                        class="text-success show-invoice-modal" 
+                        title="invoice">
+                        <i class="ti ti-clipboard"></i>
+                    </a>
+                    `
+                ;
             },
         }
        ];
@@ -1923,6 +1942,35 @@ let payFormMode = 'new'; // 'new' | 'edit'
         const [y, m, d] = date.split('-');
         return `${d}/${m}/${y}`;
     }
+
+    // ── Preview Invoice → buka di modal (iframe) ────────────────────────────
+    function privewiInvoice(uuid) {
+        const $frame   = $('#previewInvoiceFrame');
+        const $loading = $('#previewInvoiceLoading');
+
+        // Reset setiap kali modal dibuka
+        $frame.hide().attr('src', '');
+        $loading.show();
+        $('#labelModalPreviewInvoice').html(
+            '<i class="ti ti-file-invoice mr-1"></i> Preview Invoice'
+        );
+
+        // Kaitkan tombol download ke uuid invoice ini
+        $('#btnDownloadPdf').off('click').on('click', function () {
+            printInvoice(uuid);
+        });
+
+        // Buka modal dulu → user langsung lihat loading spinner
+        $('#modalPreviewInvoice').modal('show');
+
+        // Set src setelah modal tampil → trigger iframe load
+        const previewUrl = "{{ route('salles_invoice_preview', ['id' => '__ID__']) }}"
+                                .replace('__ID__', uuid);
+        $frame.attr('src', previewUrl);
+    }
+
+    // Dipanggil oleh iframe onload
+   
 
     //--open modal dari report
     //untuk auto open dari report
@@ -2907,6 +2955,15 @@ $(function () {
     addFirstRow();
     syncCurrencyLabels();
      initLineSortable();
+
+    // ✅ Binding load iframe preview — menggantikan onload="invoiceFrameLoaded()" inline
+    $('#previewInvoiceFrame').on('load', function () {
+        const src = $(this).attr('src');
+        if (!src || src === '') return;
+        $('#previewInvoiceLoading').fadeOut(200, function () {
+            $('#previewInvoiceFrame').fadeIn(200);
+        });
+    });
 });
 
 // ── Toggle required pada qty, price, account berdasarkan item terpilih ──
@@ -3151,10 +3208,10 @@ function setRowRequiredState($row, isRequired) {
 
     // 1. Buka Modal dan Load Data
 
-    $('#tableHotel').on('click', '.show-invoice-modal', function() {
-        const id = $(this).data('id');
-        $('#invoices_id_parent').val(id);
-    })
+    // $('#tableHotel').on('click', '.show-invoice-modal', function() {
+    //     const id = $(this).data('id');
+    //     $('#invoices_id_parent').val(id);
+    // })
 
 
     $('#tableHotel').on('click', '.show-payment-modal', function() {

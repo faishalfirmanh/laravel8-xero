@@ -11,6 +11,7 @@ use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
 use App\Http\Repository\MasterData\DataJamaahXeroRepository;
 use App\Http\Repository\Revenue\HotelDetailInvoicesRepository;
 use Log;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Str;
 use Validator;
 use App\Traits\ApiResponse;
@@ -21,11 +22,8 @@ use Carbon\Carbon;
 use App\Models\PaymentParams;
 use Illuminate\Support\Facades\Http;
 use App\ConfigRefreshXero;
-use App\Models\Revenue\Hotel\DetailInvoicesHotel;
-use App\Models\Revenue\Hotel\InvoicesHotel;
-use App\Models\Config\ConfigCurrency;
-use Barryvdh\DomPDF\Facade\Pdf;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 class InvoiceXeroLocalController extends Controller
 {
 
@@ -95,6 +93,8 @@ class InvoiceXeroLocalController extends Controller
         $data = $this->repo_va->whereData(['va_number' => $request->va_number])->first();
         return $this->autoResponse($data);
     }
+
+
     public function getListInvoice(Request $request)
     {
         $tokenData = $this->getValidToken();
@@ -170,25 +170,246 @@ class InvoiceXeroLocalController extends Controller
         // SyncXeroInvoiceJobV2::dispatch($tokenData, $jobId);
 
     }
+    // ── Helper bersama: logo base64 ──────────────────────────────────────────
 
-    public function printInvoice(Request $request, $id)
+    private function getLogoBase64(): string
     {
-        $invoice = InvoicesAllFromXero::with(['getDetailById', 'getPayment', 'getDetailById.getItems', 'getOverPay'])->find($id);
+        return 'data:image/webp;base64,' . base64_encode(
+            file_get_contents(public_path('assets/img/nam_min.webp'))
+        );
+    }
+
+    // ── Generate QR lokal (base64) — dipakai bersama preview & print ──
+    private function generateQrBase64(string $url, string $uniqueKey): string
+    {
+        $webpLogoPath = public_path('assets/img/nam_min.webp');
+
+        if (!file_exists($webpLogoPath) || !extension_loaded('imagick')) {
+            // Fallback: QR tanpa logo kalau imagick/logo tidak tersedia
+            $qrCode = QrCode::format('png')
+                ->size(400)
+                ->margin(2)
+                ->errorCorrection('H')
+                ->generate($url);
+
+            return 'data:image/png;base64,' . base64_encode($qrCode);
+        }
+
+        $tempLogoPath = storage_path('app/temp_qr_logo_' . $uniqueKey . '.png');
+
+        $logo = new \Imagick($webpLogoPath);
+        $logo->setImagePage(0, 0, 0, 0);
+        $logo->trimImage(0);
+        $logo->setImageBackgroundColor(new \ImagickPixel('white'));
+        $logo->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+
+        $logoWidth = $logo->getImageWidth();
+        $logoHeight = $logo->getImageHeight();
+        $logoSize = max($logoWidth, $logoHeight);
+
+        $canvas = new \Imagick();
+        $canvas->newImage($logoSize, $logoSize, new \ImagickPixel('white'));
+        $canvas->setImageFormat('png');
+
+        $x = (int) (($logoSize - $logoWidth) / 2);
+        $y = (int) (($logoSize - $logoHeight) / 2);
+
+        $canvas->compositeImage($logo, \Imagick::COMPOSITE_OVER, $x, $y);
+        $canvas->writeImage($tempLogoPath);
+
+        $logo->clear();
+        $logo->destroy();
+        $canvas->clear();
+        $canvas->destroy();
+
+        $qrCode = QrCode::format('png')
+            ->size(400)
+            ->margin(2)
+            ->errorCorrection('H')
+            ->merge($tempLogoPath, 0.30, true)
+            ->generate($url);
+
+        if (file_exists($tempLogoPath)) {
+            @unlink($tempLogoPath);
+        }
+
+        return 'data:image/png;base64,' . base64_encode($qrCode);
+    }
+
+    // ── Preview → tampil di iframe modal, bukan PDF ──────────────────────────
+    public function previewInvoice(Request $request, $id)
+    {
+        $invoice = InvoicesAllFromXero::with([
+            'getDetailById',
+            'getPayment',
+            'getDetailById.getItems',
+            'getOverPay'
+        ])->where('invoice_uuid', $id)->first();
+
+        abort_if(!$invoice, 404);
+
+        $urlTujuan = route('salles_invoice_preview', ['id' => $invoice->invoice_uuid]);
 
         $data = [
             'invoice' => $invoice,
             'title' => 'Invoice #' . $invoice->invoice_number,
             'date' => date('d-m-Y'),
-            // 'cetak_by'=>
+            'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview'),
+            'logoBase64' => $this->getLogoBase64(),
         ];
-        // if ($request->user_login != null) {
-        $pdf = Pdf::loadView('pdf.salles_invoice_print', $data);
-        $pdf->setPaper('A4', 'portrait');
-        return $pdf->stream('Invoice-' . $invoice->invoice_number . '.pdf');
-        // } else {
 
-        // }
-        //tampil
+        return view('admin.transaksi.sales.modal_inv', $data);
+    }
+
+    // ── Print → PDF stream (tidak berubah banyak) ────────────────────────────
+
+    public function printInvoice(Request $request, $id)
+    {
+        $invoice = InvoicesAllFromXero::with([
+            'getDetailById',
+            'getPayment',
+            'getDetailById.getItems',
+            'getOverPay'
+        ])
+            ->where('invoice_uuid', $id)
+            ->first();
+
+        if (!$invoice) {
+            abort(404, 'Invoice tidak ditemukan.');
+        }
+
+        $urlTujuan = route('salles_invoice_print', [
+            'id' => $invoice->invoice_uuid
+        ]);
+
+        $webpLogoPath = public_path('assets/img/nam_min.webp');
+
+        if (!file_exists($webpLogoPath)) {
+            abort(500, 'File logo tidak ditemukan.');
+        }
+
+        $tempLogoPath = storage_path(
+            'app/temp_qr_logo_' . $invoice->invoice_uuid . '.png'
+        );
+
+
+        if (!extension_loaded('imagick')) {
+            abort(500, 'Imagick extension belum aktif.');
+        }
+
+        $logo = new \Imagick($webpLogoPath);
+
+
+        $logo->setImagePage(0, 0, 0, 0);
+
+        $logo->trimImage(0);
+
+
+        $logo->setImageBackgroundColor(new \ImagickPixel('white'));
+        /*
+        |--------------------------------------------------------------------------
+        | Hilangkan alpha untuk PNG hasil akhir
+        |--------------------------------------------------------------------------
+        */
+        $logo->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+        /*
+        |--------------------------------------------------------------------------
+        | Buat logo menjadi persegi
+        |--------------------------------------------------------------------------
+        */
+        $logoWidth = $logo->getImageWidth();
+        $logoHeight = $logo->getImageHeight();
+
+        $logoSize = max($logoWidth, $logoHeight);
+
+        $canvas = new \Imagick();
+
+        $canvas->newImage(
+            $logoSize,
+            $logoSize,
+            new \ImagickPixel('white')
+        );
+
+        $canvas->setImageFormat('png');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Center logo
+        |--------------------------------------------------------------------------
+        */
+        $x = (int) (($logoSize - $logoWidth) / 2);
+        $y = (int) (($logoSize - $logoHeight) / 2);
+
+        $canvas->compositeImage(
+            $logo,
+            \Imagick::COMPOSITE_OVER,
+            $x,
+            $y
+        );
+
+        $canvas->writeImage($tempLogoPath);
+
+        $logo->clear();
+        $logo->destroy();
+
+        $canvas->clear();
+        $canvas->destroy();
+
+
+        $qrCode = QrCode::format('png')
+            ->size(400)
+            ->margin(2)
+            ->errorCorrection('H')
+            ->merge(
+                $tempLogoPath,
+                0.30,
+                true
+            )
+            ->generate($urlTujuan);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Convert QR menjadi Base64
+        |--------------------------------------------------------------------------
+        */
+        $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCode);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Hapus temporary logo
+        |--------------------------------------------------------------------------
+        */
+        if (file_exists($tempLogoPath)) {
+            @unlink($tempLogoPath);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Data PDF
+        |--------------------------------------------------------------------------
+        */
+        $data = [
+            'invoice' => $invoice,
+            'title' => 'Invoice #' . $invoice->invoice_number,
+            'date' => date('d-m-Y'),
+            'qrCode' => $qrCodeBase64,
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generate PDF
+        |--------------------------------------------------------------------------
+        */
+        $pdf = Pdf::loadView(
+            'pdf.salles_invoice_print',
+            $data
+        );
+
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->stream(
+            'Invoice-' . $invoice->invoice_number . '.pdf'
+        );
     }
 
 
