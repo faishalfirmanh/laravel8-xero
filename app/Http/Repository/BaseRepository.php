@@ -136,6 +136,49 @@ class BaseRepository
         return $data;
     }
 
+
+    // Tambah method baru di JamaahXeroRepository (atau InvoiceRepository)
+
+    public function searchMultiColumn(
+        array $where = [],
+        int $perPage = 10,
+        int $page = 1,
+        string $keyword = '',
+        array $columns = [],
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        array $modelWith = []
+    ) {
+        $query = $this->model->with($modelWith)->where($where);
+
+        if (!empty($keyword) && !empty($columns)) {
+            $safe = '%' . strtolower(trim($keyword)) . '%';
+
+            $query->where(function ($q) use ($keyword, $columns, $safe) {
+                foreach ($columns as $col) {
+                    // ✅ Untuk kolom text (reference), cast ke varchar dulu
+                    // agar tidak full table scan yang sangat lambat
+                    if ($col === 'reference') {
+                        $q->orWhereRaw("LOWER(CAST({$col} AS CHAR)) LIKE ?", [$safe]);
+                    } else {
+                        $q->orWhereRaw("LOWER({$col}) LIKE ?", [$safe]);
+                    }
+                }
+            });
+        }
+
+        if (!empty($dateFrom)) {
+            $query->whereDate('issue_date', '>=', $dateFrom);
+        }
+        if (!empty($dateTo)) {
+            $query->whereDate('issue_date', '<=', $dateTo);
+        }
+
+        return $query->orderBy('id', 'DESC')
+            ->paginate($perPage, ['*'], 'page', $page);
+    }
+
+
     public function countData($where = array())
     {
         $data = $this->model->where($where)->count();

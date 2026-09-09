@@ -102,22 +102,44 @@ class InvXeroController extends Controller
 
     public function getAllPaginate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        // ✅ Bangun rules sebagai ARRAY dulu (array support offset assignment)
+        $rules = [
             'page' => 'required|integer',
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
-        ]);
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date',
+        ];
+
+        if ($request->filled('date_from')) {
+            $rules['date_to'] = 'nullable|date|after_or_equal:date_from';
+        }
+
+        // ✅ Baru buat Validator SETELAH rules final
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
+
+        $searchColumns = ['invoice_number', 'contact_name', 'reference'];
         $where = [];
-        if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, 'contact_name', strtoupper($request->keyword));
+
+        if ($request->filled('keyword') || $request->filled('date_from') || $request->filled('date_to')) {
+            $data = $this->repo->searchMultiColumn(
+                [],
+                (int) $request->limit,
+                (int) $request->page,
+                $request->keyword ?? '',
+                $searchColumns,
+                $request->date_from,
+                $request->date_to
+            );
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');
         }
+
         return $this->autoResponse($data);
     }
 
