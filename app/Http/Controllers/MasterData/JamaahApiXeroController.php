@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use App\Traits\ApiResponse;
 use App\Http\Repository\MasterData\JamaahXeroRepository;
-
+use App\Jobs\SyncXeroContactsJob;
+use Illuminate\Support\Facades\Cache;
 class JamaahApiXeroController extends Controller
 {
     //
@@ -95,102 +96,90 @@ class JamaahApiXeroController extends Controller
     public function getAllContact(Request $request)
     {
         try {
-            // Validasi optional
             $validator = Validator::make($request->all(), [
-                'page' => 'nullable|integer|min:1',
                 'is_sync' => 'required|integer|in:0,1',
+                'page' => 'nullable|integer|min:1',
             ]);
 
             if ($validator->fails()) {
                 return $this->error($validator->errors()->first(), 422);
             }
 
-            $page = $request->get('page', 1);
-
-            // Ambil Token Valid
             $tokenData = $this->getValidToken();
             if (!$tokenData) {
-                return $this->errorResponse('Token Invalid/Expired. Silakan akses /xero/connect terlebih dahulu.', [], 401);
-            }
-
-            // Request ke Xero API dengan limit 100
-            $response = Http::withHeaders($this->getHeaders())
-                ->get($this->xeroBaseUrl . '/Contacts', [
-                    'page' => $page,
-                    'limit' => 100,           // Maksimal 100 sesuai permintaan
-                ]);
-
-            if ($response->failed()) {
-                \Log::error('Xero API Error - Get Contacts: ' . $response->body());
-
                 return $this->errorResponse(
-                    'Gagal mengambil data Contacts dari Xero',
-                    $response->json(),
-                    $response->status()
+                    'Token Invalid/Expired. Silakan akses /xero/connect terlebih dahulu.',
+                    [],
+                    401
                 );
             }
 
-            $contacts = $response->json()['Contacts'] ?? [];
-
-            // Optional: Clean / Mapping data
-            $cleanContacts = array_map(function ($contact) {
-                return [
-                    'ContactID' => $contact['ContactID'] ?? null,
-                    'Name' => $contact['Name'] ?? null,
-                    'FirstName' => $contact['FirstName'] ?? null,
-                    'LastName' => $contact['LastName'] ?? null,
-                    'EmailAddress' => $contact['EmailAddress'] ?? null,
-                    'Phone' => $contact['Phones'][0]['PhoneNumber'] ?? null, // ambil nomor utama
-                    'IsCustomer' => $contact['IsCustomer'] ?? false,
-                    'IsSupplier' => $contact['IsSupplier'] ?? false,
-                    'ContactStatus' => $contact['ContactStatus'] ?? 'ACTIVE',
-                    'CompanyNumber' => $contact['CompanyNumber'] ?? null,
-                    'Addresses' => $contact['Addresses'] ?? [],
-                ];
-            }, $contacts);
-
+            // ── MODE PREVIEW: ambil 1 halaman saja, langsung return ──
             if ($request->is_sync == 0) {
-                return response()->json([
-                    'status' => 'success',
-                    'total' => count($contacts),
-                    'data' => $cleanContacts,     // versi clean
-                    // 'raw_data'  => $accounts,          // uncomment jika ingin data mentah
-                ]);
-            } else {
+                $page = $request->get('page', 1);
+                $response = Http::withHeaders($this->getHeaders())
+                    ->timeout(30)
+                    ->get($this->xeroBaseUrl . '/Contacts', ['page' => $page]);
 
-                $savedCount = 0;
-                foreach ($cleanContacts as $acc) {
-
-                    $first = isset($acc["FirstName"]) ? $acc["FirstName"] : "_";
-                    $last = isset($acc["LastName"]) ? $acc["LastName"] : "_";
-                    $full_name = $acc["Name"] . "_" . $first . "_" . $last;
-                    $cek_phone = isset($acc["Phones"][3]["PhoneNumber"]) ? $acc["Phones"][3]["PhoneNumber"] : 0;
-                    $param_create_jmaah = ['uuid_contact' => $acc['ContactID'], 'full_name' => $full_name, 'phone_number' => $cek_phone, 'is_mitra_trevel' => false];
-                    $this->repo->firstCreate($param_create_jmaah);
-                    $savedCount++;
-
+                if ($response->failed()) {
+                    return $this->errorResponse(
+                        'Gagal mengambil data Contacts dari Xero',
+                        $response->json(),
+                        $response->status()
+                    );
                 }
 
+                $contacts = $response->json()['Contacts'] ?? [];
+
                 return response()->json([
-                    'status' => 'insert success',
+                    'status' => 'success',
+                    'page' => $page,
                     'total' => count($contacts),
-                    'data' => $cleanContacts,     // versi clean
-                    // 'raw_data'  => $accounts,          // uncomment jika ingin data mentah
+                    'data' => $contacts,
                 ]);
             }
 
+            // ── MODE SYNC: cek apakah ada job yang masih running ──
+            $currentStatus = Cache::get(SyncXeroContactsJob::CACHE_KEY);
+            if ($currentStatus && $currentStatus['status'] === 'running') {
+                return response()->json([
+                    'status' => 'already_running',
+                    'message' => 'Sync sedang berjalan, pantau di GET /xero/contacts/sync-status',
+                    'info' => $currentStatus,
+                ], 409);
+            }
 
+            // ── Ambil access_token & tenant_id dari tokenData ──
+            // Sesuaikan key ini dengan struktur return getValidToken() kamu
+            $accessToken = $tokenData['access_token'];
+            $tenantId = $this->getTenantId($accessToken);
 
-        } catch (\Exception $e) {
-            \Log::error('Exception Get All Contacts: ' . $e->getMessage());
+            // ── Dispatch ke background queue ──
+            SyncXeroContactsJob::dispatch($accessToken, $tenantId);
 
             return response()->json([
+                'status' => 'sync_started',
+                'message' => 'Job sync berjalan di background. Pantau via GET /xero/contacts/sync-status',
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Exception getAllContact: ' . $e->getMessage());
+            return response()->json([
                 'status' => 'error',
-                'message' => 'Terjadi kesalahan saat mengambil contact',
-                'error' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
 
+    // ── Endpoint cek progress sync ──
+    public function syncStatus()
+    {
+        $status = Cache::get(SyncXeroContactsJob::CACHE_KEY, [
+            'status' => 'no_data',
+            'message' => 'Belum ada sync yang pernah dijalankan.',
+        ]);
+
+        return response()->json($status);
+    }
 
 }
