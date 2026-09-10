@@ -15,7 +15,10 @@ class AddColumnVaNumberOnInvoices extends Migration
     {
         Schema::table('items_paket_all_from_xeros', function (Blueprint $table) {
             //
-            $table->string('va_number')->nullable();
+            if (!Schema::hasColumn('items_paket_all_from_xeros', 'va_number')) {
+                $table->string('va_number')->nullable();
+            }
+
         });
     }
 
