@@ -715,58 +715,78 @@
                     <input type="hidden" name="idHotelInput" id="idHotelInput">
 
                     {{-- ── BARIS 1: Contact | Issue date | Due date | Invoice no ── --}}
-                    <div class="xero-fields-grid">
-                        <div class="xero-field">
+                   <div class="xero-fields-grid" style="display:grid; grid-template-columns:35% 20% 22% 23%; gap:10px; align-items:start;">
+                        {{-- Contact --}}
+                        <div class="xero-field" style="min-width:0;">
                             <label>Contact <span class="text-danger">*</span></label>
                             <div class="input-icon-wrap">
                                 <i class="ti ti-user"></i>
-                                <select class="form-control select2-contact"
-                                        name="contact_id" id="contact_id"
-                                        style="width:100%;" required>
+                                <select
+                                    class="form-control select2-contact"
+                                    name="contact_id"
+                                    id="contact_id"
+                                    style="width:100%;"
+                                    required>
                                 </select>
                             </div>
                         </div>
 
-                        {{-- <div class="xero-field">
-                            <label>Contact Alhid<span class="text-danger">*</span></label>
+                        {{-- VA Number --}}
+                        <div class="xero-field" style="min-width:0;">
+                            <label>Va Number <span class="text-danger">*</span></label>
                             <div class="input-icon-wrap">
-                                <i class="ti ti-user"></i>
-                                <select class="form-control select2-contact"
-                                        name="id_jamaah_alhid" id="id_jamaah_alhid"
-                                        style="width:100%;" required>
-                                </select>
+                                <i class="ti ti-credit-card"></i>
+                                <input
+                                    type="number"
+                                    class="form-control"
+                                    name="va_number"
+                                    id="va_number"
+                                    required>
                             </div>
-                        </div> --}}
+                        </div>
 
-                        <div class="xero-field">
+                        {{-- Issue Date --}}
+                        <div class="xero-field" style="min-width:0;">
                             <label>Issue date <span class="text-danger">*</span></label>
                             <div class="input-icon-wrap">
                                 <i class="ti ti-calendar"></i>
-                                <input type="date" class="form-control"
-                                       name="issue_date" id="issue_date" required>
+                                <input
+                                    type="date"
+                                    class="form-control"
+                                    name="issue_date"
+                                    id="issue_date"
+                                    required>
                             </div>
                         </div>
 
-                        <div class="xero-field">
+                        {{-- Due Date --}}
+                        <div class="xero-field" style="min-width:0;">
                             <label>Due date</label>
                             <div class="input-icon-wrap">
                                 <i class="ti ti-calendar"></i>
-                                <input type="date" class="form-control"
-                                       name="due_date" id="due_date">
+                                <input
+                                    type="date"
+                                    class="form-control"
+                                    name="due_date"
+                                    id="due_date">
                             </div>
                         </div>
 
-                        <div class="xero-field">
+                        {{-- Invoice Number --}}
+                        <div class="xero-field" style="min-width:0; grid-column:1;">
                             <label>Invoice number</label>
                             <div class="input-icon-wrap">
                                 <i class="ti ti-hash"></i>
-                                <input type="text" class="form-control"
-                                       id="invoice_number_display"
-                                       name="invoice_number"
-                                       placeholder="auto" 
-                                       style="background:#f9f9f9;">
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="invoice_number_display"
+                                    name="invoice_number"
+                                    placeholder="auto"
+                                    style="background:#f9f9f9;">
                             </div>
                         </div>
+
                     </div>
 
                     {{-- ── BARIS 2: Reference | Currency | Amounts are ── --}}
@@ -2166,6 +2186,7 @@ function setRowSelect2Value($row, selector, id, text) {
             $('#due_date').val(d.due_date || '');
             $('#reference').val(d.reference || '');
             $('#invoiceStatusBadge').text(d.status);
+            $("#va_number").val(d.va_number || '')
             $("#currency_selected").val(d.code_curr).trigger('change')
             if( d.travel_id)
               $("#travel_id").val(d.travel_id).trigger('change')
@@ -2604,7 +2625,8 @@ function initRowSelect2($row) {
                             harga     : item.price_sales,
                             id_coa : item.get_coa_salles_by_code,
                             track_id : item.uuid_tracking_category,
-                            name_paket_track :item.tracking_category_paket
+                            name_paket_track :item.tracking_category_paket,
+                            va_number :item.va_number
                         };
                     }),
                 }
@@ -2647,6 +2669,11 @@ function initRowSelect2($row) {
                 .append(option)
                 .trigger('change'); 
         }
+
+        if(d.va_number){
+           $("#va_number").val(d.va_number)
+        }
+        console.log('vaa',d)
         setRowRequiredState($row, true);
         recalcSummary();
     }).on('select2:unselect select2:clear', function () {
@@ -2789,16 +2816,29 @@ function initContactAlhidSelect2() {
 
 }
 
-function initContactSelect2() {
+function initContactSelect2() { //limti min search
+     if ($('#contact_id').hasClass('select2-hidden-accessible')) {
+        $('#contact_id').select2('destroy');
+    }
+
     $('#contact_id').select2({
         theme: 'bootstrap4',
         dropdownParent: $('#modalCreateHotel'),
         placeholder: 'Pilih Agent / Contact',
         allowClear: true,
+        cache          : false, 
+        minimumInputLength: 4,
+        language: {
+            inputTooShort : () => 'Ketik minimal 4 huruf untuk mencari contact...',
+            searching     : () => 'Mencari...',
+            noResults     : () => 'Contact tidak ditemukan',
+            loadingMore   : () => 'Memuat lebih banyak...',
+        },
+
         ajax: {
             url: '{{ route("list-contact-select2") }}',
             dataType: 'json',
-            delay: 300,
+            delay: 450,
             data: function(params) {
                     return { page: params.page || 1, keyword: params.term || '', limit: 5 };
             },
@@ -2811,7 +2851,7 @@ function initContactSelect2() {
                     pagination: { more: response.data.next_page_url !== null }
                 };
             },
-            cache: true
+            cache: false
         }
     });
 }
@@ -3055,7 +3095,7 @@ function setRowRequiredState($row, isRequired) {
                 code_curr: $("#currency_selected").val(),
                 action_save: action_selected,
                 travel_id :$("#travel_id").val(),
-
+                va_number: $("#va_number").val(),
                 item_id: getVals('select[name="item_id[]"]'),
                 coa_id: getVals('select[name="coa_id[]"]'),
                 desc: getVals('.desc-input'),

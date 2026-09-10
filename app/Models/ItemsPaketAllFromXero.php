@@ -37,7 +37,8 @@ class ItemsPaketAllFromXero extends Model
         'tax_rate_salles',//0->salles tax on imports, 1 tax exempt, 2 tax on purchase, 3 tax on salles
         'tax_rate_purchase',
 
-        'uuid_tracking_category'//UNTUK tracking kategory paket
+        'uuid_tracking_category',//UNTUK tracking kategory paket
+        'va_number'
     ];
 
 

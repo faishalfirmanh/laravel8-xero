@@ -190,6 +190,7 @@ class InvXeroController extends Controller
             'issue_date' => 'required|date',
             'due_date' => 'required|date',
             'reference' => 'required|string',
+            'va_number' => 'nullable|integer',
             'action_save' => 'required|integer|between:0,2',
 
             // contoh 3 huruf ISO currency

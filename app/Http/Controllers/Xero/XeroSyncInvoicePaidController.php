@@ -320,7 +320,8 @@ class XeroSyncInvoicePaidController extends Controller
                 'created_at',
                 'price_sales',
                 'sales_AccountCode',
-                'uuid_tracking_category'
+                'uuid_tracking_category',
+                'va_number'
             ]);
 
         if ($keyword !== '') {

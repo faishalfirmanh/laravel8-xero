@@ -44,7 +44,8 @@ class InvoicesAllFromXero extends Model
         'nominal_currency',//mata uang currency,//RATE
         'created_by',
         'id_jamaah_alhid',//jamaah id dari server alhidayah
-        'travel_id'
+        'travel_id',
+        'va_number'
     ];
 
     protected $appends = [

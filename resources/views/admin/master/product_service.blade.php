@@ -369,12 +369,12 @@
 <div class="xero-page-header">
     <h1>Products and services</h1>
     <div class="header-actions">
-        <button class="btn-xero-outline">
+        {{-- <button class="btn-xero-outline">
             <i class="ti ti-download" style="font-size:13px;" aria-hidden="true"></i> Import
         </button>
         <button class="btn-xero-outline">
             <i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Export
-        </button>
+        </button> --}}
         <button onclick="syncProductFromXero()" class="btn-xero-green">
             <i class="ti ti-refresh" style="font-size:13px;" aria-hidden="true"></i> Sync Xero
         </button>
@@ -493,13 +493,18 @@
                                         <option value="">-- Pilih Akun --</option>
                                     </select>
                                 </div>
-                                <div class="xero-field">
+                                {{-- <div class="xero-field">
                                     <label>Tax rate</label>
                                     <select class="form-control" name="purchase_tax">
                                         <option value="0">No tax</option>
                                         <option value="11">11% PPN</option>
                                     </select>
-                                </div>
+                                </div> --}}
+                                 {{-- <div class="xero-field">
+                                    <label>Va Number</label>
+                                    <input type="number" class="form-control"
+                                           id="va_number" name="va_number">
+                                </div> --}}
                                 <div class="xero-field">
                                     <label>Description</label>
                                     <input type="text" class="form-control"
@@ -531,12 +536,10 @@
                                         <option value="">-- Pilih Akun --</option>
                                     </select>
                                 </div>
-                                <div class="xero-field">
-                                    <label>Tax rate</label>
-                                    <select class="form-control" name="sell_tax">
-                                        <option value="0">No tax</option>
-                                        <option value="11">11% PPN</option>
-                                    </select>
+                                 <div class="xero-field">
+                                    <label>Va Number</label>
+                                    <input type="number" class="form-control"
+                                           id="va_number" name="va_number">
                                 </div>
                                 <div class="xero-field">
                                     <label>Description</label>
@@ -664,8 +667,8 @@ $(document).ready(function () {
                     $('#nameHotel').val(rowData.nama_paket || '');
                     $('#desc').val(rowData.desc || '');
                     $('#desc_salles').val(rowData.desc_salles || '');
-                    console.log('aa',rowData)
-
+                    $("#va_number").val(rowData.va_number || '')
+                   
                     // ── Purchase ──────────────────────────────────────────
                     const hasPurchase = rowData.price_purchase || rowData.account_id_purchase;
                     if (hasPurchase) {
@@ -855,6 +858,7 @@ $(document).ready(function () {
             is_sell:             isSell ? 1 : 0,
             price_sales:         isSell ? $('#price_sales').val() || null : null,
             account_id_salles:   isSell ? $('#account_id_salles').val() || null : null,
+            va_number : $('#va_number').val() ?? ''
         };
 
         $('#btnSave').prop('disabled', true).text('Saving...');

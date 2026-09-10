@@ -72,6 +72,7 @@ class ProducAndServiceXeroLocalController extends Controller
             'account_id_salles' => 'required|integer|exists:coas,id',
             'price_purchase' => 'nullable|integer',
             'price_sales' => 'required|integer',
+            'va_number' => 'nullable|integer'
         ]);
         if ($validator->fails()) {
             return $this->error($validator->errors(), 500);

@@ -382,7 +382,9 @@
         >
 
         <div style="font-size: 10px; margin-top: 5px;">
-            Scan untuk melihat invoice
+            @if ($invoice->va_number)
+                Pembayaran melalui VA : <b>{{ $invoice->va_number }}</b>
+            @endif
         </div>
     </div>
 
