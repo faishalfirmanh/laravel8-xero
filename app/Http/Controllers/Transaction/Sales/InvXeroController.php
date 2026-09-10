@@ -210,6 +210,7 @@ class InvXeroController extends Controller
             'divisi_travel_tracking_uuid' => 'nullable|array',
             'id_detail' => 'nullable|array',
             'sort_order' => 'nullable|array',
+            'travel_id' => 'required|integer|exists:travel_names,id'
         ]);
 
         // var_dump($request->contact_id);

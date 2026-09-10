@@ -172,17 +172,24 @@ class InvoiceXeroLocalController extends Controller
     }
     // ── Helper bersama: logo base64 ──────────────────────────────────────────
 
-    private function getLogoBase64(): string
+    private function getLogoBase64($url_path): string
     {
-        return 'data:image/webp;base64,' . base64_encode(
-            file_get_contents(public_path('assets/img/nam_min.webp'))
-        );
+        $path = public_path($url_path);
+
+        if (!file_exists($path)) {
+            return '';
+        }
+
+        $mime = mime_content_type($path);
+        $base64 = base64_encode(file_get_contents($path));
+
+        return 'data:' . $mime . ';base64,' . $base64;
     }
 
     // ── Generate QR lokal (base64) — dipakai bersama preview & print ──
-    private function generateQrBase64(string $url, string $uniqueKey): string
+    private function generateQrBase64(string $url, string $uniqueKey, $path_image): string
     {
-        $webpLogoPath = public_path('assets/img/nam_min.webp');
+        $webpLogoPath = public_path($path_image);
 
         if (!file_exists($webpLogoPath) || !extension_loaded('imagick')) {
             // Fallback: QR tanpa logo kalau imagick/logo tidak tersedia
@@ -243,19 +250,23 @@ class InvoiceXeroLocalController extends Controller
             'getDetailById',
             'getPayment',
             'getDetailById.getItems',
-            'getOverPay'
+            'getOverPay',
+            'getTravel'
         ])->where('invoice_uuid', $id)->first();
 
         abort_if(!$invoice, 404);
 
-        $urlTujuan = route('salles_invoice_preview', ['id' => $invoice->invoice_uuid]);
+        $path_img_dinamis = $invoice->getTravel ? $invoice->getTravel->location_path_image ? $invoice->getTravel->location_path_image : 'assets/img/nam_min.webp' : 'assets/img/nam_min.webp';
+
+        // $urlTujuan = route('salles_invoice_preview', ['id' => $invoice->invoice_uuid]);
+        $urlTujuan = "https://inv.alhidayah.id/" . $invoice->invoice_uuid;
 
         $data = [
             'invoice' => $invoice,
             'title' => 'Invoice #' . $invoice->invoice_number,
             'date' => date('d-m-Y'),
-            'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview'),
-            'logoBase64' => $this->getLogoBase64(),
+            'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview', $path_img_dinamis),
+            'logoBase64' => $this->getLogoBase64($path_img_dinamis),
         ];
 
         return view('admin.transaksi.sales.modal_inv', $data);
@@ -294,7 +305,8 @@ class InvoiceXeroLocalController extends Controller
             'getDetailById',
             'getPayment',
             'getDetailById.getItems',
-            'getOverPay'
+            'getOverPay',
+            'getTravel'
         ])
             ->where('invoice_uuid', $id)
             ->first();
@@ -308,7 +320,9 @@ class InvoiceXeroLocalController extends Controller
         //     'id' => $invoice->invoice_uuid
         // ]);
 
-        $webpLogoPath = public_path('assets/img/nam_min.webp');
+        $img_path = $invoice->getTravel ? $invoice->getTravel->location_path_image : 'assets/img/nam_min.webp';
+
+        $webpLogoPath = public_path($img_path);
 
         if (!file_exists($webpLogoPath)) {
             abort(500, 'File logo tidak ditemukan.');

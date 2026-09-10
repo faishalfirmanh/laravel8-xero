@@ -790,11 +790,18 @@
                         </div>
 
                         <div class="xero-field">
-                            <label>Amounts are</label>
+                            {{-- <label>Amounts are</label>
                             <select class="form-control" name="amount_are" id="amount_are">
                                 <option value="0" selected>No Tax</option>
                                 <option value="1">Tax Exclusive</option>
                                 <option value="2">Tax Inclusive</option>
+                            </select> --}}
+                            <label>Nama Trevel  <span class="text-danger">*</span></label>
+                            <select class="form-control" name="travel_id" id="travel_id" required>
+                                    <option value="" selected>Pilih Travel</option>
+                               @foreach ($travel as $item)
+                                    <option value="{{ $item->id }}">{{ $item->name }}</option>
+                               @endforeach
                             </select>
                         </div>
                     </div>
@@ -2160,6 +2167,8 @@ function setRowSelect2Value($row, selector, id, text) {
             $('#reference').val(d.reference || '');
             $('#invoiceStatusBadge').text(d.status);
             $("#currency_selected").val(d.code_curr).trigger('change')
+            if( d.travel_id)
+              $("#travel_id").val(d.travel_id).trigger('change')
 
             // ── 2. Contact — inject option ke Select2 ────────
             // Field: name="contact_id" id="contact_id"
@@ -2276,7 +2285,7 @@ function setRowSelect2Value($row, selector, id, text) {
 
         // ── Plain <select> dikembalikan ke opsi default ──
         $('#currency_selected').val('IDR');
-        $('#amount_are').val('0');
+        //$('#amount_are').val('0');
 
         // ── Text/date fields (extra safety net, walau harusnya sudah ke-cover reset() di atas) ──
      
@@ -3045,6 +3054,7 @@ function setRowRequiredState($row, isRequired) {
                 invoice_number: params.get('invoice_number'),
                 code_curr: $("#currency_selected").val(),
                 action_save: action_selected,
+                travel_id :$("#travel_id").val(),
 
                 item_id: getVals('select[name="item_id[]"]'),
                 coa_id: getVals('select[name="coa_id[]"]'),

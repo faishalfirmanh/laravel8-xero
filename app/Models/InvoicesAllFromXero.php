@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\MasterData\ItemDetailInvoices;
+use App\Models\MasterData\TravelName;
 use App\Models\Transaction\Overpayment;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -42,7 +43,8 @@ class InvoicesAllFromXero extends Model
         'code_curr',//code mata 
         'nominal_currency',//mata uang currency,//RATE
         'created_by',
-        'id_jamaah_alhid'//jamaah id dari server alhidayah
+        'id_jamaah_alhid',//jamaah id dari server alhidayah
+        'travel_id'
     ];
 
     protected $appends = [
@@ -59,6 +61,10 @@ class InvoicesAllFromXero extends Model
         return $this->hasOne(User::class, 'id', 'created_by');
     }
 
+    public function getTravel()
+    {
+        return $this->hasOne(TravelName::class, 'id', 'travel_id');
+    }
 
     public function getPayment()
     {

@@ -200,13 +200,15 @@
                 </table>
             </td>
             <td width="35%" class="text-right">
+                @php
+                    $img_path =  $invoice->getTravel ?  $invoice->getTravel->location_path_image : 'assets/img/nam_min.webp';
+                @endphp
                 {{-- ✅ pakai logoBase64, bukan public_path() --}}
                 <img src="{{ $logoBase64 }}" class="company-logo" />
                 <div class="company-info">
-                    PT An Namiroh Travelindo<br>
-                    Jalan Gajah Mada<br>
-                    Mojokerto Jawa Timur 61382<br>
-                    Indonesia
+                     {{  $invoice->getTravel ? $invoice->getTravel->full_name : '-'  }}
+                   <br>
+                   {{  $invoice->getTravel ? $invoice->getTravel->address ? $invoice->getTravel->address : '-' : '-'  }}
                 </div>
             </td>
         </tr>
@@ -339,7 +341,7 @@
         </div>
 
         <div class="registered-office">
-            Registered Office: Jalan Gajah Mada, Mojokerto, Jawa Timur, 61382, Indonesia.
+            Registered Office: {{   $invoice->getTravel ? $invoice->getTravel->address ? $invoice->getTravel->address : '-' : '-'  }}
         </div>
     </div>
 

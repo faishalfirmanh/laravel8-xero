@@ -123,8 +123,9 @@ class DashboardController extends Controller
 
     public function getTransInvoice()
     {
+        $travel = TravelName::get();
 
-        return view('admin.transaksi.sales.list_inv_from_xero');
+        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel'));
     }
 
     public function getWebProduct()
