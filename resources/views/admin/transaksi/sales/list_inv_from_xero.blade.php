@@ -947,7 +947,7 @@
                             </div>
 
                             {{-- Fields sejajar --}}
-                            <div class="payment-fields-grid">
+                            <div class="payment-fields-grid" id="form_input_multi_payment">
 
                                 {{-- Date Paid --}}
                                 <div class="xero-field">
@@ -1826,6 +1826,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
             reference : $(this).data('reference'),
         });
         // pastikan mode bank aktif
+        console.log($(this).data('nominal'));
         $('#method_bank').prop('checked', true).trigger('change');
     });
 
@@ -2285,7 +2286,7 @@ function setRowSelect2Value($row, selector, id, text) {
 
             // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
             listAllOverpayCurrentAdd = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
-            if (listAllOverpayCurrentAdd.length > 0) {
+            if (listAllOverpayCurrentAdd.length > 0 && parseFloat(d.less_payment) > 0) {
                 $('#paymentMethodWrapAdd').show();
                 populateOverpaySelectAdd();
             } else {
@@ -3417,10 +3418,12 @@ function setRowRequiredState($row, isRequired) {
 
             // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
             listAllOverpayCurrent = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
-            if (listAllOverpayCurrent.length > 0) {
-                $('#paymentMethodWrap').show();
-                populateOverpaySelect();
-            } else {
+            if(d.status != 'PAID'){
+                if(listAllOverpayCurrent.length > 0 ){
+                    $('#paymentMethodWrap').show();
+                    populateOverpaySelect();
+                }   
+            }else{
                 $('#paymentMethodWrap').hide();
             }
             
@@ -3446,10 +3449,6 @@ function setRowRequiredState($row, isRequired) {
                     totalPaid += nominal;
                     let cek_style =  p.nominal_receive > 0 ? '' : 'style="background-color:#FFC6BA;font-color:white;"';
 
-                    if(d.get_over_pay != null){
-                          let cek_contact_its = d.contact_id 
-                        console.log('overr',d.get_over_pay)
-                    }
 
                   
 
@@ -3464,7 +3463,7 @@ function setRowRequiredState($row, isRequired) {
                                 <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-inv-pay" style="padding:10px;"
                                     title="Edit"
                                     data-id="${p.id}"
-                                    data-nominal="${p.nominal_receive || p.nominal_spend}"
+                                    data-nominal="${p.nominal_receive > 0 ? p.nominal_receive : p.nominal_spend}"
                                     data-date="${p.date_transaction}"
                                     data-bank-id="${p.uuid_bank}"
                                     data-bank-name="${p.name_bank}"
