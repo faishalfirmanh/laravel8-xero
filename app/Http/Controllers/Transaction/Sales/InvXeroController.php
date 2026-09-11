@@ -8,6 +8,7 @@ use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\MasterData\MasterCurrency;
+use App\Models\Transaction\TransactionNominalBankAccount;
 use Cache;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
@@ -1379,7 +1380,7 @@ class InvXeroController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
-            //'uuid_bank' => 'required|integer|exists:bank_xeros,id',
+            'uuid_bank' => 'required|integer|exists:bank_xeros,id',
             'nominal_spend' => 'required|integer',//nominal overpay yang dibayarkan
             'reference_detail' => 'required|string',
             'date_transaction' => 'required|date',
@@ -1394,6 +1395,9 @@ class InvXeroController extends Controller
         $cekData = $this->repo->whereData(['id' => $request->parent_inv_id])->first();
         $cekBankOver = $this->repo_over->whereData(['id' => $request->overpay_id])->first();
 
+        //repo_over : data unutk menyimpan ketika terjadi overpayment saja
+        //repo : invoice parent
+        //repo_trans_bank : transaksi bank -> add payemnt
         if ($request->nominal_spend > $cekBankOver->nominal_overpayment) {
             return $this->error('nominal transfer melebihi total overpayment', 400);
         }
@@ -1403,7 +1407,7 @@ class InvXeroController extends Controller
             'created_by' => $request->user_login->id,
             'nominal_transfer' => 0,
             'nominal_receive' => 0,
-            'uuid_bank' => $cekBankOver->bank_id,
+            'uuid_bank' => $request->uuid_bank,//$cekBankOver->bank_id,
             'overpay_id' => $request->overpay_id
         ]);
 
@@ -1698,8 +1702,12 @@ class InvXeroController extends Controller
         if (!$invP)
             return;
 
-        $cek_over = $this->repo_over->whereData(['invoice_id' => $invP->id])->first();
-
+        // $cekOverByTransBank = TransactionNominalBankAccount::where('id_parent_invoice', $invP->id)
+        //    ->whereNotNull('overpay_id')->first(); //$this->repo_trans_bank->whereData(['id_parent_invoice', $invP->id, 'overpay_id !=', null])->first();
+        // dd($cekOverByTransBank->overpay_id);
+        //$this->repo_trans_bank->whereData(['id_parent_invoice', $invP->id, 'overpay_id !=', null])->first();
+        $cek_over = $this->repo_trans_bank->whereData(['id_parent_invoice' => $invP->id])->first(); //$this->repo_over->whereData(['id' => $cekOverByTransBank->id])->first();
+        // $cek_over = TransactionNominalBankAccount::where('id_parent_invoice', $invP->id)->whereNotNull('overpay_id')->first();
         if ($invP->invoice_amount > $invP->invoice_total) {
             // Masih ada overpayment → buat atau update
             $total = $invP->invoice_amount - $invP->invoice_total;
@@ -1716,9 +1724,9 @@ class InvXeroController extends Controller
             }
         } else {
             // Tidak ada overpayment → hapus record jika ada
-            if ($cek_over) {
-                $this->repo_over->delete($cek_over->id);
-            }
+            // if ($cek_over) {
+            //     $this->repo_over->delete($cek_over->id);
+            // }
         }
     }
 

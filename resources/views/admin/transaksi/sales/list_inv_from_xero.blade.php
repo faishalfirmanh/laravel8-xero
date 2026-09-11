@@ -1223,7 +1223,7 @@
                             <input type="radio" name="payment_method" id="method_bank" value="bank" checked>
                             Bank Transfer
                         </label>
-                        <label class="btn btn-outline-success btn-sm">
+                        <label class="btn btn-outline-success btn-sm" id="opsi_apply_credit">
                             <input type="radio" name="payment_method" id="method_credit" value="credit">
                             Apply Credit (Overpayment)
                         </label>
@@ -1262,35 +1262,97 @@
 
                 {{-- === Apply Credit (Overpayment): single action === --}}
                 <div id="wrapCreditForm" style="display:none;">
-                    <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label class="small font-weight-bold">Pilih Overpayment</label>
-                            <select class="form-control select2-overpay-credit"
-                                    id="overpay_id_modal2" style="width:100%;">
-                                <option value="">-- Pilih Overpayment --</option>
-                            </select>
+
+                    <div class="card border-0 bg-light mb-3">
+                        <div class="card-body py-3">
+                            {{-- Baris 1 --}}
+                            <div class="form-row">
+                                <div class="form-group col-md-6 mb-2">
+                                    <label for="overpay_id_modal2" class="small font-weight-bold mb-1">
+                                        Pilih Overpayment <span class="text-danger">*</span>
+                                    </label>
+
+                                    <select
+                                        class="form-control select2-overpay-credit"
+                                        id="overpay_id_modal2"
+                                        style="width:100%;">
+                                        <option value="">-- Pilih Overpayment --</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group col-md-3 mb-2">
+                                    <label for="credit_date" class="small font-weight-bold mb-1">
+                                        Tanggal
+                                    </label>
+
+                                    <input
+                                        type="date"
+                                        class="form-control form-control-sm"
+                                        id="credit_date">
+                                </div>
+
+                                <div class="form-group col-md-3 mb-2">
+                                    <label for="credit_nominal" class="small font-weight-bold mb-1">
+                                        Nominal <span class="text-danger">*</span>
+                                    </label>
+
+                                    <input
+                                        type="number"
+                                        class="form-control form-control-sm"
+                                        id="credit_nominal"
+                                        min="1"
+                                        placeholder="0">
+                                </div>
+
+                            </div>
+                            {{-- Baris 2 --}}
+                            <div class="form-row">
+
+                                <div class="form-group col-md-6 mb-2">
+                                    <label for="credit_ref" class="small font-weight-bold mb-1">
+                                        Ref <span class="text-danger">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        class="form-control form-control-sm"
+                                        id="credit_ref"
+                                        placeholder="Optional">
+                                </div>
+
+                                <div class="form-group col-md-6 mb-2">
+                                    <label for="bank_overpay_id" class="small font-weight-bold mb-1">
+                                        Pilih Bank Overpay
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                <select
+                                        class="form-control select2-overpay-credit-add"
+                                        name="bank_overpay_id"
+                                        id="bank_overpay_id"
+                                        style="width:100%;">
+                                        <option value="">-- Pilih Bank --</option>
+
+                                        @foreach ($bank as $item)
+                                            <option value="{{ $item->id }}">
+                                                {{ $item->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                            </div>
+                            {{-- Button --}}
+                            <div class="d-flex justify-content-end pt-2 border-top mt-2">
+                                <button
+                                    type="button"
+                                    class="btn btn-success btn-sm px-3"
+                                    id="btnSaveCreditPayment">
+                                    <i class="fa fa-save mr-1"></i>
+                                    Simpan Apply Credit
+                                </button>
+                            </div>
+
                         </div>
-                        <div class="form-group col-md-3">
-                            <label class="small font-weight-bold">Tanggal</label>
-                            <input type="date" class="form-control form-control-sm"
-                                id="credit_date">
-                        </div>
-                        <div class="form-group col-md-4">
-                            <label class="small font-weight-bold">Nominal</label>
-                            <input type="number" class="form-control form-control-sm"
-                                id="credit_nominal" min="1" placeholder="0">
-                        </div>
-                        <div class="form-group col-md-5">
-                            <label class="small font-weight-bold">Ref</label>
-                            <input type="text" class="form-control form-control-sm"
-                                id="credit_ref" placeholder="Optional">
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <button type="button" class="btn btn-success btn-sm"
-                                id="btnSaveCreditPayment">
-                            <i class="fa fa-save mr-1"></i> Simpan Apply Credit
-                        </button>
                     </div>
                 </div>
 
@@ -1350,6 +1412,45 @@
     // ========================================================
 // PAYMENT FORM HELPERS (multi-row + edit mode)
 // ========================================================
+
+
+//agar modal payment tidak close
+$('#paymentModal').on('hide.bs.modal', function (e) {
+    if ($('.select2-container--open').length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }
+});
+
+$('#paymentModal').on('shown.bs.modal', function () {
+    $(document).off('focusin.bs.modal');
+ 
+  
+    $('#newPaymentRowsBody tr').each(function () {
+        var $row = $(this);
+        var $sel = $row.find('.pay-bank-select');
+        if ($sel.length && !$sel.hasClass('select2-hidden-accessible')) {
+            initBankSelectOnRow($row);
+        }
+    });
+});
+
+$('#paymentModal').on('hidden.bs.modal', function () {
+    $('#newPaymentRowsBody .pay-bank-select').each(function () {
+        if ($(this).hasClass('select2-hidden-accessible')) {
+            $(this).select2('destroy');
+        }
+    });
+    // Select2 lainnya di dalam modal
+    ['#overpay_id_modal2', '#bank_overpay_id'].forEach(function (sel) {
+        var $el = $(sel);
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+    });
+});
+//agar modal payment tidak close
 
 let payFormMode = 'new'; // 'new' | 'edit'
 
@@ -1415,25 +1516,37 @@ let payFormMode = 'new'; // 'new' | 'edit'
             });
         }
 
+  // ================================================================
+// TEMUKAN fungsi initBankSelectOnRow yang sudah ada di blade,
+// dan PASTIKAN bagian berikut sudah ada (biasanya sudah benar):
+//
+//     dropdownParent: $('#paymentModal'),
+//
+// Jika belum ada atau berbeda, pastikan seluruh fungsi seperti ini:
+// ================================================================
+
     function initBankSelectOnRow($row, bankId = null, bankName = null) {
         const $sel = $row.find('.pay-bank-select');
 
+        // Destroy dulu jika sudah pernah diinit (cegah double-init)
+        if ($sel.hasClass('select2-hidden-accessible')) {
+            $sel.select2('destroy');
+        }
+
         $sel.select2({
             theme           : 'bootstrap4',
+            width           : '100%',
+            // ← WAJIB: agar dropdown masuk ke dalam modal,
+            //   bukan ke <body>. Tanpa ini → klik dropdown = klik backdrop.
             dropdownParent  : $('#paymentModal'),
             placeholder     : 'Ketik nama bank...',
             allowClear      : true,
-            width             : '100%', 
-
-            // ✅ FIX 1: wajib ketik minimal 1 karakter sebelum load
-            // Mencegah auto-fetch + cascade page requests saat dropdown dibuka
             minimumInputLength: 1,
             language: {
                 inputTooShort: () => 'Ketik minimal 1 huruf untuk mencari bank...',
                 searching    : () => 'Mencari...',
                 noResults    : () => 'Bank tidak ditemukan',
             },
-
             ajax: {
                 url     : "{{ route('getbankselect2') }}",
                 type    : 'GET',
@@ -1448,23 +1561,22 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 processResults: (response) => ({
                     results: $.map(response.data.data || [], (item) => ({
                         id  : item.id,
-                        text: `${item.name} (${item.currency_code || '-'})`
+                        text: item.name + ' (' + (item.currency_code || '-') + ')'
                     })),
-                    // ✅ FIX 2: cast ke boolean, jaga-jaga jika null
+                    // cast ke boolean — jaga-jaga jika next_page_url null
                     pagination: { more: !!response.data.next_page_url }
                 }),
-                // ✅ FIX 3: matikan cache — shared cache antar row menyebabkan
-                // satu row bisa trigger load page milik row lain
+                // Matikan cache — shared cache antar row menyebabkan
+                // satu row bisa trigger load halaman milik row lain
                 cache: false
             },
-              // ✅ templateSelection: pastikan teks render dengan bersih
-             templateSelection: function(data) {
+            templateSelection: function (data) {
                 if (!data.id) return data.text;
                 return data.text;
             }
         });
 
-        // Set nilai pre-selected (saat edit)
+        // Set nilai pre-selected (saat mode edit)
         if (bankId && bankName) {
             $sel.append(new Option(bankName, bankId, true, true)).trigger('change');
         }
@@ -1690,6 +1802,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
             reference_detail : $('#credit_ref').val(),
             date_transaction : $('#credit_date').val(),
             parent_inv_id    : $('#invoices_id_parent').val(),
+            uuid_bank : $("#bank_overpay_id").val()
         };
 
         ajaxRequest(`{{ route('save-payover-sales-inv') }}`, 'POST', payload, localStorage.getItem('token'))
@@ -1709,7 +1822,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
             date      : $(this).data('date'),
             bankId    : $(this).data('bank-id'),
             bankName  : $(this).data('bank-name'),
-            nominal   : $(this).data('nominal'),
+            nominal   : parseFloat($(this).data('nominal')),
             reference : $(this).data('reference'),
         });
         // pastikan mode bank aktif
@@ -1722,6 +1835,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
         const nominalStr = $(this).data('nominal');
         const parentId   = $('#invoices_id_parent').val();
 
+        console.log('pau',payId,'----',parentId)
         Swal.fire({
             title           : 'Hapus Pembayaran?',
             html            : `Nominal <b>${nominalStr}</b> akan dihapus.<br>Sisa tagihan akan dikembalikan.`,
@@ -3330,16 +3444,24 @@ function setRowRequiredState($row, isRequired) {
                         : parseFloat(p.nominal_spend);
 
                     totalPaid += nominal;
+                    let cek_style =  p.nominal_receive > 0 ? '' : 'style="background-color:#FFC6BA;font-color:white;"';
+
+                    if(d.get_over_pay != null){
+                          let cek_contact_its = d.contact_id 
+                        console.log('overr',d.get_over_pay)
+                    }
+
+                  
 
                     tbody += `
-                        <tr>
+                        <tr ${cek_style}>
                             <td>${index + 1}</td>
                             <td>${p.date_transaction || '-'}</td>
                             <td>${p.name_bank}</td>
                             <td>${p.reference_detail || '-'}</td>
                             <td class="text-right">${formatCurrency(nominal, d.code_curr)}</td>
                             <td class="text-center">
-                                <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-inv-pay"
+                                <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-inv-pay" style="padding:10px;"
                                     title="Edit"
                                     data-id="${p.id}"
                                     data-nominal="${p.nominal_receive || p.nominal_spend}"

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\MasterData\BankXero;
 use App\Models\MasterData\MasterCurrency;
 use Illuminate\Http\Request;
 use App\Models\MasterData\Menu;
@@ -124,8 +125,8 @@ class DashboardController extends Controller
     public function getTransInvoice()
     {
         $travel = TravelName::get();
-
-        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel'));
+        $bank = BankXero::get();
+        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank'));
     }
 
     public function getWebProduct()

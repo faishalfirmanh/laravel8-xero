@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <title>{{ $title }}</title>
+
     <style>
         @page {
             margin: 28px 36px;
@@ -30,6 +31,7 @@
         }
 
         /* ===== HEADER ===== */
+
         .header-table td {
             vertical-align: top;
         }
@@ -74,6 +76,7 @@
         }
 
         /* ===== TABEL ITEM / RIWAYAT BAYAR ===== */
+
         .data-table {
             margin-top: 25px;
             margin-bottom: 4px;
@@ -89,9 +92,9 @@
             text-align: left;
         }
 
-.data-table th.text-right {
-    text-align: right;
-}
+        .data-table th.text-right {
+            text-align: right;
+        }
 
         .data-table td {
             padding: 4px 6px;
@@ -112,6 +115,11 @@
         }
 
         /* ===== TOTAL ===== */
+
+        .totals-table {
+            margin-top: 8px;
+        }
+
         .totals-table td {
             padding: 4px 6px;
             font-size: 11px;
@@ -143,6 +151,7 @@
         }
 
         /* ===== FOOTER ===== */
+
         .bank-list {
             font-size: 10px;
             line-height: 1.6;
@@ -177,27 +186,61 @@
             text-align: center;
         }
 
-    .invoice-desc {
-        display: block !important;
-        line-height: 1.5 !important;
-    }
+        .invoice-desc {
+            display: block !important;
+            line-height: 1.5 !important;
+        }
+
+        /* ===== PAYMENT ===== */
+
+        .payment-overpay {
+            color: #d9534f;
+            font-weight: bold;
+        }
+
+        .payment-bank {
+            color: #1a1a1a;
+        }
     </style>
 </head>
 
 <body>
 
     @php
-        // Helper format angka: kosong jika null, kurung jika negatif (gaya akuntansi).
+
+        /*
+        |--------------------------------------------------------------------------
+        | FORMAT NUMBER
+        |--------------------------------------------------------------------------
+        */
+
         $fmt = function ($num) {
-            if ($num === null || $num === '') return '';
+            if ($num === null || $num === '') {
+                return '';
+            }
+
             $num = (float) $num;
+
             $formatted = number_format(abs($num), 2);
-            return $num < 0 ? "({$formatted})" : $formatted;
+
+            return $num < 0
+                ? "({$formatted})"
+                : $formatted;
         };
 
-        // Helper format tanggal: terima string/Carbon, fallback aman jika gagal parse.
+
+        /*
+        |--------------------------------------------------------------------------
+        | FORMAT DATE
+        |--------------------------------------------------------------------------
+        */
+
         $fmtDate = function ($val) {
-            if (!$val) return null;
+
+            if (!$val) {
+                return null;
+            }
+
             try {
                 return \Carbon\Carbon::parse($val)->translatedFormat('d M Y');
             } catch (\Exception $e) {
@@ -205,224 +248,632 @@
             }
         };
 
-        $detailItems = $invoice->getDetailById ?? collect();
-        $payments    = $invoice->getPayment ?? collect();
 
-        $subTotal   = $invoice->invoice_total;
-        $totalIDR   = $invoice->invoice_total ?? $invoice->total_payment_rupiah ?? $subTotal;
+        /*
+        |--------------------------------------------------------------------------
+        | DATA
+        |--------------------------------------------------------------------------
+        */
+
+        $detailItems = $invoice->getDetailById ?? collect();
+
+        $payments = $invoice->getPayment ?? collect();
+
+        $subTotal = $invoice->invoice_total;
+
+        $totalIDR = $invoice->invoice_total
+            ?? $invoice->total_payment_rupiah
+            ?? $subTotal;
+
         $amountPaid = $invoice->invoice_amount;
-        $amountDue  = $invoice->less_nominal;
+
+        $amountDue = $invoice->less_nominal;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PISAH PEMBAYARAN
+        |--------------------------------------------------------------------------
+        |
+        | nominal_receive > 0
+        |   = pembayaran masuk melalui bank
+        |
+        | nominal_spend > 0
+        |   = pemakaian / apply overpayment
+        |
+        */
+
+        $bankPayments = $payments->filter(function ($payment) {
+
+            return (float) $payment->nominal_receive > 0;
+
+        });
+
+
+        $overpayPayments = $payments->filter(function ($payment) {
+
+            return (float) $payment->nominal_spend > 0;
+
+        });
+
     @endphp
 
+
+    {{-- =========================================================
+         HEADER
+    ========================================================== --}}
+
     <table class="header-table">
+
         <tr>
+
             <td width="35%">
-                <h1 class="invoice-title">INVOICE</h1>
+
+                <h1 class="invoice-title">
+                    INVOICE
+                </h1>
+
                 <div class="bill-to-name">
                     {{ $invoice->contact_name }}
                 </div>
+
             </td>
+
+
             <td width="30%">
+
                 <table>
+
                     <tr>
-                        <td class="meta-label">Invoice Date</td>
+                        <td class="meta-label">
+                            Invoice Date
+                        </td>
                     </tr>
+
                     <tr>
                         <td class="meta-value">
                             {{ $fmtDate($invoice->issue_date ?? null) ?? $date }}
                         </td>
                     </tr>
+
+
                     <tr>
-                        <td class="meta-label">Invoice Number</td>
+                        <td class="meta-label">
+                            Invoice Number
+                        </td>
                     </tr>
+
                     <tr>
                         <td class="meta-value">
                             {{ $invoice->invoice_number }}
                         </td>
                     </tr>
+
+
                     <tr>
-                        <td class="meta-label">Reference</td>
+                        <td class="meta-label">
+                            Reference
+                        </td>
                     </tr>
+
                     <tr>
                         <td class="meta-value">
                             {{ $invoice->reference ?? '-' }}
                         </td>
                     </tr>
+
                 </table>
+
             </td>
+
+
             <td width="35%" class="text-right">
+
                 @php
-                    $img_path =  $invoice->getTravel ?  $invoice->getTravel->location_path_image : 'assets/img/nam_min.webp';
+                    $img_path = $invoice->getTravel
+                        ? $invoice->getTravel->location_path_image
+                        : 'assets/img/nam_min.webp';
                 @endphp
-                <img  style="height: 100px; width: auto; object-fit: contain;" src="{{ public_path($img_path) }}" class="company-logo" />
+
+                <img
+                    style="height: 100px; width: auto; object-fit: contain;"
+                    src="{{ public_path($img_path) }}"
+                    class="company-logo"
+                />
+
                 <div class="company-info">
-                   {{  $invoice->getTravel ? $invoice->getTravel->full_name : '-'  }}
-                   <br>
-                   {{  $invoice->getTravel ? $invoice->getTravel->address ? $invoice->getTravel->address : '-' : '-'  }}
+
+                    {{ $invoice->getTravel
+                        ? $invoice->getTravel->full_name
+                        : '-'
+                    }}
+
+                    <br>
+
+                    {{ $invoice->getTravel
+                        ? ($invoice->getTravel->address
+                            ? $invoice->getTravel->address
+                            : '-')
+                        : '-'
+                    }}
+
                 </div>
+
             </td>
+
         </tr>
+
     </table>
 
+
+    {{-- =========================================================
+         DETAIL INVOICE
+    ========================================================== --}}
+
     <table class="data-table">
+
         <thead>
+
             <tr>
-                <th width="46%">Penjelasan</th>
-                <th width="14%" class="text-right">Qty</th>
-                <th width="20%" class="text-right">Harga Satuan</th>
-                <th width="20%" class="text-right">Total IDR</th>
+
+                <th width="46%">
+                    Penjelasan
+                </th>
+
+                <th width="14%" class="text-right">
+                    Qty
+                </th>
+
+                <th width="20%" class="text-right">
+                    Harga Satuan
+                </th>
+
+                <th width="20%" class="text-right">
+                    Total
+                </th>
+
             </tr>
+
         </thead>
+
+
         <tbody>
+
             @foreach($detailItems as $item)
-            <tr>
-               <!-- Di table row -->
+
                 @php
-                    $cek_bold =  $item->qty<1 ? 'font-weight: bold;font-size:16px;':''
+                    $cek_bold = $item->qty < 1
+                        ? 'font-weight: bold; font-size:16px;'
+                        : '';
                 @endphp
-                <td class="invoice-desc" style="{{ $cek_bold }}">
-                  
-                    {!! nl2br(e($item->desc)) !!}
-                </td>
-                <td class="text-right">
-                    @if ($item->qty>0)
-                        {{ ($item->qty ?? null) }}
-                    @endif
-                </td>
-                <td class="text-right">
-                    @if ($item->qty>0)
-                        {{ $fmt($item->unit_price ?? null) }}
-                    @endif
-                </td>
-                <td class="text-right amount-blue">
-                    @if ($item->qty >0)
-                        {{ $fmt($item->total_amount_each_row ?? null) }}
-                    @endif
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
 
-    @if($payments->count() > 0)
-    <div class="section-heading">Riwayat Pembayaran</div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th width="20%">Tanggal</th>
-                <th width="40%">Bank</th>
-                <th width="40%" class="text-right">Nominal</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($payments as $item_pay)
                 <tr>
-                    @php
-                        $cek_over = $item_pay->nominal_receive > 0
-                            ? $item_pay->nominal_receive
-                            : $item_pay->nominal_spend;
 
-                        $desc_over = $item_pay->nominal_spend > 0
-                            ? '<b style="color: red">overpayment</b>&nbsp;'
-                            : '';
-                    @endphp
-
-                    <td>{{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}</td>
-
-                    <td>
-                        {!! $desc_over !!}{{ $item_pay->name_bank ?? '-' }}
+                    <td
+                        class="invoice-desc"
+                        style="{{ $cek_bold }}"
+                    >
+                        {!! nl2br(e($item->desc)) !!}
                     </td>
+
+
+                    <td class="text-right">
+
+                        @if ($item->qty > 0)
+                            {{ $item->qty }}
+                        @endif
+
+                    </td>
+
+
+                    <td class="text-right">
+
+                        @if ($item->qty > 0)
+                            {{ $fmt($item->unit_price ?? null) }}
+                        @endif
+
+                    </td>
+
 
                     <td class="text-right amount-blue">
-                        {{ $fmt($cek_over) }}
+
+                        @if ($item->qty > 0)
+                            {{ $fmt($item->total_amount_each_row ?? null) }}
+                        @endif
+
                     </td>
+
                 </tr>
+
             @endforeach
+
+
+            {{-- TOTAL TAGIHAN --}}
+
+            <tr>
+
+                <td colspan="2"></td>
+
+                <td class="text-right">
+                    <strong>
+                        Total Tagihan
+                    </strong>
+                </td>
+
+                <td class="text-right amount-blue">
+                    <strong>
+                        {{ $fmt($subTotal) }}
+                    </strong>
+                </td>
+
+            </tr>
+
         </tbody>
+
     </table>
+
+
+    {{-- =========================================================
+         RIWAYAT PEMBAYARAN MELALUI BANK
+    ========================================================== --}}
+
+    @if($bankPayments->count() > 0)
+
+        <div class="section-heading">
+            Riwayat Pembayaran
+        </div>
+
+
+        <table class="data-table">
+
+            <thead>
+
+                <tr>
+
+                    <th width="20%">
+                        Tanggal
+                    </th>
+
+                    <th width="40%">
+                        Bank
+                    </th>
+
+                    <th width="40%" class="text-right">
+                        Nominal
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                @foreach($bankPayments as $item_pay)
+
+                    <tr>
+
+                        <td>
+                            {{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}
+                        </td>
+
+
+                        <td class="payment-bank">
+                            {{ $item_pay->name_bank ?? '-' }}
+                        </td>
+
+
+                        <td class="text-right amount-blue">
+                            {{ $fmt($item_pay->nominal_receive) }}
+                        </td>
+
+                    </tr>
+
+                @endforeach
+
+            </tbody>
+
+        </table>
+
     @endif
 
+
+    {{-- =========================================================
+         RIWAYAT PEMAKAIAN OVERPAYMENT
+    ========================================================== --}}
+
+    @if($overpayPayments->count() > 0)
+
+        <div class="section-heading">
+            Riwayat Pemakaian Uang Deposit
+        </div>
+
+
+        <table class="data-table">
+
+            <thead>
+
+                <tr>
+
+                    <th width="20%">
+                        Tanggal
+                    </th>
+
+                    <th width="40%">
+                        Keterangan
+                    </th>
+
+                    <th width="40%" class="text-right">
+                        Nominal
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                @foreach($overpayPayments as $item_pay)
+
+                    <tr>
+
+                        <td>
+                            {{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}
+                        </td>
+
+
+                        <td>
+
+                            <span class="payment-overpay">
+                                Overpayment
+                            </span>
+
+                            @if(!empty($item_pay->name_bank))
+                                - {{ $item_pay->name_bank }}
+                            @endif
+
+                        </td>
+
+
+                        <td class="text-right amount-blue">
+                            {{ $fmt($item_pay->nominal_spend) }}
+                        </td>
+
+                    </tr>
+
+                @endforeach
+
+            </tbody>
+
+        </table>
+
+    @endif
+
+
+    {{-- =========================================================
+         TOTAL PEMBAYARAN
+    ========================================================== --}}
+
     <table class="totals-table">
+
         <tr>
-            <td width="20%"></td>
-            <td width="60%" class="label">Total Tagihan</td>
-            <td width="20%" class="value">{{ $fmt($subTotal) }}</td>
-        </tr>
-         <tr>
+
             <td width="60%"></td>
-            <td width="20%" class="label">Total Pembayaran</td>
-            <td width="20%" class="value">{{ $fmt($amountPaid) }}</td>
+
+            <td width="20%" class="label">
+                Total Pembayaran
+            </td>
+
+            <td width="20%" class="value">
+                {{ $fmt($amountPaid) }}
+            </td>
+
         </tr>
-        <tr class="line-top">
-            <td></td>
-            <td class="label">TOTAL IDR</td>
-            <td class="value">{{ $fmt($totalIDR) }}</td>
-        </tr>
-        <tr>
-            <td></td>
-            <td class="label">Less Amount Paid</td>
-            <td class="value">{{ $fmt($amountDue) }}</td>
-        </tr>
-        @if ($invoice->getOverPay)
+
+
+        {{-- KELEBIHAN BAYAR --}}
+
+        @if (
+            $invoice->getOverPay
+            && (float) $invoice->getOverPay->nominal_overpayment > 0
+        )
+
             <tr class="line-top">
+
                 <td></td>
-                <td class="label">Overpayment</td>
-                <td class="value">{{ $fmt($invoice->getOverPay->nominal_overpayment) }}</td>
+
+                <td
+                    class="label"
+                    style="color:#d9534f;"
+                >
+                    Kelebihan Bayar
+                </td>
+
+                <td
+                    class="value"
+                    style="color:#d9534f;"
+                >
+                    {{ $fmt($invoice->getOverPay->nominal_overpayment) }}
+                </td>
+
             </tr>
+
         @endif
-       
+
+
+        {{-- KEKURANGAN PEMBAYARAN --}}
+
+        @if ((float) $amountDue > 0)
+
+            <tr>
+
+                <td></td>
+
+                <td class="label">
+                    Kekurangan Pembayaran
+                </td>
+
+                <td class="value">
+                    {{ $fmt($amountDue) }}
+                </td>
+
+            </tr>
+
+        @endif
+
     </table>
 
+
+    {{-- =========================================================
+         QR CODE
+         POSISI DIPERTAHANKAN
+    ========================================================== --}}
+
     <div style="margin-top:-30px;">
-        <img 
-            src="{{ $qrCode }}" 
+
+        <img
+            src="{{ $qrCode }}"
             width="120"
             height="120"
             alt="QR Code"
         >
 
-        <div style="font-size: 10px; margin-top: 5px;">
+
+        <div
+            style="
+                font-size: 10px;
+                margin-top: 5px;
+            "
+        >
+
             @if ($invoice->va_number)
-                Pembayaran melalui VA : <b>{{ $invoice->va_number }}</b>
+
+                Pembayaran melalui VA :
+                <b>{{ $invoice->va_number }}</b>
+
             @endif
+
         </div>
+
     </div>
+
+
+    {{-- =========================================================
+         JATUH TEMPO
+    ========================================================== --}}
 
     <div class="due-date">
-        Jatuh Tempo: {{ $fmtDate($invoice->due_date ?? null) ?? '-' }}
+
+        Jatuh Tempo:
+        {{ $fmtDate($invoice->due_date ?? null) ?? '-' }}
+
     </div>
+
+
+    {{-- =========================================================
+         FOOTER
+    ========================================================== --}}
 
     <div class="footer-section">
-        <div class="bank-list">
-            BCA 614-077-750-0 an. PT AN NAMIROH TRAVELINDO<br>
-            MANDIRI 142-001-628-348-2 an. PT AN NAMIROH TRAVELINDO<br>
-            MUAMALAT 704-001-354-1 an. AN NAMIROH TRAVELINDO PT<br>
-            BNI 70-888-00-889 an. AN NAMIROH TRAVELINDO PT<br>
-            BSI 706-901-888-7 an. AN NAMIROH TRAVELINDO PT<br>
+
+
+        {{-- BANK ACCOUNT --}}
+
+        {{-- <div class="bank-list">
+
+            BCA 614-077-750-0 an. PT AN NAMIROH TRAVELINDO
+            <br>
+
+            MANDIRI 142-001-628-348-2 an. PT AN NAMIROH TRAVELINDO
+            <br>
+
+            MUAMALAT 704-001-354-1 an. AN NAMIROH TRAVELINDO PT
+            <br>
+
+            BNI 70-888-00-889 an. AN NAMIROH TRAVELINDO PT
+            <br>
+
+            BSI 706-901-888-7 an. AN NAMIROH TRAVELINDO PT
+            <br>
+
             BRI 0586-0100-0710-308 an. PT AN NAMRIOH TRAVELINDO
-        </div>
+
+        </div> --}}
+
+
+        {{-- TERMS --}}
 
         <div class="terms-box">
+
             <ol>
-                <li>Harga dapat berubah mengikuti kurs USD/SAR, biaya akomodasi, tiket, serta kebijakan pemerintah Indonesia dan Arab Saudi.</li>
-                <li>Pemesanan wajib memenuhi kuota kursi (full seat); jika tidak terpenuhi, harga akan disesuaikan dan dapat dikenakan penalti.</li>
-                <li>DP blok seat sebesar Rp3.000.000 per jamaah.</li>
-                <li>Deposit 50% dibayarkan H-45 sebelum keberangkatan.</li>
-                <li>Pelunasan paling lambat H-30 sebelum keberangkatan.</li>
+
+                <li>
+                    Harga dapat berubah mengikuti kurs USD/SAR,
+                    biaya akomodasi, tiket, serta kebijakan pemerintah
+                    Indonesia dan Arab Saudi.
+                </li>
+
+                <li>
+                    Pemesanan wajib memenuhi kuota kursi (full seat);
+                    jika tidak terpenuhi, harga akan disesuaikan
+                    dan dapat dikenakan penalti.
+                </li>
+
+                <li>
+                    DP blok seat sebesar Rp3.000.000 per jamaah.
+                </li>
+
+                <li>
+                    Deposit 50% dibayarkan H-45 sebelum keberangkatan.
+                </li>
+
+                <li>
+                    Pelunasan paling lambat H-30 sebelum keberangkatan.
+                </li>
+
             </ol>
+
         </div>
 
+
+        {{-- SIGNATURE --}}
+
         <div class="signature-box">
-            Hormat kami,<br><br><br>
-            <strong>{{ $invoice->name_created_user ?? 'Nuril Hidayati' }}</strong><br>
+
+            Hormat kami,
+
+            <br>
+            <br>
+            <br>
+
+            <strong>
+                {{ $invoice->name_created_user ?? 'Nuril Hidayati' }}
+            </strong>
+
+            <br>
+
             Devisi keuangan
+
         </div>
-      
+
+
+        {{-- REGISTERED OFFICE --}}
+
         <div class="registered-office">
-       Registered Office: {{   $invoice->getTravel ? $invoice->getTravel->address ? $invoice->getTravel->address : '-' : '-'  }}
-            {{-- Registered Office: Jalan Gajah Mada, Mojokerto, Jawa Timur, 61382, Indonesia. --}}
+
+            Registered Office:
+            {{ $invoice->getTravel
+                ? ($invoice->getTravel->address
+                    ? $invoice->getTravel->address
+                    : '-')
+                : '-'
+            }}
+
         </div>
+
     </div>
+
 
 </body>
 
