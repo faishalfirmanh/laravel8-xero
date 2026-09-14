@@ -160,6 +160,10 @@ $(document).ready(function() {
         filterParams
     );
 
+table.settings()[0].ajax.data = function(d) {
+    return $.extend({}, d, filterParams);
+};
+
     // --- 4. FILTER DATE RANGE ---
     $('#btn_filter_date').on('click', function() {
         const start = $('#filter_date_start').val();

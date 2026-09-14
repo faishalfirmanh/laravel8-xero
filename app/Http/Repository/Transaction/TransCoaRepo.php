@@ -82,7 +82,7 @@ class TransCoaRepo extends BaseRepository
             }
         }
 
-        $data = $query->offset($offset)->limit($per_page)->orderBy($sort_column, $sort_order)->paginate($per_page);
+        $data = $query->orderBy($sort_column, $sort_order)->paginate($per_page);
 
         return $data;
     }
