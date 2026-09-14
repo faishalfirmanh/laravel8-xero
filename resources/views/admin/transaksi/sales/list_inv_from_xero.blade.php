@@ -652,6 +652,7 @@
                     <th>Issue Date</th>
                     <th>Due Date</th>
                     <th>Amount</th>
+                    <th>Total Payment</th>
                     <th>Status</th>
                     <th>Action</th>
                 </tr>
@@ -1948,11 +1949,28 @@ let payFormMode = 'new'; // 'new' | 'edit'
 
                 // Jika semua file berhasil diupload
                 this.on("successmultiple", function(files, response) {
-                    Swal.fire('Sukses!', 'Data invoice dan bukti berhasil disimpan.', 'success');
-                    // $('#modalCreateHotel').modal('hide');
-                    // table.ajax.reload(null, false);
-                });
+                    //update agar tidak duplicate
+                    const uploaded = response.data || [];
+                    const duplicates = response.duplicates || [];
 
+                    if (duplicates.length > 0) {
+                        const namesDup = duplicates.map(d => d.original_name).join(', ');
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Sebagian gambar dilewati',
+                            html: `Gambar berikut sudah pernah diupload sebelumnya:<br><b>${namesDup}</b>`
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Sukses!',
+                            text: 'Data invoice dan bukti berhasil disimpan.',
+                            imageUrl: "{{ asset('assets/img/foto.png') }}",
+                            imageWidth: 90,
+                            imageHeight: 90,
+                            imageAlt: 'Berhasil'
+                        });
+                    }
+                });
                 // Jika terjadi error saat upload
                 this.on("errormultiple", function(files, response) {
                     Swal.fire('Peringatan', 'Invoice tersimpan, namun gagal mengupload gambar.', 'warning');
@@ -2037,6 +2055,12 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 return `<b>${row.code_curr} </b>|${parseFloat(data).toLocaleString()}`;
             } 
         }, // Sesuaikan jika nama hotel ada relasi
+        {
+            data: 'invoice_amount', 
+            render: function(data,type,row){
+                return `<b>${row.code_curr} </b>|${parseFloat(data).toLocaleString()}`;
+            } 
+        },
         {
             data: 'status', name: 'status',
             render: function(data){

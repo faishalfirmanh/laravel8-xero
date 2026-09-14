@@ -1260,9 +1260,9 @@ class InvXeroController extends Controller
         }
     }
 
+
     public function uploadMultiple(Request $request)
     {
-        // 1. Validasi Input Gambar (Pastikan 'file' divalidasi sebagai array)
         $validator = Validator::make($request->all(), [
             'file' => 'required|array',
             'file.*' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
@@ -1276,23 +1276,50 @@ class InvXeroController extends Controller
         }
 
         try {
-            $files = $request->file('file'); // Ini sekarang adalah ARRAY dari file
+            $files = $request->file('file');
             $invoiceId = $request->input('invoice_id');
 
-            // 2. Siapkan Path
             $destinationPath = public_path('uploads/images/invoices');
             if (!file_exists($destinationPath)) {
                 mkdir($destinationPath, 0755, true);
             }
 
-            $uploadedFilesData = [];
+            $invNumber = $this->repo->whereData(['id' => $invoiceId])->first();
 
-            // 3. LOOPING UNTUK SETIAP FILE GAMBAR
+            if (!$invNumber) {
+                return response()->json([
+                    'error' => 'Invoice tidak ditemukan.'
+                ], 404);
+            }
+
+            $uploadedFilesData = [];
+            $duplicateFilesData = [];
+            $seenHashesInThisRequest = [];
+
             foreach ($files as $index => $file) {
 
+                $fileHash = sha1_file($file->getRealPath());
+
+                // ✅ Cek GLOBAL — selama file fisik dengan hash ini masih ada
+                // di server (invoice manapun), tolak. Begitu dihapus, otomatis
+                // tidak ketemu lagi dan boleh diupload ulang.
+                $existingMatches = glob(
+                    $destinationPath . '/*_' . $fileHash . '_*.webp'
+                );
+
+                if (!empty($existingMatches) || in_array($fileHash, $seenHashesInThisRequest)) {
+                    $duplicateFilesData[] = [
+                        'original_name' => $file->getClientOriginalName(),
+                        'message' => 'Gambar ini sudah pernah diupload sebelumnya dan masih tersimpan di server.',
+                    ];
+                    continue;
+                }
+
+                $seenHashesInThisRequest[] = $fileHash;
+
+                // ── Proses resize & compress ──
                 $img = Image::make($file->getRealPath());
 
-                // Resize jika resolusi terlalu besar
                 if ($img->width() > 1200) {
                     $img->resize(1200, null, function ($constraint) {
                         $constraint->aspectRatio();
@@ -1301,18 +1328,15 @@ class InvXeroController extends Controller
                 }
 
                 $quality = 90;
-                $targetSize = 90 * 1024; // 90 KB
+                $targetSize = 90 * 1024;
 
-                // Encode awal
                 $encodedData = $img->encode('webp', $quality);
 
-                // Looping kompresi untuk target 90KB
                 while (strlen($encodedData) > $targetSize && $quality > 10) {
                     $quality -= 10;
                     $encodedData = $img->encode('webp', $quality);
                 }
 
-                // Resolusi darurat jika masih > 90KB
                 if (strlen($encodedData) > $targetSize) {
                     $img->resize($img->width() * 0.7, null, function ($constraint) {
                         $constraint->aspectRatio();
@@ -1320,18 +1344,12 @@ class InvXeroController extends Controller
                     $encodedData = $img->encode('webp', 40);
                 }
 
-                $invNumber = $this->repo->whereData(['id' => $invoiceId])->first();
+                $filename = $invNumber->invoice_number . '_' . $fileHash . '_' . $invoiceId . '.webp';
 
-                // Penamaan file (Gunakan uniqid agar nama tidak bentrok di dalam loop)
-                $filename = $invNumber->invoice_number . '_' . uniqid() . '_' . $invoiceId . '.webp';
-
-                // Simpan File
                 file_put_contents($destinationPath . '/' . $filename, $encodedData);
 
-                // Hitung ukuran akhir
                 $finalSizeKb = round(filesize($destinationPath . '/' . $filename) / 1024, 2);
 
-                // Simpan data file yang berhasil diproses ke array
                 $uploadedFilesData[] = [
                     'file_name' => $filename,
                     'file_url' => url('uploads/images/invoices/' . $filename),
@@ -1339,11 +1357,13 @@ class InvXeroController extends Controller
                 ];
             }
 
-            // Kembalikan Response Berisi Array Data Gambar
             return response()->json([
                 'success' => true,
-                'message' => 'Semua gambar berhasil diupload.',
-                'data' => $uploadedFilesData
+                'message' => count($uploadedFilesData) > 0
+                    ? 'Proses upload selesai.'
+                    : 'Semua gambar yang dikirim sudah pernah diupload sebelumnya.',
+                'data' => $uploadedFilesData,
+                'duplicates' => $duplicateFilesData,
             ], 200);
 
         } catch (\Exception $e) {
