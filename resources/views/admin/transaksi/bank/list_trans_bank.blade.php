@@ -512,16 +512,40 @@ $(document).ready(function() {
                 return formatCurrency(data)
             }
         },
-        {
+       {
             data: "id",
             orderable: false,
             searchable: false,
             className: "text-center",
-            render: function(data,type,row) {
-                let btn_edit = `<a href="javascript:;" style="margin-right:14px;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a> &nbsp &nbsp`;
-                let btn_detail =`<a href="javascript:;" data-id="${data}" class="text-primary view-tr mr-2"><i class="ti ti-eye"></i></a>`;
-                let kondisi_btn_edit = row.get_p_bank ? btn_edit : '';
-                return kondisi_btn_edit + btn_detail
+            render: function(data, type, row) {
+                let base_url = window.location.origin
+                console.log('row', row);
+                let url = '';
+                let id = '';
+                if (row.get_pbill && row.get_pbill.id) {
+                    // url = "{{ route('web-purchase-bill', ':idBill') }}"
+                    //     .replace(':idBill', row.get_pbill.id);
+                    url =  `${base_url}/travel/admin/transaksi/purchase-bills/?open=${row.get_pbill.id}`;
+                    id = row.get_pbill.id;
+                } else if (row.get_inv && row.get_inv.id) {
+                    // url = "{{ route('web-sales-inv', ':idInvoice') }}"
+                    //     .replace(':idInvoice', row.get_inv.id);
+                    url = `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.get_inv.id}`
+                    id = row.get_inv.id;
+                } else {
+                    return '';
+                }
+
+                let btn_detail = `
+                    <a href="${url}"
+                    data-id="${id}"
+                    title="detail"
+                    class="text-primary view-tr mr-2">
+                        <i class="ti ti-eye"></i>
+                    </a>
+                `;
+
+                return btn_detail;
             },
         }
     ];

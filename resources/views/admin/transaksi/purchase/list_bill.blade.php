@@ -421,7 +421,7 @@ $(document).ready(function() {
 
                 ajaxRequest( `{{ route('sync-bill-xero') }}`,'GET',{ is_sync: 1 }, localStorage.getItem("token"))
                 .then(response =>{
-                console.log('sync bills', response)
+              
                     Swal.close();
                         if (response.status === 200) {
                             Swal.fire({
@@ -539,7 +539,7 @@ $(document).ready(function() {
             },
             init: function() {
                 // Saat proses upload berjalan, kirimkan ID Invoice
-                console.log('idbill dropzone',$('#idHotelInput').val())
+              
                 this.on("sending", function(file, xhr, formData) {
                     // Ambil ID dari hidden input (Bisa dari edit, atau ID baru setelah save form)
                     formData.append("bill_id", $('#idHotelInput').val()); 
@@ -594,7 +594,7 @@ $(document).ready(function() {
                             },
                             success: function(response) {
                                 if(response.success) {
-                                    console.log("Berhasil:", response.message);
+                                 
                                     // Optional: Tampilkan toast / notifikasi kecil bahwa gambar dihapus
                                 }
                             },
@@ -934,6 +934,27 @@ $(document).ready(function() {
         })
     });
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const openId = urlParams.get('open');
+    if (openId) {
+        
+        let id = openId;
+
+        $('#idHotelInput').val(id);
+
+        $('#modal_pay input[name="nominal_spend"]').val(0);
+        $('#modal_pay select[name="uuid_bank"]').val(0).trigger('change');
+        $('#modal_pay input[name="reference_detail"]').val('');
+
+        $('#modalCreateHotel').modal('show');
+
+        $('#modalCreateHotel').one('shown.bs.modal', function () {
+            loadBills(id);
+            loadDropzoneImages(id);
+        });
+    }
+
+
     function loadBills(id){
         $("#idHotelInput").val(id);
         $('#itemTable tbody').empty(); 
@@ -944,7 +965,6 @@ $(document).ready(function() {
                 if(response.status == 200){
                     let data_res = response.data.data;
                 
-                    console.log('bilss',data_res)
 
                     let contactId = data_res.uuid_from;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
@@ -964,7 +984,7 @@ $(document).ready(function() {
                     } else {
                         addNewRow(); 
                     }
-                    console.log('pay-idnya : ',id, data_res.get_payment)
+                   
 
                     if(data_res.status == 1 || (data_res.get_payment && data_res.get_payment.length > 0)) {
                         $("#modal_pay").removeClass('d-none');
@@ -981,10 +1001,10 @@ $(document).ready(function() {
                     }
 
                     let tbody = $('#payment_history_bill tbody');
-                    console.log('payment',data_res.get_payment)
+                   
                     tbody.empty();
                     if (data_res.get_payment.length > 0) {
-                        console.log('ada pembayaran')
+                      
                         $.each(data_res.get_payment, function(index, payment) {
                             let row = `
                                 <tr>
@@ -1057,9 +1077,7 @@ $(document).ready(function() {
         let id_bill = (idInput && idInput > 0) ? idInput : null;
         let action_selected = params.get('action_type');
 
-        console.log('id bills submited',id_bill)
-        console.log('idInput---',idInput)
-
+    
         let selectedData = {
             item_code : $('select[name="item_code[]"]').map(function(){ return $(this).val(); }).get(),
             id: id_bill,

@@ -122,11 +122,11 @@ class DashboardController extends Controller
         return view('admin.config.config_role_user', ['menu_list' => $get_menu, 'get_divisi' => $get_divisi, 'travel' => $get_all_travel]);
     }
 
-    public function getTransInvoice()
+    public function getTransInvoice($idInvoice = null)
     {
         $travel = TravelName::get();
         $bank = BankXero::get();
-        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank'));
+        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank', 'idInvoice'));
     }
 
     public function getWebProduct()
@@ -151,10 +151,10 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function getTransPurchaseBill()
+    public function getTransPurchaseBill($idBill = null)
     {
         $list_currency = MasterCurrency::where("is_active", 1)->get();
-        return view('admin.transaksi.purchase.list_bill', compact('list_currency'));
+        return view('admin.transaksi.purchase.list_bill', compact('list_currency', 'idBill'));
     }
 
     public function getTransBank()
