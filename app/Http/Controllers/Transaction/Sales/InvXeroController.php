@@ -1167,7 +1167,7 @@ class InvXeroController extends Controller
 
         return implode(', ', $changes);
     }
-    public function getImageDetail(Request $request)
+    public function getImageDetailOld(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'invoice_id' => 'required|exists:invoices_all_from_xeros,id'
@@ -1221,6 +1221,25 @@ class InvXeroController extends Controller
 
     public function removeImage(Request $request)
     {
+        $fileName = basename($request->input('file_name'));   // sanitize!
+
+        $imgPath = public_path('uploads/images/invoices/' . $fileName);
+        $pdfPath = public_path('uploads/pdf/invoices/' . $fileName);
+
+        $deleted = false;
+        if (file_exists($imgPath))
+            $deleted = unlink($imgPath);
+        if (file_exists($pdfPath))
+            $deleted = unlink($pdfPath) || $deleted;
+
+        return response()->json([
+            'success' => (bool) $deleted,
+            'message' => $deleted ? 'File dihapus.' : 'File tidak ditemukan.',
+        ]);
+    }
+
+    public function removeImageOld(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'file_name' => 'required|string'
         ]);
@@ -1265,7 +1284,7 @@ class InvXeroController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'file' => 'required|array',
-            'file.*' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'file.*' => 'required|file|mimes:jpeg,png,jpg,webp,pdf|max:5000',
             'invoice_id' => 'required'
         ]);
 
@@ -1279,17 +1298,18 @@ class InvXeroController extends Controller
             $files = $request->file('file');
             $invoiceId = $request->input('invoice_id');
 
-            $destinationPath = public_path('uploads/images/invoices');
-            if (!file_exists($destinationPath)) {
-                mkdir($destinationPath, 0755, true);
-            }
+            // ── Dua folder terpisah ──
+            $imagePath = public_path('uploads/images/invoices');
+            $pdfPath = public_path('uploads/pdf/invoices');
+
+            if (!file_exists($imagePath))
+                mkdir($imagePath, 0755, true);
+            if (!file_exists($pdfPath))
+                mkdir($pdfPath, 0755, true);
 
             $invNumber = $this->repo->whereData(['id' => $invoiceId])->first();
-
             if (!$invNumber) {
-                return response()->json([
-                    'error' => 'Invoice tidak ditemukan.'
-                ], 404);
+                return response()->json(['error' => 'Invoice tidak ditemukan.'], 404);
             }
 
             $uploadedFilesData = [];
@@ -1300,24 +1320,45 @@ class InvXeroController extends Controller
 
                 $fileHash = sha1_file($file->getRealPath());
 
-                // ✅ Cek GLOBAL — selama file fisik dengan hash ini masih ada
-                // di server (invoice manapun), tolak. Begitu dihapus, otomatis
-                // tidak ketemu lagi dan boleh diupload ulang.
-                $existingMatches = glob(
-                    $destinationPath . '/*_' . $fileHash . '_*.webp'
-                );
+                // ── Cek global: hash masih ada di folder image ATAU pdf ──
+                $existingImg = glob($imagePath . '/*_' . $fileHash . '_*.webp') ?: [];
+                $existingPdf = glob($pdfPath . '/*_' . $fileHash . '_*.pdf') ?: [];
 
-                if (!empty($existingMatches) || in_array($fileHash, $seenHashesInThisRequest)) {
+                if (
+                    !empty($existingImg) || !empty($existingPdf)
+                    || in_array($fileHash, $seenHashesInThisRequest)
+                ) {
+
                     $duplicateFilesData[] = [
                         'original_name' => $file->getClientOriginalName(),
-                        'message' => 'Gambar ini sudah pernah diupload sebelumnya dan masih tersimpan di server.',
+                        'message' => 'File ini sudah pernah diupload sebelumnya dan masih tersimpan di server.',
                     ];
                     continue;
                 }
 
                 $seenHashesInThisRequest[] = $fileHash;
 
-                // ── Proses resize & compress ──
+                // ── Deteksi tipe ──
+                $mimeType = $file->getMimeType();
+                $extension = strtolower($file->getClientOriginalExtension());
+                $isPdf = ($mimeType === 'application/pdf') || ($extension === 'pdf');
+
+                // ── 4A. PDF → simpan ke folder pdf ──
+                if ($isPdf) {
+                    $filename = $invNumber->invoice_number . '_' . $fileHash . '_' . $invoiceId . '.pdf';
+                    $file->move($pdfPath, $filename);
+                    $finalSizeKb = round(filesize($pdfPath . '/' . $filename) / 1024, 2);
+
+                    $uploadedFilesData[] = [
+                        'file_name' => $filename,
+                        'file_url' => url('uploads/pdf/invoices/' . $filename),
+                        'final_size' => $finalSizeKb . ' KB',
+                        'type' => 'pdf',
+                    ];
+                    continue;
+                }
+
+                // ── 4B. Gambar → resize + compress → webp, simpan ke folder image ──
                 $img = Image::make($file->getRealPath());
 
                 if ($img->width() > 1200) {
@@ -1329,14 +1370,12 @@ class InvXeroController extends Controller
 
                 $quality = 90;
                 $targetSize = 90 * 1024;
-
                 $encodedData = $img->encode('webp', $quality);
 
                 while (strlen($encodedData) > $targetSize && $quality > 10) {
                     $quality -= 10;
                     $encodedData = $img->encode('webp', $quality);
                 }
-
                 if (strlen($encodedData) > $targetSize) {
                     $img->resize($img->width() * 0.7, null, function ($constraint) {
                         $constraint->aspectRatio();
@@ -1345,15 +1384,15 @@ class InvXeroController extends Controller
                 }
 
                 $filename = $invNumber->invoice_number . '_' . $fileHash . '_' . $invoiceId . '.webp';
+                file_put_contents($imagePath . '/' . $filename, $encodedData);
 
-                file_put_contents($destinationPath . '/' . $filename, $encodedData);
-
-                $finalSizeKb = round(filesize($destinationPath . '/' . $filename) / 1024, 2);
+                $finalSizeKb = round(filesize($imagePath . '/' . $filename) / 1024, 2);
 
                 $uploadedFilesData[] = [
                     'file_name' => $filename,
                     'file_url' => url('uploads/images/invoices/' . $filename),
-                    'final_size' => $finalSizeKb . ' KB'
+                    'final_size' => $finalSizeKb . ' KB',
+                    'type' => 'image',
                 ];
             }
 
@@ -1361,14 +1400,14 @@ class InvXeroController extends Controller
                 'success' => true,
                 'message' => count($uploadedFilesData) > 0
                     ? 'Proses upload selesai.'
-                    : 'Semua gambar yang dikirim sudah pernah diupload sebelumnya.',
+                    : 'Semua file yang dikirim sudah pernah diupload sebelumnya.',
                 'data' => $uploadedFilesData,
                 'duplicates' => $duplicateFilesData,
             ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Gagal memproses gambar: ' . $e->getMessage()
+                'error' => 'Gagal memproses file: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -1468,6 +1507,66 @@ class InvXeroController extends Controller
             return $this->error($th->getMessage(), 400);
         }
 
+    }
+
+    public function getImageDetail(Request $request)
+    {
+        $invoiceId = $request->input('invoice_id');
+
+        if (!$invoiceId) {
+            return response()->json([
+                'data' => ['success' => false, 'data' => [], 'message' => 'invoice_id kosong']
+            ], 400);
+        }
+
+        // ── Path dua folder ──
+        $imagePath = public_path('uploads/images/invoices');
+        $pdfPath = public_path('uploads/pdf/invoices');
+
+        // ── Pola file: {invoice_number}_{hash}_{invoice_id}.{ext} ──
+        // Karena invoice_number tidak diketahui di sini, pakai pola:
+        //   *_*_{invoiceId}.webp  dan  *_*_{invoiceId}.pdf
+        $imgPattern = $imagePath . '/*_' . $invoiceId . '.webp';
+        $pdfPattern = $pdfPath . '/*_' . $invoiceId . '.pdf';
+
+        $result = [];
+
+        // ── Gambar (webp) ──
+        foreach (glob($imgPattern) ?: [] as $filePath) {
+            $name = basename($filePath);
+            $result[] = [
+                'name' => $name,
+                'size' => filesize($filePath),
+                'url' => url('uploads/images/invoices/' . $name),
+                'type' => 'image',
+            ];
+        }
+
+        // ── PDF ──
+        foreach (glob($pdfPattern) ?: [] as $filePath) {
+            $name = basename($filePath);
+            $result[] = [
+                'name' => $name,
+                'size' => filesize($filePath),
+                'url' => url('uploads/pdf/invoices/' . $name),
+                'type' => 'pdf',
+            ];
+        }
+
+        // ── Urutkan: gambar dulu, lalu PDF, lalu nama ──
+        usort($result, function ($a, $b) {
+            if ($a['type'] !== $b['type']) {
+                return $a['type'] === 'image' ? -1 : 1;
+            }
+            return strcmp($a['name'], $b['name']);
+        });
+
+        return response()->json([
+            'data' => [
+                'success' => true,
+                'data' => $result,
+            ]
+        ]);
     }
 
     public function storePayment(Request $request)

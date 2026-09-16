@@ -885,9 +885,10 @@
                         </button>
                     </div>
 
-                    <div id="dropzone-container" style="display: none; margin-bottom: 20px;">
-                        <div class="dropzone" id="buktiDropzone">
-                            <div class="dz-message" data-dz-message><span>Klik atau Drop gambar bukti di sini (Bisa pilih banyak file)</span></div>
+                    <div class="dropzone" id="buktiDropzone">
+                        <div class="dz-message" data-dz-message>
+                            <span>Klik atau Drop <b>gambar / PDF</b> bukti di sini (bisa banyak file)<br>
+                            <small class="text-muted">Format: JPG, PNG, WEBP, PDF (maks 10 MB / file)</small></span>
                         </div>
                     </div>
                     {{-- ── SUMMARY ── --}}
@@ -1387,6 +1388,28 @@
             </div>
             <div class="modal-body text-center p-0">
                 <img id="previewImageModalSrc" src="" alt="Preview Gambar" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ── PREVIEW PDF MODAL ── --}}
+<div class="modal fade" id="previewPdfModal" tabindex="-1" role="dialog" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content" style="height: 90vh;">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">
+                    <i class="ti ti-file-type-pdf mr-1"></i> Preview PDF
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-0" style="height: calc(90vh - 56px);">
+                <iframe id="previewPdfFrame"
+                        src=""
+                        style="width:100%; height:100%; border:none; display:block;">
+                </iframe>
             </div>
         </div>
     </div>
@@ -1927,38 +1950,82 @@ let payFormMode = 'new'; // 'new' | 'edit'
     let isClearingDropzone = false;
 
     $(function() {
-        // 1. Inisialisasi Dropzone
         myDropzone = new Dropzone("#buktiDropzone", {
             url: "{{ route('uploadImage-sales-inv') }}",
-            autoProcessQueue: false, // PENTING: Jangan langsung upload saat gambar dipilih
+            autoProcessQueue: false,
             uploadMultiple: true,
             parallelUploads: 10,
             maxFiles: 10,
-            acceptedFiles: "image/*",
+            // ── TERIMA GAMBAR + PDF ──
+            acceptedFiles: "image/jpeg,image/png,image/jpg,image/webp,application/pdf",
             addRemoveLinks: true,
+            dictInvalidFileType: "Hanya JPG, PNG, WEBP, dan PDF yang diizinkan.",
+            dictFileTooBig:      "File terlalu besar. Maksimal 10 MB.",
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem("token"),
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             },
             init: function() {
-                // Saat proses upload berjalan, kirimkan ID Invoice
+
+                // ── Kirim invoice_id untuk setiap file ──
                 this.on("sending", function(file, xhr, formData) {
-                    // Ambil ID dari hidden input (Bisa dari edit, atau ID baru setelah save form)
-                    formData.append("invoice_id", $('#idHotelInput').val()); 
+                    formData.append("invoice_id", $('#idHotelInput').val());
                 });
 
-                // Jika semua file berhasil diupload
+                // ── Thumbnail custom: PDF → ikon, gambar → default ──
+                // ── Thumbnail custom: PDF → ikon, gambar → default ──
+                this.on("addedfile", function(file) {
+
+                    // PDF: ganti thumbnail jadi ikon
+                    if (file.type === "application/pdf") {
+                        const $thumb = $(file.previewElement).find(".dz-image");
+                        $thumb.html(
+                            '<div style="display:flex;align-items:center;justify-content:center;' +
+                            'width:100%;height:100%;background:#f8d7da;color:#842029;' +
+                            'font-weight:700;font-size:16px;border-radius:6px;">PDF</div>'
+                        );
+                    }
+
+                    // Klik preview → conditional
+                    file.previewElement.addEventListener("click", function(e) {
+                        // Jangan trigger kalau klik tombol remove
+                        if (e.target.closest('.dz-remove')) return;
+
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        let fileUrl = file.url || file.dataURL;
+                        if (!fileUrl && file.status === Dropzone.ADDED) {
+                            fileUrl = URL.createObjectURL(file);
+                        }
+                        if (!fileUrl) return;
+
+                        // ▼▼▼ DISINI TARUH if (isPdf) ▼▼▼
+                        const isPdf = (file.type === "application/pdf")
+                            || (file.name && file.name.toLowerCase().endsWith('.pdf'));
+
+                        if (isPdf) {
+                            $('#previewPdfFrame').attr('src', fileUrl);
+                            $('#previewPdfModal').modal('show');
+                        } else {
+                            $('#previewImageModalSrc').attr('src', fileUrl);
+                            $('#previewImageModal').modal('show');
+                        }
+                        // ▲▲▲ SAMPAI SINI ▲▲▲
+                    });
+                });
+
+                // ── Sukses ──
                 this.on("successmultiple", function(files, response) {
-                    //update agar tidak duplicate
-                    const uploaded = response.data || [];
+                    const uploaded   = response.data || [];
                     const duplicates = response.duplicates || [];
 
                     if (duplicates.length > 0) {
                         const namesDup = duplicates.map(d => d.original_name).join(', ');
                         Swal.fire({
                             icon: 'warning',
-                            title: 'Sebagian gambar dilewati',
-                            html: `Gambar berikut sudah pernah diupload sebelumnya:<br><b>${namesDup}</b>`
+                            title: 'Sebagian file dilewati',
+                            html: `File berikut sudah pernah diupload sebelumnya:<br><b>${namesDup}</b>`
                         });
                     } else {
                         Swal.fire({
@@ -1971,20 +2038,14 @@ let payFormMode = 'new'; // 'new' | 'edit'
                         });
                     }
                 });
-                // Jika terjadi error saat upload
+
                 this.on("errormultiple", function(files, response) {
-                    Swal.fire('Peringatan', 'Invoice tersimpan, namun gagal mengupload gambar.', 'warning');
-                    // table.ajax.reload(null, false);
+                    Swal.fire('Peringatan', 'Invoice tersimpan, namun gagal mengupload file.', 'warning');
                 });
 
-                //hapus
+                // ── Hapus file dari server ──
                 this.on("removedfile", function(file) {
-                    // Hanya eksekusi AJAX hapus jika file tersebut berasal dari server
-
-                    if (isClearingDropzone) {
-                        return; 
-                    }
-
+                    if (isClearingDropzone) return;
                     if (file.isFromServer) {
                         $.ajax({
                             url: "{{ route('remove-image-sales-inv') }}",
@@ -1995,45 +2056,25 @@ let payFormMode = 'new'; // 'new' | 'edit'
                                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                             },
                             success: function(response) {
-                                if(response.success) {
+                                if (response.success) {
                                     console.log("Berhasil:", response.message);
-                                    // Optional: Tampilkan toast / notifikasi kecil bahwa gambar dihapus
                                 }
                             },
                             error: function(err) {
-                                console.error("Gagal menghapus gambar:", err);
-                                Swal.fire('Gagal!', 'Gambar gagal dihapus dari server.', 'error');
+                                console.error("Gagal menghapus file:", err);
+                                Swal.fire('Gagal!', 'File gagal dihapus dari server.', 'error');
                             }
                         });
                     }
-                    // Jika file.isFromServer false/undefined, Dropzone hanya akan menghapus antrean di browser secara diam-diam.
                 });
-
-
-                this.on("addedfile", function(file) {
-                file.previewElement.addEventListener("click", function(e) {
-                    // Cegah klik agar tidak memicu dialog "Pilih File" Dropzone lagi jika diklik pas di gambar
-                    e.stopPropagation(); 
-                    e.preventDefault();
-                    let imageUrl = file.url || file.dataURL;
-                    if (!imageUrl && file.status === Dropzone.ADDED) {
-                        imageUrl = URL.createObjectURL(file);
-                    }
-                    if (imageUrl) {
-                        $('#previewImageModalSrc').attr('src', imageUrl);
-                        $('#previewImageModal').modal('show');
-                    }
-                });
-            });
             }
         });
 
-        // 2. Toggle Tampilkan/Sembunyikan Area Dropzone
+        // Toggle dropzone container
         $('#btn-show-dropzone').on('click', function() {
             $('#dropzone-container').slideToggle(200);
         });
     });
-   
 
     let columnHotel = [
         {
@@ -3085,6 +3126,9 @@ $('#modalCreateHotel').on('hidden.bs.modal', function () {
     $('#summarySubtotalSAR, #summarySubtotalIDR, #summaryTax, #summaryTotal')
         .text('–');
     $('#dropzone-container').hide();
+    $('#previewPdfModal').on('hidden.bs.modal', function () {
+    $('#previewPdfFrame').attr('src', '');   // stop loading
+});
 });
 
 // ── Inisialisasi awal saat DOM ready ─────────────────────
@@ -3098,43 +3142,49 @@ function addFirstRow() {
 
 // Fungsi untuk menarik gambar dari server dan menampilkannya di Dropzone
 function loadDropzoneImages(invoiceId) {
-    // Kosongkan Dropzone terlebih dahulu jika ada gambar dari sesi sebelumnya
-    if(myDropzone) {
-        isClearingDropzone = true;       
-        myDropzone.removeAllFiles(true); 
+    if (myDropzone) {
+        isClearingDropzone = true;
+        myDropzone.removeAllFiles(true);
         isClearingDropzone = false;
     }
 
-      ajaxRequest("{{ route('get-image-sales-inv') }}", 'GET', { invoice_id: invoiceId }, localStorage.getItem("token"))
+    ajaxRequest("{{ route('get-image-sales-inv') }}", 'GET',
+                { invoice_id: invoiceId },
+                localStorage.getItem("token"))
         .then(response => {
-           if (response.data.success && response.data.data.length > 0) {
+            console.log('loadimg',response.data)
+            if (response.data.data.success && response.data.data.data.length > 0) {
                 $('#dropzone-container').show();
-                // Looping data gambar dari server
-                $.each(response.data.data, function(key, value) {
-                    let mockFile = { 
-                        name: value.name, 
-                        size: value.size, 
-                        accepted: true,
-                        status: Dropzone.ADDED,
-                        url: value.url,
-                        isFromServer: true
+
+                $.each(response.data.data.data, function (key, value) {
+                    const isPdf = (value.type === 'pdf') ||
+                                  (value.name && value.name.toLowerCase().endsWith('.pdf'));
+
+                    let mockFile = {
+                        name          : value.name,
+                        size          : value.size,
+                        accepted      : true,
+                        status        : Dropzone.ADDED,
+                        url           : value.url,
+                        isFromServer  : true,
+                        type          : isPdf ? 'application/pdf' : 'image/webp',
                     };
 
-                    // Emit event agar Dropzone membuatkan thumbnail di UI
                     myDropzone.emit("addedfile", mockFile);
-                    myDropzone.emit("thumbnail", mockFile, value.url);
-                    myDropzone.emit("complete", mockFile);
 
-                    // Tambahkan file ke array internal Dropzone agar tidak bentrok
+                    if (isPdf) {
+                        // PDF: tidak ada thumbnail natural — biarkan handler
+                        // addedfile yang memasang ikon PDF
+                    } else {
+                        myDropzone.emit("thumbnail", mockFile, value.url);
+                    }
+
+                    myDropzone.emit("complete", mockFile);
                     myDropzone.files.push(mockFile);
-                   
                 });
             }
         })
-        .catch((err) => {
-            cathError(err)
-            //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-        })
+        .catch((err) => { cathError(err); });
 }
 
 $(function () {
