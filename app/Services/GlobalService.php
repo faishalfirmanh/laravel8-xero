@@ -256,7 +256,8 @@ class GlobalService
             'transaction_bank_trans_d_s' => 'uuid_detail_trans_bank',
             'item_detail_invoices' => 'uuid_detail_inv',
             'data_jamaah_xeros' => 'uuid_contact',
-            'items_paket_all_from_xeros' => 'code'
+            'items_paket_all_from_xeros' => 'code',
+            'p_bills' => 'bills_uuid_xero'
         ];
 
         do {

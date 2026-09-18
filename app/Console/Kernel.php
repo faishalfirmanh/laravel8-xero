@@ -25,6 +25,22 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
+        $schedule->command('xero:sync-contact-number')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping(25)   // lock 25 menit
+            ->onOneServer()
+            ->runInBackground();
+
+        $schedule->call(function () {
+            \App\Models\SyncJobStatus::where('job_type', 'sync_xero_contact_number')
+                ->whereIn('status', ['queued', 'running'])
+                ->where('updated_at', '<', now()->subHour())
+                ->update([
+                    'status' => 'failed',
+                    'error_message' => 'Timeout/stuck > 1 jam',
+                    'finished_at' => now(),
+                ]);
+        })->hourly();
     }
 
     /**
@@ -34,7 +50,7 @@ class Kernel extends ConsoleKernel
      */
     protected function commands()
     {
-        $this->load(__DIR__.'/Commands');
+        $this->load(__DIR__ . '/Commands');
 
         require base_path('routes/console.php');
     }

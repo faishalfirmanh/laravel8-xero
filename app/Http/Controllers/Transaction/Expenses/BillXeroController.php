@@ -703,6 +703,11 @@ class BillXeroController extends Controller
             'nominal_currency' => $cek_nominal_currency,
             'created_by' => $request->user_login->id
         ]);
+        if (!$request->id) {
+            $request->merge([
+                'bills_uuid_xero' => "local_" . $this->generateUniqueString()
+            ]);
+        }
 
 
         DB::beginTransaction();
