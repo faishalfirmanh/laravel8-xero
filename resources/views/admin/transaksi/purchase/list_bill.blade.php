@@ -88,7 +88,7 @@
                 <i class="ti ti-check me-1"></i> Cek Data Terpilih
             </button> --}}
 
-             <button type="button" onclick="syncBillFromXero()"  id="button_sync_bill" class="btn btn-danger" data-toggle="modal" data-target="#modalSyncBill">
+             <button type="button" onclick="syncBillFromXero()"  id="button_sync_bill" class="btn btn-danger d-none" data-toggle="modal" data-target="#modalSyncBill">
                 <i class="ti ti-plus me-1"></i> Sync Bills
             </button>
 
@@ -96,9 +96,19 @@
                 <i class="ti ti-plus me-1"></i> Tambah Bills
             </button>
         </div>
-         <div class="form-group mb-0">
-            <select id="filter_status" class="form-select form-select-sm">
-                 <option value="3">ALL</option>
+        <div class="form-group mb-0 d-flex align-items-center flex-wrap">
+            <label class="mb-0 mr-2 small font-weight-bold">Dari</label>
+            <input type="date" id="filter_date_start"
+                class="form-control form-control-sm mr-2"
+                style="width: 150px;">
+
+            <label class="mb-0 mr-2 small font-weight-bold">Sampai</label>
+            <input type="date" id="filter_date_end"
+                class="form-control form-control-sm mr-2"
+                style="width: 150px;">
+
+            <select id="filter_status" class="form-select form-select-sm" style="width: 180px;">
+                <option value="3">ALL</option>
                 <option value="0">DRAFT</option>
                 <option value="1">AWAITING PAYMENT</option>
                 <option value="2">PAID</option>
@@ -497,27 +507,6 @@ $(document).ready(function() {
             },
         }
     ];
-
-    // table = initGlobalDataTableTokenSelected(
-    //     '#tableHotel',
-    //     `{{ route('purchase-bills') }}`,
-    //     columnBills,
-    //     { "kolom_name": "uuid_from" },
-    //     {
-    //         rowCallback: function(row, data) {
-    //             $(row).css('cursor', 'pointer'); 
-    //             $(row).off('click').on('click', function() {
-    //                 if ($(this).hasClass('selected')) {
-    //                     $(this).removeClass('selected table-active');
-    //                 } else {
-    //                     table.$('tr.selected').removeClass('selected table-active');
-    //                     $(this).addClass('selected table-active');
-    //                 }
-    //             });
-    //         }
-    //     }
-    // );
-
 
 
     let myDropzone;
@@ -1433,13 +1422,37 @@ $(document).ready(function() {
     }
 
     function loadTable(status_type) {
+        if ($.fn.DataTable.isDataTable('#tableHotel')) {
+          $('#tableHotel').DataTable().destroy();
+        }
+
          table = initGlobalDataTableTokenSelected(
             '#tableHotel',
             `{{ route('purchase-bills') }}`,
             columnBills,
-            { 'kolom_name': 'reference', 'status' : status_type } 
+            {
+                'kolom_name' : 'reference',
+                'status'     : status_type,
+                'date_start' : $('#filter_date_start').val() || '',
+                'date_end'   : $('#filter_date_end').val() || ''
+            }
         );
      }
+
+    $('#filter_date_start, #filter_date_end').on('change', function() {
+        let statusVal = $('#filter_status').val();
+        loadTable(statusVal);
+    });
+
+
+    $('#filter_date_start, #filter_date_end').on('change', function () {
+        let s = $('#filter_date_start').val();
+        let e = $('#filter_date_end').val();
+        if (s && e && s > e) {
+            Swal.fire('Perhatian', 'Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', 'warning');
+            $(this).val('');
+        }
+    });
 
     let initialType = $('#filter_status').val(); 
     loadTable(initialType);

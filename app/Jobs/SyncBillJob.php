@@ -4,8 +4,6 @@ namespace App\Jobs;
 
 use App\ConfigRefreshXero;
 use App\Models\Expenses\Purchase\Bill\PBill;
-// ADJUST: ganti namespace/nama class ini sesuai model Eloquent Anda untuk tabel d_bills.
-// Saya asumsikan mengikuti pola penamaan PBill (p_bills) -> DBill (d_bills).
 use App\Models\Expenses\Purchase\Bill\DBill;
 use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
@@ -31,46 +29,22 @@ class SyncBillJob implements ShouldQueue
 
     public int $timeout = 700;
 
-    // Xero hanya kembalikan 100 baris per halaman
     private const PER_PAGE = 100;
-
-    // Berhenti & release job kalau sisa kuota per-menit sudah sekritis ini
     private const MIN_REM_THRESHOLD = 5;
-
-    // Mulai memperlambat (proaktif) begitu sisa kuota per-menit di bawah ini,
-    // supaya tidak nabrak ke MIN_REM_THRESHOLD / 429
     private const SLOWDOWN_THRESHOLD = 15;
-
-    private const THROTTLE_PAGE_US = 400_000; // 400ms antar halaman bill
-    private const THROTTLE_PAYMENT_US = 200_000; // 200ms antar payment fetch
-    private const THROTTLE_SLOW_US = 1_000_000; // 1s extra saat sisa kuota menipis
+    private const THROTTLE_PAGE_US = 400_000;
+    private const THROTTLE_PAYMENT_US = 200_000;
+    private const THROTTLE_SLOW_US = 1_000_000;
 
     private array $tokenData;
     private string $jobId;
-
-    /** @var GlobalService */
-    protected $service_global;
-
-    /**
-     * Flag global: begitu true, SEMUA pemanggilan ke Xero (baik fetch bill
-     * list maupun fetch payment) langsung dihentikan di titik manapun dia
-     * sedang berjalan (loop bill, loop payment, dst), lalu job di-release.
-     *
-     * Ini mencegah job "kebelet" tetap lanjut request padahal kuota sudah kritis,
-     * yang sebelumnya jadi penyebab utama 429 beruntun.
-     */
     private bool $shouldRelease = false;
     private int $releaseAfterSecs = 60;
-
-    /**
-     * In-memory cache untuk tracking category UUID (Nama Paket / Divisi).
-     * Tanpa ini, setiap line item dengan tracking akan query DB sendiri-sendiri.
-     *
-     * @var array<string, string|null>
-     */
     private array $trackingCache = [];
-
     private ?string $tenantId = null;
+
+    protected $service_global;
+
     public function __construct(array $tokenData, string $jobId)
     {
         $this->tokenData = $tokenData;
@@ -78,42 +52,10 @@ class SyncBillJob implements ShouldQueue
         $this->service_global = new GlobalService();
     }
 
-    /**
-     * Gunakan retryUntil() bukan $tries.
-     *
-     * Xero bisa mengirim Retry-After hingga puluhan ribu detik (reset limit
-     * harian). Dengan $tries kecil, job akan permanent-failed jauh sebelum
-     * kuota benar-benar reset. retryUntil() membiarkan job tetap hidup di
-     * antrian selama 26 jam sehingga otomatis lanjut begitu kuota pulih.
-     */
     public function retryUntil(): \DateTime
     {
         return now()->addHours(26);
     }
-
-    public static function getCurrencyRate($current_rate, float $amount, string $currency): float
-    {
-        // Kurs: 1 IDR = X currency (sesuai data yang kamu kasih)
-        $idrToRate = [
-            'SAR' => $current_rate, // 1 IDR = 0.000210526 SAR
-            // tambahkan currency lain di sini kalau perlu
-        ];
-
-        $currency = strtoupper($currency);
-        if ($currency == 'IDR') {
-            return 1;
-        }
-
-        if (!array_key_exists($currency, $idrToRate)) {
-            throw new \InvalidArgumentException("Kurs untuk currency {$currency} tidak tersedia.");
-        }
-
-        // Karena 1 IDR = rate SAR, maka 1 SAR = 1 / rate IDR
-        $rupiah = $amount / $idrToRate[$currency];
-
-        return round($rupiah, 2);
-    }
-
 
     // ================================================================
     // MAIN ENTRY POINT
@@ -131,10 +73,10 @@ class SyncBillJob implements ShouldQueue
             $this->tenantId = $this->getTenantId($accessToken);
             $tenantId = $this->tenantId;
 
-            $tenantId = $this->getTenantId($accessToken);
             $page = 1;
             $totalSynced = 0;
             Log::info("[SyncBillJob][$this->jobId] Mulai sync bill (ACCPAY)...");
+
             do {
                 $response = $this->fetchPage($accessToken, $tenantId, $page);
 
@@ -142,7 +84,6 @@ class SyncBillJob implements ShouldQueue
                     throw new \RuntimeException("fetchPage() mengembalikan null pada page $page (exception jaringan).");
                 }
 
-                // ── 429 Too Many Requests ───────────────────────────────────
                 if ($response->status() === 429) {
                     $retryAfter = (int) ($response->header('Retry-After') ?? 60);
                     Log::warning("[SyncBillJob][$this->jobId] Rate limited (429) di page $page. Re-queue {$retryAfter}s.");
@@ -156,24 +97,31 @@ class SyncBillJob implements ShouldQueue
                     );
                 }
 
-                // ── Guard kuota + catat pemakaian via service_global ────────
                 $this->guardRateLimit($response, "bill-list page $page");
                 if ($this->shouldRelease) {
                     break;
                 }
 
-                // Xero tetap membungkus ACCPAY di key "Invoices" walau Type=ACCPAY.
                 $bills = $response->json('Invoices') ?? [];
 
                 foreach ($bills as $bill) {
-                    // Cek flag SEBELUM proses bill berikutnya — kalau payment
-                    // fetch bill sebelumnya sudah memicu release, jangan lanjut.
                     if ($this->shouldRelease) {
                         break;
                     }
 
-                    $this->processBills($bill);
-                    $totalSynced++;
+                    try {
+                        $this->processBills($bill);
+                        $totalSynced++;
+                    } catch (\Exception $e) {
+                        // ❌ JANGAN throw exception — catat & lanjut ke bill berikutnya
+                        // Ini mencegah 1 bill yang error menyebabkan seluruh halaman gagal
+                        Log::error(
+                            "[SyncBillJob][$this->jobId] Error process bill {$bill['InvoiceNumber']}: " .
+                            $e->getMessage()
+                        );
+                        // Lanjut ke bill berikutnya
+                        continue;
+                    }
                 }
 
                 SyncJobStatus::where('job_id', $this->jobId)->update([
@@ -196,7 +144,6 @@ class SyncBillJob implements ShouldQueue
 
             } while ($hasNextPage);
 
-            // ── Kalau ada sinyal release di titik manapun, requeue job ──────
             if ($this->shouldRelease) {
                 Log::warning(
                     "[SyncBillJob][$this->jobId] Kuota Xero kritis. " .
@@ -227,22 +174,14 @@ class SyncBillJob implements ShouldQueue
     }
 
     // ================================================================
-    // RATE LIMIT GUARD (terpusat — dipakai bill list & payment fetch)
+    // RATE LIMIT GUARD
     // ================================================================
 
-    /**
-     * Baca header limit dari response Xero, catat ke service_global, dan
-     * tentukan apakah job harus berhenti total (set $this->shouldRelease).
-     *
-     * Juga melakukan proactive slowdown: makin dekat ke limit, makin lambat
-     * — supaya tidak tiba-tiba nabrak 429 di tengah jalan.
-     */
     private function guardRateLimit(Response $response, string $context): void
     {
         $minRemHeader = $response->header('X-MinLimit-Remaining');
         $dayRemHeader = $response->header('X-DayLimit-Remaining');
 
-        // Header tidak selalu ada di semua response — jangan asumsikan 0.
         if ($minRemHeader === null || $minRemHeader === '') {
             return;
         }
@@ -250,27 +189,21 @@ class SyncBillJob implements ShouldQueue
         $minRem = (int) $minRemHeader;
         $dayRem = (int) ($dayRemHeader ?? 0);
 
-        // Catat pemakaian kuota ke service terpisah (sudah ada di kode asal)
         $this->service_global->requestCalculationXero($minRem, $dayRem);
 
         Log::info("[SyncBillJob][$this->jobId] [$context] MinRem: $minRem | DayRem: $dayRem");
 
         if ($minRem <= self::MIN_REM_THRESHOLD) {
             Log::warning("[SyncBillJob][$this->jobId] Kuota kritis ($minRem/menit) di $context.");
-            $this->triggerRelease(65); // tunggu 1 window menit + buffer
+            $this->triggerRelease(65);
             return;
         }
 
-        // ── Proactive slowdown: makin dekat limit, makin lambat ────────────
         if ($minRem <= self::SLOWDOWN_THRESHOLD) {
             usleep(self::THROTTLE_SLOW_US);
         }
     }
 
-    /**
-     * Set sinyal release. Dipanggil dari mana saja yang mendeteksi kuota kritis.
-     * Pakai nilai terbesar kalau dipanggil berkali-kali dalam 1 run.
-     */
     private function triggerRelease(int $seconds): void
     {
         $this->shouldRelease = true;
@@ -278,16 +211,9 @@ class SyncBillJob implements ShouldQueue
     }
 
     // ================================================================
-    // STATUS MAPPER (Xero string -> kode numerik p_bills)
+    // STATUS MAPPER
     // ================================================================
 
-    /**
-     * p_bills.status numerik: 0=draft, 1=awaiting, 2=paid.
-     * Xero Status string: DRAFT, SUBMITTED, AUTHORISED, PAID, VOIDED, DELETED.
-     *
-     * ADJUST: silakan koreksi pemetaan AUTHORISED/VOIDED/DELETED kalau beda
-     * dengan definisi bisnis "awaiting" di sistem Anda.
-     */
     private function mapBillStatus(?string $xeroStatus): int
     {
         switch ($xeroStatus) {
@@ -305,37 +231,12 @@ class SyncBillJob implements ShouldQueue
     }
 
     // ================================================================
-    // PAYMENT SYNC
+    // CURRENCY & CONVERSION
     // ================================================================
-
-    /**
-     * Sync satu payment — skip kalau sudah pernah tersimpan ATAU job sedang
-     * dalam proses berhenti karena kuota kritis.
-     *
-     * Dedup dengan cek TransactionNominalBankAccount sebelum hit Xero —
-     * tanpa ini, setiap sync ulang (cron harian) akan menarik ulang SEMUA
-     * payment walau sudah ada di DB, salah satu penyebab terbesar kuota habis.
-     */
-
-    private function convertToBase(float $amount, float $currencyRate): int
-    {
-        if ($amount <= 0) {
-            return 0;
-        }
-
-        if ($currencyRate <= 0) {
-            throw new \InvalidArgumentException(
-                "Currency rate tidak valid: {$currencyRate}"
-            );
-        }
-
-        return (int) round($amount / $currencyRate, 0);
-    }
 
     private function getXeroCurrencyRate(array $data, string $currency): float
     {
         $currency = strtoupper(trim($currency));
-        // Base currency perusahaan
         if ($currency === 'IDR') {
             return 1.0;
         }
@@ -353,6 +254,18 @@ class SyncBillJob implements ShouldQueue
         return $rate;
     }
 
+    private function convertToBase(float $amount, float $currencyRate): int
+    {
+        if ($amount <= 0) {
+            return 0;
+        }
+
+        if ($currencyRate <= 0) {
+            throw new \InvalidArgumentException("Currency rate tidak valid: {$currencyRate}");
+        }
+
+        return (int) round($amount / $currencyRate, 0);
+    }
 
     private function mapAmountsAre(?string $xeroLineAmountTypes): int
     {
@@ -363,14 +276,24 @@ class SyncBillJob implements ShouldQueue
                 return 0;
             case 'Exclusive':
             default:
-                // ADJUST: default Exclusive (2) dipakai kalau Xero tidak
-                // mengirim LineAmountTypes sama sekali (jarang terjadi).
                 return 2;
         }
     }
+
+    // ================================================================
+    // PAYMENT SYNC (dengan dedup restored!)
+    // ================================================================
+
     public function getDetailPayment(string $idPayment, ?int $knownParentId = null): void
     {
         if ($this->shouldRelease) {
+            return;
+        }
+
+        // ✅ CEK DUPLIKAT DULU — kalau sudah ada, skip
+        $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $idPayment)->exists();
+        if ($alreadySynced) {
+            Log::info("[SyncBillJob][getDetailPayment] Payment $idPayment sudah tersimpan, skip duplikat.");
             return;
         }
 
@@ -401,32 +324,27 @@ class SyncBillJob implements ShouldQueue
 
         $payment = $response->json('Payments.0');
 
+        if (!$payment) {
+            Log::warning("[SyncBillJob][getDetailPayment] Payment $idPayment tidak ditemukan/kosong di response Xero, dilewati.");
+            return;
+        }
+
         $paymentCurrency = strtoupper(
             $payment['CurrencyCode']
             ?? data_get($payment, 'Account.CurrencyCode')
             ?? 'IDR'
         );
 
-        $paymentCurrencyRate = $paymentCurrency === 'IDR'
-            ? 1.0
-            : (float) ($payment['CurrencyRate'] ?? 0);
-
-        if ($paymentCurrency !== 'IDR' && $paymentCurrencyRate <= 0) {
+        // ✅ GUARD: validation currency rate SEBELUM proses lebih jauh
+        try {
+            $paymentCurrencyRate = $this->getXeroCurrencyRate($payment, $paymentCurrency);
+        } catch (\InvalidArgumentException $e) {
             Log::warning(
-                "[SyncBillJob][getDetailPayment] CurrencyRate payment tidak valid. " .
-                "Payment: {$idPayment}, Currency: {$paymentCurrency}"
+                "[SyncBillJob][getDetailPayment] " . $e->getMessage() .
+                " Payment: {$idPayment}, Currency: {$paymentCurrency} — SKIP payment ini."
             );
-
-            return;
+            return; // Skip payment dengan rate invalid, tapi jangan crash job
         }
-
-
-        if (!$payment) {
-            Log::warning("[SyncBillJob][getDetailPayment] Payment $idPayment tidak ditemukan/kosong di response Xero, dilewati.");
-            return;
-        }
-
-
 
         $amount = (float) ($payment['Amount'] ?? 0);
         $accountCode = data_get($payment, 'Account.Code');
@@ -436,33 +354,15 @@ class SyncBillJob implements ShouldQueue
         $invoiceNumber = data_get($payment, 'Invoice.InvoiceNumber');
         $ref_payment = $payment['Reference'] ?? '-';
 
-
-        // Pakai parent id yang sudah diketahui (dilempar dari processBills)
-        // dulu kalau ada — hindari query tambahan ke PBill.
         $idParentInv = $knownParentId
             ?? ($invoiceUuid ? PBill::where('bills_uuid_xero', $invoiceUuid)->value('id') : null);
 
-        $paymentCurrency = strtoupper(
-            $payment['CurrencyCode']
-            ?? data_get($payment, 'Account.CurrencyCode')
-            ?? 'IDR'
+        Log::info(
+            "[SyncBillJob][getDetailPayment] " .
+            "invoice: {$invoiceNumber} | bank: {$bankName} | payment_id: {$idPayment} | " .
+            "amount: {$amount} | parent_id: {$idParentInv} | currency: {$paymentCurrency}"
         );
 
-        Log::info('ada payment ' . $invoiceNumber . "| nama bank : " . $bankName . "| " . $idPayment . "| amount " . $amount
-            . "| " . $accountCode . "| date " . $date . " |ref pay " . $ref_payment . "| parent inv bills " . $idParentInv . " ||
-            payment currency " . $paymentCurrency);
-        Log::info('--payment--');
-
-        $nomCurrencyPay = $this->getXeroCurrencyRate(
-            $payment,
-            $paymentCurrency
-        );
-        // //dd($payment['CurrencyRate']);
-        // dd($nom_currency_pay);
-        // var_dump($paymentCurrency);
-        // echo "<br>";
-        // dd($nomCurrencyPay);
-        //$this->insertToDb($invoiceNumber, $bankName, $idPayment, $amount, $accountCode, $date, $ref_payment, $idParentInv);
         $this->insertToDb(
             $invoiceNumber,
             $bankName,
@@ -472,9 +372,8 @@ class SyncBillJob implements ShouldQueue
             $date,
             $ref_payment,
             $idParentInv,
-            //$payment['CurrencyRate'],//$paymentCurrency
             $paymentCurrency,
-            $nomCurrencyPay
+            $paymentCurrencyRate
         );
 
         usleep(self::THROTTLE_PAYMENT_US);
@@ -489,12 +388,12 @@ class SyncBillJob implements ShouldQueue
         ?string $date,
         ?string $refDetail,
         ?int $idParentInv,
-        ?string $paymentCurrency = null,//code
-        float $paymentCurrencyRate = 1.0//'nominal
+        ?string $paymentCurrency = null,
+        float $paymentCurrencyRate = 1.0
     ): void {
         if (!$accountCode) {
             Log::warning(
-                "[SyncBillJob][insertToDb] AccountCode kosong bank kosong. " .
+                "[SyncBillJob][insertToDb] AccountCode kosong. " .
                 "Payment {$paymentUuid} dilewati. Bill: {$invNumber}"
             );
             return;
@@ -514,38 +413,20 @@ class SyncBillJob implements ShouldQueue
             trim((string) ($findBank->currency_code ?: $paymentCurrency ?: 'IDR'))
         );
 
-        //$currencyRate = $this->getCurrencyRate($bankCurrency);
-
         $totalBaseSpend = $this->convertToBase(
             $amount,
             $paymentCurrencyRate
         );
 
-
-        // dd($paymentCurrencyRate);
-        // $this->convertToBase(
-        //                 (float) ($inv['SubTotal'] ?? 0),
-        //                 $currencyRate
-        //             ),
-
         TransactionNominalBankAccount::updateOrCreate(
-            [
-                'payment_uuid' => $paymentUuid,
-            ],
+            ['payment_uuid' => $paymentUuid],
             [
                 'uuid_bank' => $findBank->id,
-
-                // nominal asli sesuai currency rekening bank
                 'nominal_receive' => 0,
                 'nominal_spend' => $amount,
-
-                // rate 1 currency ke IDR
                 'nominal_currency' => $paymentCurrency == 'SAR' ? number_format(1 / $paymentCurrencyRate, 2, '.', '') : 1,
-
-                // hasil konversi ke base/IDR
                 'total_base_receive' => 0,
                 'total_base_spend' => $totalBaseSpend,
-
                 'created_by' => 1,
                 'date_transaction' => $date,
                 'nominal_transfer' => 0,
@@ -556,259 +437,208 @@ class SyncBillJob implements ShouldQueue
     }
 
     // ================================================================
-    // BILL PROCESSING
+    // BILL PROCESSING (dengan transaction!)
     // ================================================================
 
     private function processBills(array $inv): void
     {
+        $xeroUuid = $inv['InvoiceID'] ?? null;
 
-        $currencyCode = strtoupper($inv['CurrencyCode'] ?? 'IDR');
-        $currencyRate = $this->getXeroCurrencyRate(
-            $inv,
-            $currencyCode
-        );
+        if (!$xeroUuid) {
+            Log::warning("[SyncBillJob][processBills] InvoiceID kosong, dilewati.");
+            return;
+        }
 
-        $lineItems = $inv['LineItems'] ?? [];
-        $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
-        $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
-        $contactId = data_get($inv, 'Contact.ContactID');
+        try {
+            $currencyCode = strtoupper($inv['CurrencyCode'] ?? 'IDR');
+            $currencyRate = $this->getXeroCurrencyRate($inv, $currencyCode);
+        } catch (\InvalidArgumentException $e) {
+            Log::warning(
+                "[SyncBillJob][processBills] " . $e->getMessage() .
+                " Bill: {$inv['InvoiceNumber']} — SKIP bill ini."
+            );
+            return; // Skip bill dengan rate invalid
+        }
 
-        // uuid_from = id lokal di tabel jamaah/kontak, BUKAN uuid Xero mentah
-        // (p_bills tidak punya kolom uuid_contact/contact_name terpisah).
-        $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
+        // ✅ GUNAKAN TRANSACTION untuk menjaga konsistensi data
+        DB::transaction(function () use ($inv, $xeroUuid, $currencyCode, $currencyRate) {
+            $lineItems = $inv['LineItems'] ?? [];
+            $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
+            $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
+            $contactId = data_get($inv, 'Contact.ContactID');
 
-        // ── 1. Upsert parent bill DULU ───────────────────────────────────
-        // PENTING: ini harus jalan SEBELUM sync payment, supaya saat
-        // getDetailPayment() mencari id_parent_invoice, baris bill-nya
-        // sudah ada di DB.
-        PBill::upsert(
-            [
+            $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
+
+            // ────────────────────────────────────────────────────────────
+            // ✅ 1. UPSERT parent bill dengan WHERE clause yang lebih aman
+            // ────────────────────────────────────────────────────────────
+            $parentId = PBill::updateOrCreate(
+                ['bills_uuid_xero' => $xeroUuid],
                 [
-                    'bills_uuid_xero' => $inv['InvoiceID'],
                     'uuid_from' => $findContact,
                     'date_req' => $issueDate,
                     'due_date' => $dueDate,
                     'reference' => $inv['InvoiceNumber'] ?? null,
                     'amounts_are' => $this->mapAmountsAre($inv['LineAmountTypes'] ?? null),
-
-                    // Nominal asli currency
                     'subtotal' => $inv['SubTotal'] ?? 0,
                     'total' => $inv['Total'] ?? 0,
                     'tax' => $inv['TotalTax'] ?? 0,
                     'nominal_paid' => $inv['AmountPaid'] ?? 0,
                     'nominal_due' => $inv['AmountDue'] ?? 0,
-
                     'status' => $this->mapBillStatus($inv['Status'] ?? null),
-
-                    // Currency
                     'currency' => $currencyCode,
                     'nominal_currency' => $currencyCode == 'SAR' ? number_format(1 / $currencyRate, 2, '.', '') : 1,
-
-                    // Nominal base / IDR
-                    'subtotal_base' => $this->convertToBase(
-                        (float) ($inv['SubTotal'] ?? 0),
-                        $currencyRate
-                    ),
-
-                    'total_base' => $this->convertToBase(
-                        (float) ($inv['Total'] ?? 0),
-                        $currencyRate
-                    ),
-                    'tax_base' => ceil(((float) ($inv['TotalTax'] ?? 0)) * $currencyRate),
-                    'nominal_paid_base' => $this->convertToBase(
-                        (float) ($inv['AmountPaid'] ?? 0),
-                        $currencyRate
-                    ),
-
-                    'nominal_due_base' => $this->convertToBase(
-                        (float) ($inv['AmountDue'] ?? 0),
-                        $currencyRate
-                    ),
-
+                    'subtotal_base' => $this->convertToBase((float) ($inv['SubTotal'] ?? 0), $currencyRate),
+                    'total_base' => $this->convertToBase((float) ($inv['Total'] ?? 0), $currencyRate),
+                    'tax_base' => (int) ceil(((float) ($inv['TotalTax'] ?? 0)) * $currencyRate),
+                    'nominal_paid_base' => $this->convertToBase((float) ($inv['AmountPaid'] ?? 0), $currencyRate),
+                    'nominal_due_base' => $this->convertToBase((float) ($inv['AmountDue'] ?? 0), $currencyRate),
                     'created_by' => 1,
                     'updated_at' => now(),
-                    'created_at' => now(),
                 ]
-            ],
-            ['bills_uuid_xero'],
-            [
-                'uuid_from',
-                'date_req',
-                'due_date',
-                'reference',
-                'amounts_are',
-                'subtotal',
-                'total',
-                'tax',
-                'nominal_paid',
-                'nominal_due',
-                'status',
-                'currency',
-                'nominal_currency',
-                'subtotal_base',
-                'total_base',
-                'tax_base',
-                'nominal_paid_base',
-                'nominal_due_base',
-                'updated_at',
-            ]
-        );
+            )->id;
 
-        $parentId = PBill::where('bills_uuid_xero', $inv['InvoiceID'])->value('id');
-
-        // ── 2. Sync payment (dengan dedup + parent id yang sudah ada) ──────
-        $payments = $inv['Payments'] ?? [];
-
-        if (!empty($payments)) {
-            foreach ($payments as $paymentRow) {
-                if ($this->shouldRelease) {
-                    break; // kuota kritis terdeteksi — stop, jangan hit Xero lagi
-                }
-
-                $paymentId = $paymentRow['PaymentID'] ?? null;
-                if (!$paymentId) {
-                    continue;
-                }
-
-                // $alreadySynced = TransactionNominalBankAccount::where('payment_uuid', $paymentId)->exists();
-                // if ($alreadySynced) {
-                //     continue; // sudah ada, tidak perlu hit Xero
-                // }
-
-                $this->getDetailPayment($paymentId, $parentId);
+            if (!$parentId) {
+                throw new \RuntimeException("Gagal upsert parent bill: $xeroUuid");
             }
-        }
 
-        if (!$parentId || empty($lineItems) || $this->shouldRelease) {
-            return;
-        }
+            // ────────────────────────────────────────────────────────────
+            // ✅ 2. Sync payment (dedup sudah di getDetailPayment)
+            // ────────────────────────────────────────────────────────────
+            $payments = $inv['Payments'] ?? [];
 
-        // ── 3. Pre-load COA SEKALI sebelum loop — hindari N+1 ──────────────
-        // (d_bills tidak punya kolom item_id, jadi tidak perlu lagi preload
-        // ItemsPaketAllFromXero seperti pada job invoice).
-        $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->toArray();
-        $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
+            if (!empty($payments)) {
+                foreach ($payments as $paymentRow) {
+                    if ($this->shouldRelease) {
+                        break;
+                    }
 
-        // ── 4. Build batch line items — semua lookup dari array, tanpa query ──
-        $batchDetails = [];
+                    $paymentId = $paymentRow['PaymentID'] ?? null;
+                    if (!$paymentId) {
+                        continue;
+                    }
 
-        foreach ($lineItems as $line) {
-            $paketUuid = null;
-            $divisiUuid = null;
-
-            foreach ($line['Tracking'] ?? [] as $track) {
-                // PHP 7.4 compatible: pakai strpos(), str_contains() PHP 8.0+ only
-                $categoryName = strtolower($track['Name'] ?? '');
-                $optionName = $track['Option'] ?? '';
-
-                if (strpos($categoryName, 'nama paket') !== false) {
-                    $paketUuid = $this->resolveTrackingUuid('Nama Paket', $optionName);
-                } elseif (strpos($categoryName, 'divisi') !== false) {
-                    $divisiUuid = $this->resolveTrackingUuid('Divisi', $optionName);
+                    $this->getDetailPayment($paymentId, $parentId);
                 }
             }
 
+            if (empty($lineItems) || $this->shouldRelease) {
+                return;
+            }
 
+            // ────────────────────────────────────────────────────────────
+            // ✅ 3. Pre-load COA
+            // ────────────────────────────────────────────────────────────
+            $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->toArray();
+            $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
 
-            $coaId = isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null;
-            $itemCode = $line['ItemCode'] ?? data_get($line, 'Item.Code');
+            // ────────────────────────────────────────────────────────────
+            // ✅ 4. Build batch line items
+            // ────────────────────────────────────────────────────────────
+            $batchDetails = [];
 
-            // d_bills tidak punya kolom uuid Xero sendiri untuk line item, jadi
-            // uuid_detail dipakai ganda: (a) key dedup upsert, (b) FK ke
-            // transaction_all_coas. Pakai LineItemID Xero (selalu unik & stabil)
-            // bukan random string, supaya upsert idempoten saat sync ulang.
-            $uuidDetail = $line['LineItemID'] ?? $this->service_global->generateUniqueString();
+            foreach ($lineItems as $line) {
+                $paketUuid = null;
+                $divisiUuid = null;
 
-            $lineAmount = (float) ($line['LineAmount'] ?? 0);
+                foreach ($line['Tracking'] ?? [] as $track) {
+                    $categoryName = strtolower($track['Name'] ?? '');
+                    $optionName = $track['Option'] ?? '';
 
-            $batchDetails[] = [
-                'bills_parent_id' => $parentId,
-                'item_code' => $itemCode,
-                'desc' => $line['Description'] ?? null,
-                'qty' => $line['Quantity'] ?? 0,
-                'unit_price' => $line['UnitAmount'] ?? 0,
-                'account_id_coa' => $coaId,
-                'tax_rate' => $line['TaxAmount'] ?? 0,
-                'paket_tracking_uuid' => $paketUuid,
-                'divisi_travel_tracking_uuid' => $divisiUuid,
-
-                // nominal asli
-                'amount' => $lineAmount,
-
-                // nominal dalam IDR/base
-                'total_base' => $this->convertToBase($lineAmount, $currencyRate),
-
-                'uuid_detail' => $uuidDetail,
-                'updated_at' => now(),
-                'created_at' => now(),
-            ];
-        }
-
-        if (empty($batchDetails)) {
-            return;
-        }
-
-        DBill::upsert(
-            $batchDetails,
-            ['uuid_detail'],
-            [
-                'bills_parent_id',
-                'item_code',
-                'desc',
-                'qty',
-                'unit_price',
-                'account_id_coa',
-                'tax_rate',
-                'paket_tracking_uuid',
-                'divisi_travel_tracking_uuid',
-                'amount',
-                'total_base',
-                'updated_at',
-            ]
-        );
-
-        // ── 5. Upsert TransactionAllCoa — hanya untuk bill AUTHORISED/PAID ──
-        $status = $inv['Status'] ?? null;
-
-        if ($status === 'AUTHORISED' || $status === 'PAID') {
-            $detailUuids = collect($batchDetails)->pluck('uuid_detail')->toArray();
-
-            $savedDetails = DBill::whereIn('uuid_detail', $detailUuids)
-                ->get()
-                ->keyBy('uuid_detail');
-
-            foreach ($batchDetails as $detail) {
-                if (empty($detail['account_id_coa'])) {
-                    continue;
+                    if (strpos($categoryName, 'nama paket') !== false) {
+                        $paketUuid = $this->resolveTrackingUuid('Nama Paket', $optionName);
+                    } elseif (strpos($categoryName, 'divisi') !== false) {
+                        $divisiUuid = $this->resolveTrackingUuid('Divisi', $optionName);
+                    }
                 }
 
-                $saved = $savedDetails[$detail['uuid_detail']] ?? null;
-                if (!$saved) {
-                    continue;
-                }
+                $coaId = isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null;
+                $itemCode = $line['ItemCode'] ?? data_get($line, 'Item.Code');
+                $uuidDetail = $line['LineItemID'] ?? $this->service_global->generateUniqueString();
+                $lineAmount = (float) ($line['LineAmount'] ?? 0);
 
-                TransactionAllCoa::firstOrCreate(
-                    ['uuid_detail' => $saved->uuid_detail],
+                $batchDetails[] = [
+                    'bills_parent_id' => $parentId,
+                    'item_code' => $itemCode,
+                    'desc' => $line['Description'] ?? null,
+                    'qty' => $line['Quantity'] ?? 0,
+                    'unit_price' => $line['UnitAmount'] ?? 0,
+                    'account_id_coa' => $coaId,
+                    'tax_rate' => $line['TaxAmount'] ?? 0,
+                    'paket_tracking_uuid' => $paketUuid,
+                    'divisi_travel_tracking_uuid' => $divisiUuid,
+                    'amount' => $lineAmount,
+                    'total_base' => $this->convertToBase($lineAmount, $currencyRate),
+                    'uuid_detail' => $uuidDetail,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ];
+            }
+
+            if (!empty($batchDetails)) {
+                DBill::upsert(
+                    $batchDetails,
+                    ['uuid_detail'],
                     [
-                        'date_transaction' => $issueDate,
-                        'uuid_coa' => $detail['account_id_coa'],
-                        'reference' => $inv['Reference'] ?? '-',
-                        // Bill = pengeluaran/expense -> is_speend = 1.
-                        // ADJUST: cek konvensi flag ini di sistem Anda (0/1).
-                        'is_speend' => 1,
-                        'nominal' => $saved->amount,
-                        'uuid_detail' => $saved->uuid_detail,
-                        'code_curr' => $currencyCode,
-                        'nominal_currency' => $currencyCode == 'SAR' ? number_format(1 / $currencyRate, 2, '.', '') : 1,
-                        'base_nominal' => $saved->total_base,
+                        'bills_parent_id',
+                        'item_code',
+                        'desc',
+                        'qty',
+                        'unit_price',
+                        'account_id_coa',
+                        'tax_rate',
+                        'paket_tracking_uuid',
+                        'divisi_travel_tracking_uuid',
+                        'amount',
+                        'total_base',
+                        'updated_at',
                     ]
                 );
+
+                // ────────────────────────────────────────────────────────────
+                // ✅ 5. Upsert TransactionAllCoa untuk AUTHORISED/PAID
+                // ────────────────────────────────────────────────────────────
+                $status = $inv['Status'] ?? null;
+
+                if ($status === 'AUTHORISED' || $status === 'PAID') {
+                    $detailUuids = collect($batchDetails)->pluck('uuid_detail')->toArray();
+
+                    $savedDetails = DBill::whereIn('uuid_detail', $detailUuids)
+                        ->get()
+                        ->keyBy('uuid_detail');
+
+                    foreach ($batchDetails as $detail) {
+                        if (empty($detail['account_id_coa'])) {
+                            continue;
+                        }
+
+                        $saved = $savedDetails[$detail['uuid_detail']] ?? null;
+                        if (!$saved) {
+                            continue;
+                        }
+
+                        TransactionAllCoa::updateOrCreate(
+                            ['uuid_detail' => $saved->uuid_detail],
+                            [
+                                'date_transaction' => $issueDate,
+                                'uuid_coa' => $detail['account_id_coa'],
+                                'reference' => $inv['Reference'] ?? '-',
+                                'is_speend' => 1,
+                                'nominal' => $saved->amount,
+                                'uuid_detail' => $saved->uuid_detail,
+                                'code_curr' => $currencyCode,
+                                'nominal_currency' => $currencyCode == 'SAR' ? number_format(1 / $currencyRate, 2, '.', '') : 1,
+                                'base_nominal' => $saved->total_base,
+                            ]
+                        );
+                    }
+                }
             }
-        }
+        }, 5); // Max 5 attempts sebelum fail
     }
 
     // ================================================================
-    // TRACKING CATEGORY RESOLVER (dengan in-memory cache)
+    // TRACKING CATEGORY RESOLVER
     // ================================================================
 
     private function resolveTrackingUuid(string $parentName, string $optionName): ?string
@@ -835,7 +665,7 @@ class SyncBillJob implements ShouldQueue
     }
 
     // ================================================================
-    // XERO API — FETCH PAGE
+    // XERO API
     // ================================================================
 
     private function fetchPage(string $accessToken, string $tenantId, int $page): ?Response
@@ -846,15 +676,11 @@ class SyncBillJob implements ShouldQueue
                 'Xero-Tenant-Id' => $tenantId,
                 'Accept' => 'application/json',
             ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Invoices', [
-                        // Bills = Invoices dengan Type ACCPAY (Xero tidak punya
-                        // endpoint /Bills terpisah). Sebelumnya ini ACCREC
-                        // (Sales Invoice), itu sebabnya data bill tidak masuk.
                         'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',
                         'where' => 'Type=="ACCPAY"',
                         'order' => 'Date DESC',
                         'page' => $page,
                         'unitdp' => 4,
-                        // 'pageSize' => 5,
                     ]);
 
             if (!$response->successful() && $response->status() !== 429) {
@@ -869,17 +695,12 @@ class SyncBillJob implements ShouldQueue
         }
     }
 
-    // ================================================================
-    // DATE PARSER
-    // ================================================================
-
     private function parseXeroDate(?string $dateStr): ?string
     {
         if (!$dateStr) {
             return null;
         }
 
-        // Format ISO: "2024-01-15T00:00:00" — PHP 7.4 compatible (strpos, bukan str_contains)
         if (strpos($dateStr, 'T') !== false || strpos($dateStr, '-') !== false) {
             try {
                 return Carbon::parse($dateStr)->format('Y-m-d');
@@ -889,7 +710,6 @@ class SyncBillJob implements ShouldQueue
             }
         }
 
-        // Format epoch: "/Date(1704067200000+0000)/"
         if (preg_match('/\/Date\((\d+)/', $dateStr, $matches)) {
             return Carbon::createFromTimestampMs((int) $matches[1])->format('Y-m-d');
         }

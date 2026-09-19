@@ -80,7 +80,9 @@ class BillXeroController extends Controller
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
-            'status' => 'required|integer|between:0,3'
+            'status' => 'required|integer|between:0,3',
+            'date_start' => 'nullable|date',
+            'date_end' => 'nullable|date|after_or_equal:date_start',
         ]);
 
         if ($validator->fails()) {
@@ -89,33 +91,46 @@ class BillXeroController extends Controller
 
         $where = $request->status != 3 ? ['status' => $request->status] : [];
 
-
-        $relations = ['getContactFrom', 'getDetail'];
+        $relations = ['getContactFrom', 'getDetail', 'getHistoryBills', 'getPayment'];
 
         // DEFINISIKAN KOLOM PENCARIAN (TABEL UTAMA + RELASI)
         $search_columns = [
-            // 1. Kolom di Tabel Utama
             'reference',
             'date_req' => 'date',
             'due_date' => 'date',
-            // 2. Kolom di Tabel Relasi (Format: 'NamaRelasi' => ['kolom1', 'kolom2'])
             'getContactFrom' => ['full_name'],
             'subtotal',
             'total',
             'nominal_due'
         ];
 
+        // Filter tanggal
+        $date_start = $request->filled('date_start') ? $request->date_start : null;
+        $date_end = $request->filled('date_end') ? $request->date_end : null;
+
         if ($request->keyword) {
             $data = $this->repo->searchDataMultiColumn(
                 $where,
-                $request->limit, // Menggunakan limit dari request, bukan manual 10
+                $request->limit,
                 $search_columns,
                 $request->keyword,
-                $relations
+                $relations,
+                $date_start,
+                $date_end
             );
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault(
+                $where,
+                $request->limit,
+                $request->page,
+                'id',
+                'DESC',
+                $relations,     // ✅ sekalian isi modelWith agar relasi ikut ke-load
+                $date_start,
+                $date_end
+            );
         }
+
         return $this->autoResponse($data);
     }
 
