@@ -622,7 +622,7 @@ class SyncBillJob implements ShouldQueue
                             [
                                 'date_transaction' => $issueDate,
                                 'uuid_coa' => $detail['account_id_coa'],
-                                'reference' => $inv['Reference'] ?? '-',
+                                'reference' => $inv['InvoiceNumber'] ?? '-',//$inv['Reference'] ?? '-',
                                 'is_speend' => 1,
                                 'nominal' => $saved->amount,
                                 'uuid_detail' => $saved->uuid_detail,
@@ -631,6 +631,7 @@ class SyncBillJob implements ShouldQueue
                                 'base_nominal' => $saved->total_base,
                             ]
                         );
+                        Log::info("SyncBillJob.php-> REF coa " . $inv['InvoiceNumber']);
                     }
                 }
             }

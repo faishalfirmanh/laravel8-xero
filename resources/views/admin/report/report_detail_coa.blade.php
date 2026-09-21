@@ -36,6 +36,7 @@
                     <th>Date</th>
                     <th>Name Contact</th>
                     <th>Item</th>
+                    <th>Ref</th>
                     <th>Total</th>
                     <th>Action</th>
                 </tr>
@@ -102,11 +103,29 @@ $(document).ready(function() {
                     let datanya = data.d_bill.desc ?? '-';
                     return `<b style="color:#E53407">bills</b> &nbsp; ${datanya}`;
                 } else if(data.d_invoice){
-                    return `<b style="color:#2CBF56">Invoice</b> &nbsp; ${data.d_invoice.desc}`;
+                    return `<b style="color:#2CBF56">Invoice</b> &nbsp; ${data.d_invoice.desc} | &nbsp; <b style="color:red;">${data.d_invoice.invoice_number}</b>`;
                 } else if(data.d_bank){
                     return `<b style="color:#2155FF">Bank</b> &nbsp; ${data.d_bank.desc}`;
                 } else {
                     return 'not registered';
+                }
+            }
+        },
+        {
+            data: null,
+            orderable: false,
+            render: function(data, type, row){
+                if(data.d_bill){
+                    return `<b style="color:#4CB555">bills </b> | </b> | ${data.d_bill.get_parent.reference }`;
+                } else if(data.d_bank){
+                   let cek_kondisi_bank = data.d_bank.get_parent.is_spend == 1 ? 'keluar' : 'terima';
+                   let cek_warna = data.d_bank.get_parent.is_spend == 1 ? 'red' : '#78C0FF';
+                   return `<b style="color:${cek_warna}">bank ${cek_kondisi_bank}</b> | <b>${data.d_bank.desc} </b> | ${data.d_bank.get_parent.name_contact_trans_bank}`;
+                } else if(data.d_invoice){
+                   let cek_kondisi_bank = 'terima';
+                   return `<b style="color:#78C0FF">${data.d_invoice.get_parent.reference }`;
+                } else {
+                    return '-';
                 }
             }
         },

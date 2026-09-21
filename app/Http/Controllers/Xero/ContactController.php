@@ -481,7 +481,6 @@ class ContactController extends Controller
                 ], 500);
             }
 
-
             $allContacts = [];
             $page = 1;
 
@@ -494,7 +493,7 @@ class ContactController extends Controller
                 ])->timeout(60)->get(
                         'https://api.xero.com/api.xro/2.0/Contacts',
                         [
-                            'where' => 'ContactNumber = null',
+                            'where' => 'AccountNumber!=null', // FIX: typo AccounttNumber -> AccountNumber
                             'summaryOnly' => 'true',
                             'page' => $page,
                         ]
@@ -522,14 +521,15 @@ class ContactController extends Controller
                 $contacts = isset($data['Contacts'])
                     ? $data['Contacts']
                     : [];
+
                 /*
-                 * Ambil hanya ContactNumber yang benar-benar tidak kosong
+                 * Ambil hanya AccountNumber yang benar-benar tidak kosong
                  */
                 foreach ($contacts as $contact) {
 
                     if (
-                        isset($contact['ContactNumber']) &&
-                        trim((string) $contact['ContactNumber']) !== ''
+                        isset($contact['AccountNumber']) &&
+                        trim((string) $contact['AccountNumber']) !== ''
                     ) {
                         $contact['UpdatedDateUTC'] = $this->globalService->xeroDateToPhp(
                             $contact['UpdatedDateUTC'] ?? null

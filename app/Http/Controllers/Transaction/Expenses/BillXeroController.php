@@ -720,7 +720,7 @@ class BillXeroController extends Controller
         ]);
         if (!$request->id) {
             $request->merge([
-                'bills_uuid_xero' => "local_" . $this->generateUniqueString()
+                'bills_uuid_xero' => "local_" . $this->service_global->generateUniqueString()
             ]);
         }
 

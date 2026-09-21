@@ -245,7 +245,8 @@ class SyncXeroContactNumberJob implements ShouldQueue
             $updates[] = [
                 'ContactID' => $c['ContactID'],
                 'Name' => $c['Name'],
-                'ContactNumber' => $jamaahMap[$k],
+                // 'ContactNumber' => $jamaahMap[$k],
+                'AccountNumber' => $jamaahMap[$k],
             ];
         }
 
@@ -355,7 +356,7 @@ class SyncXeroContactNumberJob implements ShouldQueue
             ])->timeout(30)->get(
                     'https://api.xero.com/api.xro/2.0/Contacts',
                     [
-                        'where' => 'ContactNumber == null',
+                        'where' => 'AccountNumber == null',
                         'summaryOnly' => 'true',
                         'page' => $page,
                     ]

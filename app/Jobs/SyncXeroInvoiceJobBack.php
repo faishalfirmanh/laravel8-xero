@@ -102,7 +102,7 @@ use Illuminate\Support\Facades\Log;
  *   beda dengan updateOrCreate() yang dipakai kode lama).
  * ====================================================================
  */
-class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
+class SyncXeroInvoiceJobBack implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, ConfigRefreshXero;
 
@@ -272,17 +272,21 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
     private function syncInvoicesPhase(string $accessToken, string $tenantId, SyncJobStatus $jobStatus): void
     {
         $page = $jobStatus->total_pages > 0 ? (int) $jobStatus->total_pages : 1;
+        // $page = 1;
         $totalSynced = (int) ($jobStatus->total_synced ?? 0);
 
         if ($page > 1) {
-            Log::info("[SyncXeroInvoiceJob][$this->jobId] Resume invoice dari page $page (totalSynced: $totalSynced).");
+            Log::info(
+                "[SyncXeroInvoiceJob][$this->jobId] Resume invoice dari page $page " .
+                "(totalSynced sebelumnya: $totalSynced)."
+            );
         }
 
         do {
             $response = $this->fetchPage($accessToken, $tenantId, $page);
 
             if ($response === null) {
-                throw new \RuntimeException("fetchPage() mengembalikan null pada page $page.");
+                throw new \RuntimeException("fetchPage() mengembalikan null pada page $page (exception jaringan).");
             }
 
             if ($response->status() === 429) {
@@ -304,30 +308,17 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
             }
 
             $invoices = $response->json('Invoices') ?? [];
-
+            //$invoices = collect($data['Invoices'] ?? [])->take(5)->toArray();
             foreach ($invoices as $inv) {
-                if ($this->shouldRelease) {
-                    break;
-                }
-
-                try {
-                    $this->processInvoice($inv);
-                    $totalSynced++;
-                } catch (\Exception $e) {
-                    // ❌ Satu invoice error jangan hentikan seluruh page
-                    Log::error(
-                        "[SyncXeroInvoiceJob][$this->jobId] Error process invoice " .
-                        "{$inv['InvoiceNumber']}: " . $e->getMessage()
-                    );
-                    continue;
-                }
+                $this->processInvoice($inv);
+                $totalSynced++;
             }
 
             $jobStatus->total_synced = $totalSynced;
             $jobStatus->total_pages = $page;
             $jobStatus->save();
 
-            Log::info("[SyncXeroInvoiceJob][$this->jobId] Invoice page $page selesai. Total: $totalSynced");
+            Log::info("[SyncXeroInvoiceJob][$this->jobId] Invoice page $page selesai. Total tersimpan: $totalSynced");
 
             if ($this->shouldRelease) {
                 break;
@@ -441,16 +432,24 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
             return 0;
         }
 
+        // ── Pre-load mapping parent invoice & bank, SEKALI per halaman ──
         $invoiceUuids = collect($payments)
             ->map(fn($p) => data_get($p, 'Invoice.InvoiceID'))
-            ->filter()->unique()->values()->toArray();
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
 
         $parentMap = InvoicesAllFromXero::whereIn('invoice_uuid', $invoiceUuids)
-            ->pluck('id', 'invoice_uuid')->toArray();
+            ->pluck('id', 'invoice_uuid')
+            ->toArray();
 
         $accountCodes = collect($payments)
             ->map(fn($p) => data_get($p, 'Account.Code'))
-            ->filter()->unique()->values()->toArray();
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
 
         $bankMap = BankXero::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
 
@@ -465,32 +464,15 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
             $accountCode = data_get($p, 'Account.Code');
             if (!$accountCode || !isset($bankMap[$accountCode])) {
                 Log::warning(
-                    "[processPaymentsBatch] Kode akun bank tidak ditemukan/kosong: '" .
-                    ($accountCode ?? '-') . "'. Payment {$paymentId} dilewati."
+                    "[processPaymentsBatch] Kode akun bank tidak ditemukan/kosong: '" . ($accountCode ?? '-') . "'. " .
+                    "Payment {$paymentId} dilewati."
                 );
                 continue;
             }
 
             $invoiceUuid = data_get($p, 'Invoice.InvoiceID');
-            $invoiceCurr = strtoupper(data_get($p, 'Invoice.CurrencyCode') ?? 'IDR');
 
-            // ✅ FIX BUG #4 — CurrencyRate diambil dari payment object ($p)
-            // langsung. Kode lama menggunakan path 'Invoice.Payments.CurrencyRate'
-            // yang tidak ada di response Xero → menghasilkan null →
-            // getCurrentRate(null) → fatal error untuk payment SAR.
-            $currencyRate = (float) ($p['CurrencyRate'] ?? 0);
-
-            // currencyRate = SAR/IDR (misal 0.000067 SAR per 1 IDR)
-            // nominalCurr  = IDR/SAR (misal 14925.37) — untuk kolom display
-            // totalBaseRecv = amount_SAR / (SAR/IDR) = amount_IDR
-            $nominalCurr = 1;
-            $totalBaseRecv = (float) ($p['Amount'] ?? 0);
-
-            if ($invoiceCurr === 'SAR' && $currencyRate > 0) {
-                $nominalCurr = number_format(1 / $currencyRate, 2, '.', '');
-                $totalBaseRecv = round((float) ($p['Amount'] ?? 0) / $currencyRate, 0);
-            }
-
+            $cek_is_sar = data_get($p, 'Invoice.CurrencyCode') == 'SAR' ? $this->getCurrentRate(data_get($p, 'Invoice.Payments.CurrencyRate')) : 1;
             $rows[] = [
                 'payment_uuid' => $paymentId,
                 'uuid_bank' => $bankMap[$accountCode],
@@ -503,8 +485,8 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 'id_parent_invoice' => $invoiceUuid ? ($parentMap[$invoiceUuid] ?? null) : null,
                 'updated_at' => now(),
                 'created_at' => now(),
-                'nominal_currency' => $nominalCurr,
-                'total_base_receive' => $totalBaseRecv,
+                'nominal_currency' => $cek_is_sar,
+                'total_base_receive' => data_get($p, 'Invoice.CurrencyCode') == 'SAR' ? $p['Amount'] * $cek_is_sar : (float) $p['Amount'],
             ];
         }
 
@@ -525,7 +507,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 'id_parent_invoice',
                 'updated_at',
                 'nominal_currency',
-                'total_base_receive',
+                'total_base_receive'
             ]
         );
 
@@ -731,163 +713,151 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
 
     private function processInvoice(array $inv): void
     {
-        // ✅ Wrap dalam transaction supaya p.invoice + detail + COA konsisten
-        DB::transaction(function () use ($inv) {
-            $lineItems = $inv['LineItems'] ?? [];
-            $firstLine = $lineItems[0] ?? [];
-            $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
-            $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
-            $contactId = data_get($inv, 'Contact.ContactID');
+        $lineItems = $inv['LineItems'] ?? [];
+        $firstLine = $lineItems[0] ?? [];
+        $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
+        $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
+        $contactId = data_get($inv, 'Contact.ContactID');
 
-            $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
+        $findContact = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
 
-            InvoicesAllFromXero::upsert(
+        InvoicesAllFromXero::upsert(
+            [
                 [
-                    [
-                        'invoice_uuid' => $inv['InvoiceID'],
-                        'invoice_number' => $inv['InvoiceNumber'] ?? null,
-                        'invoice_amount' => $inv['AmountPaid'] ?? 0,
-                        'invoice_total' => $inv['Total'] ?? 0,
-                        'less_nominal' => $inv['AmountDue'] ?? 0,
-                        'issue_date' => $issueDate,
-                        'due_date' => $dueDate,
-                        'status' => $inv['Status'] ?? null,
-                        'uuid_contact' => $contactId,
-                        'contact_name' => data_get($inv, 'Contact.Name'),
-                        'contact_id' => $findContact,
-                        'uuid_proudct_and_service' => $firstLine['ItemID'] ?? null,
-                        'item_name' => $firstLine['Description'] ?? null,
-                        'reference' => $inv['Reference'] ?? null,
-                        'updated_at' => now(),
-                        'created_at' => now(),
-                        'code_curr' => $inv['CurrencyCode'] ?? 'IDR',
-                        'nominal_currency' => ($inv['CurrencyCode'] ?? '') === 'SAR'
-                            ? $this->getCurrentRate($inv) : 1,
-                    ]
-                ],
-                ['invoice_uuid'],
-                [
-                    'invoice_number',
-                    'invoice_amount',
-                    'invoice_total',
-                    'less_nominal',
-                    'issue_date',
-                    'due_date',
-                    'status',
-                    'uuid_contact',
-                    'contact_name',
-                    'contact_id',
-                    'uuid_proudct_and_service',
-                    'item_name',
-                    'reference',
-                    'updated_at',
-                ]
-            );
-
-            $parentId = InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])->value('id');
-
-            if (!$parentId || empty($lineItems)) {
-                return;
-            }
-
-            // Pre-load COA & Item map — hindari N+1
-            $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->toArray();
-            $itemCodes = collect($lineItems)
-                ->filter(fn($l) => isset($l['Item']['Code']))
-                ->map(fn($l) => $l['Item']['Code'])
-                ->unique()->values()->toArray();
-
-            $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
-            $itemMap = ItemsPaketAllFromXero::whereIn('code', $itemCodes)->pluck('id', 'code')->toArray();
-
-            $batchDetails = [];
-
-            foreach ($lineItems as $line) {
-                $paketUuid = null;
-                $divisiUuid = null;
-
-                foreach ($line['Tracking'] ?? [] as $track) {
-                    $categoryName = strtolower($track['Name'] ?? '');
-                    $optionName = $track['Option'] ?? '';
-
-                    if (strpos($categoryName, 'nama paket') !== false) {
-                        $paketUuid = $this->resolveTrackingUuid('Nama Paket', $optionName);
-                    } elseif (strpos($categoryName, 'divisi') !== false) {
-                        $divisiUuid = $this->resolveTrackingUuid('Divisi', $optionName);
-                    }
-                }
-
-                $coaId = isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null;
-                $itemCode = $line['Item']['Code'] ?? null;
-                $itemIdSave = $itemCode ? ($itemMap[$itemCode] ?? null) : null;
-                $uuidItem = $line['Item']['ItemID'] ?? $line['ItemID'] ?? 'no_set';
-
-                // ✅ FIX BUG #2 — uuid_detail_inv HARUS deterministik.
-                // Sebelumnya: generateUniqueString() → random setiap sync →
-                // link ke TransactionAllCoa putus setiap kali job dijalankan.
-                // Sekarang: pakai LineItemID dari Xero yang stabil & unik.
-                $uuidDetailInv = $line['LineItemID'];
-
-                $batchDetails[] = [
+                    'invoice_uuid' => $inv['InvoiceID'],
                     'invoice_number' => $inv['InvoiceNumber'] ?? null,
-                    'uuid_invoices' => $inv['InvoiceID'],
-                    'uuid_item' => $uuidItem,
-                    'qty' => $line['Quantity'] ?? 0,
-                    'unit_price' => $line['UnitAmount'] ?? 0,
-                    'total_amount_each_row' => $line['LineAmount'] ?? 0,
-                    'line_item_uuid' => $line['LineItemID'],
-                    'coa_id' => $coaId,
-                    'parent_inv_id' => $parentId,
-                    'item_id' => $itemIdSave,
-                    'uuid_detail_inv' => $uuidDetailInv,
-                    'paket_tracking_uuid' => $paketUuid,
-                    'divisi_travel_tracking_uuid' => $divisiUuid,
-                    'desc' => $line['Description'] ?? null,
+                    'invoice_amount' => $inv['AmountPaid'] ?? 0,
+                    'invoice_total' => $inv['Total'] ?? 0,
+                    'less_nominal' => $inv['AmountDue'] ?? 0,
+                    'issue_date' => $issueDate,
+                    'due_date' => $dueDate,
+                    'status' => $inv['Status'] ?? null,
+                    'uuid_contact' => $contactId,
+                    'contact_name' => data_get($inv, 'Contact.Name'),
+                    'contact_id' => $findContact,
+                    'uuid_proudct_and_service' => $firstLine['ItemID'] ?? null,
+                    'item_name' => $firstLine['Description'] ?? null,
+                    'reference' => $inv['Reference'] ?? null,
                     'updated_at' => now(),
                     'created_at' => now(),
-                ];
-            }
-
-            if (empty($batchDetails)) {
-                return;
-            }
-
-            ItemDetailInvoices::upsert(
-                $batchDetails,
-                ['line_item_uuid'],
-                [
-                    'invoice_number',
-                    'uuid_invoices',
-                    'uuid_item',
-                    'qty',
-                    'unit_price',
-                    'total_amount_each_row',
-                    'coa_id',
-                    'parent_inv_id',
-                    'item_id',
-                    'paket_tracking_uuid',
-                    'divisi_travel_tracking_uuid',
-                    'desc',
-                    'updated_at',
-                    // ✅ FIX BUG #2 — 'uuid_detail_inv' SENGAJA DIHAPUS dari
-                    // update columns. Nilai ini sekarang = LineItemID (stabil),
-                    // tidak boleh di-overwrite saat upsert agar link ke
-                    // TransactionAllCoa tidak putus di sync berikutnya.
+                    //new CUrrency
+                    'code_curr' => $inv['CurrencyCode'],
+                    'nominal_currency' => $inv['CurrencyCode'] == 'SAR' ? $this->getCurrentRate($inv) : 1, //$inv['Total']
                 ]
-            );
+            ],
+            ['invoice_uuid'],
+            [
+                'invoice_number',
+                'invoice_amount',
+                'invoice_total',
+                'less_nominal',
+                'issue_date',
+                'due_date',
+                'status',
+                'uuid_contact',
+                'contact_name',
+                'contact_id',
+                'uuid_proudct_and_service',
+                'item_name',
+                'reference',
+                'updated_at',
+            ]
+        );
 
-            $status = $inv['Status'] ?? null;
+        $parentId = InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])->value('id');
 
-            if ($status !== 'AUTHORISED' && $status !== 'PAID') {
-                return;
+        if (!$parentId || empty($lineItems)) {
+            return;
+        }
+
+        // ── Pre-load COA dan Item SEKALI sebelum loop — hindari N+1 ─────
+        $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->toArray();
+
+        $itemCodes = collect($lineItems)
+            ->filter(fn($l) => isset($l['Item']['Code']))
+            ->map(fn($l) => $l['Item']['Code'])
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
+        $itemMap = ItemsPaketAllFromXero::whereIn('code', $itemCodes)->pluck('id', 'code')->toArray();
+
+        $batchDetails = [];
+
+        foreach ($lineItems as $line) {
+            $paketUuid = null;
+            $divisiUuid = null;
+
+            foreach ($line['Tracking'] ?? [] as $track) {
+                $categoryName = strtolower($track['Name'] ?? '');
+                $optionName = $track['Option'] ?? '';
+
+                if (strpos($categoryName, 'nama paket') !== false) {
+                    $paketUuid = $this->resolveTrackingUuid('Nama Paket', $optionName);
+                } elseif (strpos($categoryName, 'divisi') !== false) {
+                    $divisiUuid = $this->resolveTrackingUuid('Divisi', $optionName);
+                }
             }
 
-            $lineItemUuids = collect($batchDetails)->pluck('line_item_uuid')->toArray();
-            $savedDetails = ItemDetailInvoices::whereIn('line_item_uuid', $lineItemUuids)
-                ->get()->keyBy('line_item_uuid');
+            $coaId = isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null;
+            $itemCode = $line['Item']['Code'] ?? null;
+            $itemIdSave = $itemCode ? ($itemMap[$itemCode] ?? null) : null;
+            $uuidItem = $line['Item']['ItemID'] ?? $line['ItemID'] ?? 'no_set';
 
-            $currencyCode = $inv['CurrencyCode'] ?? 'IDR';
-            $nominalCurr = $currencyCode === 'SAR' ? $this->getCurrentRate($inv) : 1;
+            $batchDetails[] = [
+                'invoice_number' => $inv['InvoiceNumber'] ?? null,
+                'uuid_invoices' => $inv['InvoiceID'],
+                'uuid_item' => $uuidItem,
+                'qty' => $line['Quantity'] ?? 0,
+                'unit_price' => $line['UnitAmount'] ?? 0,
+                'total_amount_each_row' => $line['LineAmount'] ?? 0,
+                'line_item_uuid' => $line['LineItemID'],
+                'coa_id' => $coaId,
+                'parent_inv_id' => $parentId,
+                'item_id' => $itemIdSave,
+                'uuid_detail_inv' => $this->service_global->generateUniqueString(),
+                'paket_tracking_uuid' => $paketUuid,
+                'divisi_travel_tracking_uuid' => $divisiUuid,
+                'desc' => $line['Description'] ?? null,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ];
+        }
+
+        if (empty($batchDetails)) {
+            return;
+        }
+
+        ItemDetailInvoices::upsert(
+            $batchDetails,
+            ['line_item_uuid'],
+            [
+                'invoice_number',
+                'uuid_invoices',
+                'uuid_item',
+                'qty',
+                'unit_price',
+                'total_amount_each_row',
+                'coa_id',
+                'parent_inv_id',
+                'item_id',
+                'paket_tracking_uuid',
+                'divisi_travel_tracking_uuid',
+                'desc',
+                'updated_at',
+                'uuid_detail_inv',
+            ]
+        );
+
+        $status = $inv['Status'] ?? null;
+
+        if ($status === 'AUTHORISED' || $status === 'PAID') {
+            $lineItemUuids = collect($batchDetails)->pluck('line_item_uuid')->toArray();
+
+            $savedDetails = ItemDetailInvoices::whereIn('line_item_uuid', $lineItemUuids)
+                ->get()
+                ->keyBy('line_item_uuid');
 
             foreach ($batchDetails as $detail) {
                 if (empty($detail['coa_id'])) {
@@ -899,28 +869,22 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                     continue;
                 }
 
-                // ✅ FIX BUG #3 — updateOrCreate bukan firstOrCreate.
-                // firstOrCreate: kalau uuid_detail sudah ada, TIDAK update.
-                // Akibatnya perubahan amount di Xero tidak pernah masuk ke DB.
-                // updateOrCreate memastikan data selalu sinkron.
-                TransactionAllCoa::updateOrCreate(
+                TransactionAllCoa::firstOrCreate(
                     ['uuid_detail' => $saved->uuid_detail_inv],
                     [
                         'date_transaction' => $issueDate,
                         'uuid_coa' => $detail['coa_id'],
                         'reference' => $inv['Reference'] ?? '-',
                         'is_speend' => 0,
-                        'nominal' => $saved->total_amount_each_row, // bisa negatif (credit note)
+                        'nominal' => $saved->total_amount_each_row,
                         'uuid_detail' => $saved->uuid_detail_inv,
-                        'code_curr' => $currencyCode,
-                        'nominal_currency' => $nominalCurr,
-                        'base_nominal' => $currencyCode === 'SAR'
-                            ? (float) $nominalCurr * $saved->total_amount_each_row
-                            : $saved->total_amount_each_row,
+                        'code_curr' => $inv['CurrencyCode'],
+                        'nominal_currency' => $inv['CurrencyCode'] == 'SAR' ? $this->getCurrentRate($inv) : 1,
+                        'base_nominal' => $inv['CurrencyCode'] == 'SAR' ? $this->getCurrentRate($inv) * $saved->total_amount_each_row : $saved->total_amount_each_row
                     ]
                 );
             }
-        }, 5);
+        }
     }
 
     // ================================================================

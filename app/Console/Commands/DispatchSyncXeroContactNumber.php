@@ -20,8 +20,8 @@ class DispatchSyncXeroContactNumber extends Command
     public function handle()
     {
         // 1) Cegah dispatch dobel — kalau masih ada job running/queued dalam 20 menit terakhir
-        $running = SyncJobStatus::where('type', 'sync_xero_contact_number')
-            ->whereIn('status', ['queued', 'running'])
+        $running = SyncJobStatus::where('job_type', 'sync_xero_contact_number')
+            ->whereIn('status', ['pending', 'running'])
             ->where('updated_at', '>=', Carbon::now()->subMinutes(20))
             ->exists();
 
@@ -32,7 +32,7 @@ class DispatchSyncXeroContactNumber extends Command
         }
 
         // 2) Ambil token valid — sesuaikan dengan method di controller Xero Anda
-        $tokenData = $this->getValidXeroToken();
+        $tokenData = $this->getValidToken();
         if (!$tokenData || empty($tokenData['access_token'])) {
             $this->error('Access token Xero tidak tersedia.');
             Log::error('[DispatchSyncXeroContactNumber] Token Xero tidak tersedia.');
@@ -44,8 +44,8 @@ class DispatchSyncXeroContactNumber extends Command
 
         SyncJobStatus::create([
             'job_id' => $jobId,
-            'type' => 'sync_xero_contact_number',
-            'status' => 'queued',
+            'job_type' => 'sync_xero_contact_number',
+            'status' => 'pending',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

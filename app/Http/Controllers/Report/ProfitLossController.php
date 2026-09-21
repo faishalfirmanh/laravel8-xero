@@ -139,49 +139,88 @@ class ProfitLossController extends Controller
         $hasFilterPaket = count($filterPaket) > 0;
 
         // ================================================================
-        // BASE QUERY BUILDER — dipakai ulang untuk semua section
+        // ✅ FIXED: BASE QUERY
+        //    - t.id disertakan sebagai uniqueness key agar UNION tidak
+        //      salah menghapus baris transaksi berbeda yang nilainya sama
+        //    - unionAll → union supaya duplikat hasil join benar-benar hilang
         // ================================================================
         $baseQuery = function () use ($dateStart, $dateEnd, $filterDivisi, $filterPaket, $hasFilterDivisi, $hasFilterPaket) {
-            $q = DB::table('transaction_all_coas as t')
+            // Dari invoice line items
+            $invoiceQuery = DB::table('transaction_all_coas as t')
                 ->join('coas as c', 'c.id', '=', 't.uuid_coa')
                 ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
-                ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
-                ->whereBetween('t.date_transaction', [$dateStart, $dateEnd]);
+                ->whereBetween('t.date_transaction', [$dateStart, $dateEnd])
+                ->whereNotNull('di.id')
+                ->select(
+                    't.id as trx_row_id',   // ← uniqueness key
+                    't.uuid_detail',
+                    't.date_transaction',
+                    't.is_speend',
+                    't.base_nominal',
+                    't.nominal_currency',
+                    't.code_curr',
+                    'c.id',                 // coa id
+                    'c.name',
+                    'c.account_type'
+                );
 
             if ($hasFilterDivisi) {
-                $q->where(function ($sub) use ($filterDivisi) {
-                    $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
-                        ->orWhereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi);
-                });
+                $invoiceQuery->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi);
             }
 
             if ($hasFilterPaket) {
-                $q->where(function ($sub) use ($filterPaket) {
-                    $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
-                        ->orWhereIn('dbi.paket_tracking_uuid', $filterPaket);
-                });
+                $invoiceQuery->whereIn('di.paket_tracking_uuid', $filterPaket);
             }
 
-            return $q;
+            // Dari bill line items
+            $billQuery = DB::table('transaction_all_coas as t')
+                ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+                ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
+                ->whereBetween('t.date_transaction', [$dateStart, $dateEnd])
+                ->whereNotNull('dbi.id')
+                ->select(
+                    't.id as trx_row_id',   // ← uniqueness key
+                    't.uuid_detail',
+                    't.date_transaction',
+                    't.is_speend',
+                    't.base_nominal',
+                    't.nominal_currency',
+                    't.code_curr',
+                    'c.id',
+                    'c.name',
+                    'c.account_type'
+                );
+
+            if ($hasFilterDivisi) {
+                $billQuery->whereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi);
+            }
+
+            if ($hasFilterPaket) {
+                $billQuery->whereIn('dbi.paket_tracking_uuid', $filterPaket);
+            }
+
+            // ✅ UNION — baris kembar (hasil join) hilang, transaksi berbeda tetap ada
+            return $invoiceQuery->union($billQuery);
         };
 
         // ================================================================
         // Helper ambil rows + total per kelompok account_type.
-        // $isExpenseLike:
-        //   true  -> normal balance positif saat is_speend = 1 (DIRECTCOSTS, EXPENSE)
-        //   false -> normal balance positif saat is_speend = 0 (REVENUE, OTHERINCOME)
         // ================================================================
         $getSection = function (array $accountTypes, bool $isExpenseLike) use ($baseQuery) {
             $normalSpend = $isExpenseLike ? 1 : 0;
 
-            $rows = $baseQuery()
-                ->whereIn('c.account_type', $accountTypes)
+            $rows = DB::query()
+                ->fromSub(
+                    $baseQuery(),
+                    'unified'
+                )
+                ->whereIn('unified.account_type', $accountTypes)
                 ->selectRaw("
-                c.id,
-                c.name,
-                SUM(CASE WHEN t.is_speend = {$normalSpend} THEN t.base_nominal ELSE -t.base_nominal END) as total
+                unified.id,
+                unified.name,
+                SUM(CASE WHEN unified.is_speend = {$normalSpend} THEN unified.base_nominal ELSE -unified.base_nominal END) as total
             ")
-                ->groupBy('c.id', 'c.name')
+                ->groupBy('unified.id', 'unified.name')
                 ->get();
 
             return [
@@ -193,14 +232,11 @@ class ProfitLossController extends Controller
                 'total' => (float) $rows->sum('total'),
             ];
         };
-
-        // Mapping ke section P&L Xero:
-        //   Trading Income     -> REVENUE
-        //   Cost of Sales      -> DIRECTCOSTS
-        //   Other Income       -> OTHERINCOME
-        //   Operating Expenses -> EXPENSE
+        // ================================================================
+        // Mapping ke section P&L Xero
+        // ================================================================
         $tradingIncome = $getSection(['REVENUE'], false);
-        $costOfSales = $getSection(['DIRECTCOSTS'], true);
+        $costOfSales = $getSection(['DIRECTCOSTS', 'EXPENSE'], true);
         $otherIncome = $getSection(['OTHERINCOME'], false);
         $operatingExpenses = $getSection(['EXPENSE'], true);
 
