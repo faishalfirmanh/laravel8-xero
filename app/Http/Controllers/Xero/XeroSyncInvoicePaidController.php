@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Xero;
+use App\Http\Repository\MasterData\CoaRepo;
 use App\Jobs\SyncXeroPaketJob;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
@@ -24,12 +25,13 @@ class XeroSyncInvoicePaidController extends Controller
     use ApiResponse;
     protected $rateLimiter;
     use ConfigRefreshXero;
-    protected $global;
+    protected $global, $coas;
 
-    public function __construct(XeroRateLimitService $rateLimiter, GlobalService $global)
+    public function __construct(XeroRateLimitService $rateLimiter, GlobalService $global, CoaRepo $coas)
     {
         $this->rateLimiter = $rateLimiter;
         $this->global = $global;
+        $this->coas = $coas;
     }
 
 
@@ -965,6 +967,37 @@ class XeroSyncInvoicePaidController extends Controller
                 continue;
             }
 
+            $salesCode = trim((string) data_get($value, 'SalesDetails.AccountCode', ''));
+            $purchaseCode = trim((string) data_get($value, 'PurchaseDetails.AccountCode', ''));
+
+            // Lookup COA hanya jika kode tidak kosong
+            $cek_account_code_sales = $salesCode !== ''
+                ? optional($this->coas->whereData(['code' => $salesCode])->first())->id
+                : null;
+
+            $cek_account_code_purchase = $purchaseCode !== ''
+                ? optional($this->coas->whereData(['code' => $purchaseCode])->first())->id
+                : null;
+
+            $nama = $value['Name'];
+            // ✅ Case 1: Xero tidak punya AccountCode untuk item ini
+            if ($salesCode === '') {
+                Log::info('[getPaketHajiUmroh] SalesAccountCode kosong di Xero. Item=' . $nama);
+            }
+            if ($purchaseCode === '') {
+                Log::info('[getPaketHajiUmroh] PurchaseAccountCode kosong di Xero. Item=' . $nama);
+            }
+
+            // ✅ Case 2: Xero punya AccountCode, tapi tidak ditemukan di COA lokal
+            if ($salesCode !== '' && $cek_account_code_sales === null) {
+                Log::warning('[getPaketHajiUmroh] COA Sales tidak ditemukan. Item=' . $nama
+                    . ', SalesAccountCode=' . $salesCode);
+            }
+            if ($purchaseCode !== '' && $cek_account_code_purchase === null) {
+                Log::warning('[getPaketHajiUmroh] COA Purchase tidak ditemukan. Item=' . $nama
+                    . ', PurchaseAccountCode=' . $purchaseCode);
+            }
+
             //if (self::cekFormatStringPaket($value['Name'])) {
             $hari = self::getTotalHari($value['Name']) ?? 0;
             $batchItems[] = [
@@ -974,6 +1007,8 @@ class XeroSyncInvoicePaidController extends Controller
                 'purchase_AccountCode' => data_get($value, 'PurchaseDetails.AccountCode', '-'),
                 'sales_AccountCode' => data_get($value, 'SalesDetails.AccountCode', '-'),
                 'total_hari' => $hari,
+                'account_id_purchase' => $cek_account_code_purchase,
+                'account_id_salles' => $cek_account_code_sales,
                 'jenis_item' => $this->global->cekJenisPaketBasePagar($value['Name']),
                 'price_purchase' => data_get($value, 'PurchaseDetails.UnitPrice', 0),
                 'price_sales' => data_get($value, 'SalesDetails.UnitPrice', 0),
@@ -1005,6 +1040,8 @@ class XeroSyncInvoicePaidController extends Controller
                     'sales_AccountCode',
                     'total_hari',
                     'jenis_item',
+                    'account_id_purchase',
+                    'account_id_salles',
                     'price_purchase',
                     'price_sales',
                     'desc',
