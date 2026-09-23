@@ -798,7 +798,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
             var html = '';
 
             if (activeFilters.divisi_name && activeFilters.divisi_name.length > 0) {
-                html += '<span class="mr-2"><strong>Divisi:</strong></span>';
+                html += '<span class="mr-2"><strong>Paket:</strong></span>';
                 $.each(activeFilters.divisi_name, function(index, item) {
                     if (item.item_name_category) {
                         html += '<span class="badge badge-info mr-1 mb-1">'
@@ -809,7 +809,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
             }
 
             if (activeFilters.paket_name && activeFilters.paket_name.length > 0) {
-                html += '<span class="mr-2 ml-2"><strong>Paket:</strong></span>';
+                html += '<span class="mr-2 ml-2"><strong>Divisi:</strong></span>';
                 $.each(activeFilters.paket_name, function(index, item) {
                     if (item.item_name_category) {
                         html += '<span class="badge badge-success mr-1 mb-1">'
