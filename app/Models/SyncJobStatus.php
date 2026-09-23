@@ -19,7 +19,10 @@ class SyncJobStatus extends Model
         'error_message',
         'started_at',
         'finished_at',
-        'last_page'
+        'last_page',
+        //
+        'modified_after',
+        'last_completed_at',
     ];
 
     protected $casts = [

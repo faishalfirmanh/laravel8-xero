@@ -462,6 +462,9 @@
         <p class="report-period" id="reportPeriodLabel">
             For the month ended {{ now()->endOfMonth()->isoFormat('D MMMM YYYY') }}
         </p>
+        <p id="filterTrack">
+    
+        </p>
 
         <div class="period-header-row">
             <div class="col-amt" id="colPeriodLabel">
@@ -788,15 +791,42 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
             params,
             localStorage.getItem('token')
         )
-        .then(function (response) {
-            console.log('res',response)
+        .then(function (response) {//filterTrack
+            var activeFilters = response.data.data.active_filters;
+            var filterTrack = $('#filterTrack');
+            filterTrack.empty();
+            var html = '';
+
+            if (activeFilters.divisi_name && activeFilters.divisi_name.length > 0) {
+                html += '<span class="mr-2"><strong>Divisi:</strong></span>';
+                $.each(activeFilters.divisi_name, function(index, item) {
+                    if (item.item_name_category) {
+                        html += '<span class="badge badge-info mr-1 mb-1">'
+                            + item.item_name_category
+                            + '</span>';
+                    }
+                });
+            }
+
+            if (activeFilters.paket_name && activeFilters.paket_name.length > 0) {
+                html += '<span class="mr-2 ml-2"><strong>Paket:</strong></span>';
+                $.each(activeFilters.paket_name, function(index, item) {
+                    if (item.item_name_category) {
+                        html += '<span class="badge badge-success mr-1 mb-1">'
+                            + item.item_name_category
+                            + '</span>';
+                    }
+                });
+            }
+            filterTrack.html(html);
+
+
             if (!response.status || !response.data) {
                 throw new Error(response.message || 'Gagal memuat data');
             }
             var adapted = adaptApiResponse(response.data.data);
             _lastData   = adapted;
             renderReport(adapted);
-            console.log('adp',adapted)
         })
         .catch(function (err) {
             cathError(err);

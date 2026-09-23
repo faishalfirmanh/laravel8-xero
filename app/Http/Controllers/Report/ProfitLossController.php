@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Report;
 
 use App\Http\Controllers\Controller;
 use App\Http\Repository\MasterData\CoaRepo;
+use App\Http\Repository\MasterData\TrackingRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\Transaction\TransactionAllCoa;
 use DB;
@@ -18,12 +19,13 @@ class ProfitLossController extends Controller
 {
     use ApiResponse;
 
-    protected $repo, $repo_coa;
+    protected $repo, $repo_coa, $tracing;
 
-    public function __construct(TransCoaRepo $repo, CoaRepo $repo_coa)
+    public function __construct(TransCoaRepo $repo, CoaRepo $repo_coa, TrackingRepo $tracing)
     {
         $this->repo = $repo;
         $this->repo_coa = $repo_coa;
+        $this->tracing = $tracing;
     }
 
 
@@ -243,6 +245,9 @@ class ProfitLossController extends Controller
         $grossProfit = $tradingIncome['total'] - $costOfSales['total'];
         $netProfit = $grossProfit + $otherIncome['total'] - $operatingExpenses['total'];
 
+
+        $div_paket = $this->tracing->getUUIDKategory("Nama Paket", $filterPaket);
+        $divisi = $this->tracing->getUUIDKategory("Divisi", $filterDivisi);
         $data = [
             'period' => [
                 'date_start' => $dateStart,
@@ -251,6 +256,8 @@ class ProfitLossController extends Controller
             'active_filters' => [
                 'tracking_divisi' => $hasFilterDivisi ? array_values($filterDivisi) : null,
                 'tracking_paket_name' => $hasFilterPaket ? array_values($filterPaket) : null,
+                'divisi_name' => $div_paket,
+                'paket_name' => $divisi
             ],
             'trading_income' => $tradingIncome,
             'cost_of_sales' => $costOfSales,

@@ -617,7 +617,7 @@ class SyncBillJob implements ShouldQueue
                             continue;
                         }
 
-                        TransactionAllCoa::updateOrCreate(
+                        TransactionAllCoa::firstOrCreate(
                             ['uuid_detail' => $saved->uuid_detail],
                             [
                                 'date_transaction' => $issueDate,

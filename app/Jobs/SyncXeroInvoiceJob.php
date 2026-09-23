@@ -781,6 +781,8 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                     'item_name',
                     'reference',
                     'updated_at',
+                    'code_curr',
+                    'nominal_currency',
                 ]
             );
 
@@ -826,6 +828,10 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 // Sebelumnya: generateUniqueString() → random setiap sync →
                 // link ke TransactionAllCoa putus setiap kali job dijalankan.
                 // Sekarang: pakai LineItemID dari Xero yang stabil & unik.
+                if (empty($line['LineItemID'])) {
+                    \Log::warning('LineItemID kosong, skip', ['invoice' => $inv['InvoiceID']]);
+                    continue;
+                }
                 $uuidDetailInv = $line['LineItemID'];
 
                 $batchDetails[] = [
@@ -879,6 +885,10 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
             $status = $inv['Status'] ?? null;
 
             if ($status !== 'AUTHORISED' && $status !== 'PAID') {
+                $lineItemUuids = collect($batchDetails)->pluck('uuid_detail_inv')->filter()->toArray();
+                if (!empty($lineItemUuids)) {
+                    TransactionAllCoa::whereIn('uuid_detail', $lineItemUuids)->delete();
+                }
                 return;
             }
 
@@ -903,7 +913,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 // firstOrCreate: kalau uuid_detail sudah ada, TIDAK update.
                 // Akibatnya perubahan amount di Xero tidak pernah masuk ke DB.
                 // updateOrCreate memastikan data selalu sinkron.
-                TransactionAllCoa::updateOrCreate(
+                TransactionAllCoa::firstOrCreate(
                     ['uuid_detail' => $saved->uuid_detail_inv],
                     [
                         'date_transaction' => $issueDate,
