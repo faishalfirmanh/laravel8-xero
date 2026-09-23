@@ -143,12 +143,20 @@ $(document).ready(function() {
             searchable: false,
             className: "text-center",
             render: function(data, type, row) {
-
-                let base_url = window.location.origin
-                let cek_inv = row.d_invoice ? `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}` : ''
-               let urlnya = row.d_bank
-                ? `${base_url}/travel/admin/transaksi/bank-trans/${row.d_bank.get_parent.bank_id_xero}?open=${row.d_bank.get_parent.id}`
-                : `${cek_inv}`;
+                console.log('row',row)
+                 let base_url = window.location.origin
+                 let urlnya = '';
+                if(row.d_invoice ){
+                   urlnya += `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.d_invoice.get_parent.id}`;
+                }else if(row.d_bank){
+                    urlnya += `${base_url}/travel/admin/transaksi/bank-trans/${row.d_bank.get_parent.bank_id_xero}?open=${row.d_bank.get_parent.id}`;
+                }else if(row.d_bill){
+                   urlnya += `${base_url}/travel/admin/transaksi/purchase-bills/?open=${row.d_bill.get_parent.id}`;
+                }else{
+                   urlnya = '';
+                }
+               
+              
                 return `<a href="${urlnya}" data-id="${data}" class="text-primary edit-hotel mr-2">
                             <i class="ti ti-eye"></i>
                         </a>`;
