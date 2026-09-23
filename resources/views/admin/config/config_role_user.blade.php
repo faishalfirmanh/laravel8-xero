@@ -199,7 +199,7 @@ $(document).ready(function() {
                       // --- 1. RESET SEMUA CHECKBOX ---
                     $('input[name="roles[]"]').prop('checked', false);
                     $('input[name="travel_multi_check[]"]').prop('checked', false);
-
+                    $('#idHotelInput').val(response.data.data.id)
                     // --- 2. AMBIL SEMUA ID DARI RESPONSE (FLATTEN) ---
 
                     let roles_user_id = [];
