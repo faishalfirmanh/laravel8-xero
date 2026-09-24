@@ -61,7 +61,8 @@ class MasterMenuSeeder extends Seeder
                     'travel-master-data',
                     'product-and-service',
                     //toko
-                    'warehouse'
+                    'warehouse',
+                    'unit'
                 ];
                 $slug_web = [
                     // 'travel/admin/master-data/hotel',
@@ -74,7 +75,8 @@ class MasterMenuSeeder extends Seeder
                     'travel/admin/master-data/travel',
                     'travel/admin/master-data/product-and-service',
                     //toko
-                    'toko/admin/master-data/warehouse'
+                    'toko/admin/master-data/warehouse',
+                    'toko/admin/master-data/unit'
                 ];
                 $i = 0;
                 foreach ($child_menus as $name) {

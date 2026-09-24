@@ -135,6 +135,11 @@ class DashboardController extends Controller
         return view('admin.toko.master_data.warehouse');
     }
 
+    public function unitsSatuan()
+    {
+        return view('admin.toko.master_data.unit');
+    }
+
     public function getWebProduct()
     {
         return view('admin.master.product_service');

@@ -109,6 +109,7 @@ Route::prefix('toko')->group(function () {
     Route::prefix('admin')->group(function () {
         Route::prefix('master-data')->group(function () {
             Route::get('warehouse', [DashboardController::class, 'warehouse'])->name('admin-master-warehouse');
+            Route::get('unit', [DashboardController::class, 'unitsSatuan'])->name('admin-master-unit');
         });
     });
 });

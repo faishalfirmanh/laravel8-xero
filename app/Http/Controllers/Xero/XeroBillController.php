@@ -267,7 +267,7 @@ class XeroBillController extends Controller
                 );
             }
 
-            return $response;
+            return response()->json(['data' => $response]);
 
         } catch (\Exception $e) {
             Log::error(
