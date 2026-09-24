@@ -6,6 +6,7 @@ use App\Http\Controllers\MasterData\JamaahApiXeroController;
 use App\Http\Controllers\MasterData\ProducAndServiceXeroLocalController;
 use App\Http\Controllers\MekariWaTestController;
 use App\Http\Controllers\Report\ProfitLossController;
+use App\Http\Controllers\Toko\MasterData\WarehouseController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
 use App\Http\Controllers\Xero\CoaXeroController;
@@ -361,6 +362,16 @@ Route::prefix("admin-web")->group(function () {
         });
 
 
+    });
+
+    Route::middleware(['auth:sanctum', 'xss', 'role.menu'])->prefix('toko')->group(function () {
+        Route::prefix('master-data')->group(function () {
+            Route::prefix('warehouse')->group(function () {
+                Route::get('list', [WarehouseController::class, 'getAll'])->name('get-all-warehouse');
+                Route::post('save', [WarehouseController::class, 'store'])->name('save-warehouse');
+                Route::get('detail', [WarehouseController::class, 'getById'])->name('find-warehouse');
+            });
+        });
     });
 
     //spbu

@@ -129,6 +129,12 @@ class DashboardController extends Controller
         return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank', 'idInvoice'));
     }
 
+    public function warehouse()
+    {
+
+        return view('admin.toko.master_data.warehouse');
+    }
+
     public function getWebProduct()
     {
         return view('admin.master.product_service');

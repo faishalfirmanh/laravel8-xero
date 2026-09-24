@@ -248,6 +248,26 @@ class GlobalService
     }
 
 
+    function generateRandomCode()
+    {
+        $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $numbers = '0123456789';
+
+        $code = '';
+
+        // 3 huruf
+        for ($i = 0; $i < 3; $i++) {
+            $code .= $letters[random_int(0, strlen($letters) - 1)];
+        }
+
+        // 3 angka
+        for ($i = 0; $i < 3; $i++) {
+            $code .= $numbers[random_int(0, strlen($numbers) - 1)];
+        }
+
+        return $code;
+    }
+
 
     public function generateUniqueString(): string
     {

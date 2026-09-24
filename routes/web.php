@@ -105,6 +105,14 @@ Route::prefix('travel')->group(function () {
     });
 });
 
+Route::prefix('toko')->group(function () {
+    Route::prefix('admin')->group(function () {
+        Route::prefix('master-data')->group(function () {
+            Route::get('warehouse', [DashboardController::class, 'warehouse'])->name('admin-master-warehouse');
+        });
+    });
+});
+
 //print-pdf
 Route::get('/invoice/print/{id}', [RHotelApiController::class, 'printInvoice'])->name('invoice_hotel_print');
 
