@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Repository\MasterData\JamaahAlhidRepository;
 use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
 use App\Http\Repository\Transaction\OverPayRepo;
+use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\MasterData\MasterCurrency;
@@ -34,7 +35,7 @@ class InvXeroController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank, $repo_over, $repo_jamaah_alhid;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank, $repo_over, $repo_jamaah_alhid, $repo_bank_summary;
     use ConfigRefreshXero;
     use ApiResponse;
 
@@ -47,7 +48,8 @@ class InvXeroController extends Controller
         GlobalService $service_global,
         DataJamaahXeroRepository $repo_jamaah,
         OverPayRepo $repo_over,
-        JamaahAlhidRepository $repo_jamaah_alhid
+        JamaahAlhidRepository $repo_jamaah_alhid,
+        SummaryBankRepo $repo_bank_summary
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -57,6 +59,7 @@ class InvXeroController extends Controller
         $this->repo_trans_bank = $repo_trans_bank;
         $this->repo_over = $repo_over;
         $this->repo_jamaah_alhid = $repo_jamaah_alhid;
+        $this->repo_bank_summary = $repo_bank_summary;
     }
 
     public function getListInvoice(Request $request)
@@ -1569,6 +1572,25 @@ class InvXeroController extends Controller
         ]);
     }
 
+    private function _recalcBankSummary(int $bankId): void
+    {
+        $receive = $this->repo_trans_bank->sumDataWhereDinamis(
+            ['uuid_bank' => $bankId],
+            'nominal_receive'
+        );
+        $spend = $this->repo_trans_bank->sumDataWhereDinamis(
+            ['uuid_bank' => $bankId],
+            'nominal_spend'
+        );
+
+        $this->repo_bank_summary->updateCreate([
+            'bank_id' => $bankId,
+            'nominal_in' => $receive,
+            'nominal_out' => $spend,
+            'final_nominal' => $receive - $spend,
+        ]);
+    }
+
     public function storePayment(Request $request)
     {
 
@@ -1620,6 +1642,7 @@ class InvXeroController extends Controller
                 'nominal_currency' => $invP->nominal_currency
             ]);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
+            $this->_recalcBankSummary((int) $request->uuid_bank);
 
             if ($invP->invoice_amount >= $invP->invoice_total) {
                 $this->repo->CreateOrUpdate(['status' => 'PAID'], $request->parent_inv_id);
@@ -1701,6 +1724,9 @@ class InvXeroController extends Controller
                 return $this->error('Invoice tidak ditemukan', 404);
             }
 
+            $oldBankId = (int) $oldPayment->uuid_bank;
+            $bankPindah = $oldBankId !== (int) $request->uuid_bank;
+
             // FIX: kembalikan dulu nominal overpay lama yang dipakai payment ini (jika ada)
             $this->_reverseOverpayUsage($oldPayment);
 
@@ -1746,10 +1772,15 @@ class InvXeroController extends Controller
             ], $cekPaymentOver));
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), $request->id);
 
+            // Hitung ulang saldo bank. Kalau bank dipindah, kedua bank (asal & tujuan) di-refresh.
+            $this->_recalcBankSummary((int) $request->uuid_bank);
+            if ($bankPindah) {
+                $this->_recalcBankSummary($oldBankId);
+            }
+
             // FIX: pakai lagi overpay sesuai nominal baru (tidak pernah hapus row overpay)
             $cekOverOrBank = (double) $request->nominal_receive > 0 ? $request->nominal_receive : $request->nominal_spend;
             $this->_applyOverpayUsage($overpayIdToUse, $cekOverOrBank);
-            //dd($cekOverOrBank);
 
             // Update status invoice
             $newStatus = bccomp($invP->invoice_amount, $invP->invoice_total, 4) >= 0 ? 'PAID' : 'AUTHORISED';
@@ -1757,12 +1788,24 @@ class InvXeroController extends Controller
 
             $this->_syncOverpayment($invP, $saveP, $request->uuid_bank);
 
+            // Ambil nama bank & kontak dari sumber yang pasti terisi
+            $bankName = DB::table('bank_xeros')->where('id', $request->uuid_bank)->value('name') ?? '-';
+            $nominalFormatted = 'Rp ' . number_format($request->nominal_receive, 0, ',', '.');
+            $nominalLamaFormatted = 'Rp ' . number_format($oldPayment->nominal_receive, 0, ',', '.');
+
+            $logMessage = $request->user_login->name
+                . ' mengedit pembayaran invoice ' . $invP->invoice_number
+                . " dari {$nominalLamaFormatted} menjadi {$nominalFormatted}"
+                . " pada bank {$bankName}";
+
+            if ($bankPindah) {
+                $oldBankName = DB::table('bank_xeros')->where('id', $oldBankId)->value('name') ?? '-';
+                $logMessage .= " (dipindah dari {$oldBankName})";
+            }
+
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
-                $request->user_login->name
-                . ' mengedit pembayaran invoice ' . $invP->invoice_number
-                . ' sebesar ' . $request->nominal_receive
-                . ' pada bank ' . $saveP->name_bank,
+                $logMessage,
                 $request->userAgent(),
                 $request->ip(),
                 $invP->id,
@@ -1807,10 +1850,11 @@ class InvXeroController extends Controller
                 return $this->error('Invoice tidak ditemukan', 404);
             }
 
+            // Simpan bank sebelum record dihapus, karena request tidak mengirim uuid_bank
+            $bankId = (int) $oldPayment->uuid_bank;
+
             // FIX: kembalikan nominal overpay yang dipakai payment ini SEBELUM dihapus
-
             $this->_reverseOverpayUsage($oldPayment);
-
 
             // Reverse nominal yang dihapus (invoice_amount = total sudah dibayar)
             $invoice_amount_new = bcsub($cekData->invoice_amount, $oldPayment->nominal_receive, 4);
@@ -1834,12 +1878,18 @@ class InvXeroController extends Controller
 
             $this->repo_trans_bank->delete($request->id);
 
+            // Hitung ulang saldo bank asal, sekarang tanpa payment yang dihapus
+            $this->_recalcBankSummary($bankId);
+
+            $bankName = DB::table('bank_xeros')->where('id', $bankId)->value('name') ?? '-';
+            $nominalFormatted = 'Rp ' . number_format($oldPayment->nominal_receive, 0, ',', '.');
+
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
                 $request->user_login->name
                 . ' menghapus pembayaran invoice ' . $invP->invoice_number
                 . ' id trans ' . $request->id
-                . ' sebesar ' . $oldPayment->nominal_receive,
+                . " sebesar {$nominalFormatted} pada bank {$bankName}",
                 $request->userAgent(),
                 $request->ip(),
                 $invP->id,

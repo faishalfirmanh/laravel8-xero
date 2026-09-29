@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
 use App\Http\Repository\Expenses\POPBillRepository;
 use App\Http\Repository\MasterData\BankXeroRepo;
+use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Http\Repository\Transaction\TransBankDRepository;
 use App\Http\Repository\Transaction\TransBankPRepository;
 use App\Http\Repository\Transaction\TransBankRepo;
@@ -37,7 +38,7 @@ class BankSpendReceiveController extends Controller
 {
     //
     protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_all_bank, $repo_transfer_bank;
-    protected $repo_bank_p_trans, $repo_bank_d_trans;
+    protected $repo_bank_p_trans, $repo_bank_d_trans, $repo_bank_summary;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
@@ -48,7 +49,8 @@ class BankSpendReceiveController extends Controller
         TransBankRepo $repo_trans_all_bank,
         TransBankPRepository $repo_bank_p_trans,
         TransBankDRepository $repo_bank_d_trans,
-        TransferBankRepo $repo_transfer_bank
+        TransferBankRepo $repo_transfer_bank,
+        SummaryBankRepo $repo_bank_summary
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -59,6 +61,7 @@ class BankSpendReceiveController extends Controller
         $this->repo_bank_p_trans = $repo_bank_p_trans;
         $this->repo_bank_d_trans = $repo_bank_d_trans;
         $this->repo_transfer_bank = $repo_transfer_bank;
+        $this->repo_bank_summary = $repo_bank_summary;
     }
 
     //used
@@ -322,6 +325,25 @@ class BankSpendReceiveController extends Controller
 
 
             $this->repo_trans_all_bank->CreateOrUpdate($send_money_bank, null);
+            // Hitung ulang seluruh saldo berdasarkan transaksi bank
+            $receive = $this->repo_trans_all_bank
+                ->sumDataWhereDinamis(
+                    ['uuid_bank' => $request->bank_id_xero],
+                    'nominal_receive'
+                );
+            $spend = $this->repo_trans_all_bank
+                ->sumDataWhereDinamis(
+                    ['uuid_bank' => $request->bank_id_xero],
+                    'nominal_spend'
+                );
+            $save_nom_bank = [
+                'bank_id' => $request->bank_id_xero,
+                'nominal_in' => $receive,
+                'nominal_out' => $spend,
+                'final_nominal' => $receive - $spend,
+            ];
+            // Cari summary berdasarkan bank_id
+            $this->repo_bank_summary->updateCreate($save_nom_bank);
 
             DB::commit();
             return $this->autoResponse($saveP);

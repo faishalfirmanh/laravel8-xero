@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Xero;
 
 use App\Http\Repository\MasterData\BankXeroRepo;
+use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
 use App\Models\MasterData\DataJamaahXero;
@@ -23,10 +24,11 @@ class BankController extends Controller
 
     use ConfigRefreshXero, ApiResponse;
 
-    private $repo_bank_xero_local;
-    public function __construct(BankXeroRepo $bankXeroRepo)
+    private $repo_bank_xero_local, $repo_sum_bank;
+    public function __construct(BankXeroRepo $bankXeroRepo, SummaryBankRepo $repo_sum_bank)
     {
         $this->repo_bank_xero_local = $bankXeroRepo;
+        $this->repo_sum_bank = $repo_sum_bank;
     }
 
     private function getHeaders()
@@ -109,7 +111,14 @@ class BankController extends Controller
                         'account_number' => $acc['BankAccountNumber'] ?? '-',
                     ];
 
-                    $this->repo_bank_xero_local->firstCreate($param_save);
+                    $bank_m = $this->repo_bank_xero_local->firstCreate($param_save);
+                    $bank_nominal = [
+                        'bank_id' => $bank_m->id,
+                        'nominal_in' => 0,
+                        'nominal_out' => 0,
+                        'final_nominal' => 0
+                    ];
+                    $this->repo_sum_bank->firstCreate($bank_nominal);
                     $savedCount++;
                 }
 

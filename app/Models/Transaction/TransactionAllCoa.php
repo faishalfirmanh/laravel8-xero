@@ -27,7 +27,7 @@ class TransactionAllCoa extends Model
         'created_by',
         'code_curr',//code curency USD, IDR, SAR
         'nominal_currency',//nominal 1 real atau 1 dolar ke rupiah, kalau rupiah = 1
-        'base_nominal',//total setelah di conversi
+        'base_nominal',//total setelah di conversi, INVOICE & bill sudah support, bank transaksi belum mendukung multicurrency
     ];
 
     public $appends = ['name_trans', 'name_coa'];

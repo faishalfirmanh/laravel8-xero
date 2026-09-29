@@ -7,6 +7,7 @@ use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\MasterData\TrackingCategory;
+use App\Models\Transaction\SummaryNominalBank;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
 class ResetMasterTransSeeder extends Seeder
@@ -23,6 +24,7 @@ class ResetMasterTransSeeder extends Seeder
 
         // 2. Truncate tabel (menghapus data & reset primary key ke 1)
         BankXero::truncate();
+        SummaryNominalBank::truncate();
         ItemsPaketAllFromXero::truncate();
         DataJamaahXero::truncate();
         Coa::truncate();

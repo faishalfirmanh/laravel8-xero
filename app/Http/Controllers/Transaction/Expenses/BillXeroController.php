@@ -7,6 +7,7 @@ use App\Http\Repository\Expenses\PODBillRepository;
 use App\Http\Repository\Expenses\POPBillRepository;
 use App\Http\Repository\LogHistoryRepository;
 use App\Http\Repository\MasterData\CoaRepo;
+use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\MasterData\MasterCurrency;
@@ -33,7 +34,7 @@ use Cache;
 class BillXeroController extends Controller
 {
     //
-    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_bill, $repo_coa, $repo_log;
+    protected $repo, $repo_detail, $service_global, $repo_all_trans, $repo_trans_bill, $repo_coa, $repo_log, $repo_bank_summary;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
@@ -43,7 +44,8 @@ class BillXeroController extends Controller
         TransCoaRepo $repo_all_trans,
         TransBankRepo $repo_trans_bill,
         CoaRepo $repo_coa,
-        LogHistoryRepository $repo_log
+        LogHistoryRepository $repo_log,
+        SummaryBankRepo $repo_bank_summary
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -52,6 +54,7 @@ class BillXeroController extends Controller
         $this->repo_trans_bill = $repo_trans_bill;
         $this->repo_coa = $repo_coa;
         $this->repo_log = $repo_log;
+        $this->repo_bank_summary = $repo_bank_summary;
     }
 
 
@@ -398,6 +401,10 @@ class BillXeroController extends Controller
                 'status' => $cek_status,
             ], $request->id_parent_bill);
 
+            // Simpan bank lama sebelum record ditimpa, untuk keperluan recalc summary
+            $oldBankId = $oldPayment->uuid_bank;
+            $bankPindah = (int) $oldBankId !== (int) $request->uuid_bank;
+
             // Update payment record
             $request->merge([
                 'created_by' => $request->user_login->id,
@@ -409,10 +416,59 @@ class BillXeroController extends Controller
 
             $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), $request->id);
 
-            $logMessage = $request->user_login->name
-                . ' mengedit pembayaran bills ' . $saveP->name_contact
-                . " sebesar " . $request->nominal_spend
-                . " pada bank " . $saveP->name_bank;
+            // ================================================================
+            // Hitung ulang saldo bank. Kalau bank dipindah, kedua bank
+            // (asal & tujuan) harus di-refresh, bukan cuma yang baru.
+            // ================================================================
+            $banksToRecalc = $bankPindah ? [$oldBankId, $request->uuid_bank] : [$request->uuid_bank];
+
+            foreach ($banksToRecalc as $bankId) {
+                $receive = $this->repo_trans_bill->sumDataWhereDinamis(
+                    ['uuid_bank' => $bankId],
+                    'nominal_receive'
+                );
+                $spend = $this->repo_trans_bill->sumDataWhereDinamis(
+                    ['uuid_bank' => $bankId],
+                    'nominal_spend'
+                );
+
+                $this->repo_bank_summary->updateCreate([
+                    'bank_id' => $bankId,
+                    'nominal_in' => $receive,
+                    'nominal_out' => $spend,
+                    'final_nominal' => $receive - $spend,
+                ]);
+            }
+
+            // ================================================================
+            // Log: ambil nama bank & kontak dari sumber yang pasti terisi
+            // ================================================================
+            $bankName = DB::table('bank_xeros')->where('id', $request->uuid_bank)->value('name') ?? '-';
+            $contactName = $findData->name_contact ?? $findData->contact_name ?? '-'; // ⚠️ sesuaikan nama kolom
+            $billRef = $findData->reference ?? $findData->bill_number ?? ('#' . $request->id_parent_bill); // ⚠️ sesuaikan
+
+            $nominalFormatted = 'Rp ' . number_format($request->nominal_spend, 0, ',', '.');
+            $nominalLamaFormatted = 'Rp ' . number_format($oldPayment->nominal_spend, 0, ',', '.');
+            $sisaFormatted = 'Rp ' . number_format($nominal_due_final, 0, ',', '.');
+            $statusText = $cek_status == 2 ? 'Lunas' : 'Belum lunas';
+
+            $logMessage = sprintf(
+                '%s mengedit pembayaran bill %s milik %s dari %s menjadi %s melalui bank %s pada %s. Sisa tagihan: %s. Status: %s.',
+                $request->user_login->name,
+                $billRef,
+                $contactName,
+                $nominalLamaFormatted,
+                $nominalFormatted,
+                $bankName,
+                $request->date_transaction,
+                $sisaFormatted,
+                $statusText
+            );
+
+            if ($bankPindah) {
+                $oldBankName = DB::table('bank_xeros')->where('id', $oldBankId)->value('name') ?? '-';
+                $logMessage .= " Bank dipindah dari {$oldBankName} ke {$bankName}.";
+            }
 
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
@@ -486,12 +542,48 @@ class BillXeroController extends Controller
                 'status' => $cek_status,
             ], $request->id_parent_bill);
 
+            // Simpan bank sebelum record dihapus, karena request tidak mengirim uuid_bank
+            $bankId = $oldPayment->uuid_bank;
+
             // Hapus record payment
             $this->repo_trans_bill->delete($request->id);
 
-            $logMessage = $request->user_login->name
-                . ' menghapus pembayaran bills id ' . $request->id
-                . ' sebesar ' . $oldPayment->nominal_spend;
+            // ================================================================
+            // Hitung ulang saldo bank asal, sekarang tanpa payment yang dihapus
+            // ================================================================
+            $receive = $this->repo_trans_bill->sumDataWhereDinamis(
+                ['uuid_bank' => $bankId],
+                'nominal_receive'
+            );
+            $spend = $this->repo_trans_bill->sumDataWhereDinamis(
+                ['uuid_bank' => $bankId],
+                'nominal_spend'
+            );
+
+            $this->repo_bank_summary->updateCreate([
+                'bank_id' => $bankId,
+                'nominal_in' => $receive,
+                'nominal_out' => $spend,
+                'final_nominal' => $receive - $spend,
+            ]);
+
+            // ================================================================
+            // Log: ambil nama bank & kontak dari sumber yang pasti terisi
+            // ================================================================
+            $bankName = DB::table('bank_xeros')->where('id', $bankId)->value('name') ?? '-';
+            $contactName = $findData->name_contact ?? $findData->contact_name ?? '-'; // ⚠️ sesuaikan nama kolom
+            $billRef = $findData->reference ?? $findData->bill_number ?? ('#' . $request->id_parent_bill); // ⚠️ sesuaikan
+
+            $nominalFormatted = 'Rp ' . number_format($oldPayment->nominal_spend, 0, ',', '.');
+
+            $logMessage = sprintf(
+                '%s menghapus pembayaran bill %s milik %s sebesar %s pada bank %s.',
+                $request->user_login->name,
+                $billRef,
+                $contactName,
+                $nominalFormatted,
+                $bankName
+            );
 
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
@@ -568,7 +660,6 @@ class BillXeroController extends Controller
 
             $cek_status = $nominal_due_final <= 0 ? 2 : 1;
 
-
             $param_bill_save = [
                 'nominal_paid' => $nominal_paid_final,
                 'nominal_due' => $nominal_due_final,
@@ -584,8 +675,56 @@ class BillXeroController extends Controller
             ]);
             $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), null);
 
-            $logMessage = $request->user_login->name . ' membuat pembayaran bills ' . $saveP->name_contact .
-                " sebesar " . $request->nominal_spend . " pada bank " . $saveP->name_bank;
+            // Hitung ulang seluruh saldo bank dari ledger (repo_trans_bill mencatat semua jenis transaksi bank)
+            $receive = $this->repo_trans_bill->sumDataWhereDinamis(
+                ['uuid_bank' => $request->uuid_bank],
+                'nominal_receive'
+            );
+            $spend = $this->repo_trans_bill->sumDataWhereDinamis(
+                ['uuid_bank' => $request->uuid_bank],
+                'nominal_spend'
+            );
+            $save_nom_bank = [
+                'bank_id' => $request->uuid_bank,
+                'nominal_in' => $receive,
+                'nominal_out' => $spend,
+                'final_nominal' => $receive - $spend,
+            ];
+            $this->repo_bank_summary->updateCreate($save_nom_bank);
+
+            // ================================================================
+            // Log: ambil nama bank & kontak dari sumber yang pasti terisi,
+            // bukan dari $saveP (hasil CreateOrUpdate hanya berisi field request)
+            // ================================================================
+            $bankName = DB::table('bank_xeros')->where('id', $request->uuid_bank)->value('name') ?? '-';
+
+            // ⚠️ sesuaikan nama kolom kontak & referensi sebenarnya di $findData (tabel p_bills)
+            $contactName = $findData->name_contact ?? $findData->contact_name ?? '-';
+            $billRef = $findData->reference ?? $findData->bill_number ?? ('#' . $request->id_parent_bill);
+
+            $nominalFormatted = 'Rp ' . number_format($request->nominal_spend, 0, ',', '.');
+            $sisaFormatted = 'Rp ' . number_format($nominal_due_final, 0, ',', '.');
+            $statusText = $cek_status == 2 ? 'Lunas' : 'Belum lunas';
+
+            $logMessage = sprintf(
+                '%s melakukan pembayaran bill %s milik %s sebesar %s melalui bank %s pada %s. Sisa tagihan: %s. Status: %s.',
+                $request->user_login->name,
+                $billRef,
+                $contactName,
+                $nominalFormatted,
+                $bankName,
+                $request->date_transaction,
+                $sisaFormatted,
+                $statusText
+            );
+
+            if ($rate != 1.0) {
+                $logMessage .= sprintf(
+                    ' (kurs %s, setara %s)',
+                    number_format($rate, 4, ',', '.'),
+                    'Rp ' . number_format($nominalSpendBase, 0, ',', '.')
+                );
+            }
 
             $this->service_global->saveLogHistory(
                 $request->user_login->id,
@@ -676,7 +815,7 @@ class BillXeroController extends Controller
         return round($result, 2);
     }
 
-    //belm suppor mutly currency
+    //belm suppor mutly currency,/repo_trans_bill
     public function storeParent(Request $request)
     {
         $validator = Validator::make($request->all(), [
