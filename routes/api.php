@@ -10,6 +10,7 @@ use App\Http\Controllers\Toko\MasterData\UnitController;
 use App\Http\Controllers\Toko\MasterData\WarehouseController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
+use App\Http\Controllers\Xero\BankSyncTransController;
 use App\Http\Controllers\Xero\CoaXeroController;
 use App\Http\Controllers\Xero\ConfigController;
 use App\Http\Controllers\Xero\ContactController;
@@ -117,6 +118,9 @@ Route::prefix("xero")->group(function () {
     Route::get('get-detail-bill/{billUuidfetchBillDetail}', [XeroBillController::class, 'fetchBillDetail'])->name('get-detail-bill');
     Route::get('get-detail-inv/{invoiceId}', [XeroSyncInvoicePaidController::class, 'getDetailInvoice1'])->name('get-detail-invxero');//cek detail invoice
     Route::get('get-contact-ktp', [ContactController::class, 'getContactsWithNumber'])->name('contact_xero_ktp');
+    //bank trans
+    Route::get('/bank-accounts', [BankController::class, 'bankAccounts']);
+    Route::get('/bank-accounts/{accountId}/transaction', [BankSyncTransController::class, 'receivedTransactions']);//BankSyncTransController,//BankController
 });
 
 Route::get('status-job/{jobId}', [InvoiceXeroLocalController::class, 'getSyncStatus'])->name('cek-sync-job-inv-xero');

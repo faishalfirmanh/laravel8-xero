@@ -53,25 +53,28 @@ class ProfitLossController extends Controller
         }
 
         $query = DB::table('transaction_all_coas as t')
-            ->join('coas as c', 'c.id', '=', 't.uuid_coa')
             ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
             ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id') // ⚠️ sesuaikan kolom FK
             ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
             ->leftJoin('p_bills as pbi', 'pbi.id', '=', 'dbi.bills_parent_id')
+            ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
+            ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
             ->where('t.uuid_coa', $account)
             ->whereBetween('t.date_transaction', [$date_start, $date_end]);
 
         if (count($filterDivisi) > 0) {
             $query->where(function ($sub) use ($filterDivisi) {
                 $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
-                    ->orWhereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi);
+                    ->orWhereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi)
+                    ->orWhereIn('dtbi.divisi_travel_tracking_uuid', $filterDivisi);
             });
         }
 
         if (count($filterPaket) > 0) {
             $query->where(function ($sub) use ($filterPaket) {
                 $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
-                    ->orWhereIn('dbi.paket_tracking_uuid', $filterPaket);
+                    ->orWhereIn('dbi.paket_tracking_uuid', $filterPaket)
+                    ->orWhereIn('dtbi.paket_tracking_uuid', $filterPaket);
             });
         }
 
@@ -79,19 +82,28 @@ class ProfitLossController extends Controller
             ->selectRaw('
             t.id,
             t.date_transaction,
-            t.nominal,
+            t.base_nominal   as nominal,
             t.is_speend,
             t.uuid_detail,
-            inv.invoice_number,   -- ⚠️ sesuaikan nama kolom no. invoice
-            pbi.reference   as bill_reference,  -- ⚠️ sesuaikan nama kolom no. bill
-            di.desc  as invoice_desc,    -- ⚠️ sesuaikan kalau nama kolomnya beda
-            dbi.desc as bill_desc        -- ⚠️ sesuaikan kalau nama kolomnya beda
+            inv.invoice_number,                 -- ⚠️ sesuaikan nama kolom no. invoice
+            pbi.reference     as bill_reference, -- ⚠️ sesuaikan nama kolom no. bill
+            ptbi.reference    as bank_reference,
+            di.desc           as invoice_desc,   -- ⚠️ sesuaikan kalau nama kolomnya beda
+            dbi.desc          as bill_desc,      -- ⚠️ sesuaikan kalau nama kolomnya beda
+            dtbi.desc         as bank_desc,
+            CASE
+                WHEN di.id IS NOT NULL THEN \'invoice\'
+                WHEN dbi.id IS NOT NULL THEN \'bill\'
+                WHEN dtbi.id IS NOT NULL THEN \'bank\'
+                ELSE NULL
+            END as source
         ')
             ->orderBy('t.date_transaction')
             ->get();
 
         $isRevenue = $coa->account_type === 'REVENUE';
         $total = 0;
+
         $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
             $signed = $isRevenue
                 ? ($t->is_speend == 0 ? $t->nominal : -$t->nominal)
@@ -101,9 +113,9 @@ class ProfitLossController extends Controller
             return [
                 'date' => $t->date_transaction,
                 'nominal' => (float) $signed,
-                'reference' => $t->invoice_number ?: $t->bill_reference,
-                'description' => $t->invoice_desc ?: $t->bill_desc,
-                'source' => $t->invoice_number ? 'invoice' : ($t->bill_reference ? 'bill' : null),
+                'reference' => $t->invoice_number ?? $t->bill_reference ?? $t->bank_reference,
+                'description' => $t->invoice_desc ?? $t->bill_desc ?? $t->bank_desc,
+                'source' => $t->source,
             ];
         })->values();
 
@@ -201,8 +213,34 @@ class ProfitLossController extends Controller
                 $billQuery->whereIn('dbi.paket_tracking_uuid', $filterPaket);
             }
 
+
+            $bankQuery = DB::table('transaction_all_coas as t')
+                ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+                ->leftJoin('transaction_bank_trans_d_s as tbtds', 'tbtds.uuid_detail_trans_bank', '=', 't.uuid_detail')
+                ->whereBetween('t.date_transaction', [$dateStart, $dateEnd])
+                ->whereNotNull('tbtds.id')
+                ->select(
+                    't.id as trx_row_id',
+                    't.uuid_detail',
+                    't.date_transaction',
+                    't.is_speend',
+                    't.base_nominal',
+                    't.nominal_currency',
+                    't.code_curr',
+                    'c.id',
+                    'c.name',
+                    'c.account_type'
+                );
+
+            if ($hasFilterDivisi) {
+                $bankQuery->whereIn('tbtds.divisi_travel_tracking_uuid', $filterDivisi);
+            }
+            if ($hasFilterPaket) {
+                $bankQuery->whereIn('tbtds.paket_tracking_uuid', $filterPaket);
+            }
+
             // ✅ UNION — baris kembar (hasil join) hilang, transaksi berbeda tetap ada
-            return $invoiceQuery->union($billQuery);
+            return $invoiceQuery->union($billQuery)->union($bankQuery);
         };
 
         // ================================================================

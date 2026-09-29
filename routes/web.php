@@ -82,6 +82,7 @@ Route::prefix('travel')->group(function () {
         Route::prefix('transaksi')->group(function () {
             Route::get('bank-trans', [DashboardController::class, 'getTransBank'])->name('web-bank-trans');
             Route::get('bank-trans/{idBank}', [DashboardController::class, 'getTransDetailBank'])->name('web-bank-trans-detail');
+            Route::get('bank-trans/{idBank}/{id_trans_bank}', [DashboardController::class, 'getDetailTransBank'])->name('web-bank-trans-detail-detail-trans');
             Route::get('sales-invoice/{idInvoice?}', [DashboardController::class, 'getTransInvoice'])->name('web-sales-inv');
             //
             Route::get('/sales-invoice/print/{id}', [InvoiceXeroLocalController::class, 'printInvoice'])->name('salles_invoice_print');

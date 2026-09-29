@@ -11,6 +11,7 @@ use App\Http\Repository\Transaction\TransBankPRepository;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Http\Repository\Transaction\TransferBankRepo;
+use App\Models\MasterData\MasterCurrency;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\Expenses\DPackageExpensesRepository;
@@ -130,6 +131,42 @@ class BankSpendReceiveController extends Controller
         return $this->autoResponse($data);
     }
 
+    private function getRateToIdr(string $currency): float
+    {
+        $currency = strtoupper(trim($currency));
+        if (env('CONFIG_CURR_LOCAL')) {
+            return MasterCurrency::where('code_curr', $currency)->value('nominal_currency');
+        }
+
+        if ($currency === 'IDR') {
+            return 1.0;
+        }
+
+        $rates = $this->service_global->getRatesApi([
+            'IDR',
+            $currency
+        ]);
+
+        if (!isset($rates['IDR'], $rates[$currency])) {
+            throw new \RuntimeException(
+                "Rate {$currency} -> IDR tidak tersedia."
+            );
+        }
+
+        $rateIdr = (float) $rates['IDR'];
+        $rateCurrency = (float) $rates[$currency];
+
+        if ($rateIdr <= 0 || $rateCurrency <= 0) {
+            throw new \RuntimeException(
+                "Rate {$currency} tidak valid."
+            );
+        }
+
+        return round(
+            $rateIdr / $rateCurrency,
+            8
+        );
+    }
 
     public function storeParent(Request $request)
     {
@@ -168,6 +205,7 @@ class BankSpendReceiveController extends Controller
                 $request->id
             );
 
+            //dd($saveP);
             // 2. Hapus Detail yang Dibuang (Lakukan DI LUAR LOOP)
             // Pastikan kita hanya mengecek jika ini adalah proses Update (id tidak null)
             if ($saveP->id) {
@@ -235,8 +273,11 @@ class BankSpendReceiveController extends Controller
 
                 if ($cek_create_trans) {
                     // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
-                    $cek_create_trans->is_speend = true;
+                    $cek_create_trans->is_speend = $request->is_spend;
                     $cek_create_trans->nominal = $save_d->amount;
+                    $cek_create_trans->base_nominal = $save_d->amount;
+                    $cek_create_trans->nominal_currency = 1;
+                    $cek_create_trans->code_curr = 'IDR';
                     $cek_create_trans->save();
                 } else {
                     // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
@@ -244,10 +285,13 @@ class BankSpendReceiveController extends Controller
                         'date_transaction' => $request->date_h,
                         'uuid_coa' => $accountId,
                         'reference' => $request->reference,
-                        'is_speend' => true,
+                        'is_speend' => $request->is_spend,
                         'nominal' => $save_d->amount,
                         'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
                         'uuid_detail' => $save_d->uuid_detail_trans_bank,
+                        'code_curr' => 'IDR',
+                        'nominal_currency' => 1,
+                        'base_nominal' => $save_d->amount,
                         'trans_transfer_bank_id' => null
                     ];
                     $this->repo_all_trans->CreateOrUpdate($data_trans_create, null);
@@ -257,7 +301,7 @@ class BankSpendReceiveController extends Controller
 
             // 5. Update Total Keseluruhan Parent
             $sumD = $this->repo_bank_d_trans->sumDataWhereDinamis(['trans_bank_parent_id' => $saveP->id], 'amount');
-            $this->repo_bank_p_trans->CreateOrUpdate(['amount' => $sumD], $saveP->id);
+            $this->repo_bank_p_trans->CreateOrUpdate(['total' => $sumD], $saveP->id);
 
             //dd($request->is_spend);
             $send_money_bank = [
@@ -270,8 +314,10 @@ class BankSpendReceiveController extends Controller
 
             if ($request->is_spend == 1) {
                 $send_money_bank['nominal_spend'] = $sumD;
+                $send_money_bank['total_base_spend'] = $sumD;
             } else {
                 $send_money_bank['nominal_receive'] = $sumD;
+                $send_money_bank['total_base_receive'] = $sumD;
             }
 
 

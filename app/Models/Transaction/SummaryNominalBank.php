@@ -12,15 +12,10 @@ class SummaryNominalBank extends Model
 
 
     protected $fillable = [
-        'bank_id_from',
-        'bank_id_to',
-        'date_trans',
-        'amount',
-        'reference_transfer_bank',
-        'code_tracking_paket_from',
-        'code_tracking_divisi_from',
-        'code_tracking_paket_to',
-        'code_tracking_divisi_to',
+        'bank_id',
+        'nominal_in',
+        'nominal_out',
+        'final_nominal',
     ];
 
     protected $appends = [

@@ -283,7 +283,7 @@
                                     <option value="7">-- selected value --</option>
                                     <option value="2">TAX EXCLUSIVE</option>
                                     <option value="1">TAX INCLUSIVE</option>
-                                    <option value="0">NO TAX</option>
+                                    <option value="0" selected>NO TAX</option>
                                 </select>
                             </div>
                         </div>
@@ -422,7 +422,9 @@ $(document).ready(function() {
     const urlParams = new URLSearchParams(window.location.search);
     const openId = urlParams.get('open');
 
+     //console.log('******',openId)
     if (openId) {
+        console.log('open modal',openId)
         openDetailModal(openId);
     }
 
@@ -491,7 +493,7 @@ $(document).ready(function() {
                 } else if(data.get_p_bank != null){
                     return `<b style="color:#8F1470">bank</b> | ${data.get_p_bank.reference}`;
                 } else if(data.get_inv != null){
-                    return `<b style="color:#627FF5">invoice</b> | ${data.get_inv.reference}`;
+                    return `<b style="color:#627FF5">invoice</b> | ${data.get_inv.invoice_number} | ${data.get_inv.reference}`;
                 }
                 else {
                     return '-';
@@ -519,7 +521,7 @@ $(document).ready(function() {
             className: "text-center",
             render: function(data, type, row) {
                 let base_url = window.location.origin
-                console.log('row', row);
+                $("#title_header").text('Daftar Transaksi ' + row.get_bank.name)
                 let url = '';
                 let id = '';
                 if (row.get_pbill && row.get_pbill.id) {
@@ -533,7 +535,8 @@ $(document).ready(function() {
                     url = `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.get_inv.id}`
                     id = row.get_inv.id;
                 } else {
-                    return '';
+                    url = `${base_url}/travel/admin/transaksi/bank-trans/${row.uuid_bank}/?open=${row.get_p_bank.id}`
+                    id = row.get_p_bank.id;
                 }
 
                 let btn_detail = `
@@ -609,7 +612,7 @@ $(document).ready(function() {
             'amount' : $("#amount_tranfser").val(),
             'reference_transfer_bank' :$("#reference_transfer_bank").val()
         }
-        console.log('sss',payload_trans)
+        // console.log('sss',payload_trans)
          ajaxRequest(`{{ route('save-bank-transfer') }}`, 'POST', payload_trans, localStorage.getItem("token"))
             .then(response =>{
                     if(response.status == 200){
@@ -1129,7 +1132,7 @@ $(document).ready(function() {
                 <td><input type="number" class="form-control" required name="qty[]" min="1" value="${qty}"></td>
                 <td><input type="number" class="form-control price-input" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
                 <td>
-                    <select class="select2-account form-control" required name="account_id[]" style="width:100%;">
+                    <select class="select2-account form-control" name="account_id[]" style="width:100%;" required>
                         <option value="">Pilih Account...</option>
                     </select>
                 </td>

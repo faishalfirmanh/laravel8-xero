@@ -173,9 +173,14 @@ class DashboardController extends Controller
         return view('admin.transaksi.bank.list_bank');
     }
 
-    public function getTransDetailBank($idBank)
+    public function getTransDetailBank($idBank = null)
     {
         return view('admin.transaksi.bank.list_trans_bank', ['id' => $idBank]);
+    }
+
+    public function getDetailTransBank($idBank, $id_trans_bank = null)
+    {
+        return view('admin.transaksi.bank.list_trans_bank', ['idBank' => $idBank, 'id' => $id_trans_bank]);
     }
 
 

@@ -34,6 +34,7 @@
         <tr>
             <th>Tanggal</th>
             <th>Referensi</th>
+            <th>Sumber</th>
             <th>Keterangan</th>
             <th style="text-align:right;">Nominal</th>
         </tr>
@@ -41,7 +42,7 @@
     <tbody id="detailBody"></tbody>
     <tfoot>
         <tr class="detail-total">
-            <td colspan="3">Total</td>
+            <td colspan="4">Total</td>
             <td class="amt" id="detailTotal"></td>
         </tr>
     </tfoot>
@@ -108,14 +109,16 @@ $(function () {
         $body.empty();
 
         if (!data.transactions.length) {
-            $body.append('<tr><td colspan="4">Tidak ada transaksi pada periode ini.</td></tr>');
+            $body.append('<tr><td colspan="5">Tidak ada transaksi pada periode ini.</td></tr>');
         }
 
         $.each(data.transactions, function (i, t) {
+            console.log('aa',t)
             $body.append(
                 '<tr>' +
                 '<td>' + moment(t.date).format('D MMM YYYY') + '</td>' +
                 '<td>' + escHtml(t.reference) + '</td>' +
+                '<td>' + escHtml(t.source) +'</td>'+
                 '<td>' + escHtml(t.description) + '</td>' +
                 '<td class="' + amtClass(t.nominal) + '">' + formatAmt(t.nominal) + '</td>' +
                 '</tr>'
