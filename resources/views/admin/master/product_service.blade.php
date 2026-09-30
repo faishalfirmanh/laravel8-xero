@@ -468,7 +468,24 @@
                     </div>
                 </div>
 
-                {{-- ── Section 2: Purchase & Sell ── --}}
+                {{-- ── Section 2: Item type ── --}}
+                <div class="xero-modal-section">
+                    <div class="xero-field">
+                        <label>Item type <span class="req">*</span></label>
+                        <div class="d-flex align-items-center" style="gap:18px; min-height:34px;">
+                            <label class="mb-0 font-weight-normal" style="font-size:12px; color:#333; cursor:pointer;">
+                                <input type="radio" name="is_item_product" value="1" style="accent-color:#0070c4; margin-right:6px;" checked>
+                                Product
+                            </label>
+                            <label class="mb-0 font-weight-normal" style="font-size:12px; color:#333; cursor:pointer;">
+                                <input type="radio" name="is_item_product" value="0" style="accent-color:#0070c4; margin-right:6px;">
+                                Service
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ── Section 3: Purchase & Sell ── --}}
                 <div class="xero-modal-section">
 
                     {{-- Purchase --}}
@@ -668,6 +685,7 @@ $(document).ready(function () {
                     $('#desc').val(rowData.desc || '');
                     $('#desc_salles').val(rowData.desc_salles || '');
                     $("#va_number").val(rowData.va_number || '')
+                    $(`input[name="is_item_product"][value="${rowData.is_item_product ? 1 : 0}"]`).prop('checked', true);
                    
                     // ── Purchase ──────────────────────────────────────────
                     const hasPurchase = rowData.price_purchase || rowData.account_id_purchase;
@@ -751,8 +769,9 @@ $(document).ready(function () {
         $('#idHotelInput').val(0);
         $('#modalItemTitle').text('New item');
         $('#chkPurchase, #chkSell').prop('checked', false);
+        $('input[name="is_item_product"][value="1"]').prop('checked', true);
         $('#purchaseFields, #sellFields').removeClass('show');
-     $('#account_id_salles').val(null).trigger('change');
+        $('#account_id_salles').val(null).trigger('change');
     }
 
     // =========================================================
@@ -848,6 +867,7 @@ $(document).ready(function () {
             code:         $('#code').val(),
             desc:         $('#desc').val(),
             desc_salles:  $('#desc_salles').val(),
+            is_item_product: $('input[name="is_item_product"]:checked').val(),
 
             // Purchase — kirim flag + data, backend akan skip jika is_purchase = 0
             is_purchase:         isPurchase ? 1 : 0,

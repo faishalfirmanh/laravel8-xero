@@ -140,6 +140,11 @@ class DashboardController extends Controller
         return view('admin.toko.master_data.unit');
     }
 
+    public function productUom()
+    {
+        return view('admin.toko.master_data.productuom');
+    }
+
     public function getWebProduct()
     {
         return view('admin.master.product_service');

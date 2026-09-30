@@ -7,6 +7,7 @@ use App\Http\Controllers\MasterData\ProducAndServiceXeroLocalController;
 use App\Http\Controllers\MekariWaTestController;
 use App\Http\Controllers\Report\ProfitLossController;
 use App\Http\Controllers\Toko\MasterData\UnitController;
+use App\Http\Controllers\Toko\MasterData\ProductUomController;
 use App\Http\Controllers\Toko\MasterData\WarehouseController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
@@ -382,6 +383,13 @@ Route::prefix("admin-web")->group(function () {
                 Route::post('save', [UnitController::class, 'store'])->name('save-unit');
                 Route::get('detail', [UnitController::class, 'getById'])->name('find-unit');
             });
+
+            Route::prefix('product-uom')->group(function () {
+                Route::get('list', [ProductUomController::class, 'getAll'])->name('getAllPaginateUom');
+                Route::post('save', [ProductUomController::class, 'store'])->name('save-item-productuom');
+                Route::get('detail', [ProductUomController::class, 'getById'])->name('detailItemUom');
+                Route::get('products', [ProductUomController::class, 'getProducts'])->name('getProductUomItems');
+            });
         });
     });
 
@@ -546,4 +554,3 @@ Route::prefix("master-data")->group(function () {
 
 
 });
-

@@ -72,7 +72,8 @@ class ProducAndServiceXeroLocalController extends Controller
             'account_id_salles' => 'required|integer|exists:coas,id',
             'price_purchase' => 'nullable|integer',
             'price_sales' => 'required|integer',
-            'va_number' => 'nullable|integer'
+            'va_number' => 'nullable|integer',
+            'is_item_product' => 'required|boolean',
         ]);
         if ($validator->fails()) {
             return $this->error($validator->errors(), 500);
@@ -89,7 +90,8 @@ class ProducAndServiceXeroLocalController extends Controller
             'sales_AccountCode' => $cariAccountSales,
             'tax_rate_salles' => 0,
             'tax_rate_purchase' => 0,
-            'price_purchase' => $request->price_purchase ?? 0
+            'price_purchase' => $request->price_purchase ?? 0,
+            'is_item_product' => $request->boolean('is_item_product'),
         ]);
         $request['uuid_proudct_and_service'] = 'from_web';
 

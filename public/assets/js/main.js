@@ -31,6 +31,13 @@ function convertStringDate(dateStr) {
   return formattedDate
 }
 
+function forCur(amount) {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+}
+
 function formatCurrency(value, currency = 'IDR', decimals = 0) {
   let number = 0;
   if (value !== null && value !== undefined && value !== '') {

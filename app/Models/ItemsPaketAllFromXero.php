@@ -11,6 +11,10 @@ class ItemsPaketAllFromXero extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'is_item_product' => 'boolean',
+    ];
+
     //kalau di xero : products-and-services
     protected $fillable = [
         'uuid_proudct_and_service',
@@ -38,7 +42,8 @@ class ItemsPaketAllFromXero extends Model
         'tax_rate_purchase',
 
         'uuid_tracking_category',//UNTUK tracking kategory paket
-        'va_number'
+        'va_number',
+        'is_item_product'//jika true->barang kasir
     ];
 
 

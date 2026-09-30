@@ -111,6 +111,7 @@ Route::prefix('toko')->group(function () {
         Route::prefix('master-data')->group(function () {
             Route::get('warehouse', [DashboardController::class, 'warehouse'])->name('admin-master-warehouse');
             Route::get('unit', [DashboardController::class, 'unitsSatuan'])->name('admin-master-unit');
+            Route::get('product-uom', [DashboardController::class, 'productUom'])->name('product-uom-web');
         });
     });
 });
@@ -140,5 +141,4 @@ Route::get('/xero/list-transaksi', [XeroTransaksiController::class, 'index'])
 
 Route::get('/api/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
 Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
-
 
