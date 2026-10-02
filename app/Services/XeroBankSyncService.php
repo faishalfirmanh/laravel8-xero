@@ -15,6 +15,7 @@ use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Log;
 
 class XeroBankSyncService
 {
@@ -32,6 +33,11 @@ class XeroBankSyncService
      * Sinkronisasi BankTransactions (RECEIVE & SPEND) satu akun bank ke tabel lokal.
      */
 
+
+    private function log(string $level, string $message, array $context = []): void
+    {
+        Log::channel('xero_bank_sync')->{$level}('[XeroBankSync] ' . $message, $context);
+    }
 
     private function currencyOf(array $t): array
     {
@@ -62,6 +68,7 @@ class XeroBankSyncService
 
         $page = 1;
         $created = 0;
+        $this->log('info', 'Sync dimulai', ['account_id' => $accountId, 'from' => $from, 'to' => $to, 'bank_id' => $bankId]);
 
         do {
             $data = $this->get('BankTransactions', [
@@ -73,12 +80,25 @@ class XeroBankSyncService
             ]);
 
             $batch = $data['BankTransactions'] ?? [];
-            $created += $this->saveBatch($batch, $bankId);
+            $this->log('info', "Page {$page}: menerima " . count($batch) . ' transaksi dari Xero', ['account_id' => $accountId]);
+
+            try {
+                $created += $this->saveBatch($batch, $bankId);
+            } catch (\Throwable $e) {
+                $this->log('error', "Page {$page}: GAGAL simpan batch (transaksi di-rollback)", [
+                    'account_id' => $accountId,
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile() . ':' . $e->getLine(),
+                ]);
+                throw $e;
+            }
+            $this->log('info', "Page {$page}: batch COMMIT", ['account_id' => $accountId, 'total_created' => $created]);
 
             $this->progress($accountId, ['status' => 'running', 'page' => $page, 'created' => $created]);
             $page++;
         } while (count($batch) === self::PAGE_SIZE);
 
+        $this->log('info', 'Sync selesai', ['account_id' => $accountId, 'pages' => $page - 1, 'created' => $created]);
         return ['pages' => $page - 1, 'created' => $created];
     }
 
@@ -95,6 +115,7 @@ class XeroBankSyncService
         if ($rows->isEmpty()) {
             return 0;
         }
+        $this->log('info', 'saveBatch: ' . $rows->count() . ' transaksi RECEIVE/SPEND akan diproses (dari ' . count($batch) . ' total)');
 
         $txUuids = $rows->pluck('BankTransactionID')->all();
         $lines = $rows->flatMap(fn($t) => $t['LineItems'] ?? []);
@@ -144,9 +165,19 @@ class XeroBankSyncService
 
                 [$currencyCode, $nominalCurr] = $this->currencyOf($t);
 
+                $this->log('debug', 'Proses transaksi', [
+                    'uuid' => $uuid,
+                    'type' => $t['Type'],
+                    'date' => $date,
+                    'currency' => $currencyCode,
+                    'rate' => $nominalCurr,
+                    'total' => $total,
+                ]);
+
                 // Header
                 if (isset($parentMap[$uuid])) {
                     $parentId = $parentMap[$uuid];
+                    $this->log('debug', 'SKIP header (sudah ada)', ['id' => $parentId, 'uuid' => $uuid]);
                 } else {
                     $parent = TransactionBankTransP::firstOrCreate(
                         ['uuid_bank_trans' => $uuid],
@@ -163,6 +194,7 @@ class XeroBankSyncService
                     $parentId = $parent->id;
                     if ($parent->wasRecentlyCreated) {
                         $created++;
+                        $this->log('debug', 'INSERT header TransactionBankTransP', ['id' => $parentId, 'uuid' => $uuid, 'total' => $total]);
                     }
                 }
 
@@ -177,7 +209,7 @@ class XeroBankSyncService
                     $lineAmount = $l['LineAmount'] ?? 0;
 
                     if (!isset($lineExists[$lineUuid])) {
-                        TransactionBankTransD::firstOrCreate(
+                        $d = TransactionBankTransD::firstOrCreate(
                             ['uuid_detail_trans_bank' => $lineUuid],
                             [
                                 'trans_bank_parent_id' => $parentId,
@@ -188,10 +220,14 @@ class XeroBankSyncService
                                 'amount' => $lineAmount,
                             ]
                         );
+
+                        if ($d->wasRecentlyCreated) {
+                            $this->log('debug', 'INSERT detail TransactionBankTransD', ['id' => $d->id, 'line_uuid' => $lineUuid, 'coa' => $l['AccountCode'], 'amount' => $lineAmount]);
+                        }
                     }
 
                     if (!isset($allCoaExists[$lineUuid])) {
-                        TransactionAllCoa::firstOrCreate(
+                        $a = TransactionAllCoa::firstOrCreate(
                             ['uuid_detail' => $lineUuid],
                             [
                                 'date_transaction' => $date,
@@ -204,12 +240,16 @@ class XeroBankSyncService
                                 'nominal_currency' => $nominalCurr,
                             ]
                         );
+
+                        if ($a->wasRecentlyCreated) {
+                            $this->log('debug', 'INSERT TransactionAllCoa', ['id' => $a->id, 'line_uuid' => $lineUuid, 'nominal' => $lineAmount, 'base_nominal' => round($lineAmount * $nominalCurr, 4)]);
+                        }
                     }
                 }
 
                 // Nominal per bank
                 if (!isset($nominalExists[$uuid])) {
-                    TransactionNominalBankAccount::firstOrCreate(
+                    $n = TransactionNominalBankAccount::firstOrCreate(
                         ['payment_uuid' => $uuid],
                         [
                             'uuid_bank' => $bankId,
@@ -221,6 +261,10 @@ class XeroBankSyncService
                             ($isSpend ? 'total_base_spend' : 'total_base_receive') => round($total * $nominalCurr, 4),
                         ]
                     );
+
+                    if ($n->wasRecentlyCreated) {
+                        $this->log('debug', 'INSERT TransactionNominalBankAccount', ['id' => $n->id, 'payment_uuid' => $uuid, 'total' => $total, 'is_spend' => $isSpend]);
+                    }
                 }
             }
 

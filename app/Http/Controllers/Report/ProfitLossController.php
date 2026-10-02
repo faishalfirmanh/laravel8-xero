@@ -29,8 +29,129 @@ class ProfitLossController extends Controller
     }
 
 
-
     public function profitAndLossDetailData(Request $request, $account, $date_start, $date_end)
+    {
+        $track_paket = $request->query('track_paket');
+        $track_divisi = $request->query('track_divisi');
+
+        if ($track_paket !== null) {
+            $track_paket = str_replace('?', '', $track_paket);
+        }
+
+        if ($track_divisi !== null) {
+            $track_divisi = str_replace('?', '', $track_divisi);
+        }
+
+        $filterPaket = $track_paket ? explode(',', $track_paket) : [];
+        $filterDivisi = $track_divisi ? explode(',', $track_divisi) : [];
+
+        $coa = DB::table('coas')->where('id', $account)->first();
+
+        if (!$coa) {
+            return $this->error('Akun COA tidak ditemukan', 404);
+        }
+
+        // Satu baris per kontak supaya join jamaah tidak menggandakan transaksi
+        $jamaahSub = DB::table('data_jamaah_xeros')
+            ->select('uuid_contact', DB::raw('MIN(full_name) as full_name'))
+            ->whereNotNull('uuid_contact')
+            ->where('uuid_contact', '<>', '')
+            ->groupBy('uuid_contact');
+
+        $query = DB::table('transaction_all_coas as t')
+            ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
+            ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id')
+            ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
+            ->leftJoin('p_bills as pbi', 'pbi.id', '=', 'dbi.bills_parent_id')
+            ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
+            ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
+            ->leftJoinSub($jamaahSub, 'jamaah_bank', 'jamaah_bank.uuid_contact', '=', 'ptbi.uuid_to')
+            ->leftJoinSub($jamaahSub, 'jamaah_bill', 'jamaah_bill.uuid_contact', '=', 'pbi.uuid_from')
+            ->leftJoinSub($jamaahSub, 'jamaah_invoice', 'jamaah_invoice.uuid_contact', '=', 'inv.contact_id')
+            ->where('t.uuid_coa', $account)
+            ->whereBetween('t.date_transaction', [$date_start, $date_end]);
+
+        if (count($filterDivisi) > 0) {
+            $query->where(function ($sub) use ($filterDivisi) {
+                $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
+                    ->orWhereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi)
+                    ->orWhereIn('dtbi.divisi_travel_tracking_uuid', $filterDivisi);
+            });
+        }
+
+        if (count($filterPaket) > 0) {
+            $query->where(function ($sub) use ($filterPaket) {
+                $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
+                    ->orWhereIn('dbi.paket_tracking_uuid', $filterPaket)
+                    ->orWhereIn('dtbi.paket_tracking_uuid', $filterPaket);
+            });
+        }
+
+        $transactions = $query
+            ->selectRaw('
+            t.id,
+            t.date_transaction,
+            t.base_nominal as nominal,
+            t.is_speend,
+            t.uuid_detail,
+            inv.invoice_number,
+            pbi.reference as bill_reference,
+            ptbi.reference as bank_reference,
+            di.desc as invoice_desc,
+            dbi.desc as bill_desc,
+            dtbi.desc as bank_desc,
+            CASE
+                WHEN di.id IS NOT NULL THEN jamaah_invoice.full_name
+                WHEN dbi.id IS NOT NULL THEN jamaah_bill.full_name
+                WHEN dtbi.id IS NOT NULL THEN jamaah_bank.full_name
+                ELSE NULL
+            END as jamaah_name,
+            CASE
+                WHEN di.id IS NOT NULL THEN \'invoice\'
+                WHEN dbi.id IS NOT NULL THEN \'bill\'
+                WHEN dtbi.id IS NOT NULL THEN \'bank\'
+                ELSE NULL
+            END as source
+        ')
+            ->orderBy('t.date_transaction')
+            ->get()
+            ->unique('id')   // pengaman: satu baris per transaksi
+            ->values();
+
+        $isRevenue = $coa->account_type === 'REVENUE';
+        $total = 0;
+
+        $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
+            $signed = $isRevenue
+                ? ($t->is_speend == 0 ? $t->nominal : -$t->nominal)
+                : ($t->is_speend == 1 ? $t->nominal : -$t->nominal);
+            $total += $signed;
+
+            $desc = $t->invoice_desc ?? $t->bill_desc ?? $t->bank_desc;
+
+            // Gabungkan nama jamaah + deskripsi, lewati yang kosong
+            $parts = array_filter([$t->jamaah_name, $desc], function ($v) {
+                return $v !== null && trim($v) !== '';
+            });
+
+            return [
+                'date' => $t->date_transaction,
+                'nominal' => (float) $signed,
+                'reference' => $t->invoice_number ?? $t->bill_reference ?? $t->bank_reference,
+                'description' => count($parts) ? implode(' - ', $parts) : null,
+                'source' => $t->source,
+            ];
+        })->values();
+
+        return $this->autoResponse([
+            'coa' => ['id' => $coa->id, 'name' => $coa->name, 'account_type' => $coa->account_type],
+            'period' => ['date_start' => $date_start, 'date_end' => $date_end],
+            'transactions' => $items,
+            'total' => (float) $total,
+        ]);
+    }
+
+    public function profitAndLossDetailDataOLd(Request $request, $account, $date_start, $date_end)
     {
         $track_paket = $request->query('track_paket');
         $track_divisi = $request->query('track_divisi');
@@ -54,11 +175,14 @@ class ProfitLossController extends Controller
 
         $query = DB::table('transaction_all_coas as t')
             ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
-            ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id') // ⚠️ sesuaikan kolom FK
+            ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id')
             ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
             ->leftJoin('p_bills as pbi', 'pbi.id', '=', 'dbi.bills_parent_id')
             ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
             ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
+            // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'ptbi.uuid_to')
+            // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'pbi.uuid_from')
+            // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'inv.contact_id')
             ->where('t.uuid_coa', $account)
             ->whereBetween('t.date_transaction', [$date_start, $date_end]);
 

@@ -99,6 +99,13 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
+
+        'xero_bank_sync' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/xero_bank_sync.log'),
+            'level' => env('XERO_SYNC_LOG_LEVEL', 'debug'),
+            'days' => 14,
+        ],
     ],
 
 ];

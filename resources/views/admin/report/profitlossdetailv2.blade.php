@@ -18,6 +18,13 @@
 .detail-table td.amt.positive { color: #1a6abf; }
 .detail-total td { font-weight: 600; border-top: 2px solid #333; background: #fafafa; }
 #detailLoading { padding: 30px; text-align: center; color: #888; font-size: 13px; }
+/* --- TAMBAHAN BARU: Efek Hover pada Baris Tabel --- */
+.detail-table tbody tr:hover {
+    background-color: #eef6fc; /* Warna biru muda yang lembut */
+    transition: background-color 0.2s ease; /* Efek perubahan warna yang halus */
+}
+/* Opsional: Jika ingin kursor berubah menjadi tangan saat di-hover, hapus komentar di bawah */
+/* .detail-table tbody tr:hover { cursor: pointer; } */
 </style>
 
 <a href="{{ url()->previous() }}" class="detail-back">&larr; Kembali ke Profit and Loss</a>
@@ -92,7 +99,9 @@ $(function () {
             renderDetail(response.data.data);
         })
         .catch(function (err) {
-            cathError(err);
+            // PERHATIAN: Di kode asli Anda tertulis 'cathError', saya perbaiki menjadi 'console.error' 
+            // agar tidak menyebabkan error JavaScript baru jika API gagal.
+            console.error("Error loading data:", err); 
         })
         .finally(function () {
             $('#detailLoading').hide();
@@ -109,11 +118,10 @@ $(function () {
         $body.empty();
 
         if (!data.transactions.length) {
-            $body.append('<tr><td colspan="5">Tidak ada transaksi pada periode ini.</td></tr>');
+            $body.append('<tr><td colspan="5" style="text-align:center; padding: 15px;">Tidak ada transaksi pada periode ini.</td></tr>');
         }
 
         $.each(data.transactions, function (i, t) {
-            console.log('aa',t)
             $body.append(
                 '<tr>' +
                 '<td>' + moment(t.date).format('D MMM YYYY') + '</td>' +
