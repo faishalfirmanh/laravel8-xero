@@ -429,14 +429,17 @@
 
         <div class="filter-row-2">
             <div class="d-flex align-items-center" style="gap:8px;">
-                <button type="button" class="btn-xero-filter" id="btnFilter">
-                    <i class="ti ti-filter" style="font-size:13px;" aria-hidden="true"></i> Filter
-                </button>
-            </div>
-            <div class="d-flex align-items-center" style="gap:8px;">
-                <button type="button" class="btn-xero-more" id="btnMore">
-                    <i class="ti ti-dots" style="font-size:13px;" aria-hidden="true"></i> More
-                </button>
+                <div class="dropdown">
+                    <button type="button" class="btn-xero-more" id="btnMore"
+                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="ti ti-dots" style="font-size:13px;" aria-hidden="true"></i> More
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-right" style="font-size:12px;">
+                        <a class="dropdown-item" href="javascript:void(0)" id="btnExportExcel">
+                            <i class="ti ti-file-spreadsheet mr-1" aria-hidden="true"></i> Export to Excel
+                        </a>
+                    </div>
+                </div>
                 <button type="button" class="btn-xero-update" id="btnUpdate">
                     Update
                 </button>
@@ -501,6 +504,7 @@
 
 
 @push('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 $(function () {
 
@@ -757,6 +761,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
     // LOAD REPORT — AJAX
     // =========================================================
     var _lastData = null;
+    var _lastParams = null
 
     function loadReport() {
         // Kumpulkan semua UUID tracking yang dipilih (bisa multiple)
@@ -780,6 +785,13 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
         $.each(paketVals, function(i, val) {
             params['tracking_paket_name[' + i + ']'] = val;
         });
+        _lastParams = {
+            date_start : $('#date_from').val(),
+            date_end   : $('#date_to').val(),
+            currency   : $('#currency').val(),
+            divisi     : $.map($('#tracking_divisi').select2('data'),     function (o) { return o.text; }),
+            paket      : $.map($('#tracking_paket_name').select2('data'), function (o) { return o.text; })
+        };
 
 
         $('#reportLoading').show();
@@ -926,14 +938,103 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
         });
     });
 
-    $('#btnMore').on('click', function () {
-        Swal.fire({
-            title: 'More options', icon: 'info',
-            text : 'Export PDF, Excel, dll. (implementasi sesuai kebutuhan).',
-            confirmButtonText: 'OK'
-        });
-    });
+    // $('#btnMore').on('click', function () {
+    //     Swal.fire({
+    //         title: 'More options', icon: 'info',
+    //         text : 'Export PDF, Excel, dll. (implementasi sesuai kebutuhan).',
+    //         confirmButtonText: 'OK'
+    //     });
+    // });
 
+    // =========================================================
+// EXPORT EXCEL (client-side, dari data laporan yang tampil)
+// =========================================================
+    var COMPANY_NAME = @json(config('app.company_name', 'PT An Namiroh Travelindo'));
+
+    // Cegah formula injection di Excel (sel diawali = + - @)
+    function safeText(v) {
+        v = (v === null || v === undefined) ? '' : String(v);
+        return /^[=+\-@]/.test(v) ? "'" + v : v;
+    }
+
+    function exportToExcel() {
+        if (!_lastData || !_lastParams) {
+            Swal.fire('Peringatan', 'Belum ada laporan yang dimuat. Klik Update dulu.', 'warning');
+            return;
+        }
+
+        var from = moment(_lastParams.date_start);
+        var to   = moment(_lastParams.date_end);
+        var periodText = (from.isSame(from.clone().startOf('month'), 'day') &&
+                        to.isSame(to.clone().endOf('month'), 'day') &&
+                        from.isSame(to, 'month'))
+            ? 'For the month ended ' + to.format('D MMMM YYYY')
+            : from.format('D MMM YYYY') + ' – ' + to.format('D MMM YYYY');
+
+        var colHeader = from.isSame(to, 'month')
+            ? to.format('MMM YYYY')
+            : from.format('MMM') + ' – ' + to.format('MMM YYYY');
+
+        var aoa = [];
+        var numRows = [];   // index baris yang kolom B-nya angka
+
+        aoa.push(['Profit and Loss']);
+        aoa.push([safeText(COMPANY_NAME)]);
+        aoa.push([periodText]);
+        if (_lastParams.divisi.length) aoa.push(['Divisi: ' + safeText(_lastParams.divisi.join(', '))]);
+        if (_lastParams.paket.length)  aoa.push(['Nama Paket: ' + safeText(_lastParams.paket.join(', '))]);
+        aoa.push(['Currency: ' + _lastParams.currency]);
+        aoa.push([]);
+        aoa.push(['', colHeader]);
+
+        function pushAmt(label, amount) {
+            aoa.push([safeText(label), parseFloat(amount) || 0]);
+            numRows.push(aoa.length - 1);
+        }
+
+        $.each(_lastData.blocks || [], function (idx, block) {
+            if (block.type === 'total') {
+                aoa.push([]);
+                pushAmt(block.label, block.amount);
+                aoa.push([]);
+                return;
+            }
+
+            aoa.push([safeText(block.name)]);
+            $.each(block.items || [], function (i, item) {
+                pushAmt('    ' + item.name, item.amount);   // indent detail
+            });
+            pushAmt('Total ' + block.name, block.total);
+            aoa.push([]);
+        });
+
+        pushAmt(_lastData.net_profit_label || 'Net Profit', _lastData.net_profit || 0);
+
+        var ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        // Format angka: ribuan + negatif dalam kurung (sama seperti tampilan Xero)
+        $.each(numRows, function (i, r) {
+            var ref = XLSX.utils.encode_cell({ r: r, c: 1 });
+            if (ws[ref]) { ws[ref].t = 'n'; ws[ref].z = '#,##0.00;(#,##0.00)'; }
+        });
+
+        ws['!cols'] = [{ wch: 48 }, { wch: 20 }];
+
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
+
+        var fileName = 'Profit_and_Loss_' + _lastParams.date_start + '_' + _lastParams.date_end + '.xlsx';
+        XLSX.writeFile(wb, fileName);
+    }
+
+    $('#btnExportExcel').on('click', function () {
+        try {
+            exportToExcel();
+        } catch (e) {
+            console.error(e);
+            Swal.fire('Gagal', 'Export Excel gagal: ' + e.message, 'error');
+        }
+    });
     // =========================================================
     // INIT
     // =========================================================
