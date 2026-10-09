@@ -280,10 +280,13 @@ class XeroBillController extends Controller
     }
 
 
+    //contoh input month_filter : 02-2026
     public function getBills(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'is_sync' => 'required|in:0,1',
+            'is_all' => 'required|between:0,1',
+            'month_filter' => 'required_if:is_all,0|nullable|date_format:m-Y',//'month_filter'=> 'date'//ex, 02-2026, filter semua bill kusus bulan 6, jika is_all = 0, jika is_all =1, abaikan 
         ]);
 
         if ($validator->fails()) {
@@ -294,7 +297,7 @@ class XeroBillController extends Controller
         if (!$tokenData) {
             return response()->json(['message' => 'Token kosong/invalid.'], 401);
         }
-
+        $monthFilter = ((int) $request->is_all === 0) ? $request->month_filter : null;
         // ── is_sync = 1: insert ke DB lewat job (async, lewat queue) ───────────
         if ((int) $request->is_sync === 1) {
             $jobId = (string) Str::uuid();
@@ -308,7 +311,7 @@ class XeroBillController extends Controller
                 'job_type' => 'SyncXeroBillJob'
             ]);
 
-            SyncBillJob::dispatch($tokenData, $jobId);
+            SyncBillJob::dispatch($tokenData, $jobId, $monthFilter);
 
             return response()->json([
                 'status' => 'pending',

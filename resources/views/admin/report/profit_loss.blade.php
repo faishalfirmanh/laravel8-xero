@@ -825,6 +825,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
                 throw new Error(response.message || 'Gagal memuat data');
             }
             var adapted = adaptApiResponse(response.data.data);
+            console.log('filter',adapted)
             _lastData   = adapted;
             renderReport(adapted);
         })

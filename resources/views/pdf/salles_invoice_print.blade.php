@@ -670,6 +670,19 @@
             </td>
 
         </tr>
+         <tr>
+
+            <td width="20%"></td>
+
+            <td width="60%" class="label">
+                Total Tagihan Belum dibayar
+            </td>
+
+            <td width="20%" class="value">
+                {{ $fmt($invoice->less_nominal) }}
+            </td>
+
+        </tr>
 
 
         {{-- KELEBIHAN BAYAR --}}

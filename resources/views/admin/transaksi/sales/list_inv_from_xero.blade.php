@@ -1010,7 +1010,7 @@
                             {{-- Actions --}}
                             <div class="payment-form-footer">
                                 <button type="button" class="btn-payment-cancel" id="btnCancelPayment">
-                                    Batal
+                                    Tutup
                                 </button>
                                 <button type="button" class="btn-payment-save" id="btnSavePayment">
                                     <i class="ti ti-check" style="font-size:12px;"></i>
@@ -1028,7 +1028,7 @@
                     <input type="hidden" name="action_type" id="actionTypeValue" value="">
                     <button type="button" class="btn btn-secondary btn-sm" id="btl-save"
                             data-dismiss="modal">
-                        <i class="ti ti-x mr-1"></i> Batal
+                        <i class="ti ti-x mr-1"></i> Tutup
                     </button>
                     <div class="btn-group dropup">
                         <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -1364,6 +1364,11 @@
       </div>
 
       <div class="modal-footer d-print-none bg-white">
+        <input type="hidden" id="invoice_uuid_payment" value="">
+        <button type="button" id="btn_check_invoice" class="btn btn-info">
+            <i class="ti ti-eye mr-1"></i> Check Invoice
+        </button>
+
         <button type="button" id="close_modal_payment" class="btn btn-secondary" data-dismiss="modal">
             <i class="fa fa-times mr-1"></i> Tutup
         </button>
@@ -3455,8 +3460,10 @@ function setRowRequiredState($row, isRequired) {
 
     $('#tableHotel').on('click', '.show-payment-modal', function() {
         const id = $(this).data('id');
+           const rowData = table.row($(this).parents('tr')).data();
         $('#invoices_id_parent').val(id); // Set hidden ID untuk form tambah bayar
         $("#idHotelInput").val(id)
+        $('#invoice_uuid_payment').val(rowData.invoice_uuid || ''); 
         resetPaymentForm();
 
 
@@ -3656,6 +3663,34 @@ function setRowRequiredState($row, isRequired) {
                 $btn.prop('disabled', false).html('<i class="fa fa-save mr-1"></i> Simpan Pembayaran');
             });
         }
+    });
+
+
+    $('#btn_check_invoice').on('click', function () {
+        const uuid     = $('#invoice_uuid_payment').val();
+        const parentId = $('#idHotelInput').val();
+
+        if (!uuid) {
+            Swal.fire('Peringatan', 'UUID invoice tidak ditemukan.', 'warning');
+            return;
+        }
+
+        // Unlock invoice (sama seperti tombol Tutup)
+        if (parentId) {
+            ajaxRequest(`{{ route('unlock-sales-inv') }}`, 'POST', { id: parentId }, localStorage.getItem('token'))
+                .then(res => { if (res.status == 200) table.ajax.reload(null, false); })
+                .catch(err => cathError(err));
+        }
+
+        // Buka preview SETELAH paymentModal benar-benar tertutup,
+        // supaya backdrop & scroll body Bootstrap 4 tidak bentrok
+        $('#paymentModal')
+            .off('hidden.bs.modal.checkInv')
+            .one('hidden.bs.modal.checkInv', function () {
+                privewiInvoice(uuid);
+            });
+
+        $('#paymentModal').modal('hide');
     });
 
     // 4. Aksi Delete Payment History

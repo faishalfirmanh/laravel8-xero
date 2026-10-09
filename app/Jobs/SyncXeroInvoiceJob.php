@@ -13,6 +13,7 @@ use App\Models\SyncJobStatus;
 use App\Models\Transaction\TransactionAllCoa;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use App\Services\GlobalService;
+use App\Traits\XeroMonthFilter;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -104,13 +105,15 @@ use Illuminate\Support\Facades\Log;
  */
 class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, ConfigRefreshXero;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, ConfigRefreshXero, XeroMonthFilter;
 
     public int $timeout = 700;
 
     // Xero hanya kembalikan 100 invoice/payment per halaman
     private const PER_PAGE = 100;
     private const PAYMENT_PER_PAGE = 100;
+
+    private ?string $monthFilter = null;
 
     // Berhenti & release job kalau sisa kuota per-menit sudah sekritis ini
     private const MIN_REM_THRESHOLD = 5;
@@ -170,11 +173,12 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
         return $this->jobId;
     }
 
-    public function __construct(array $tokenData, string $jobId)
+    public function __construct(array $tokenData, string $jobId, ?string $monthFilter = null)
     {
         $this->tokenData = $tokenData;
         $this->jobId = $jobId;
         $this->service_global = new GlobalService();
+        $this->monthFilter = $monthFilter;
     }
 
     /**
@@ -217,7 +221,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
             $phase = $jobStatus->current_phase ?: 'invoices';
 
             if ($phase === 'invoices') {
-                Log::info("[SyncXeroInvoiceJob][$this->jobId] === PHASE: invoices ===");
+                Log::info("[SyncXeroInvoiceJob][$this->jobId] Filter bulan: " . ($this->monthFilter ?? 'SEMUA'));
 
                 $this->syncInvoicesPhase($accessToken, $tenantId, $jobStatus);
 
@@ -975,7 +979,7 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 'Accept' => 'application/json',
             ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Invoices', [
                         'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',
-                        'Type' => 'ACCREC',
+                        'Type' => 'ACCREC' . $this->xeroMonthClause($this->monthFilter),//tambah filter month
                         'order' => 'Date DESC',
                         'page' => $page,
                         'unitdp' => 4,
@@ -1009,11 +1013,11 @@ class SyncXeroInvoiceJob implements ShouldQueue, ShouldBeUnique
                 'Accept' => 'application/json',
             ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Payments', [
                         // Hanya payment penerimaan invoice (ACCREC), selaras dengan
-                        // Type=ACCREC yang dipakai di fetchPage(). Kalau perlu batasi
+                        // Type=ACCREC yang dipakai di fetchPage(). Kalau perlu batas
                         // periode untuk org dengan histori sangat besar, tambahkan
                         // filter tanggal di sini, misal:
                         // 'where' => 'PaymentType=="ACCRECPAYMENT"&&Date>=DateTime(2024,01,01)',
-                        'where' => 'PaymentType=="ACCRECPAYMENT"',
+                        'where' => 'PaymentType=="ACCRECPAYMENT"' . $this->xeroMonthClause($this->monthFilter),//tambah filter month page,
                         'order' => 'Date ASC',
                         'page' => $page,
                     ]);

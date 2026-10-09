@@ -290,7 +290,7 @@
         </tr>
         <tr>
             <td></td>
-            <td class="label">Less Amount Paid</td>
+            <td class="label">Tagihan Belum dibayar</td>
             <td class="value">{{ $fmt($amountDue) }}</td>
         </tr>
         @if ($invoice->getOverPay)

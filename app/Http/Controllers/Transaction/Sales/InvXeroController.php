@@ -1597,7 +1597,7 @@ class InvXeroController extends Controller
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer',
             'uuid_bank' => 'required|integer|exists:bank_xeros,id',
-            'nominal_receive' => 'required|integer',
+            'nominal_receive' => 'required|integer|min:1',
             'reference_detail' => 'required|string',
             'date_transaction' => 'required|date',
             'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id'

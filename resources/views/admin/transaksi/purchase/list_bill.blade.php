@@ -1168,7 +1168,7 @@ $(document).ready(function() {
                     </select>
                 </td>
                 <td><input type="text" class="form-control desc-input" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
-                <td><input type="number" class="form-control qty-input" required name="qty[]" min="1" value="${qty}"></td>
+                <td><input type="number" class="form-control qty-input" required name="qty[]" min="1" style="width:70px;" value="${qty}"></td>
                 <td><input type="number" class="form-control price-input" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
                 <td>
                     <select class="select2-account form-control" required name="account_id[]" required style="width:100%;">

@@ -104,15 +104,20 @@ class InvoiceXeroLocalController extends Controller
 
         $validator = Validator::make($request->all(), [
             'is_sync' => 'required|in:0,1',
+            'is_all' => 'required|in:0,1',
+            'month_filter' => 'required_if:is_all,0|nullable|date_format:m-Y', // contoh 02-2026
         ]);
+
 
         if ($validator->fails()) {
             return $this->error($validator->errors());
         }
 
+        $monthFilter = ((int) $request->is_all === 0) ? $request->month_filter : null;
+
         if ($request->is_sync == 1) {
             $jobId = (string) Str::uuid();
-            SyncXeroInvoiceJob::dispatch($tokenData, $jobId);
+            SyncXeroInvoiceJob::dispatch($tokenData, $jobId, $monthFilter);
 
             return response()->json([
                 'status' => 'queued',

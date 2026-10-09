@@ -42,13 +42,14 @@ class SyncBillJob implements ShouldQueue
     private int $releaseAfterSecs = 60;
     private array $trackingCache = [];
     private ?string $tenantId = null;
-
+    private ?string $monthFilter = null;
     protected $service_global;
 
-    public function __construct(array $tokenData, string $jobId)
+    public function __construct(array $tokenData, string $jobId, ?string $monthFilter = null)
     {
         $this->tokenData = $tokenData;
         $this->jobId = $jobId;
+        $this->monthFilter = $monthFilter;
         $this->service_global = new GlobalService();
     }
 
@@ -57,6 +58,27 @@ class SyncBillJob implements ShouldQueue
         return now()->addHours(26);
     }
 
+    private function buildWhereClause(): string
+    {
+        $where = 'Type=="ACCPAY"';
+
+        if ($this->monthFilter) {
+            $start = Carbon::createFromFormat('!m-Y', $this->monthFilter)->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+            
+            $where .= sprintf(
+                ' AND Date>=DateTime(%d,%d,%d) AND Date<=DateTime(%d,%d,%d)',
+                $start->year,
+                $start->month,
+                $start->day,
+                $end->year,
+                $end->month,
+                $end->day
+            );
+        }
+
+        return $where;
+    }
     // ================================================================
     // MAIN ENTRY POINT
     // ================================================================
@@ -75,7 +97,7 @@ class SyncBillJob implements ShouldQueue
 
             $page = 1;
             $totalSynced = 0;
-            Log::info("[SyncBillJob][$this->jobId] Mulai sync bill (ACCPAY)...");
+            Log::info("[SyncBillJob][$this->jobId] Mulai sync bill (ACCPAY)... filter bulan: " . ($this->monthFilter ?? 'SEMUA'));
 
             do {
                 $response = $this->fetchPage($accessToken, $tenantId, $page);
@@ -678,7 +700,8 @@ class SyncBillJob implements ShouldQueue
                 'Accept' => 'application/json',
             ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Invoices', [
                         'Statuses' => 'DRAFT,SUBMITTED,AUTHORISED,PAID',
-                        'where' => 'Type=="ACCPAY"',
+                        //'where' => 'Type=="ACCPAY"',
+                        'where' => $this->buildWhereClause(),//filter by month or all bills
                         'order' => 'Date DESC',
                         'page' => $page,
                         'unitdp' => 4,
