@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\MasterData\TravelName;
+use App\Models\Transaction\FeeOverpay;
 use App\Models\Transaction\Overpayment;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -69,7 +70,12 @@ class InvoicesAllFromXero extends Model
 
     public function getPayment()
     {
-        return $this->hasMany(TransactionNominalBankAccount::class, 'id_parent_invoice');
+        return $this->hasMany(TransactionNominalBankAccount::class, 'id_parent_invoice')->where('id_fee_overpay', NULL);
+    }
+
+    public function getFeeOverpay()
+    {
+        return $this->hasMany(FeeOverpay::class, 'invoice_id');
     }
 
     public function getJamaah()

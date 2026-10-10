@@ -6,6 +6,7 @@ use App\Models\Expenses\Purchase\Bill\DBill;
 use App\Models\Expenses\Purchase\Bill\PBill;
 use App\Models\InvoicesAllFromXero;
 use App\Models\MasterData\ItemDetailInvoices;
+use App\Models\Transaction\FeeOverpay;
 use App\Models\Transaction\Overpayment;
 use App\Models\Transaction\TransactionAllCoa;
 use App\Models\Transaction\TransactionBankTransD;
@@ -35,6 +36,7 @@ class ResetTransSeeder extends Seeder
         ItemDetailInvoices::truncate();
         InvoicesAllFromXero::truncate();
         Overpayment::truncate();
+        FeeOverpay::truncate();
         // 3. Aktifkan kembali foreign key checks
         Schema::enableForeignKeyConstraints();
         $paths = [

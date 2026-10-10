@@ -622,6 +622,114 @@
     color   : #aaa !important;
     font-size: 12px !important;
 }
+/*label setelah select*/
+/* ── Select2 di form Apply Credit (paymentModal) ── */
+#wrapCreditForm .select2-container {
+    display: block !important;
+    width: 100% !important;
+}
+#wrapCreditForm .select2-container--bootstrap4 .select2-selection--single {
+    height: calc(1.5em + 0.75rem + 2px) !important;
+    display: flex !important;
+    align-items: center !important;
+    position: relative !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 0.25rem !important;
+}
+#wrapCreditForm .select2-selection__rendered {
+    display: block !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.5 !important;
+    padding-left: 0.6rem !important;
+    padding-right: 2.2rem !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 0.875rem;
+    color: #333 !important;
+}
+#wrapCreditForm .select2-selection__clear {
+    position: absolute !important;
+    right: 1.5rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+    color: #888 !important;
+}
+#wrapCreditForm .select2-selection__arrow {
+    position: absolute !important;
+    right: 0.4rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    height: auto !important;
+}
+#wrapCreditForm .select2-selection__placeholder {
+    color: #aaa !important;
+    font-size: 0.875rem;
+}
+
+
+/*style select2 bank fee overpy*/
+/* ══════════════════════════════════════════════
+   FEE OVERPAY — Select2 bank asal di dalam tabel
+   ══════════════════════════════════════════════ */
+#feeOverpayRowsTable td {
+    vertical-align: middle;
+}
+#feeOverpayRowsTable td .select2-container {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+}
+#feeOverpayRowsTable .select2-container--bootstrap4 .select2-selection--single {
+    height: 31px !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    background-color: #fff !important;
+}
+#feeOverpayRowsTable .select2-selection__rendered {
+    display: block !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 29px !important;
+    padding-left: 8px !important;
+    padding-right: 42px !important;
+    font-size: 12px !important;
+    color: #333 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+#feeOverpayRowsTable .select2-selection__clear {
+    position: absolute !important;
+    right: 22px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    color: #888 !important;
+    z-index: 1;
+}
+#feeOverpayRowsTable .select2-selection__clear:hover {
+    color: #e74c3c !important;
+}
+#feeOverpayRowsTable .select2-selection__arrow {
+    position: absolute !important;
+    right: 2px !important;
+    top: 0 !important;
+    height: 29px !important;
+    width: 20px !important;
+}
+#feeOverpayRowsTable .select2-selection__placeholder {
+    color: #aaa !important;
+    font-size: 12px !important;
+}
 </style>
 
 
@@ -1328,7 +1436,7 @@
                                         <span class="text-danger">*</span>
                                     </label>
                                 <select
-                                        class="form-control select2-overpay-credit-add"
+                                        class="form-control select2-bank-overpay"
                                         name="bank_overpay_id"
                                         id="bank_overpay_id"
                                         style="width:100%;">
@@ -1360,7 +1468,77 @@
 
             </div>
         </div>
+        {{-- ── FEE OVERPAY (hanya tampil jika ada get_over_pay) ── --}}
+           {{-- ── FEE OVERPAY ── --}}
+            <div class="card border-warning mt-3 d-print-none" id="feeOverpaySection" style="display:none;">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                    <h6 class="mb-0 font-weight-bold text-warning" id="feeFormTitle">
+                        <i class="fa fa-percent mr-1"></i> Fee Overpay
+                    </h6>
+                    <small class="text-muted">Sisa overpayment:
+                        <b id="fee_overpay_sisa" class="text-dark">-</b>
+                    </small>
+                </div>
 
+                <div class="card-body py-2">
+                    <input type="hidden" id="fee_overpay_id" value="">
+                    <input type="hidden" id="fee_jamaah_id" value="">
+                    <input type="hidden" id="fee_edit_id" value="">
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-1" id="feeOverpayRowsTable" style="font-size:12px;">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th style="width:150px;">Tanggal</th>
+                                    <th style="min-width:220px;">Bank Asal</th>
+                                    <th style="width:150px;">Nominal</th>
+                                    <th style="min-width:180px;">Rekening Tujuan Jamaah</th>
+                                    <th style="width:36px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="feeOverpayRowsBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddFeeRow">
+                            <i class="fa fa-plus mr-1"></i> Add Row
+                        </button>
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm mr-1" id="btnCancelFeeEdit" style="display:none;">
+                                <i class="fa fa-times mr-1"></i> Batal Edit
+                            </button>
+                            <button type="button" class="btn btn-warning btn-sm font-weight-bold" id="btnSaveFeeOverpay">
+                                <i class="fa fa-save mr-1"></i> Simpan Fee Overpay
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- ── RIWAYAT FEE OVERPAY ── --}}
+            <div class="mt-3" id="feeOverpayHistoryWrap" style="display:none;">
+                <h6 class="font-weight-bold mb-2">
+                    <i class="fa fa-history mr-1"></i> Riwayat Fee Overpay
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped table-sm text-center mb-0">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th width="5%">No</th>
+                                <th>Tanggal</th>
+                                <th>Nama Bank</th>
+                                <th>Nominal</th>
+                                <th>Rekening Tujuan Jamaah</th>
+                                <th width="12%">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feeOverpayHistoryBody">
+                            <tr><td colspan="5" class="text-muted">Belum ada data</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
       </div>
 
       <div class="modal-footer d-print-none bg-white">
@@ -1687,6 +1865,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
 
         $('.select2-overpay-credit').select2({
             theme: 'bootstrap4',
+            width:'100%',
             dropdownParent: $('#paymentModal'),
             placeholder: '-- Pilih Overpayment --',
             allowClear: true,
@@ -1702,6 +1881,42 @@ let payFormMode = 'new'; // 'new' | 'edit'
         });
     }
 
+    function initBankOverpaySelect() {
+        const $el = $('#bank_overpay_id');
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+
+        $el.select2({
+            theme          : 'bootstrap4',
+            width          : '100%',
+            dropdownParent : $('#paymentModal'),
+            placeholder    : 'Ketik nama bank...',
+            allowClear     : true,
+            minimumInputLength: 1,
+            language: {
+                inputTooShort: () => 'Ketik minimal 1 huruf untuk mencari bank...',
+                searching    : () => 'Mencari...',
+                noResults    : () => 'Bank tidak ditemukan',
+            },
+            ajax: {
+                url     : "{{ route('getbankselect2') }}",
+                type    : 'GET',
+                dataType: 'json',
+                delay   : 350,
+                data    : (p) => ({ page: p.page || 1, keyword: p.term || '', limit: 10, kolom_name: 'name' }),
+                processResults: (response) => ({
+                    results: $.map(response.data.data || [], (item) => ({
+                        id  : item.id,
+                        text: item.name + ' (' + (item.currency_code || '-') + ')'
+                    })),
+                    pagination: { more: !!response.data.next_page_url }
+                }),
+                cache: false
+            }
+        });
+    }
+
     // toggle field "Pilih Bank" <-> "Pilih Overpayment" sesuai radio yang dipilih
     $(document).on('change', 'input[name="payment_method"]', function () {
         const method = $(this).val();
@@ -1709,6 +1924,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
             $('#wrapBankRows').hide();
             $('#wrapCreditForm').show();
             $('#btnAddPayRow').hide();
+            initBankOverpaySelect()
         } else {
             $('#wrapCreditForm').hide();
             $('#wrapBankRows').show();
@@ -2437,7 +2653,8 @@ function setRowSelect2Value($row, selector, id, text) {
 
 
     $("#close_modal_payment").on('click',function(){
-        console.log('close payment',$('#idHotelInput').val())
+        
+        // window.location.reload();
             ajaxRequest(`{{ route('unlock-sales-inv') }}`, 'POST', {'id':$('#idHotelInput').val()}, localStorage.getItem("token"))
             .then(response => {
                 if (response.status == 200) {
@@ -3465,7 +3682,7 @@ function setRowRequiredState($row, isRequired) {
         $("#idHotelInput").val(id)
         $('#invoice_uuid_payment').val(rowData.invoice_uuid || ''); 
         resetPaymentForm();
-
+        resetFeeOverpayRows();
 
 
         $('#formSubmitPayment').find('.select2-account-bank-modal2').each(function() {
@@ -3488,102 +3705,108 @@ function setRowRequiredState($row, isRequired) {
     });
 
     // 2. Fungsi Load History ke Table Modal
-    function loadPaymentHistoryModal(invoiceId) {
+   function loadPaymentHistoryModal(invoiceId) {
         $('#payment_list_body').html('<tr><td colspan="5" class="text-center"><div class="spinner-border text-primary spinner-border-sm"></div> Memuat Data...</td></tr>');
-        
+
         ajaxRequest(`{{ route('detail-sales-inv') }}`, 'GET', { id: invoiceId }, localStorage.getItem("token"))
-        .then(function(response) {
-            const d = response.data.data;
+        .then(function (response) {
+            const d        = response.data.data;
             const payments = d.get_payment || [];
 
+            // get_over_pay bisa berupa objek atau array, ambil yang pertama
+            const overpay = Array.isArray(d.get_over_pay)
+                ? (d.get_over_pay[0] || null)
+                : (d.get_over_pay || null);
 
-            // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
+            console.log('modal payment', d);
+            console.log('get_over_pay', overpay);
+
+            // ── APPLY CREDIT ──
             listAllOverpayCurrent = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
-            if(d.status != 'PAID'){
-                if(listAllOverpayCurrent.length > 0 ){
+            if (d.status != 'PAID') {
+                if (listAllOverpayCurrent.length > 0) {
                     $('#paymentMethodWrap').show();
                     populateOverpaySelect();
-                }   
-            }else{
+                }
+            } else {
                 $('#paymentMethodWrap').hide();
             }
-            
-            // Set View Info Modal
+
+            // ── Header info ──
             $('#hotel_name_display').text(d.contact_name || '-');
             $('#no_invoice_display').text(d.invoice_number || '-');
-            $('#summary_total').text(formatCurrency(d.invoice_total,d.code_curr));
-            
+            $('#summary_total').text(formatCurrency(d.invoice_total, d.code_curr));
+
+            // ── Riwayat pembayaran ──
             let totalPaid = 0;
             let tbody = '';
-            
+
             if (payments.length === 0) {
                 tbody = '<tr><td colspan="5" class="text-muted text-center">Belum ada data pembayaran</td></tr>';
             } else {
-               // Di dalam loadPaymentHistoryModal, ganti bagian forEach rendering tbody:
                 payments
-                .sort((a, b) => new Date(b.date_transaction) - new Date(a.date_transaction))
-                .forEach((p, index) => {
-                    const nominal = p.nominal_receive > 0
-                        ? parseFloat(p.nominal_receive)
-                        : parseFloat(p.nominal_spend);
+                    .sort((a, b) => new Date(b.date_transaction) - new Date(a.date_transaction))
+                    .forEach((p, index) => {
+                        const nominal = p.nominal_receive > 0
+                            ? parseFloat(p.nominal_receive)
+                            : parseFloat(p.nominal_spend);
 
-                    totalPaid += nominal;
-                    let cek_style =  p.nominal_receive > 0 ? '' : 'style="background-color:#FFC6BA;font-color:white;"';
+                        totalPaid += nominal;
+                        const cek_style = p.nominal_receive > 0
+                            ? ''
+                            : 'style="background-color:#FFC6BA;font-color:white;"';
 
-
-                  
-
-                    tbody += `
-                        <tr ${cek_style}>
-                            <td>${index + 1}</td>
-                            <td>${p.date_transaction || '-'}</td>
-                            <td>${p.name_bank}</td>
-                            <td>${p.reference_detail || '-'}</td>
-                            <td class="text-right">${formatCurrency(nominal, d.code_curr)}</td>
-                            <td class="text-center">
-                                <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-inv-pay" style="padding:10px;"
-                                    title="Edit"
-                                    data-id="${p.id}"
-                                    data-nominal="${p.nominal_receive > 0 ? p.nominal_receive : p.nominal_spend}"
-                                    data-date="${p.date_transaction}"
-                                    data-bank-id="${p.uuid_bank}"
-                                    data-bank-name="${p.name_bank}"
-                                    data-reference="${p.reference_detail || ''}">
-                                    <i class="ti ti-pencil"></i>
-                                </button>
-                                <button type="button" class="btn btn-xs btn-danger btn-delete-inv-pay"
-                                    title="Hapus"
-                                    data-id="${p.id}"
-                                    data-nominal="${formatCurrency(nominal, d.code_curr)}">
-                                    <i class="ti ti-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                });
+                        tbody += `
+                            <tr ${cek_style}>
+                                <td>${index + 1}</td>
+                                <td>${p.date_transaction || '-'}</td>
+                                <td>${p.name_bank}</td>
+                                <td>${p.reference_detail || '-'}</td>
+                                <td class="text-right">${formatCurrency(nominal, d.code_curr)}</td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-inv-pay" style="padding:10px;"
+                                        title="Edit"
+                                        data-id="${p.id}"
+                                        data-nominal="${p.nominal_receive > 0 ? p.nominal_receive : p.nominal_spend}"
+                                        data-date="${p.date_transaction}"
+                                        data-bank-id="${p.uuid_bank}"
+                                        data-bank-name="${p.name_bank}"
+                                        data-reference="${p.reference_detail || ''}">
+                                        <i class="ti ti-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-xs btn-danger btn-delete-inv-pay"
+                                        title="Hapus"
+                                        data-id="${p.id}"
+                                        data-nominal="${formatCurrency(nominal, d.code_curr)}">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>`;
+                    });
             }
 
-            
-            
             $('#payment_list_body').html(tbody);
-            
-            // Set Summary Cards
-            $('#summary_paid').text(formatCurrency(totalPaid,d.code_curr));
-            const remaining = parseFloat(d.invoice_total) - totalPaid;
-           const cek_overpay = d.get_over_pay
-            ? `overpayment ${formatCurrency(d.get_over_pay.nominal_overpayment, d.code_curr)}`
-            : ''
-            $('#summary_remaining').text(`${formatCurrency(remaining < 0 ? 0 : remaining,d.code_curr)}  ${cek_overpay}`);
+
+            // ── Summary cards ──
+            $('#summary_paid').text(formatCurrency(totalPaid, d.code_curr));
+            const remaining   = parseFloat(d.invoice_total) - totalPaid;
+            const cek_overpay = overpay
+                ? `overpayment ${formatCurrency(overpay.nominal_overpayment, d.code_curr)}`
+                : '';
+            $('#summary_remaining').text(
+                `${formatCurrency(remaining < 0 ? 0 : remaining, d.code_curr)}  ${cek_overpay}`
+            );
+
+            // ── FEE OVERPAY: INI YANG SEBELUMNYA BELUM ADA ──
+            renderFeeOverpaySection(overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
         })
-        .catch(function(err) {
-            console.log('err',err)
-              $('#payment_list_body').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data riwayat pembayaran</td></tr>');
-            if(err.status == 423){
-                 cathError(err);
+        .catch(function (err) {
+            console.log('err', err);
+            $('#payment_list_body').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data riwayat pembayaran</td></tr>');
+            if (err.status == 423) {
+                cathError(err);
                 $('#paymentModal').modal('hide');
             }
-          
-          
         });
     }
 
@@ -3697,6 +3920,373 @@ function setRowRequiredState($row, isRequired) {
 
     // Matikan auto discover Dropzone agar kita bisa inisiasi manual
     
+/// ========================================================
+// FEE OVERPAY (create, edit, delete)
+// ========================================================
+const feeOverpayRoutes = {
+    list  : "{{ route('get-fee-overpay') }}",
+    store : "{{ route('save-fee-overpay') }}",
+    delete: "{{ route('delete-fee-overpay') }}",
+};
 
+let feeOverpayCache        = {};  // id => data fee, dipakai tombol edit
+let feeEditOriginalNominal = 0;   // nominal fee yang sedang diedit
+
+const feeEditingId = () => $('#fee_edit_id').val() || '';
+
+function getFeeMaxNominal() {
+    const sisa = parseFloat($('#feeOverpaySection').data('sisa')) || 0;
+    return sisa + (feeEditingId() ? feeEditOriginalNominal : 0);
+}
+
+function setFeeEditUI(isEdit) {
+    $('#feeFormTitle').html(isEdit
+        ? '<i class="fa fa-pencil mr-1"></i> Edit Fee Overpay'
+        : '<i class="fa fa-percent mr-1"></i> Fee Overpay');
+    $('#btnSaveFeeOverpay').html(
+        `<i class="fa fa-save mr-1"></i> ${isEdit ? 'Update Fee Overpay' : 'Simpan Fee Overpay'}`
+    );
+    $('#btnAddFeeRow').toggle(!isEdit);
+    $('#btnCancelFeeEdit').toggle(isEdit);
+}
+
+
+function initFeeBankSelect($row, bankId = null, bankName = null) {
+    const $sel = $row.find('.fee-bank-select');
+    if ($sel.hasClass('select2-hidden-accessible')) $sel.select2('destroy');
+
+    // Isi opsi awal SEBELUM select2 dipasang (mode edit)
+    $sel.empty();
+    if (bankId && bankName) {
+        $sel.append(new Option(String(bankName), String(bankId), true, true));
+    }
+
+    $sel.select2({
+        theme              : 'bootstrap4',
+        width              : '100%',
+        dropdownParent     : $('#paymentModal'),
+        placeholder        : 'Ketik nama bank...',
+        allowClear         : true,
+        minimumInputLength : 1,
+        language: {
+            inputTooShort: () => 'Ketik minimal 1 huruf untuk mencari bank...',
+            searching    : () => 'Mencari...',
+            noResults    : () => 'Bank tidak ditemukan',
+        },
+        ajax: {
+            url     : "{{ route('getbankselect2') }}",
+            type    : 'GET',
+            dataType: 'json',
+            delay   : 350,
+            data    : (p) => ({ page: p.page || 1, keyword: p.term || '', limit: 10, kolom_name: 'name' }),
+            processResults: (response) => ({
+                results: $.map(response.data.data || [], (item) => ({
+                    id  : String(item.id),
+                    text: item.name + ' (' + (item.currency_code || '-') + ')'
+                })),
+                pagination: { more: !!response.data.next_page_url }
+            }),
+            cache: false
+        }
+    });
+}
+
+function buildFeeRow() {
+    const today = new Date().toISOString().split('T')[0];
+    const max   = getFeeMaxNominal();
+    return `
+        <tr>
+            <td>
+                <input type="date" class="form-control form-control-sm fee-date" value="${today}">
+            </td>
+            <td>
+                <select class="form-control form-control-sm fee-bank-select" style="width:100%;"></select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm fee-nominal"
+                       min="1" step="0.01" max="${max}" placeholder="0">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm fee-rek"
+                       maxlength="255" placeholder="No rekening jamaah">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn-del-fee-row"
+                        style="background:none;border:1px solid #e74c3c;color:#e74c3c;
+                               border-radius:3px;padding:2px 6px;cursor:pointer;font-size:11px;"
+                        title="Hapus baris">
+                    <i class="ti ti-trash"></i>
+                </button>
+            </td>
+        </tr>`;
+}
+
+function addFeeRow(data = {}) {
+    const $row = $(buildFeeRow());
+    $('#feeOverpayRowsBody').append($row);
+
+    if (data.date)    $row.find('.fee-date').val(data.date);
+    if (data.nominal) $row.find('.fee-nominal').val(data.nominal);
+    if (data.rek)     $row.find('.fee-rek').val(data.rek);
+    //if (data.rek)     $row.find('.fee-B').val(data.rek);
+    console.log('addfeerow',data)
+
+    initFeeBankSelect($row, data.bankId || null, data.bankName || null);
+    updateFeeRowButtons();
+}
+
+function ensureFeeRow() {
+    if ($('#feeOverpayRowsBody tr').length === 0) addFeeRow();
+}
+
+function updateFeeRowButtons() {
+    const count = $('#feeOverpayRowsBody tr').length;
+    $('#feeOverpayRowsBody .btn-del-fee-row').prop('disabled', count <= 1);
+}
+
+// Kosongkan form dan keluar dari mode edit
+function resetFeeOverpayRows() {
+    $('#feeOverpayRowsBody .fee-bank-select').each(function () {
+        if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+    });
+    $('#feeOverpayRowsBody').empty();
+    $('#fee_edit_id').val('');
+    feeEditOriginalNominal = 0;
+    setFeeEditUI(false);
+}
+
+function loadFeeOverpayHistory(invoiceId) {
+    const $body = $('#feeOverpayHistoryBody');
+    $body.html('<tr><td colspan="5" class="text-center text-muted">Memuat...</td></tr>');
+
+    ajaxRequest(feeOverpayRoutes.list, 'GET', { invoice_id: invoiceId }, localStorage.getItem('token'))
+        .then(res => {
+            const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+
+            feeOverpayCache = {};
+            if (list.length === 0) {
+                $body.html('<tr><td colspan="5" class="text-muted">Belum ada data</td></tr>');
+                return;
+            }
+
+            let html = '';
+            list.forEach((f, i) => {
+                feeOverpayCache[f.id] = f;
+                html += `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td>${f.date_transaction || '-'}</td>
+                        <td>${f.name_bank || '-'}</td>
+                        <td class="text-right">${formatCurrency(f.nominal)}</td>
+                        <td>${f.bank_tujuan_jamaah_rek || '-'}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-fee"
+                                    data-id="${f.id}" title="Edit">
+                                <i class="ti ti-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-danger btn-delete-fee"
+                                    data-id="${f.id}" title="Hapus">
+                                <i class="ti ti-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+            $body.html(html);
+        })
+        .catch(err => {
+            $body.html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat riwayat fee overpay</td></tr>');
+            console.log('fee overpay list err', err);
+        });
+}
+
+// Dipanggil dari loadPaymentHistoryModal()
+function renderFeeOverpaySection(overpay, invoiceId, jamaahId, currency) {
+    if (!overpay) {
+        $('#feeOverpaySection, #feeOverpayHistoryWrap').hide();
+        return;
+    }
+
+    const sisa = parseFloat(overpay.nominal_overpayment) || 0;
+
+    $('#fee_overpay_id').val(overpay.id);
+    $('#fee_jamaah_id').val(jamaahId || '');
+    $('#fee_overpay_sisa').text(formatCurrency(sisa, currency));
+    $('#feeOverpaySection').data('sisa', sisa).show();
+    $('#feeOverpayHistoryWrap').show();
+
+    ensureFeeRow();
+    loadFeeOverpayHistory(invoiceId);
+}
+
+// ── Mode edit: isi form dengan data fee yang dipilih ──
+function startEditFee(f) {
+    resetFeeOverpayRows();
+
+    $('#fee_edit_id').val(f.id);
+    feeEditOriginalNominal = parseFloat(f.nominal) || 0;
+
+    addFeeRow({
+        date     : f.date_transaction,
+        bankId   : f.bank_id_origin,
+        bankName : f.name_bank,
+        nominal  : Math.ceil(f.nominal),
+        rek      : f.bank_tujuan_jamaah_rek,
+    });
+
+    setFeeEditUI(true);
+    document.getElementById('feeOverpaySection')
+        .scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Event: tambah & hapus baris ──
+$('#btnAddFeeRow').on('click', function () {
+    addFeeRow();
+});
+
+$(document).on('click', '.btn-del-fee-row', function () {
+    if ($('#feeOverpayRowsBody tr').length <= 1) return;
+    const $tr  = $(this).closest('tr');
+    const $sel = $tr.find('.fee-bank-select');
+    if ($sel.hasClass('select2-hidden-accessible')) $sel.select2('destroy');
+    $tr.remove();
+    updateFeeRowButtons();
+});
+
+// ── Event: batal edit ──
+$('#btnCancelFeeEdit').on('click', function () {
+    resetFeeOverpayRows();
+    ensureFeeRow();
+});
+
+// ── Event: tombol edit di riwayat ──
+$(document).on('click', '.btn-edit-fee', function () {
+    const f = feeOverpayCache[$(this).data('id')];
+    if (!f) return;
+    console.log('edit fee', f);
+    console.log(f.bank_id_origin)
+    console.log($('#feeOverpayRowsBody .fee-bank-select').val())
+    console.log('d',$('#feeOverpayRowsBody .fee-bank-select option').length )
+    startEditFee(f);
+});
+
+// ── Event: tombol hapus di riwayat ──
+$(document).on('click', '.btn-delete-fee', function () {
+    const id = $(this).data('id');
+    const f  = feeOverpayCache[id] || {};
+
+    Swal.fire({
+        title            : 'Hapus Fee Overpay?',
+        html             : `Nominal <b>${formatCurrency(f.nominal || 0)}</b> akan dihapus.<br>
+                            Saldo overpayment dan saldo bank akan dikembalikan.`,
+        icon             : 'warning',
+        showCancelButton : true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor : '#6c757d',
+        confirmButtonText : 'Ya, Hapus!',
+        cancelButtonText  : 'Batal',
+        reverseButtons    : true
+    }).then(result => {
+        if (!result.isConfirmed) return;
+
+        ajaxRequest(feeOverpayRoutes.delete, 'POST', { id: id }, localStorage.getItem('token'))
+            .then(res => {
+                if (res.status == 200) {
+                    Swal.fire({ icon: 'success', title: 'Dihapus!', timer: 1200, showConfirmButton: false });
+
+                    if (feeEditingId() == String(id)) {
+                        resetFeeOverpayRows();
+                    }
+                    ensureFeeRow();
+
+                    loadPaymentHistoryModal($('#invoices_id_parent').val());
+                    table.ajax.reload(null, false);
+                }
+            })
+            .catch(err => cathError(err));
+    });
+});
+
+// ── Simpan (create atau update) ──
+$('#btnSaveFeeOverpay').on('click', async function () {
+    const $btn      = $(this).prop('disabled', true);
+    const invoiceId = $('#invoices_id_parent').val();
+    const overpayId = $('#fee_overpay_id').val();
+    const jamaahId  = $('#fee_jamaah_id').val() || null;
+    const editId    = feeEditingId() || null;
+    const max       = getFeeMaxNominal();
+
+    const payloads = [];
+    let total = 0;
+    let error = null;
+
+    $('#feeOverpayRowsBody tr').each(function (i) {
+        const $r      = $(this);
+        const date    = $r.find('.fee-date').val();
+        const bank    = $r.find('.fee-bank-select').val();
+        const nominal = parseFloat($r.find('.fee-nominal').val());
+        const rek     = ($r.find('.fee-rek').val() || '').trim();
+
+        if (!date || !bank || !nominal || nominal <= 0 || !rek) {
+            error = `Baris ${i + 1}: lengkapi tanggal, bank, nominal, dan rekening tujuan.`;
+            return false;
+        }
+
+        total += nominal;
+        payloads.push({
+            id                     : editId,
+            date_transaction       : date,
+            invoice_id             : invoiceId,
+            bank_id_origin         : bank,
+            nominal                : nominal,
+            bank_tujuan_jamaah_rek : rek,
+            overpay_id             : overpayId,
+            jamaah_id              : jamaahId,
+        });
+    });
+
+    if (error) {
+        Swal.fire('Peringatan', error, 'warning');
+        $btn.prop('disabled', false);
+        return;
+    }
+
+    if (total > max) {
+        Swal.fire('Peringatan', 'Total fee melebihi sisa overpayment.', 'warning');
+        $btn.prop('disabled', false);
+        return;
+    }
+
+    try {
+        for (const payload of payloads) {
+            await ajaxRequest(feeOverpayRoutes.store, 'POST', payload, localStorage.getItem('token'));
+        }
+
+        Swal.fire({
+            icon : 'success',
+            title: 'Berhasil!',
+            text : editId
+                ? 'Fee overpay berhasil diupdate.'
+                : `${payloads.length} fee overpay berhasil disimpan.`,
+            timer: 1500,
+            showConfirmButton: false
+        });
+
+        resetFeeOverpayRows();
+        ensureFeeRow();
+        loadPaymentHistoryModal(invoiceId);   // refresh sisa overpay & riwayat
+        table.ajax.reload(null, false);
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
+
+// Bersihkan Select2 fee saat modal ditutup
+$('#paymentModal').on('hidden.bs.modal', function () {
+    $('#feeOverpayRowsBody .fee-bank-select').each(function () {
+        if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+    });
+});
 </script>
 @endpush

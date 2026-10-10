@@ -28,9 +28,10 @@ class TransactionNominalBankAccount extends Model
         'created_by',
         'id_parent_bank',//relation with TransactionBankTransP ->id,saat receive dan spend money
         'id_parent_invoice',
+        'id_fee_overpay',//relasi fee_overpay jika uang di kembalikan
         'payment_uuid',//unique key id,
         'trans_transfer_bank_id',//untuk transaksi bank transfer,
-        'overpay_id',//terisi jika pembayarna lewat overpayment
+        'overpay_id',//terisi jika pembayarna lewat overpayment, jika bayar dengan overpay
         //overpay yang wajib terisi : uuid_bank, nominal_spend, date_transaction,reference_detail,overpay_id
         'nominal_currency',//nominal currency ke rupiah
         'total_base_spend',//hasil final conversi nominal_speend 

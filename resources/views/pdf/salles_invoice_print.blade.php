@@ -258,7 +258,7 @@
         $detailItems = $invoice->getDetailById ?? collect();
 
         $payments = $invoice->getPayment ?? collect();
-
+        $kembaliOverpay    = $invoice->getFeeOverpay ?? collect();
         $subTotal = $invoice->invoice_total;
 
         $totalIDR = $invoice->invoice_total
@@ -577,6 +577,31 @@
 
     @endif
 
+     @if($kembaliOverpay->count() > 0)
+        <div class="section-heading">Riwayat Pengembalian Dana Berlebih</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th width="20%">Tanggal</th>
+                    <th width="20%">Bank</th>
+                    <th width="20%" class="text-right">Penjelasan</th>
+                    <th width="40%" class="text-right">Nominal</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($kembaliOverpay as $item_pay)
+                    <tr>
+                      
+                        <td>{{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}</td>
+                        <td>{{ $item_pay->name_bank }}</td>
+                        <td>{{ $item_pay->bank_tujuan_jamaah_rek }}</td>
+                        <td class="text-right amount-blue">{{ $fmt($item_pay->nominal) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
 
     {{-- =========================================================
          RIWAYAT PEMAKAIAN OVERPAYMENT
@@ -733,6 +758,14 @@
 
             </tr>
 
+        @endif
+
+         @if (count($invoice->getFeeOverpay) >0)
+            <tr class="line-top">
+                <td></td>
+                <td class="label">Total Overpayment Dibayarkan</td>
+                <td class="value">{{ $fmt($sum_fee_overpay) }}</td>
+            </tr>
         @endif
 
     </table>

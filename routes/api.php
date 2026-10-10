@@ -11,6 +11,7 @@ use App\Http\Controllers\Toko\MasterData\ProductUomController;
 use App\Http\Controllers\Toko\MasterData\WarehouseController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
+use App\Http\Controllers\Transaction\Expenses\FeeOverpayController;
 use App\Http\Controllers\Xero\BankSyncTransController;
 use App\Http\Controllers\Xero\CoaXeroController;
 use App\Http\Controllers\Xero\ConfigController;
@@ -287,6 +288,12 @@ Route::prefix("admin-web")->group(function () {
                     Route::post('uploadImage', [InvXeroController::class, 'uploadMultiple'])->name('uploadImage-sales-inv');
                     Route::get('getImage', [InvXeroController::class, 'getImageDetail'])->name('get-image-sales-inv');
                     Route::post('removeImage', [InvXeroController::class, 'removeImage'])->name('remove-image-sales-inv');
+
+                    //apply secara langsung overpayment
+                    Route::post('storeFeeOverpay', [FeeOverpayController::class, 'storeFeeOverpay'])->name('save-fee-overpay');
+                    Route::get('getFeeOverByInv', [FeeOverpayController::class, 'getOverpayByInvId'])->name('get-fee-overpay');
+                    Route::post('delete-fee-overpay', [FeeOverpayController::class, 'deleteFeeOverpay'])->name('delete-fee-overpay');
+
                 });
             });
 

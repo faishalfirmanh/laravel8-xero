@@ -1483,6 +1483,7 @@ class InvXeroController extends Controller
             $request->merge([
                 'id_parent_invoice' => $request->parent_inv_id
             ]);
+            $this->_recalcBankSummary((int) $request->uuid_bank);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);//create transaksi
 
             if ($invP->invoice_amount >= $invP->invoice_total) {//update status transinvoice

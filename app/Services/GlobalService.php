@@ -277,7 +277,8 @@ class GlobalService
             'item_detail_invoices' => 'uuid_detail_inv',
             'data_jamaah_xeros' => 'uuid_contact',
             'items_paket_all_from_xeros' => 'code',
-            'p_bills' => 'bills_uuid_xero'
+            'p_bills' => 'bills_uuid_xero',
+            'fee_overpays' => 'uuid_details_feeoverpay'
         ];
 
         do {

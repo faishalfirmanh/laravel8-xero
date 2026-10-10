@@ -1,11 +1,13 @@
 <?php
 namespace App\Http\Controllers\Transaction\Revenue;
 use App\Http\Controllers\Controller;
+use App\Http\Repository\Transaction\FeeOverpayRepo;
 use App\Http\Repository\Transaction\VaRepo;
 use App\Jobs\SyncXeroInvoiceJob;
 use App\Jobs\SyncXeroInvoiceJobV2;
 use App\Models\InvoicesAllFromXero;
 use App\Models\SyncJobStatus;
+use App\Models\Transaction\FeeOverpay;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
 use App\Http\Repository\MasterData\DataJamaahXeroRepository;
@@ -28,7 +30,7 @@ class InvoiceXeroLocalController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_va;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_va, $repo_fee_over;
     use ConfigRefreshXero;
     use ApiResponse;
 
@@ -38,13 +40,15 @@ class InvoiceXeroLocalController extends Controller
         VaRepo $repo_va,
         HotelDetailInvoicesRepository $repo_detail,
         GlobalService $service_global,
-        DataJamaahXeroRepository $repo_jamaah
+        DataJamaahXeroRepository $repo_jamaah,
+        FeeOverpayRepo $repo_fee_over
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
         $this->service_global = $service_global;
         $this->repo_jamaah = $repo_jamaah;
         $this->repo_va = $repo_va;
+        $this->repo_fee_over = $repo_fee_over;
     }
 
     public function getSyncStatus(string $jobId)
@@ -256,7 +260,8 @@ class InvoiceXeroLocalController extends Controller
             'getPayment',
             'getDetailById.getItems',
             'getOverPay',
-            'getTravel'
+            'getTravel',
+            'getFeeOverpay'
         ])->where('invoice_uuid', $id)->first();
 
         abort_if(!$invoice, 404);
@@ -272,6 +277,7 @@ class InvoiceXeroLocalController extends Controller
             'date' => date('d-m-Y'),
             'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview', $path_img_dinamis),
             'logoBase64' => $this->getLogoBase64($path_img_dinamis),
+            'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal')
         ];
 
         return view('admin.transaksi.sales.modal_inv', $data);
@@ -311,7 +317,8 @@ class InvoiceXeroLocalController extends Controller
             'getPayment',
             'getDetailById.getItems',
             'getOverPay',
-            'getTravel'
+            'getTravel',
+            'getFeeOverpay'
         ])
             ->where('invoice_uuid', $id)
             ->first();
@@ -438,6 +445,7 @@ class InvoiceXeroLocalController extends Controller
             'title' => 'Invoice #' . $invoice->invoice_number,
             'date' => date('d-m-Y'),
             'qrCode' => $qrCodeBase64,
+            'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal')
         ];
 
         /*
