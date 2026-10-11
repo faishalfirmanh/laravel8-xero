@@ -52,6 +52,10 @@ class TransactionAllCoa extends Model
         return $this->hasOne(TransactionBankTransD::class, 'uuid_detail_trans_bank', 'uuid_detail');
     }
 
+    public function d_feeOverpay()
+    {
+        return $this->hasOne(FeeOverpay::class, 'uuid_details_feeoverpay', 'uuid_detail');
+    }
 
     public function d_invoice()
     {

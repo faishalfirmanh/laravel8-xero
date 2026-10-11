@@ -26,12 +26,18 @@ class FeeOverpay extends Model
     ];
 
     protected $appends = [
-        'name_bank'
+        'name_bank',
+        'name_jamaah_invoice'
     ];
 
     public function getNameBankAttribute()
     {
         return optional($this->getBankOrigin)->name ?? '-';
+    }
+
+    public function getNameJamaahInvoiceAttribute()
+    {
+        return optional($this->getInvoice)->contact_name ?? '-';
     }
 
 

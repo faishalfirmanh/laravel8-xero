@@ -2404,9 +2404,41 @@ let payFormMode = 'new'; // 'new' | 'edit'
     //untuk auto open dari report
     const urlParams = new URLSearchParams(window.location.search);
     const openId = urlParams.get('open');
+    const openPaymentFromCoa =  urlParams.get('openPayId');
 
     if (openId) {
         openDetailModal(openId);
+    }else if(openPaymentFromCoa){
+         openDetailModal(openPaymentFromCoa);
+        //openModalPyamentAuto(openPaymentFromCoa)
+    }
+
+    function openModalPyamentAuto(id){
+        // const rowData = table.row($(this).parents('tr')).data();
+        $('#invoices_id_parent').val(id); // Set hidden ID untuk form tambah bayar
+        $("#idHotelInput").val(id)
+       // $('#invoice_uuid_payment').val(rowData.invoice_uuid || ''); 
+        resetPaymentForm();
+        resetFeeOverpayRows();
+
+
+        $('#formSubmitPayment').find('.select2-account-bank-modal2').each(function() {
+            $(this).val(null).trigger('change');
+        });
+        $("#input_payment_date").val(null)
+        $("#input_payment_nominal").val(0)
+        $("#input_payment_ref").val('')
+
+        // ── APPLY CREDIT: reset ke mode default "bank" tiap kali modal dibuka ──
+        $('#method_bank').prop('checked', true);
+        $('#wrap_overpay_select').hide();
+        $('#wrap_bank_select').show();
+
+        // Munculkan Modal
+        $('#paymentModal').modal('show');
+        
+        // Panggil AJAX Load History
+        loadPaymentHistoryModal(id);
     }
 
     function openDetailModal(id_inv) {
@@ -3718,8 +3750,7 @@ function setRowRequiredState($row, isRequired) {
                 ? (d.get_over_pay[0] || null)
                 : (d.get_over_pay || null);
 
-            console.log('modal payment', d);
-            console.log('get_over_pay', overpay);
+         
 
             // ── APPLY CREDIT ──
             listAllOverpayCurrent = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
@@ -4029,7 +4060,7 @@ function addFeeRow(data = {}) {
     if (data.nominal) $row.find('.fee-nominal').val(data.nominal);
     if (data.rek)     $row.find('.fee-rek').val(data.rek);
     //if (data.rek)     $row.find('.fee-B').val(data.rek);
-    console.log('addfeerow',data)
+
 
     initFeeBankSelect($row, data.bankId || null, data.bankName || null);
     updateFeeRowButtons();

@@ -167,7 +167,7 @@ class CoaController extends Controller
         }
 
         $where = ['uuid_coa' => $request->code_coa];
-        $relations = ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent', 'd_invoice', 'd_invoice.getParent'];
+        $relations = ['d_bill', 'd_bill.getParent', 'd_bank', 'd_bank.getParent', 'd_invoice', 'd_invoice.getParent', 'd_feeOverpay'];
 
         $search_columns = [
             'nominal',

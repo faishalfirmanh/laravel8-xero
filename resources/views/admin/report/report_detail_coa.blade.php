@@ -85,7 +85,9 @@ $(document).ready(function() {
                 } else if(data.d_invoice){
                    let cek_kondisi_bank = 'terima';
                    return `<b style="color:#78C0FF">invoice ${cek_kondisi_bank}</b> | <b>${data.d_invoice.desc} </b> | ${data.d_invoice.get_parent.contact_name}`;
-                } else {
+                } else if(data.d_fee_overpay){
+                       return `<b style="color:#46BDA4">Fee overpay ${data.d_fee_overpay.name_jamaah_invoice}</b>`
+                }else {
                     return '-';
                 }
             }
@@ -106,7 +108,10 @@ $(document).ready(function() {
                     return `<b style="color:#2CBF56">Invoice</b> &nbsp; ${data.d_invoice.desc} | &nbsp; <b style="color:red;">${data.d_invoice.invoice_number}</b>`;
                 } else if(data.d_bank){
                     return `<b style="color:#2155FF">Bank</b> &nbsp; ${data.d_bank.desc}`;
-                } else {
+                } else if(data.d_fee_overpay){
+                    return `<b style="color:#2155FF">Fee Pengembalian Biaya</b> &nbsp;`;
+                }
+                else {
                     return 'not registered';
                 }
             }
@@ -115,6 +120,7 @@ $(document).ready(function() {
             data: null,
             orderable: false,
             render: function(data, type, row){
+                console.log('data',data)
                 if(data.d_bill){
                     return `<b style="color:#4CB555">bills </b> | </b> | ${data.d_bill.get_parent.reference }`;
                 } else if(data.d_bank){
@@ -124,7 +130,9 @@ $(document).ready(function() {
                 } else if(data.d_invoice){
                    let cek_kondisi_bank = 'terima';
                    return `<b style="color:#78C0FF">${data.d_invoice.get_parent.reference }`;
-                } else {
+                }  else if(data.d_fee_overpay){
+                   return `<b style="color:#82cd">${data.d_fee_overpay.reference }`;
+                }else {
                     return '-';
                 }
             }
@@ -152,6 +160,8 @@ $(document).ready(function() {
                     urlnya += `${base_url}/travel/admin/transaksi/bank-trans/${row.d_bank.get_parent.bank_id_xero}?open=${row.d_bank.get_parent.id}`;
                 }else if(row.d_bill){
                    urlnya += `${base_url}/travel/admin/transaksi/purchase-bills/?open=${row.d_bill.get_parent.id}`;
+                }else if(row.d_fee_overpay){
+                   urlnya += `${base_url}/travel/admin/transaksi/sales-invoice/?openPayId=${row.d_fee_overpay.get_invoice.id}`;
                 }else{
                    urlnya = '';
                 }

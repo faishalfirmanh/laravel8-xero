@@ -59,6 +59,7 @@ class ProfitLossController extends Controller
 
         $filterPaket = $this->parseTrackingFilter($request->query('track_paket'));
         $filterDivisi = $this->parseTrackingFilter($request->query('track_divisi'));
+        $hasTracking = count($filterDivisi) > 0 || count($filterPaket) > 0;
 
         $coa = DB::table('coas')->where('id', $account)->first();
 
@@ -73,20 +74,23 @@ class ProfitLossController extends Controller
             ->where('uuid_contact', '<>', '')
             ->groupBy('uuid_contact');
 
-        // ── 2. Query: HANYA invoice receivable & receive money ──────────
+        // ── 2. Query ─────────────────────────────────────────────────────
+        // Sumber: invoice receivable, receive money, dan fee overpay
         $query = DB::table('transaction_all_coas as t')
             ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
             ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id')
             ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
             ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
+            ->leftJoin('fee_overpays as fo', 'fo.uuid_details_feeoverpay', '=', 't.uuid_detail')
+            ->leftJoin('invoices_all_from_xeros as fi', 'fi.id', '=', 'fo.invoice_id')
             ->leftJoinSub($jamaahSub, 'jamaah_bank', 'jamaah_bank.uuid_contact', '=', 'ptbi.uuid_to')
-            // FIX: sebelumnya inv.contact_id (ID lokal integer), padahal join ke uuid_contact
             ->leftJoinSub($jamaahSub, 'jamaah_invoice', 'jamaah_invoice.uuid_contact', '=', 'inv.uuid_contact')
+            ->leftJoinSub($jamaahSub, 'jamaah_fee', 'jamaah_fee.uuid_contact', '=', 'fi.uuid_contact')
             ->where('t.uuid_coa', $account)
             ->where('t.date_transaction', '>=', $start->toDateTimeString())
             ->where('t.date_transaction', '<=', $end->toDateTimeString())
             ->where(function ($src) {
-                // Sumber 1: invoice receivable yang sudah authorised/paid (sesuai P&L Xero)
+                // Sumber 1: invoice receivable authorised/paid (sesuai P&L Xero)
                 $src->where(function ($inv) {
                     $inv->whereNotNull('di.id')
                         ->whereIn('inv.status', ['AUTHORISED', 'PAID']);
@@ -95,8 +99,15 @@ class ProfitLossController extends Controller
                     ->orWhere(function ($bank) {
                     $bank->whereNotNull('dtbi.id')
                         ->where('t.is_speend', 0);
-                });
+                })
+                    // Sumber 3: fee overpay (tanpa detail, tanpa tracking)
+                    ->orWhereNotNull('fo.id');
             });
+
+        if ($hasTracking) {
+            // Fee overpay tidak punya tracking divisi/paket, jadi dikecualikan
+            $query->whereNull('fo.id');
+        }
 
         if (count($filterDivisi) > 0) {
             $query->where(function ($sub) use ($filterDivisi) {
@@ -124,14 +135,19 @@ class ProfitLossController extends Controller
             ptbi.reference as bank_reference,
             di.desc as invoice_desc,
             dtbi.desc as bank_desc,
+            fi.invoice_number as fee_invoice_number,
+            fo.reference as fee_reference,
+            fo.bank_tujuan_jamaah_rek as fee_rek,
             CASE
                 WHEN di.id IS NOT NULL THEN jamaah_invoice.full_name
                 WHEN dtbi.id IS NOT NULL THEN jamaah_bank.full_name
+                WHEN fo.id IS NOT NULL THEN jamaah_fee.full_name
                 ELSE NULL
             END as jamaah_name,
             CASE
                 WHEN di.id IS NOT NULL THEN 'invoice'
                 WHEN dtbi.id IS NOT NULL THEN 'bank'
+                WHEN fo.id IS NOT NULL THEN 'fee'
                 ELSE NULL
             END as source
         ")
@@ -142,8 +158,12 @@ class ProfitLossController extends Controller
             ->values();
 
         // ── 3. Tanda +/- ─────────────────────────────────────────────────
-        // FIX: sebelumnya hanya 'REVENUE'; tipe SALES & OTHERINCOME ikut dianggap expense
-        $isRevenue = in_array(strtoupper((string) $coa->account_type), ['REVENUE', 'SALES', 'OTHERINCOME'], true);
+        $isRevenue = in_array(
+            strtoupper((string) $coa->account_type),
+            ['REVENUE', 'SALES', 'OTHERINCOME'],
+            true
+        );
+
         $total = 0.0;
 
         $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
@@ -155,7 +175,27 @@ class ProfitLossController extends Controller
 
             $total += $signed;
 
-            $desc = $t->invoice_desc ?? $t->bank_desc;
+            // Referensi & deskripsi per sumber
+            switch ($t->source) {
+                case 'invoice':
+                    $reference = $t->invoice_number ?? $t->invoice_reference;
+                    $desc = $t->invoice_desc;
+                    break;
+
+                case 'bank':
+                    $reference = $t->bank_reference;
+                    $desc = $t->bank_desc;
+                    break;
+
+                case 'fee':
+                    $reference = $t->fee_invoice_number ?? $t->fee_reference;
+                    $desc = 'Fee overpay' . ($t->fee_rek ? ' ke ' . $t->fee_rek : '');
+                    break;
+
+                default:
+                    $reference = null;
+                    $desc = null;
+            }
 
             $parts = array_filter([$t->jamaah_name, $desc], function ($v) {
                 return $v !== null && trim($v) !== '';
@@ -164,9 +204,7 @@ class ProfitLossController extends Controller
             return [
                 'date' => $t->date_transaction,
                 'nominal' => $signed,
-                'reference' => $t->source === 'invoice'
-                    ? ($t->invoice_number ?? $t->invoice_reference)
-                    : $t->bank_reference,
+                'reference' => $reference,
                 'description' => count($parts) ? implode(' - ', $parts) : null,
                 'source' => $t->source,
             ];
@@ -320,6 +358,7 @@ class ProfitLossController extends Controller
         $makeSourceQuery = function ($detailTable, $detailUuidColumn) use ($dateStart, $dateEndExclusive, $filterDivisi, $filterPaket, $hasFilterDivisi, $hasFilterPaket) {
             $query = DB::table('transaction_all_coas as t')
                 ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+                //->leftJoin('fee_overpays as f', 'f.uuid_details_feeoverpay', '=', 't.uuid_detail') //fee overpay
                 ->where('t.date_transaction', '>=', $dateStart)
                 ->where('t.date_transaction', '<', $dateEndExclusive)
                 ->whereExists(function ($sub) use ($detailTable, $detailUuidColumn, $filterDivisi, $filterPaket, $hasFilterDivisi, $hasFilterPaket) {
@@ -360,6 +399,29 @@ class ProfitLossController extends Controller
             return $query;
         };
 
+        $feeQuery = DB::table('transaction_all_coas as t')
+            ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+            ->join('fee_overpays as f', 'f.uuid_details_feeoverpay', '=', 't.uuid_detail')
+            ->where('t.date_transaction', '>=', $dateStart)
+            ->where('t.date_transaction', '<', $dateEndExclusive)
+            ->select(
+                't.id as trx_row_id',
+                't.uuid_detail',
+                't.date_transaction',
+                't.is_speend',
+                't.base_nominal',
+                't.nominal_currency',
+                't.code_curr',
+                'c.id as coa_id',
+                'c.name as coa_name',
+                'c.account_type'
+            );
+
+
+        if ($hasFilterDivisi || $hasFilterPaket) {
+            $feeQuery->whereRaw('1 = 0');
+        }
+
         // Invoice: Accounts Receivable (ACCREC)
         $invoiceQuery = $makeSourceQuery(
             'item_detail_invoices',
@@ -385,7 +447,8 @@ class ProfitLossController extends Controller
          */
         $baseQuery = $invoiceQuery
             ->union($billQuery)
-            ->union($bankQuery);
+            ->union($bankQuery)
+            ->union($feeQuery);
 
         /*
          * Ambil bagian laporan sesuai account_type Xero.

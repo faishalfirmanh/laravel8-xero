@@ -1483,9 +1483,8 @@ class InvXeroController extends Controller
             $request->merge([
                 'id_parent_invoice' => $request->parent_inv_id
             ]);
-            $this->_recalcBankSummary((int) $request->uuid_bank);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);//create transaksi
-
+            $this->_recalcBankSummary((int) $request->uuid_bank);
             if ($invP->invoice_amount >= $invP->invoice_total) {//update status transinvoice
                 $this->repo->CreateOrUpdate(['status' => 'PAID'], $request->parent_inv_id);
             }
@@ -1584,6 +1583,12 @@ class InvXeroController extends Controller
             'nominal_spend'
         );
 
+        //$receive = $this->repo_bank_summary->whereData(['bank_id' => $bankId])->value('nominal_in');
+        //$spend = $this->repo_bank_summary->whereData(['bank_id' => $bankId])->value('nominal_out');
+
+        // var_dump($receive);
+        // echo "<br>";
+        // dd($spend);
         $this->repo_bank_summary->updateCreate([
             'bank_id' => $bankId,
             'nominal_in' => $receive,
