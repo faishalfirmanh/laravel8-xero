@@ -495,6 +495,9 @@ $(document).ready(function() {
                 } else if(data.get_inv != null){
                     return `<b style="color:#627FF5">invoice</b> | ${data.get_inv.invoice_number} | ${data.get_inv.reference}`;
                 }
+                 else if(data.get_fee_over != null){
+                    return `<b style="color:#4CE6D9">Fee diskon</b> | ${data.get_fee_over.invoice_number} | ${data.get_fee_over.reference}`;
+                }
                 else {
                     return '-';
                 }
@@ -534,9 +537,13 @@ $(document).ready(function() {
                     //     .replace(':idInvoice', row.get_inv.id);
                     url = `${base_url}/travel/admin/transaksi/sales-invoice/?open=${row.get_inv.id}`
                     id = row.get_inv.id;
+                }
+                else if (row.get_p_bank && row.get_p_bank.id) {
+                    url = `${base_url}/travel/admin/transaksi/bank-trans/?open=${row.get_p_bank.id}`
+                    id = row.get_inv.id
                 } else {
-                    url = `${base_url}/travel/admin/transaksi/bank-trans/${row.uuid_bank}/?open=${row.get_p_bank.id}`
-                    id = row.get_p_bank.id;
+                    //url = `${base_url}/travel/admin/transaksi/bank-trans/${row.uuid_bank}/?open=${row.get_p_bank.id}`
+                    //id = row.get_p_bank.id;
                 }
 
                 let btn_detail = `

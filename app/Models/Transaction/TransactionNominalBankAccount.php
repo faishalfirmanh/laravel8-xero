@@ -72,4 +72,9 @@ class TransactionNominalBankAccount extends Model
     {
         return $this->hasOne(TransactionBankTransP::class, 'id', 'id_parent_bank');
     }
+
+    public function getFeeOver()
+    {
+        return $this->hasOne(FeeOverpay::class, 'id', 'id_fee_overpay');
+    }
 }
