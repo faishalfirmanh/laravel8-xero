@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Transaction\Sales;
 use App\Http\Controllers\Controller;
 use App\Http\Repository\MasterData\JamaahAlhidRepository;
 use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
+use App\Http\Repository\Transaction\FeeOverpayRepo;
 use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
@@ -30,12 +31,12 @@ use App\Models\Config\ConfigCurrency;
 use Illuminate\Support\Facades\File;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Intervention\Image\Facades\Image;
-
+use Illuminate\Validation\Rule;
 class InvXeroController extends Controller
 {
 
     private $xeroBaseUrl = 'https://api.xero.com/api.xro/2.0';
-    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank, $repo_over, $repo_jamaah_alhid, $repo_bank_summary;
+    protected $repo, $repo_detail, $service_global, $repo_jamaah, $repo_all_trans, $repo_trans_bank, $repo_over, $repo_jamaah_alhid, $repo_bank_summary, $repo_fee_over;
     use ConfigRefreshXero;
     use ApiResponse;
 
@@ -49,7 +50,8 @@ class InvXeroController extends Controller
         DataJamaahXeroRepository $repo_jamaah,
         OverPayRepo $repo_over,
         JamaahAlhidRepository $repo_jamaah_alhid,
-        SummaryBankRepo $repo_bank_summary
+        SummaryBankRepo $repo_bank_summary,
+        FeeOverpayRepo $repo_fee_over
     ) {
         $this->repo = $repo;
         $this->repo_detail = $repo_detail;
@@ -60,6 +62,7 @@ class InvXeroController extends Controller
         $this->repo_over = $repo_over;
         $this->repo_jamaah_alhid = $repo_jamaah_alhid;
         $this->repo_bank_summary = $repo_bank_summary;
+        $this->repo_fee_over = $repo_fee_over;
     }
 
     public function getListInvoice(Request $request)
@@ -197,6 +200,12 @@ class InvXeroController extends Controller
             'va_number' => 'nullable|integer',
             'action_save' => 'required|integer|between:0,2',
 
+            'invoice_number' => [
+                'required',
+                'string',
+                Rule::unique('invoices_all_from_xeros', 'invoice_number')
+                    ->ignore($request->id),
+            ],
             // contoh 3 huruf ISO currency
             'code_curr' => [
                 'required',
@@ -1725,6 +1734,10 @@ class InvXeroController extends Controller
                 ->whereData(['id' => $request->parent_inv_id])
                 ->lockForUpdate()->first();
 
+            //$cek_fee_over = $this->repo_fee_over->sumDataWhereDinamis(['invoice_id' => $request->parent_inv_id], 'nominal') ?? 0;
+
+
+
             if (!$cekData) {
                 DB::rollBack();
                 return $this->error('Invoice tidak ditemukan', 404);
@@ -1747,6 +1760,9 @@ class InvXeroController extends Controller
                 $final_less = '0.0000';
             }
 
+            //invoice_amount : total yang sudah di bayarkan
+            //invoice_total : total yang harus di bayarkan
+            //less_nominal : kekurangna bayar
             $invP = $this->repo->CreateOrUpdate([
                 'invoice_amount' => $nominal_paid_final,
                 'less_nominal' => $final_less,

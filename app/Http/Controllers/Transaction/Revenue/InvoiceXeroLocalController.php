@@ -465,6 +465,21 @@ class InvoiceXeroLocalController extends Controller
         );
     }
 
+    public function GenerateNewInvNumber()
+    {
+        $maxNumber = InvoicesAllFromXero::selectRaw(
+            "MAX(CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED)) as max_num"
+        )->value('max_num');
+
+        // bcadd: aritmatika presisi tinggi, tidak tergantung 32/64-bit PHP
+        // aman untuk angka sebesar apapun
+        $next = bcadd((string) ($maxNumber ?? '0'), '1');
+
+        $inv_num = 'INV-' . str_pad($next, 4, '0', STR_PAD_LEFT);
+        // str_pad hanya aktif jika digit < 4, tidak truncate angka besar
+        return response()->json(['inv' => $inv_num], 200);
+
+    }
 
     function filterPaymentString($string)
     {

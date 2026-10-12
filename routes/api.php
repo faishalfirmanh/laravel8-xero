@@ -104,6 +104,7 @@ Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middlew
 
 
 Route::get('get_inv_external/{uuid_inv}', [InvoiceXeroLocalController::class, 'InvExternal'])->name('get_inv_external');
+Route::get('get_new_inv_number', [InvoiceXeroLocalController::class, 'GenerateNewInvNumber'])->name('get_new_inv_number');
 
 //xero refresh token
 // 1. Route untuk inisiasi login (Jalankan ini saat xero_token.json masih kosong)

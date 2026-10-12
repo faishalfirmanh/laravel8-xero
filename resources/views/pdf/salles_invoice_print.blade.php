@@ -760,13 +760,13 @@
 
         @endif
 
-         @if (count($invoice->getFeeOverpay) >0)
+         {{-- @if (count($invoice->getFeeOverpay) >0)
             <tr class="line-top">
                 <td></td>
                 <td class="label">Total Overpayment Dibayarkan</td>
                 <td class="value">{{ $fmt($sum_fee_overpay) }}</td>
             </tr>
-        @endif
+        @endif --}}
 
     </table>
 

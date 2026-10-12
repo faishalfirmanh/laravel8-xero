@@ -180,6 +180,13 @@
         $totalIDR   = $invoice->invoice_total ?? $invoice->total_payment_rupiah ?? $subTotal;
         $amountPaid = $invoice->invoice_amount;
         $amountDue  = $invoice->less_nominal;
+        if((int)$sum_fee_overpay > 0){
+             $tot_idr_final =$invoice->invoice_amount - $totalIDR  - $sum_fee_overpay;
+        }else{
+            $tot_idr_final =  $totalIDR;
+        }   
+      
+       
     @endphp
 
     <table class="header-table">
@@ -312,7 +319,7 @@
         <tr class="line-top">
             <td></td>
             <td class="label">TOTAL IDR</td>
-            <td class="value">{{ $fmt($totalIDR) }}</td>
+            <td class="value">{{ $fmt($tot_idr_final) }}</td>
         </tr>
         <tr>
             <td></td>
@@ -326,13 +333,13 @@
                 <td class="value">{{ $fmt($invoice->getOverPay->nominal_overpayment) }}</td>
             </tr>
         @endif
-        @if (count($invoice->getFeeOverpay) >0)
+        {{-- @if (count($invoice->getFeeOverpay) >0)
             <tr class="line-top">
                 <td></td>
                 <td class="label">Total Overpayment Dibayarkan</td>
                 <td class="value">{{ $fmt($sum_fee_overpay) }}</td>
             </tr>
-        @endif
+        @endif --}}
     </table>
 
     <div style="margin-top:-30px;">

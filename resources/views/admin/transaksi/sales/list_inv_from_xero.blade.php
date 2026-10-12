@@ -842,15 +842,14 @@
 
                         {{-- VA Number --}}
                         <div class="xero-field" style="min-width:0;">
-                            <label>Va Number <span class="text-danger">*</span></label>
+                            <label>Va Number </label>
                             <div class="input-icon-wrap">
                                 <i class="ti ti-credit-card"></i>
                                 <input
                                     type="number"
                                     class="form-control"
                                     name="va_number"
-                                    id="va_number"
-                                    required>
+                                    id="va_number">
                             </div>
                         </div>
 
@@ -1287,6 +1286,30 @@
 
         <hr>
 
+        {{-- ── BUKTI PEMBAYARAN (submit form = upload ke server) ── --}}
+       {{-- ── BUKTI PEMBAYARAN ── --}}
+        <form id="formPaymentBukti" class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="font-weight-bold mb-0">
+                    <i class="fa fa-paperclip mr-1"></i> Bukti Pembayaran
+                </h6>
+                <small class="text-muted">JPG, PNG, WEBP, PDF (maks 10 MB / file)</small>
+            </div>
+
+            <div class="dropzone" id="buktiDropzonePay">
+                <div class="dz-message" data-dz-message>
+                    <span>Klik atau Drop <b>gambar / PDF</b> bukti di sini (bisa banyak file)<br>
+                    <small class="text-muted">Format: JPG, PNG, WEBP, PDF (maks 10 MB / file)</small></span>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-2">
+                <button type="submit" class="btn btn-primary btn-sm font-weight-bold" id="btnSaveBuktiPay">
+                    <i class="fa fa-upload mr-1"></i> Simpan Bukti
+                </button>
+            </div>
+        </form>
+
         <h6 class="font-weight-bold mb-3"><i class="fa fa-history mr-1"></i> Riwayat Pembayaran</h6>
         <div class="table-responsive mb-4">
             <table class="table table-bordered table-striped table-sm text-center" id="tablePaymentList">
@@ -1615,11 +1638,220 @@
     // }
 
     let lineSortable = null;
-
     // ========================================================
-// PAYMENT FORM HELPERS (multi-row + edit mode)
+// BUKTI PEMBAYARAN (Dropzone di paymentModal, pakai endpoint yang sama)
 // ========================================================
+// ========================================================
+// BUKTI PEMBAYARAN (Dropzone di paymentModal)
+// Endpoint sama dengan bukti invoice: get-image-sales-inv, remove-image-sales-inv
+// ========================================================
+let myDropzonePay = null;
+let isClearingDropzonePay = false;
 
+// Hapus file dari server (sama seperti dropzone invoice)
+function deleteBuktiPayFromServer(file) {
+    $.ajax({
+        url: "{{ route('remove-image-sales-inv') }}",
+        type: "POST",
+        data: { file_name: file.name },
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem("token"),
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function (response) {
+            if (response.success) {
+                console.log("Berhasil:", response.message);
+            }
+        },
+        error: function (err) {
+            console.error("Gagal menghapus file:", err);
+            Swal.fire('Gagal!', 'File gagal dihapus dari server.', 'error');
+        }
+    });
+}
+
+// Tampilkan bukti dari server ke Dropzone pembayaran
+function loadPaymentBuktiImages(invoiceId) {
+    if (!myDropzonePay || !invoiceId) return;
+
+    // Kosongkan tanpa memicu hapus ke server
+    isClearingDropzonePay = true;
+    myDropzonePay.removeAllFiles(true);
+    isClearingDropzonePay = false;
+
+    ajaxRequest("{{ route('get-image-sales-inv') }}", 'GET',
+                { invoice_id: invoiceId },
+                localStorage.getItem("token"))
+        .then(response => {
+            if (response.data.data.success && response.data.data.data.length > 0) {
+                $.each(response.data.data.data, function (key, value) {
+                    const isPdf = (value.type === 'pdf') ||
+                                  (value.name && value.name.toLowerCase().endsWith('.pdf'));
+
+                    const mockFile = {
+                        name          : value.name,
+                        size          : value.size,
+                        accepted      : true,
+                        status        : Dropzone.ADDED,
+                        url           : value.url,
+                        isFromServer  : true,
+                        type          : isPdf ? 'application/pdf' : 'image/webp',
+                    };
+
+                    myDropzonePay.emit("addedfile", mockFile);
+                    if (!isPdf) {
+                        myDropzonePay.emit("thumbnail", mockFile, value.url);
+                    }
+                    myDropzonePay.emit("complete", mockFile);
+                    myDropzonePay.files.push(mockFile);
+                });
+            }
+        })
+        .catch((err) => { cathError(err); });
+}
+
+$(function () {
+    myDropzonePay = new Dropzone("#buktiDropzonePay", {
+        url: "{{ route('uploadImage-sales-inv') }}",
+        autoProcessQueue: false,
+        uploadMultiple: true,
+        parallelUploads: 10,
+        maxFiles: 10,
+        acceptedFiles: "image/jpeg,image/png,image/jpg,image/webp,application/pdf",
+        addRemoveLinks: false,   // tombol hapus bawaan dimatikan, diganti tombol dengan konfirmasi
+        dictInvalidFileType: "Hanya JPG, PNG, WEBP, dan PDF yang diizinkan.",
+        dictFileTooBig: "File terlalu besar. Maksimal 10 MB.",
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem("token"),
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        },
+        init: function () {
+
+            this.on("sending", function (file, xhr, formData) {
+                formData.append("invoice_id", $('#invoices_id_parent').val());
+            });
+
+            this.on("addedfile", function (file) {
+                if (file.type === "application/pdf") {
+                    $(file.previewElement).find(".dz-image").html(
+                        '<div style="display:flex;align-items:center;justify-content:center;' +
+                        'width:100%;height:100%;background:#f8d7da;color:#842029;' +
+                        'font-weight:700;font-size:16px;border-radius:6px;">PDF</div>'
+                    );
+                }
+
+                // ── Tombol hapus dengan konfirmasi ──
+                const $removeBtn = $(
+                    '<button type="button" class="dz-confirm-remove" ' +
+                    'style="display:block;margin:6px auto 0;background:none;border:none;' +
+                    'color:#e74c3c;font-size:12px;cursor:pointer;">Hapus</button>'
+                );
+                $removeBtn.on('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    Swal.fire({
+                        title: 'Hapus bukti ini?',
+                        text: `"${file.name}" akan dihapus${file.isFromServer ? ' dari server' : ''}.`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Ya, hapus',
+                        cancelButtonText: 'Batal',
+                        reverseButtons: true
+                    }).then(result => {
+                        if (!result.isConfirmed) return;
+                        // removeFile memicu event removedfile, yang menghapus di server jika isFromServer
+                        myDropzonePay.removeFile(file);
+                    });
+                });
+                file.previewElement.appendChild($removeBtn[0]);
+
+                // Klik preview → buka modal (abaikan klik tombol hapus)
+                file.previewElement.addEventListener("click", function (e) {
+                    if (e.target.closest('.dz-confirm-remove')) return;
+                    e.stopPropagation();
+                    e.preventDefault();
+
+                    let fileUrl = file.url || file.dataURL;
+                    if (!fileUrl && file.status === Dropzone.ADDED) {
+                        fileUrl = URL.createObjectURL(file);
+                    }
+                    if (!fileUrl) return;
+
+                    const isPdf = (file.type === "application/pdf")
+                        || (file.name && file.name.toLowerCase().endsWith('.pdf'));
+
+                    if (isPdf) {
+                        $('#previewPdfFrame').attr('src', fileUrl);
+                        $('#previewPdfModal').modal('show');
+                    } else {
+                        $('#previewImageModalSrc').attr('src', fileUrl);
+                        $('#previewImageModal').modal('show');
+                    }
+                });
+            });
+
+            this.on("successmultiple", function (files, response) {
+                const duplicates = response.duplicates || [];
+
+                isClearingDropzonePay = true;
+                myDropzonePay.removeAllFiles(true);
+                isClearingDropzonePay = false;
+
+                loadPaymentBuktiImages($('#invoices_id_parent').val());
+
+                if (duplicates.length > 0) {
+                    const namesDup = duplicates.map(d => d.original_name).join(', ');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sebagian file dilewati',
+                        html: `File berikut sudah pernah diupload sebelumnya:<br><b>${namesDup}</b>`
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sukses!',
+                        text: 'Bukti pembayaran berhasil disimpan.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            });
+
+            this.on("errormultiple", function () {
+                Swal.fire('Peringatan', 'Gagal mengupload bukti pembayaran. Silakan coba lagi.', 'warning');
+            });
+
+            // Hanya dipanggil setelah user konfirmasi (atau pembersihan internal diabaikan)
+            this.on("removedfile", function (file) {
+                if (isClearingDropzonePay) return;
+                if (file.isFromServer) {
+                    deleteBuktiPayFromServer(file);
+                }
+            });
+        }
+    });
+});
+
+// Submit form = proses antrean upload
+$('#formPaymentBukti').on('submit', function (e) {
+    e.preventDefault();
+
+    const invoiceId = $('#invoices_id_parent').val();
+    if (!invoiceId) {
+        Swal.fire('Peringatan', 'Invoice belum dipilih.', 'warning');
+        return;
+    }
+
+    if (myDropzonePay.getQueuedFiles().length === 0) {
+        Swal.fire('Peringatan', 'Belum ada file bukti yang dipilih.', 'warning');
+        return;
+    }
+
+    myDropzonePay.processQueue();
+});
 
 //agar modal payment tidak close
 $('#paymentModal').on('hide.bs.modal', function (e) {
@@ -2698,29 +2930,31 @@ function setRowSelect2Value($row, selector, id, text) {
             });
     })
 
+    
+
     function resetHotelModal() {
     // ── Reset native form fields (text, date, number, hidden inputs) ──
         $('#formCreateHotel')[0].reset();
          const today = new Date();
 
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
 
-    const issueDate = `${year}-${month}-${day}`;
+        const issueDate = `${year}-${month}-${day}`;
 
-    // Set issue date
-    $('#issue_date').val(issueDate);
+        // Set issue date
+        $('#issue_date').val(issueDate);
 
-    // Issue date + 30 hari
-    const dueDate = new Date(today);
-    dueDate.setDate(dueDate.getDate() + 30);
+        // Issue date + 30 hari
+        const dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + 30);
 
-    const dueYear = dueDate.getFullYear();
-    const dueMonth = String(dueDate.getMonth() + 1).padStart(2, '0');
-    const dueDay = String(dueDate.getDate()).padStart(2, '0');
+        const dueYear = dueDate.getFullYear();
+        const dueMonth = String(dueDate.getMonth() + 1).padStart(2, '0');
+        const dueDay = String(dueDate.getDate()).padStart(2, '0');
 
-    $('#due_date').val(`${dueYear}-${dueMonth}-${dueDay}`);
+        $('#due_date').val(`${dueYear}-${dueMonth}-${dueDay}`);
         // ── Hidden fields — reset() kadang tidak konsisten di semua browser, jadi di-set eksplisit ──
         $('#idHotelInput').val('');
         $('#actionTypeValue').val('');
@@ -2744,7 +2978,19 @@ function setRowSelect2Value($row, selector, id, text) {
 
         // ── Text/date fields (extra safety net, walau harusnya sudah ke-cover reset() di atas) ──
      
-        $('#invoice_number_display').val('auto');
+          ajaxRequest(`{{ route('get_new_inv_number') }}`, 'GET', {}, localStorage.getItem("token"))
+            .then(response => {
+                if(response.status == 200){
+                    $('#invoice_number_display').val(response.data.inv);
+                }else{
+                     $('#invoice_number_display').val('auto');
+                }
+               
+                //console.log('res',)
+            })
+            .catch((err) => {
+                cathError(err)
+            });
         $('#reference').val('');
 
         // ── Info kurs ──
@@ -3395,7 +3641,7 @@ function addFirstRow() {
 
 
 // Fungsi untuk menarik gambar dari server dan menampilkannya di Dropzone
-function loadDropzoneImages(invoiceId) {
+function loadDropzoneImages(invoiceId,container_img = '') {
     if (myDropzone) {
         isClearingDropzone = true;
         myDropzone.removeAllFiles(true);
@@ -3406,7 +3652,6 @@ function loadDropzoneImages(invoiceId) {
                 { invoice_id: invoiceId },
                 localStorage.getItem("token"))
         .then(response => {
-            console.log('loadimg',response.data)
             if (response.data.data.success && response.data.data.data.length > 0) {
                 $('#dropzone-container').show();
 
@@ -3715,6 +3960,7 @@ function setRowRequiredState($row, isRequired) {
         $('#invoice_uuid_payment').val(rowData.invoice_uuid || ''); 
         resetPaymentForm();
         resetFeeOverpayRows();
+        loadPaymentBuktiImages(id);
 
 
         $('#formSubmitPayment').find('.select2-account-bank-modal2').each(function() {
