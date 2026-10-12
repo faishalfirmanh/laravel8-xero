@@ -16,7 +16,7 @@
                 <div class="d-flex flex-column align-items-end">
                     <button onclick="syncContactFromXero()" 
                             type="button" 
-                            class="btn btn-success shadow-sm fw-bold">
+                            class="d-none btn btn-success shadow-sm fw-bold">
                         <i class="fas fa-sync-alt me-1"></i> Sync dari Xero
                     </button>
                     <span class="text-muted mt-1 small" style="font-size: 11px;">

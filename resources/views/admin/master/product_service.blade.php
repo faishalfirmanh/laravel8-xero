@@ -375,7 +375,7 @@
         <button class="btn-xero-outline">
             <i class="ti ti-upload" style="font-size:13px;" aria-hidden="true"></i> Export
         </button> --}}
-        <button onclick="syncProductFromXero()" class="btn-xero-green">
+        <button onclick="syncProductFromXero()" class="d-none btn-xero-green">
             <i class="ti ti-refresh" style="font-size:13px;" aria-hidden="true"></i> Sync Xero
         </button>
         <div class="d-flex">
