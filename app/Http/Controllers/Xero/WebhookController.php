@@ -22,7 +22,7 @@ class WebhookController extends Controller
         ItemPaketAllXeroRepo $repo_item,
         InvoiceXeroLocalRepo $repo_p_invoice,
         InvoiceDXeroLocalRepo $repo_trans_coa,
-        DataJamaahXeroRepository $repo_jamaah_xero,
+        DataJamaahXeroRepository $repo_jamaah_xero
 
     ) {
         $this->repo_item = $repo_item;
@@ -32,40 +32,49 @@ class WebhookController extends Controller
     }
 
 
-    public function handleXero(Request $request)
-    {
-        Log::info('xero webhook awal mulai berjalan WebhookController');
-        $rawPayload = $request->getContent();
-        $signature = $request->header('x-xero-signature');
-        $webhookKey = config('services.xero.webhook_key');
+   public function handleXero(Request $request)
+{
+    Log::info('[XeroWebhook] request masuk');
 
-        $computed = base64_encode(hash_hmac('sha256', $rawPayload, $webhookKey, true));
+    $rawPayload = $request->getContent();
+    $signature  = $request->header('x-xero-signature');
+    $webhookKey = config('services.xero.webhook_key');
 
-        // hash_equals untuk mencegah timing attack
-        if (!$signature || !hash_equals($computed, $signature)) {
-            Log::warning('Xero webhook: signature tidak valid');
-            return response('', 401);
-        }
-
-        $data = json_decode($rawPayload, true) ?? [];
-
-        $events = $data['events'] ?? [];
-        $invoiceEvents = [];
-        foreach ($events as $event) {
-            if (($event['eventCategory'] ?? null) === 'INVOICE') {
-                $resourceId = $event['resourceId'] ?? null;
-                if ($resourceId) {
-                    $invoiceEvents[$resourceId] = $event; // event terakhir untuk resourceId yang sama akan menimpa yang sebelumnya
-                }
-            }
-        }
-        Log::info('Xero webhook: ' . count($events) . ' event masuk, ' . count($invoiceEvents) . ' invoice unik akan diproses.');
-        foreach ($invoiceEvents as $event) {
-            ProcessXeroInvoiceEvent::dispatch($event);
-        }
-
-        return response('', 200);
+    if (!$signature || !$webhookKey) {
+        Log::warning('[XeroWebhook] signature atau webhook key kosong');
+        return response('', 401);
     }
+
+    $computed = base64_encode(hash_hmac('sha256', $rawPayload, $webhookKey, true));
+
+    if (!hash_equals($computed, $signature)) {
+        Log::warning('[XeroWebhook] signature tidak valid');
+        return response('', 401);
+    }
+
+    $data   = json_decode($rawPayload, true) ?? [];
+    $events = $data['events'] ?? [];
+
+    // Satu event per resourceId, event terakhir yang menang
+    $invoiceEvents = [];
+    foreach ($events as $event) {
+        if (($event['eventCategory'] ?? null) !== 'INVOICE') {
+            continue;
+        }
+        $resourceId = $event['resourceId'] ?? null;
+        if ($resourceId) {
+            $invoiceEvents[$resourceId] = $event;
+        }
+    }
+
+    Log::info('[XeroWebhook] ' . count($events) . ' event, ' . count($invoiceEvents) . ' invoice unik.');
+
+    foreach ($invoiceEvents as $event) {
+        ProcessXeroInvoiceEvent::dispatch($event);
+    }
+
+    return response('', 200);
+}
 
     public function handleXeross(Request $request)
     {
