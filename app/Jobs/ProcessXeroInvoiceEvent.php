@@ -313,12 +313,29 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             }
         }
 
-        $this->savePayments($paymentDetails, $parentId, false, $currencyCode);
+        //$this->savePayments($paymentDetails, $parentId, false, $currencyCode);
+        $this->savePayments($paymentDetails, $parentId, true, $currencyCode, (float) ($inv['CurrencyRate'] ?? 1));
     }
 
     // ================================================================
     // BILL (ACCPAY)
     // ================================================================
+
+    /**
+     * Nilai nominal_currency: IDR = 1, SAR = 1 / CurrencyRate (IDR per 1 SAR).
+     */
+    private function fxToIdr(string $currency, float $rate): float
+    {
+        if (strtoupper($currency) === 'IDR') {
+            return 1.0;
+        }
+
+        if ($rate <= 0) {
+            throw new \InvalidArgumentException("CurrencyRate invalid untuk {$currency}: {$rate}");
+        }
+
+        return round(1 / $rate, 4);
+    }
 
     private function syncBill(array $inv, array $paymentDetails): void
     {
@@ -337,17 +354,19 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             PBill::where('reference', $inv['InvoiceNumber'])
                 ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
         }
-        
+
         $invNo = trim((string) ($inv['InvoiceNumber'] ?? ''));
 
-if ($invNo !== ''
-    && !PBill::where('bills_uuid_xero', $inv['InvoiceID'])->exists()) {
-    PBill::whereRaw('LOWER(TRIM(reference)) = ?', [mb_strtolower($invNo)])
-        ->whereNull('bills_uuid_xero')
-        ->orderBy('id')
-        ->limit(1)
-        ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
-}
+        if (
+            $invNo !== ''
+            && !PBill::where('bills_uuid_xero', $inv['InvoiceID'])->exists()
+        ) {
+            PBill::whereRaw('LOWER(TRIM(reference)) = ?', [mb_strtolower($invNo)])
+                ->whereNull('bills_uuid_xero')
+                ->orderBy('id')
+                ->limit(1)
+                ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
+        }
 
         PBill::upsert(
             [
@@ -368,6 +387,7 @@ if ($invNo !== ''
                     'created_by' => 1,
                     'created_at' => now(),
                     'updated_at' => now(),
+                    'nominal_currency' => $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0)),
                 ]
             ],
             ['bills_uuid_xero'],
@@ -421,6 +441,7 @@ if ($invNo !== ''
                 'uuid_detail' => $uuidDetail,
                 'created_at' => now(),
                 'updated_at' => now(),
+                'total_base' => (int) round((float) ($line['LineAmount'] ?? 0) * $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0)), 0),
             ];
             $liveIds[] = $uuidDetail;
         }
@@ -469,6 +490,7 @@ if ($invNo !== ''
                 TransactionAllCoa::whereIn('uuid_detail', $liveIds)->delete();
             }
         } else {
+            $nominalCurr = $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0));
             foreach ($rows as $r) {
                 if (empty($r['account_id_coa'])) {
                     continue;
@@ -479,18 +501,19 @@ if ($invNo !== ''
                     [
                         'date_transaction' => $issueDate,
                         'uuid_coa' => $r['account_id_coa'],
-                        'reference' => $inv['Reference'] ?? '-',
-                        'is_speend' => 1, // pengeluaran
+                        'reference' => $inv['InvoiceNumber'] ?? '-',
+                        'is_speend' => 1,
                         'nominal' => $r['amount'],
                         'code_curr' => $currencyCode,
-                        'nominal_currency' => 1,
-                        'base_nominal' => $r['amount'],
+                        'nominal_currency' => $nominalCurr,
+                        'base_nominal' => round((float) $r['amount'] * $nominalCurr, 2),
                     ]
                 );
             }
         }
 
-        $this->savePayments($paymentDetails, $parentId, true, $currencyCode);
+        // $this->savePayments($paymentDetails, $parentId, true, $currencyCode);
+        $this->savePayments($paymentDetails, $parentId, true, $currencyCode, (float) ($inv['CurrencyRate'] ?? 1));
     }
 
     // ================================================================
@@ -524,8 +547,13 @@ if ($invNo !== ''
         return $details;
     }
 
-    private function savePayments(array $payments, int $parentId, bool $isBill, string $currencyCode): void
-    {
+    private function savePayments(
+        array $payments,
+        int $parentId,
+        bool $isBill,
+        string $currencyCode,
+        float $docRate = 1.0
+    ): void {
         foreach ($payments as $p) {
             $paymentId = $p['PaymentID'];
             $accountCode = data_get($p, 'Account.Code');
@@ -541,15 +569,17 @@ if ($invNo !== ''
                 continue;
             }
 
+            $currency = strtoupper($currencyCode ?: 'IDR');
             $amount = (float) ($p['Amount'] ?? 0);
-            $currencyRate = (float) ($p['CurrencyRate'] ?? 0);
-            $nominalCurr = 1;
-            $totalBase = $amount;
 
-            if ($currencyCode === 'SAR' && $currencyRate > 0) {
-                $nominalCurr = number_format(1 / $currencyRate, 2, '.', '');
-                $totalBase = round($amount / $currencyRate, 0);
+            // Rate payment dipakai jika ada, kalau tidak pakai rate dokumen
+            $rate = (float) ($p['CurrencyRate'] ?? 0);
+            if ($rate <= 0) {
+                $rate = $docRate;
             }
+
+            $nominalFx = $this->fxToIdr($currency, $rate);          // IDR per 1 unit currency
+            $totalBase = (int) round($amount * $nominalFx, 0);      // nominal dalam IDR
 
             TransactionNominalBankAccount::updateOrCreate(
                 ['payment_uuid' => $paymentId],
@@ -560,7 +590,7 @@ if ($invNo !== ''
                     'nominal_transfer' => 0,
                     'total_base_receive' => $isBill ? 0 : $totalBase,
                     'total_base_spend' => $isBill ? $totalBase : 0,
-                    'nominal_currency' => $nominalCurr,
+                    'nominal_currency' => $nominalFx,
                     'created_by' => 1,
                     'date_transaction' => $this->parseXeroDate($p['Date'] ?? null),
                     'reference_detail' => $p['Reference'] ?? null,
