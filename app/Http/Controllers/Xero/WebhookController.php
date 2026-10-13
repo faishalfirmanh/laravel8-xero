@@ -3,6 +3,11 @@
 namespace App\Http\Controllers\Xero;
 
 use App\Http\Controllers\Controller;
+use App\Http\Repository\MasterData\DataJamaahXeroRepository;
+use App\Http\Repository\MasterData\Finance\InvoiceAllXeroRepo;
+use App\Http\Repository\MasterData\Finance\ItemPaketAllXeroRepo;
+use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
+use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
 use App\Jobs\ProcessXeroInvoiceEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +16,20 @@ use App\Jobs\ProcessXeroWebhook;
 class WebhookController extends Controller
 {
     //
+
+    protected $repo_jamaah_alhid, $repo_jamaah_xero, $repo_item, $repo_p_invoice, $repo_d_invoice, $repo_trans_coa, $repo_trans_bank, $repo_bank, $repo_jamaah;
+    public function __construct(
+        ItemPaketAllXeroRepo $repo_item,
+        InvoiceXeroLocalRepo $repo_p_invoice,
+        InvoiceDXeroLocalRepo $repo_trans_coa,
+        DataJamaahXeroRepository $repo_jamaah_xero,
+
+    ) {
+        $this->repo_item = $repo_item;
+        $this->repo_p_invoice = $repo_p_invoice;
+        $this->repo_trans_coa = $repo_trans_coa;
+        $this->repo_jamaah_xero = $repo_jamaah_xero;
+    }
 
 
     public function handleXero(Request $request)
@@ -41,9 +60,9 @@ class WebhookController extends Controller
             }
         }
         Log::info('Xero webhook: ' . count($events) . ' event masuk, ' . count($invoiceEvents) . ' invoice unik akan diproses.');
-         foreach ($invoiceEvents as $event) {
-             ProcessXeroInvoiceEvent::dispatch($event);
-         }
+        foreach ($invoiceEvents as $event) {
+            ProcessXeroInvoiceEvent::dispatch($event);
+        }
 
         return response('', 200);
     }
