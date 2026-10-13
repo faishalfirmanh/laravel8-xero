@@ -32,7 +32,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     public int $timeout = 120;
 
     protected array $event;
-    private array $trackingCache = [];
+    private ?array $trackingMap = null;
 
     public function __construct(array $event)
     {
@@ -674,46 +674,82 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     // HELPER
     // ================================================================
 
+    /**
+     * Ambil UUID Nama Paket & Divisi dari Tracking line item Xero.
+     * Nama dicocokkan dengan item_name_category di tabel tracking_categories,
+     * lalu yang disimpan adalah item_uuid_category.
+     */
     private function resolveTrackingFromLine(array $line): array
     {
         $paket = null;
         $divisi = null;
 
         foreach ($line['Tracking'] ?? [] as $t) {
-            $cat = strtolower($t['Name'] ?? '');
+            $cat = $this->normTrackName($t['Name'] ?? '');
             $opt = $t['Option'] ?? '';
 
-            if (strpos($cat, 'nama paket') !== false) {
-                $paket = $this->resolveTrackingUuid('Nama Paket', $opt);
-            } elseif (strpos($cat, 'divisi') !== false) {
-                $divisi = $this->resolveTrackingUuid('Divisi', $opt);
+            if ($cat === 'nama paket') {
+                $paket = $this->lookupTrackingUuid('Nama Paket', $opt);
+            } elseif ($cat === 'divisi') {
+                $divisi = $this->lookupTrackingUuid('Divisi', $opt);
             }
         }
 
         return [$paket, $divisi];
     }
 
-    private function resolveTrackingUuid(string $parentName, string $optionName): ?string
+    /**
+     * Cari item_uuid_category berdasarkan parent & item_name_category.
+     * Map dibangun sekali per job dari tabel tracking_categories (tabel kecil).
+     */
+    private function lookupTrackingUuid(string $parentName, string $optionName): ?string
     {
-        $key = $parentName . '::' . $optionName;
+        $parentKey = $this->normTrackName($parentName);
+        $nameKey = $this->normTrackName($optionName);
 
-        if (array_key_exists($key, $this->trackingCache)) {
-            return $this->trackingCache[$key];
+        $uuid = $this->trackingMap()[$parentKey][$nameKey] ?? null;
+
+        if ($uuid === null && $nameKey !== '') {
+            Log::warning('[XeroWebhook] tracking tidak ditemukan', [
+                'parent' => $parentName,
+                'option' => $optionName,
+            ]);
         }
 
-        $kategori = DB::table('tracking_categories')
-            ->where('name_parent_category', $parentName)
-            ->whereJsonContains('lines_category', ['item_name_category' => $optionName])
-            ->first();
+        return $uuid;
+    }
 
-        if (!$kategori) {
-            return $this->trackingCache[$key] = null;
+    private function trackingMap(): array
+    {
+        if ($this->trackingMap !== null) {
+            return $this->trackingMap;
         }
 
-        $lines = collect(json_decode($kategori->lines_category, true));
-        $item = $lines->firstWhere('item_name_category', $optionName);
+        $this->trackingMap = [];
 
-        return $this->trackingCache[$key] = ($item['item_uuid_category'] ?? null);
+        foreach (DB::table('tracking_categories')->get() as $row) {
+            $parentKey = $this->normTrackName($row->name_parent_category);
+            $lines = json_decode($row->lines_category, true) ?: [];
+
+            foreach ($lines as $line) {
+                $nameKey = $this->normTrackName($line['item_name_category'] ?? '');
+                $uuid = $line['item_uuid_category'] ?? null;
+
+                if ($nameKey !== '' && $uuid !== null) {
+                    $this->trackingMap[$parentKey][$nameKey] = $uuid;
+                }
+            }
+        }
+
+        return $this->trackingMap;
+    }
+
+    /**
+     * Normalisasi nama: huruf kecil, spasi ganda/tab/newline jadi satu spasi, di-trim.
+     */
+    private function normTrackName(?string $s): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', mb_strtolower((string) $s, 'UTF-8')));
     }
 
     private function sarToIdrRate(array $inv): string
