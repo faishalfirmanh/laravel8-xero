@@ -337,6 +337,17 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             PBill::where('reference', $inv['InvoiceNumber'])
                 ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
         }
+        
+        $invNo = trim((string) ($inv['InvoiceNumber'] ?? ''));
+
+if ($invNo !== ''
+    && !PBill::where('bills_uuid_xero', $inv['InvoiceID'])->exists()) {
+    PBill::whereRaw('LOWER(TRIM(reference)) = ?', [mb_strtolower($invNo)])
+        ->whereNull('bills_uuid_xero')
+        ->orderBy('id')
+        ->limit(1)
+        ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
+}
 
         PBill::upsert(
             [
@@ -389,14 +400,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $liveIds = [];
 
         foreach ($lineItems as $line) {
-
-            Log::info('[syncBill] debug', [
-                'invoice' => $inv['InvoiceNumber'] ?? null,
-                'line_count' => count($lineItems),
-                'line_ids' => collect($lineItems)->pluck('LineItemID')->all(),
-                'rows_built' => count($rows),
-            ]);
-
             $uuidDetail = $line['LineItemID'] ?? null;
             if (!$uuidDetail) {
                 continue;
@@ -457,11 +460,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     'updated_at',
                 ]
             );
-
-            Log::info('[syncBill] d_bills after upsert', [
-                'table' => (new DBill)->getTable(),
-                'count' => DBill::where('bills_parent_id', $parentId)->count(),
-            ]);
         }
 
         $postable = in_array($inv['Status'] ?? null, ['AUTHORISED', 'PAID'], true);
