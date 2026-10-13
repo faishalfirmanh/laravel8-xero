@@ -22,7 +22,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Facades\Cache;
 class ProcessXeroInvoiceEvent implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -39,6 +39,22 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $this->event = $event;
     }
 
+
+    private function waitForXeroSlot(string $tenantId): void
+    {
+        $key = 'xero_api:last_request_at:' . $tenantId;
+        $last = Cache::get($key);
+        $now = microtime(true);
+
+        if ($last !== null) {
+            $waitUs = 1100000 - (int) (($now - (float) $last) * 1000000);
+            if ($waitUs > 0) {
+                usleep($waitUs);
+            }
+        }
+
+        Cache::put($key, microtime(true), 120);
+    }
     public function handle(XeroService $xero): void
     {
         Log::info('[XeroWebhook] job mulai', ['resourceId' => $this->event['resourceId'] ?? null]);
@@ -51,7 +67,18 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             return;
         }
 
-        $obj = $xero->getInvoice($tenantId, $invoiceId);
+        $this->waitForXeroSlot($tenantId);
+
+        try {
+            $obj = $xero->getInvoice($tenantId, $invoiceId);
+        } catch (\RuntimeException $e) {
+            if (stripos($e->getMessage(), '429') !== false) {
+                Log::warning('[XeroWebhook] rate limit, release 65s', ['resourceId' => $invoiceId]);
+                $this->release(65);
+                return;
+            }
+            throw $e;
+        }
 
         if (empty($obj['InvoiceID'])) {
             Log::warning("[XeroWebhook] respons kosong untuk {$invoiceId}, dilewati.");
