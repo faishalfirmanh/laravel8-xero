@@ -120,6 +120,16 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         $contactRowId = $this->ensureJamaahContact($inv);
 
+        // Invoice lokal punya invoice_uuid acak. Samakan dengan InvoiceID Xero
+        // lewat nomor invoice supaya tidak tercipta header kedua.
+        if (
+            !InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])->exists()
+            && !empty($inv['InvoiceNumber'])
+        ) {
+            InvoicesAllFromXero::where('invoice_number', $inv['InvoiceNumber'])
+                ->update(['invoice_uuid' => $inv['InvoiceID']]);
+        }
+
         InvoicesAllFromXero::upsert(
             [
                 [
@@ -171,7 +181,23 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         $this->syncVaTrans($inv);
 
-        // ── Line item ──
+        // ── 0. Buang baris lokal (dibuat dari sistem, belum punya LineItemID) ──
+        $localUuids = ItemDetailInvoices::where('parent_inv_id', $parentId)
+            ->whereNull('line_item_uuid')
+            ->pluck('uuid_detail_inv')
+            ->filter()
+            ->all();
+
+        if ($localUuids) {
+            TransactionAllCoa::whereIn('uuid_detail', $localUuids)->delete();
+        }
+
+        ItemDetailInvoices::where('parent_inv_id', $parentId)
+            ->whereNull('line_item_uuid')
+            ->delete();
+
+        // ── Line item dari Xero ──
+        $lineItems = $inv['LineItems'] ?? [];
         $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->all();
         $itemCodes = collect($lineItems)->map(fn($l) => data_get($l, 'Item.Code'))->filter()->unique()->values()->all();
         $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
@@ -200,7 +226,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'coa_id' => isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null,
                 'parent_inv_id' => $parentId,
                 'item_id' => $itemCode ? ($itemMap[$itemCode] ?? null) : null,
-                // LineItemID stabil, dipakai sebagai link ke transaction_all_coas
                 'uuid_detail_inv' => $lineId,
                 'paket_tracking_uuid' => $paketUuid,
                 'divisi_travel_tracking_uuid' => $divisiUuid,
@@ -211,29 +236,32 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             $liveIds[] = $lineId;
         }
 
-        // Bersihkan jurnal lama jika uuid_detail_inv pernah memakai nilai acak
-        $oldUuids = ItemDetailInvoices::where('parent_inv_id', $parentId)
-            ->whereIn('line_item_uuid', $liveIds)
-            ->whereColumn('uuid_detail_inv', '!=', 'line_item_uuid')
-            ->pluck('uuid_detail_inv')->all();
+        // ── 1. Line yang sudah dihapus di Xero ──
+        if ($liveIds) {
+            $staleUuids = ItemDetailInvoices::where('parent_inv_id', $parentId)
+                ->whereNotIn('line_item_uuid', $liveIds)
+                ->pluck('uuid_detail_inv')
+                ->all();
 
-        if ($oldUuids) {
-            TransactionAllCoa::whereIn('uuid_detail', $oldUuids)->delete();
+            if ($staleUuids) {
+                TransactionAllCoa::whereIn('uuid_detail', $staleUuids)->delete();
+            }
+
+            ItemDetailInvoices::where('parent_inv_id', $parentId)
+                ->whereNotIn('line_item_uuid', $liveIds)
+                ->delete();
+        } else {
+            // Xero tidak mengirim line sama sekali: hapus semua line invoice ini
+            $allUuids = ItemDetailInvoices::where('parent_inv_id', $parentId)
+                ->pluck('uuid_detail_inv')->all();
+
+            if ($allUuids) {
+                TransactionAllCoa::whereIn('uuid_detail', $allUuids)->delete();
+            }
+            ItemDetailInvoices::where('parent_inv_id', $parentId)->delete();
         }
 
-        // Line yang sudah dihapus di Xero ikut dihapus di server
-        $staleUuids = ItemDetailInvoices::where('parent_inv_id', $parentId)
-            ->whereNotIn('line_item_uuid', $liveIds)
-            ->pluck('uuid_detail_inv')->all();
-
-        if ($staleUuids) {
-            TransactionAllCoa::whereIn('uuid_detail', $staleUuids)->delete();
-        }
-
-        ItemDetailInvoices::where('parent_inv_id', $parentId)
-            ->whereNotIn('line_item_uuid', $liveIds)
-            ->delete();
-
+        // ── 2. Upsert line dari Xero ──
         if ($rows) {
             ItemDetailInvoices::upsert(
                 $rows,
@@ -256,7 +284,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 ]
             );
         }
-
         // ── Jurnal (transaction_all_coas) ──
         $postable = in_array($inv['Status'] ?? null, ['AUTHORISED', 'PAID'], true);
 
