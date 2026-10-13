@@ -13,13 +13,15 @@ class AddColumnIdFeeOverpay extends Migration
      */
     public function up()
     {
-        Schema::table('transaction_nominal_bank_accounts', function (Blueprint $table) {
-            $table->unsignedBigInteger('id_fee_overpay')->nullable();
-            $table->foreign('id_fee_overpay')
-                ->references('id')
-                ->on('fee_overpays')
-                ->onDelete('cascade');
-        });
+        if (!Schema::hasColumn('transaction_nominal_bank_accounts', 'id_fee_overpay')) {
+            Schema::table('transaction_nominal_bank_accounts', function (Blueprint $table) {
+                $table->unsignedBigInteger('id_fee_overpay')->nullable();
+                $table->foreign('id_fee_overpay')
+                    ->references('id')
+                    ->on('fee_overpays')
+                    ->onDelete('cascade');
+            });
+        }
     }
 
     /**
