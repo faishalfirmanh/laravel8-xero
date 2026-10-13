@@ -330,6 +330,14 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         $fromId = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
 
+        if (
+            !PBill::where('bills_uuid_xero', $inv['InvoiceID'])->exists()
+            && !empty($inv['InvoiceNumber'])
+        ) {
+            PBill::where('reference', $inv['InvoiceNumber'])
+                ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
+        }
+
         PBill::upsert(
             [
                 [
@@ -406,18 +414,23 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             $liveIds[] = $uuidDetail;
         }
 
-        $staleUuids = DBill::where('bills_parent_id', $parentId)
-            ->whereNotIn('uuid_detail', $liveIds)
+        // ── 0. Buang baris lokal yang tidak punya LineItemID Xero ──
+        // (Di DBill, uuid_detail lokal acak, jadi dicari lewat bills_parent_id
+        // dan dibandingkan dengan daftar LineItemID dari Xero)
+        $allLocal = DBill::where('bills_parent_id', $parentId)
             ->pluck('uuid_detail')->all();
 
-        if ($staleUuids) {
-            TransactionAllCoa::whereIn('uuid_detail', $staleUuids)->delete();
+        $localOnly = array_values(array_diff($allLocal, $liveIds));
+
+        if ($localOnly) {
+            TransactionAllCoa::whereIn('uuid_detail', $localOnly)->delete();
+
+            DBill::where('bills_parent_id', $parentId)
+                ->whereIn('uuid_detail', $localOnly)
+                ->delete();
         }
 
-        DBill::where('bills_parent_id', $parentId)
-            ->whereNotIn('uuid_detail', $liveIds)
-            ->delete();
-
+        // ── 1. Upsert line dari Xero ──
         if ($rows) {
             DBill::upsert(
                 $rows,
