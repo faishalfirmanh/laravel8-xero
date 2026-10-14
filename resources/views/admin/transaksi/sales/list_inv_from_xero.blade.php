@@ -758,7 +758,7 @@
                       <th>Reference</th>
                     <th>Nama Contact</th>
                     <th>Issue Date</th>
-                    <th>Due Date</th>
+                    <th>Saved By</th>
                     <th>Amount</th>
                     <th>Total Payment</th>
                     <th>Status</th>
@@ -2538,7 +2538,13 @@ let payFormMode = 'new'; // 'new' | 'edit'
         { data: 'reference', name: 'reference' },
         { data: 'contact_name', name: 'contact_name' },
         { data: 'issue_date', name: 'issue_date' },
-        { data: 'due_date', name: 'due_date' },
+        { 
+          data: 'created_by_name', 
+          render: function(data,type,row){
+            let cek_nam = data != null ? data : '-';
+            return cek_nam;
+          }
+        },
         {
             data: 'invoice_total', 
             render: function(data,type,row){

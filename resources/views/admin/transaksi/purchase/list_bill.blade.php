@@ -130,7 +130,7 @@
                     <th>Status</th>
                     <th>Reference</th>
                     <th>Date</th>
-                    <th>Due Date</th>
+                    <th>Saved By</th>
                     <th>Total</th>
                     <th>Paid</th>
                     <th>Due</th>
@@ -475,7 +475,13 @@ $(document).ready(function() {
         },
         { data: 'reference', name: 'reference' },
         { data: 'date_req', name: 'date_req' },
-        { data: 'due_date', name: 'due_date' },
+        { 
+          data: 'created_by_name', 
+          render: function(data,type,row){
+            let cek_nam = data != null ? data : '-';
+            return cek_nam;
+          }
+        },
         { 
             data: 'total_base', 
             name: 'total_base', 
