@@ -150,11 +150,38 @@
             display: block !important;
             line-height: 1.5 !important;
         }
+
+        .print-toolbar {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 999;
+        }
+        .print-toolbar button {
+            background: #3d76f1;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .print-toolbar button:hover { background: #2c5fd1; }
+
+        @media print {
+            .print-toolbar { display: none !important; }
+            @page { margin: 12mm; }
+        }
     </style>
 </head>
 
 <body>
 
+    <div class="print-toolbar">
+        <button type="button" onclick="window.print()">
+            Print
+        </button>
+    </div>
     @php
         $fmt = function ($num) {
             if ($num === null || $num === '') return '';
