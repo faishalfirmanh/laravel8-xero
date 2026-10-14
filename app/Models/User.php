@@ -24,7 +24,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role_id'
+        'role_id',
+        'uuid_unique_id_xero'
     ];
 
     /**
@@ -46,13 +47,13 @@ class User extends Authenticatable
     {
         if ($this->relationLoaded('travelUsers')) {
             return $this->travelUsers
-                        ->pluck('travel.name')
-                        ->toArray();
+                ->pluck('travel.name')
+                ->toArray();
         }
         return $this->travelUsers()
-                    ->leftJoin('travel_names', 'travel_users.travel_id', '=', 'travel_names.id')
-                    ->pluck('travel_names.name')
-                    ->toArray();
+            ->leftJoin('travel_names', 'travel_users.travel_id', '=', 'travel_names.id')
+            ->pluck('travel_names.name')
+            ->toArray();
 
     }
 
@@ -62,7 +63,7 @@ class User extends Authenticatable
 
     public function getListRoleAttribute()
     {
-       return $this->userRoles()
+        return $this->userRoles()
             ->join('master_role_users', 'role_users.role_id', '=', 'master_role_users.id')
             ->leftJoin('business_lines', 'master_role_users.busines_line_id', '=', 'business_lines.id')
             ->select([
@@ -82,13 +83,13 @@ class User extends Authenticatable
 
     public function travelUsers()
     {
-      return $this->hasMany(TravelUser::class, 'user_id', 'id');
+        return $this->hasMany(TravelUser::class, 'user_id', 'id');
     }
 
 
-     public function userRoles()
+    public function userRoles()
     {
-      return $this->hasMany(RoleUsers::class, 'user_id', 'id');
+        return $this->hasMany(RoleUsers::class, 'user_id', 'id');
     }
 
 
@@ -102,20 +103,20 @@ class User extends Authenticatable
     ];
 
 
-   public function roles()
-{
-    return $this->belongsToMany(
-        \App\Models\MasterData\MasterRoleUser::class,
-        'role_users',
-        'user_id',
-        'role_id'
-    )->withTimestamps();
-}
+    public function roles()
+    {
+        return $this->belongsToMany(
+            \App\Models\MasterData\MasterRoleUser::class,
+            'role_users',
+            'user_id',
+            'role_id'
+        )->withTimestamps();
+    }
 
     public function menus()
     {
         return $this->belongsToMany(Menu::class, 'role_menuses', 'role_id', 'menu_id')
-                    ->where('menus.is_active', true)
-                    ->orderBy('menus.urutan');
+            ->where('menus.is_active', true)
+            ->orderBy('menus.urutan');
     }
 }

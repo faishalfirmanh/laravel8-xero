@@ -22,6 +22,7 @@ use App\Http\Controllers\Xero\ProductAndServiceController;
 use App\Http\Controllers\Xero\TaxRateController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Xero\TrackingController;
+use App\Http\Controllers\Xero\UserXeroController;
 use App\Http\Controllers\Xero\WebhookController;
 use App\Http\Controllers\Xero\PaymentController;
 use App\Http\Controllers\GlobalExternal\ImageController;
@@ -111,6 +112,7 @@ Route::get('get_new_inv_number', [InvoiceXeroLocalController::class, 'GenerateNe
 Route::prefix("xero")->group(function () {
     Route::get('connect', [XeroContactController::class, 'connect']);
     Route::get('callback', [XeroContactController::class, 'callback']);
+    Route::get('get_user_login', [UserXeroController::class, 'getAll']);
     Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');
     Route::get('get_contact_byid', [ContactController::class, 'getContactsById'])->name('get-contact-byuuid');
     Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2

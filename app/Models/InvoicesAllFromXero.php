@@ -46,7 +46,8 @@ class InvoicesAllFromXero extends Model
         'created_by',
         'id_jamaah_alhid',//jamaah id dari server alhidayah
         'travel_id',
-        'va_number'
+        'va_number',
+        'created_by_name'
     ];
 
     protected $appends = [
