@@ -31,11 +31,11 @@ class PBill extends Model
         'bills_uuid_xero',//isi ketika sync xero
         'nominal_currency',//NOMINAL 1 rupiah, //rate
         //untuk currency yang sudah di kalikan
-        'total_base',
+        'total_base',//total currency
         'subtotal_base',
         'tax_base',
-        'nominal_paid_base',
-        'nominal_due_base',//total nominal yang sudah di conversi ke rupiah
+        'nominal_paid_base',//total nominal conversi ke rupiah sisa nominal yang sudah dibayarkan
+        'nominal_due_base',//total nominal conversi ke rupiah sisa nominal yang belum dibayarkan (sisatagihan)
         'id_jamaah_alhid',//untuk relasi dengan bill pada jamaah alhid (beda server)
         'travel_id',
         'created_by_name'
