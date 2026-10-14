@@ -9,6 +9,36 @@ class XeroService
 {
 
     use ConfigRefreshXero;
+
+    public function getInvoiceHistory(string $tenantId, string $invoiceId): array
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->accessToken(),
+            'Xero-Tenant-Id' => $tenantId,
+            'Accept' => 'application/json',
+        ])->timeout(25)->get("https://api.xero.com/api.xro/2.0/Invoices/{$invoiceId}/History");
+
+        if (!$response->successful()) {
+            throw new \RuntimeException("Gagal ambil history invoice {$invoiceId}. HTTP {$response->status()}");
+        }
+
+        return $response->json('HistoryRecords') ?? [];
+    }
+
+    public function getUsers(string $tenantId): array
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->accessToken(),
+            'Xero-Tenant-Id' => $tenantId,
+            'Accept' => 'application/json',
+        ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Users');
+
+        if (!$response->successful()) {
+            throw new \RuntimeException("Gagal ambil daftar user Xero. HTTP {$response->status()}");
+        }
+
+        return $response->json('Users') ?? [];
+    }
     public static function getAccessToken()
     {
         $expiredAt = env('XERO_TOKEN_EXPIRED_AT');
@@ -82,10 +112,10 @@ class XeroService
     public function getInvoice(string $tenantId, string $invoiceId): array
     {
         $tokenData = $this->getValidToken();
-        
+
         if (empty($tokenData['access_token'])) {
-        throw new \RuntimeException('Token Xero tidak tersedia — perlu re-autentikasi ulang.');
-    }
+            throw new \RuntimeException('Token Xero tidak tersedia — perlu re-autentikasi ulang.');
+        }
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $tokenData['access_token'],
