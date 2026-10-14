@@ -12,8 +12,9 @@ class XeroService
 
     public function getInvoiceHistory(string $tenantId, string $invoiceId): array
     {
+        $tokenData = $this->getValidToken();
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $this->accessToken(),
+            'Authorization' => 'Bearer ' . $tokenData['access_token'],
             'Xero-Tenant-Id' => $tenantId,
             'Accept' => 'application/json',
         ])->timeout(25)->get("https://api.xero.com/api.xro/2.0/Invoices/{$invoiceId}/History");
@@ -27,8 +28,9 @@ class XeroService
 
     public function getUsers(string $tenantId): array
     {
+        $tokenData = $this->getValidToken();
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $this->accessToken(),
+            'Authorization' => 'Bearer ' . $tokenData['access_token'],
             'Xero-Tenant-Id' => $tenantId,
             'Accept' => 'application/json',
         ])->timeout(25)->get('https://api.xero.com/api.xro/2.0/Users');
