@@ -281,6 +281,7 @@ Route::prefix("admin-web")->group(function () {
                     Route::get('list', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
                     //Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('sales-inv');
                     Route::post('saveP', [InvXeroController::class, 'storeParent'])->middleware('reclock:invoice')->name('save-sales-inv');
+                    Route::post('savePDuplicate', [InvXeroController::class, 'duplicateParent'])->middleware('reclock:invoice')->name('duplicate-save-sales-inv');
                     //***payment***
                     Route::post('pay_inv', [InvXeroController::class, 'storePayment'])->name('save-pay-sales-inv');
                     Route::post('edit_pay_inv', [InvXeroController::class, 'EditStorePayment'])->name('update-pay-sales-inv');

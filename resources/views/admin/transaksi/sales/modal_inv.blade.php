@@ -228,7 +228,7 @@
                 <th width="46%">Penjelasan</th>
                 <th width="14%" class="text-right">Qty</th>
                 <th width="20%" class="text-right">Harga Satuan</th>
-                <th width="20%" class="text-right">Total IDR</th>
+                <th width="20%" class="text-right">Total {{ $invoice->code_curr }}</th>
             </tr>
         </thead>
         <tbody>
@@ -316,11 +316,11 @@
             <td width="20%" class="label">Total Pembayaran</td>
             <td width="20%" class="value">{{ $fmt($amountPaid) }}</td>
         </tr>
-        <tr class="line-top">
+        {{-- <tr class="line-top">
             <td></td>
             <td class="label">TOTAL IDR</td>
             <td class="value">{{ $fmt($tot_idr_final) }}</td>
-        </tr>
+        </tr> --}}
         <tr>
             <td></td>
             <td class="label">Tagihan Belum dibayar</td>

@@ -187,6 +187,183 @@ class InvXeroController extends Controller
         );
     }
 
+    public function duplicateParent(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer|exists:invoices_all_from_xeros,id',
+            'id_contact_duplicate' => 'required|integer|exists:data_jamaah_xeros,id',
+            'issue_date' => 'required|date',
+            'due_date' => 'required|date',
+            'action_save' => 'required|integer|between:0,2',
+            'travel_id' => 'required|integer|exists:travel_names,id',
+            'va_number' => 'nullable|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            /*
+            |--------------------------------------------------------------
+            | 1. Ambil invoice sumber dan detailnya
+            |--------------------------------------------------------------
+            */
+            $src = $this->repo->whereData(['id' => $request->id])->first();
+            if (!$src) {
+                throw new \RuntimeException('Invoice sumber tidak ditemukan.');
+            }
+
+            $srcDetails = $this->repo_detail
+                ->whereData(['parent_inv_id' => $src->id])
+                ->get();
+
+            if ($srcDetails->isEmpty()) {
+                //throw new \RuntimeException('Invoice sumber tidak memiliki detail.');
+                return $this->error('Invoice sumber tidak memiliki detail.', 500);
+            }
+
+            /*
+            |--------------------------------------------------------------
+            | 2. Contact baru
+            |--------------------------------------------------------------
+            */
+            $getContact = $this->repo_jamaah
+                ->whereData(['id' => $request->id_contact_duplicate])
+                ->first();
+
+            if (!$getContact) {
+                return $this->error('Contact tidak ditemukan ', 404);
+            }
+
+            /*
+            |--------------------------------------------------------------
+            | 3. Currency & rate: invoice baru selalu ambil rate terbaru
+            |--------------------------------------------------------------
+            */
+            $currency = strtoupper(trim($src->code_curr));
+            $nominalCurrency = $this->getRateToIdr($currency);
+
+            $status = 'DRAFT';// $request->action_save == 0 ? 'DRAFT' : 'AUTHORISED';
+
+            /*
+            |--------------------------------------------------------------
+            | 4. Header invoice baru
+            |--------------------------------------------------------------
+            */
+            $newParent = $this->repo->CreateOrUpdate([
+                'invoice_number' => $this->service_global->generateNewInvoiceNumber(),
+                'invoice_uuid' => $this->service_global->generateUniqueRandomStringInvoice(),
+                'contact_id' => $getContact->id,
+                'id_jamaah_alhid' => null,
+                'contact_name' => $getContact->full_name,
+                'uuid_contact' => 'from_local',
+                'issue_date' => $request->issue_date,
+                'due_date' => $request->due_date,
+                'reference' => strtolower(trim((string) $src->reference)),
+                'va_number' => $request->va_number ?? $src->va_number,
+                'travel_id' => $request->travel_id,
+                'uuid_proudct_and_service' => $src->uuid_proudct_and_service,
+                'item_name' => $src->item_name,
+                'status' => $status,
+                'code_curr' => $currency,
+                'nominal_currency' => $nominalCurrency,
+                'created_by' => $request->user_login->id,
+                'invoice_amount' => 0,
+                'invoice_total' => 0,
+                'less_nominal' => 0,
+            ], null);
+
+            /*
+            |--------------------------------------------------------------
+            | 5. Detail + jurnal (repo_detail & repo_all_trans)
+            |--------------------------------------------------------------
+            */
+            $sumD = 0.0;
+
+            foreach ($srcDetails as $key => $d) {
+                $qty = (float) $d->qty;
+                $unitPrice = (float) $d->unit_price;
+                $totalRow = round($qty * $unitPrice, 4);
+                $uuidNew = $this->service_global->generateUniqueString();
+
+                $this->repo_detail->CreateOrUpdate([
+                    'invoice_number' => $newParent->invoice_number,
+                    'uuid_invoices' => 'from_local',
+                    'uuid_item' => 'from_local',
+                    'coa_id' => $d->coa_id,
+                    'desc' => $d->desc,
+                    'qty' => $qty,
+                    'unit_price' => $unitPrice,
+                    'total_amount_each_row' => $totalRow,
+                    'paket_tracking_uuid' => $d->paket_tracking_uuid,
+                    'divisi_travel_tracking_uuid' => $d->divisi_travel_tracking_uuid,
+                    'parent_inv_id' => $newParent->id,
+                    'item_id' => $d->item_id,
+                    'sort_order' => $d->sort_order ?? $key,
+                    'uuid_detail_inv' => $uuidNew,
+                ], null);
+
+                $sumD += $totalRow;
+
+                // Jurnal hanya untuk baris yang punya item & status bukan DRAFT
+                //if ($request->action_save != 0 && !empty($d->item_id)) {
+                $this->repo_all_trans->CreateOrUpdate([
+                    'date_transaction' => $request->issue_date,
+                    'uuid_coa' => $d->coa_id,
+                    'reference' => $newParent->reference,
+                    'is_speend' => false,
+                    'nominal' => $totalRow,
+                    'created_by' => $request->user_login->id,
+                    'uuid_detail' => $uuidNew,
+                    'code_curr' => $currency,
+                    'nominal_currency' => $nominalCurrency,
+                    'base_nominal' => round($totalRow * $nominalCurrency, 2),
+                ], null);
+                //}
+            }
+
+            /*
+            |--------------------------------------------------------------
+            | 6. Total invoice baru (tanpa payment, karena payment tidak disalin)
+            |--------------------------------------------------------------
+            */
+            $newParent = $this->repo->CreateOrUpdate([
+                'invoice_total' => $sumD,
+                'less_nominal' => $sumD,
+            ], $newParent->id);
+
+            /*
+            |--------------------------------------------------------------
+            | 7. Log
+            |--------------------------------------------------------------
+            */
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $request->user_login->name
+                . " menduplikat invoice {$src->invoice_number} menjadi {$newParent->invoice_number}"
+                . " untuk contact {$getContact->full_name} [{$currency}, rate {$nominalCurrency}]",
+                $request->userAgent(),
+                $request->ip(),
+                $newParent->id
+            );
+
+            DB::commit();
+
+            return $this->autoResponse($newParent);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return $this->error(
+                $th->getMessage() . ' at line ' . $th->getLine(),
+                422
+            );
+        }
+    }
+
     public function storeParent(Request $request)//store with multy currency
     {
         $validator = Validator::make($request->all(), [

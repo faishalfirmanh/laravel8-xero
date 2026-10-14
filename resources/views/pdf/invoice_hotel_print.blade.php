@@ -229,10 +229,10 @@ Silakan copy-paste kode ini:
                 <td colspan="5" class="text-right"> TOTAL SAR</td>
                 <td class="text-right">SAR {{ number_format($invoice->total_payment) }}</td>
             </tr>
-             <tr class="">
+             {{-- <tr class="">
                 <td colspan="5" class="text-right"> TOTAL IDR</td>
                 <td class="text-right">Rp. {{ number_format($invoice->total_payment_rupiah) }}</td>
-            </tr>
+            </tr> --}}
         </tbody>
     </table>
 
@@ -263,8 +263,8 @@ Silakan copy-paste kode ini:
                     <td class="text-right">SAR {{ number_format($invoice->final_payment_sar) }}</td>
                 </tr>
                 <tr class="">
-                    <td colspan="4" class="text-right">Total Pembayaran IDR</td>
-                    <td class="text-right">IDR {{ number_format($invoice->final_payment_idr) }}</td>
+                    <td colspan="4" class="text-right">Total Pembayaran {{  $invoice->code_curr }}</td>
+                    <td class="text-right">{{  $invoice->code_curr }} {{ number_format($invoice->final_payment_idr) }}</td>
                 </tr>
                 @if ($invoice->less_payment_sar > 0)
                     <tr class="">

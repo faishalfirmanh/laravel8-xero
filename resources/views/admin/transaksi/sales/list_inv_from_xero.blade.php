@@ -730,6 +730,63 @@
     color: #aaa !important;
     font-size: 12px !important;
 }
+
+
+/* ══════════════════════════════════════════════
+   MODAL INPUT CONTACT DUPLICATE — Select2 rapi
+   ══════════════════════════════════════════════ */
+#modalInputContactDuplicate .select2-container {
+    display: block !important;
+    width: 100% !important;
+}
+#modalInputContactDuplicate .select2-container--bootstrap4 .select2-selection--single {
+    height: calc(1.5em + 0.75rem + 2px) !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 0.25rem !important;
+    background-color: #fff !important;
+}
+#modalInputContactDuplicate .select2-selection__rendered {
+    display: block !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.5 !important;
+    padding-left: 0.6rem !important;
+    padding-right: 2.2rem !important;
+    font-size: 0.875rem !important;
+    color: #333 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+#modalInputContactDuplicate .select2-selection__clear {
+    position: absolute !important;
+    right: 1.5rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    color: #888 !important;
+    z-index: 1;
+}
+#modalInputContactDuplicate .select2-selection__clear:hover {
+    color: #e74c3c !important;
+}
+#modalInputContactDuplicate .select2-selection__arrow {
+    position: absolute !important;
+    right: 0.4rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    height: auto !important;
+    width: 20px !important;
+}
+#modalInputContactDuplicate .select2-selection__placeholder {
+    color: #aaa !important;
+    font-size: 0.875rem !important;
+}
 </style>
 
 
@@ -1146,6 +1203,10 @@
                                 <i class="ti ti-calendar mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Approve</span>
                             </button>
+                            <button type="submit" id="btn_duplicate" class="dropdown-item align-items-center text-primary font-weight-bold action-submit" value="2">
+                                <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
+                                <span>Duplicate</span>
+                            </button>
                             {{-- <button type="submit" style="display: none" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                                 <i class="ti ti-bookmark mr-2" style="font-size: 1.2rem;"></i>
                                 <span>Save draft</span>
@@ -1159,6 +1220,49 @@
     </div>
 </div>
 
+{{-- ── MODAL INPUT CONTACT DUPLICATE ── --}}
+<div class="modal fade" id="modalInputContactDuplicate" tabindex="-1" role="dialog"
+     aria-labelledby="modalInputContactDuplicateLabel" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalInputContactDuplicateLabel">
+                    <i class="ti ti-copy mr-1"></i> Duplicate Invoice
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form id="formInputContactDuplicate">
+                @csrf
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="id_contact_duplicate" class="font-weight-bold small">
+                            Pilih Contact <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-control" name="id_contact_duplicate"
+                                id="id_contact_duplicate" style="width:100%;" required>
+                        </select>
+                        <small class="text-muted">Ketik minimal 4 huruf untuk mencari contact.</small>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
+                        <i class="ti ti-x mr-1"></i> Batal
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-sm font-weight-bold" id="btnSubmitContactDuplicate">
+                        <i class="ti ti-check mr-1"></i> Lanjutkan
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
 
 
 <div class="modal fade" id="invoiceModal" tabindex="-1" role="dialog">
@@ -2313,7 +2417,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
         const nominalStr = $(this).data('nominal');
         const parentId   = $('#invoices_id_parent').val();
 
-        console.log('pau',payId,'----',parentId)
+       
         Swal.fire({
             title           : 'Hapus Pembayaran?',
             html            : `Nominal <b>${nominalStr}</b> akan dihapus.<br>Sisa tagihan akan dikembalikan.`,
@@ -2692,7 +2796,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
      $('#tableHotel').on('click', '.edit-hotel', function() {
         const id      = $(this).data('id');
         const rowData = table.row($(this).parents('tr')).data();
-
+        $("#btn_duplicate").show()
         // Reset dulu ke state kosong
         //resetModal();
 
@@ -3047,6 +3151,7 @@ function setRowSelect2Value($row, selector, id, text) {
         // $('#invoice_number_display').val('auto');
         // $("#reference").val('')
         // Reset handled by modal hidden event
+        $('#btn_duplicate').hide();
         resetHotelModal()
     });
 
@@ -3729,9 +3834,59 @@ function setRowRequiredState($row, isRequired) {
 }
 
 //submit
-    $('.action-submit').on('click', function() {
-        let actionValue = $(this).val();
+    $('.action-submit').on('click', function (e) {
+        const actionValue = $(this).val();
         $('#actionTypeValue').val(actionValue);
+
+        // Duplicate: jangan submit form invoice, buka modal pilih contact
+        if (String(actionValue) === '2') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            $('#modalInputContactDuplicate').modal('show');
+        }
+    });
+
+
+    $('#formInputContactDuplicate').on('submit', async function (e) {
+        e.preventDefault();
+
+        const sourceId  = $('#idHotelInput').val();
+        const contactId = $('#id_contact_duplicate').val();
+
+        if (!sourceId) {
+            Swal.fire('Peringatan', 'Invoice sumber belum disimpan.', 'warning');
+            return;
+        }
+        if (!contactId) {
+            Swal.fire('Peringatan', 'Pilih contact terlebih dahulu.', 'warning');
+            return;
+        }
+
+        const $btn = $('#btnSubmitContactDuplicate').prop('disabled', true);
+
+        try {
+            const res = await ajaxRequest("{{ route('duplicate-save-sales-inv') }}", 'POST', {
+                id                  : sourceId,
+                id_contact_duplicate: contactId,
+                issue_date          : $('#issue_date').val(),
+                due_date            : $('#due_date').val(),
+                travel_id           : $('#travel_id').val(),
+                va_number           : $('#va_number').val(),
+                action_save         : 1,
+            }, localStorage.getItem('token'));
+
+            if (res.status == 200) {
+                $('#modalInputContactDuplicate').modal('hide');
+                $('#modalCreateHotel').modal('hide');
+                Swal.fire({ icon: 'success', title: 'Invoice diduplikat', timer: 1500, showConfirmButton: false });
+                table.ajax.reload(null, false);
+                openDetailModal(res.data.data.id);
+            }
+        } catch (err) {
+            cathError(err);
+        } finally {
+            $btn.prop('disabled', false);
+        }
     });
 
     $("#btl-save").on('click',function(){
@@ -3751,11 +3906,90 @@ function setRowRequiredState($row, isRequired) {
          // table.ajax.reload(null, false);
     })
 
+    // ========================================================
+// MODAL INPUT CONTACT DUPLICATE
+// ========================================================
+    function initContactSelect2Duplicate() {
+        const $el = $('#id_contact_duplicate');
+
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+
+        $el.select2({
+            theme: 'bootstrap4',
+            dropdownParent: $('#modalInputContactDuplicate'),
+            placeholder: 'Pilih Agent / Contact',
+            allowClear: true,
+            cache: false,
+            minimumInputLength: 4,
+            language: {
+                inputTooShort: () => 'Ketik minimal 4 huruf untuk mencari contact...',
+                searching    : () => 'Mencari...',
+                noResults    : () => 'Contact tidak ditemukan',
+                loadingMore  : () => 'Memuat lebih banyak...',
+            },
+            ajax: {
+                url: '{{ route("list-contact-select2") }}',
+                dataType: 'json',
+                delay: 450,
+                data: function (params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+                },
+                processResults: function (response, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: $.map(response.data.data, function (item) {
+                            return { id: item.id, text: item.full_name, phone: item.phone_number || '-' };
+                        }),
+                        pagination: { more: response.data.next_page_url !== null }
+                    };
+                },
+                cache: false
+            }
+        });
+    }
+
+    // Buka modal: pasang select2 setelah modal tampil (penting agar dropdown tidak tertutup)
+    $('#modalInputContactDuplicate').on('shown.bs.modal', function () {
+        initContactSelect2Duplicate();
+    });
+
+    // Bersihkan saat modal ditutup
+    $('#modalInputContactDuplicate').on('hidden.bs.modal', function () {
+        const $el = $('#id_contact_duplicate');
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+        $el.empty();
+    });
+
+    $('#modalInputContactDuplicate').on('hidden.bs.modal', function () {
+        $('#actionTypeValue').val('1');
+    });
+
+    // Submit: ambil id contact yang dipilih
+    $('#formInputContactDuplicate').on('submit', function (e) {
+        e.preventDefault();
+
+        const contactId   = $('#id_contact_duplicate').val();
+        const contactText = $('#id_contact_duplicate').select2('data')[0]?.text || '';
+
+        if (!contactId) {
+            Swal.fire('Peringatan', 'Pilih contact terlebih dahulu.', 'warning');
+            return;
+        }
+
+        // Lanjutkan ke proses duplicate (isi sesuai kebutuhan)
+        console.log('duplicate untuk contact', contactId, contactText);
+
+        $('#modalInputContactDuplicate').modal('hide');
+    });
 
     
     $('#formCreateHotel').on('submit', function(e) {
             e.preventDefault();
-
+          
             
             $('.select2-account, .select2-paket, .select2-item, .select2-divisi').each(function() {
                 if ($(this).data('select2')) { $(this).trigger('change'); }
@@ -3843,6 +4077,8 @@ function setRowRequiredState($row, isRequired) {
                 return;
             }
 
+            let cek_val_action = $("#actionTypeValue").val();
+            
             ajaxRequest(`{{ route('save-sales-inv') }}`, 'POST', selectedData, localStorage.getItem("token"))
                 .then(response => {
                     if (response.status == 200) {
