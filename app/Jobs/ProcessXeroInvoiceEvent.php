@@ -13,6 +13,7 @@ use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\Transaction\TransactionAllCoa;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use App\Models\Transaction\VaTransUser;
+use App\Models\User;
 use App\Services\XeroService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -87,12 +88,14 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         // Panggilan HTTP dilakukan dulu, di luar transaksi DB
         $paymentDetails = $this->fetchPaymentDetails($xero, $tenantId, $obj);
+        $isBill = ($obj['Type'] ?? null) === 'ACCPAY';
+        $updatedByName = $this->resolveUpdatedByName($xero, $tenantId, $invoiceId);
 
-        DB::transaction(function () use ($obj, $paymentDetails) {
-            if (($obj['Type'] ?? null) === 'ACCPAY') {
-                $this->syncBill($obj, $paymentDetails);
+        DB::transaction(function () use ($obj, $paymentDetails, $updatedByName, $isBill) {
+            if ($isBill) {
+                $this->syncBill($obj, $paymentDetails, $updatedByName);
             } else {
-                $this->syncSalesInvoice($obj, $paymentDetails);
+                $this->syncSalesInvoice($obj, $paymentDetails, $updatedByName);
             }
         }, 3);
 
@@ -108,7 +111,81 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     // SALES INVOICE (ACCREC)
     // ================================================================
 
-    private function syncSalesInvoice(array $inv, array $paymentDetails): void
+    /**
+     * Cari nama user lokal dari user Xero yang terakhir mengubah invoice.
+     * Return null jika tidak ketemu (nilai lama di DB dipertahankan).
+     */
+    private function resolveUpdatedByName(XeroService $xero, string $tenantId, string $invoiceId): ?string
+    {
+        try {
+            $this->waitForXeroSlot($tenantId);
+            $records = $xero->getInvoiceHistory($tenantId, $invoiceId);
+
+            // Ambil entri terbaru yang punya nama user
+            $latest = collect($records)
+                ->filter(fn($r) => !empty($r['User']))
+                ->sortByDesc(fn($r) => $this->historyTimestamp($r['DateUTC'] ?? $r['DateUTCString'] ?? ''))
+                ->first();
+
+            $xeroName = trim((string) ($latest['User'] ?? ''));
+            if ($xeroName === '') {
+                return null;
+            }
+
+            // Daftar user Xero di-cache 1 jam supaya tidak boros rate limit
+            $users = Cache::remember("xero_users:{$tenantId}", 3600, function () use ($xero, $tenantId) {
+                $this->waitForXeroSlot($tenantId);
+                return $xero->getUsers($tenantId);
+            });
+
+            $needle = $this->normName($xeroName);
+
+            $xeroUser = collect($users)->first(function ($u) use ($needle) {
+                $full = $this->normName(($u['FirstName'] ?? '') . ' ' . ($u['LastName'] ?? ''));
+                return $full === $needle || $this->normName($u['EmailAddress'] ?? '') === $needle;
+            });
+
+            if (!$xeroUser || empty($xeroUser['UserID'])) {
+                Log::warning('[XeroWebhook] user Xero tidak ketemu di /Users', ['user' => $xeroName]);
+                return null;
+            }
+
+            // Cari user lokal berdasarkan ID Xero yang sudah didaftarkan
+            $localName = DB::table('users')
+                ->where('uuid_unique_id_xero', $xeroUser['UserID'])
+                ->value('name');
+
+            if (!$localName) {
+                Log::warning('[XeroWebhook] UserID Xero belum terdaftar di users lokal', [
+                    'xero_user_id' => $xeroUser['UserID'],
+                    'user' => $xeroName,
+                ]);
+            }
+
+            return $localName ?: null;
+
+        } catch (\Throwable $e) {
+            // Gagal ambil nama tidak boleh menggagalkan sinkronisasi invoice
+            Log::warning('[XeroWebhook] resolveUpdatedByName gagal: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    private function normName(?string $s): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', mb_strtolower((string) $s, 'UTF-8')));
+    }
+
+    /** Parse "/Date(1234567890000+0000)/" atau ISO string ke timestamp untuk sorting. */
+    private function historyTimestamp(string $raw): int
+    {
+        if (preg_match('/\/Date\((\d+)/', $raw, $m)) {
+            return (int) $m[1];
+        }
+        $ts = strtotime($raw);
+        return $ts === false ? 0 : $ts * 1000;
+    }
+    private function syncSalesInvoice(array $inv, array $paymentDetails, ?string $updatedByName = null): void
     {
         $lineItems = $inv['LineItems'] ?? [];
         $firstLine = $lineItems[0] ?? [];
@@ -116,7 +193,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
         $contactId = data_get($inv, 'Contact.ContactID');
         $currencyCode = $inv['CurrencyCode'] ?? 'IDR';
-        $nominalCurr = $currencyCode === 'SAR' ? $this->sarToIdrRate($inv) : 1;
+        $nominalCurr = $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0));
 
         $contactRowId = $this->ensureJamaahContact($inv);
 
@@ -129,6 +206,10 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             InvoicesAllFromXero::where('invoice_number', $inv['InvoiceNumber'])
                 ->update(['invoice_uuid' => $inv['InvoiceID']]);
         }
+
+        $existingName = InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])
+            ->value('created_by_name');
+        $userName = $updatedByName ?: $existingName;
 
         InvoicesAllFromXero::upsert(
             [
@@ -151,6 +232,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     'nominal_currency' => $nominalCurr,
                     'created_at' => now(),
                     'updated_at' => now(),
+                    'created_by_name' => $userName
                 ]
             ],
             ['invoice_uuid'],
@@ -171,6 +253,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'code_curr',
                 'nominal_currency',
                 'updated_at',
+                'created_by_name'
             ]
         );
 
@@ -197,7 +280,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             ->delete();
 
         // ── Line item dari Xero ──
-        $lineItems = $inv['LineItems'] ?? [];
         $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->all();
         $itemCodes = collect($lineItems)->map(fn($l) => data_get($l, 'Item.Code'))->filter()->unique()->values()->all();
         $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
@@ -313,8 +395,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             }
         }
 
-        //$this->savePayments($paymentDetails, $parentId, false, $currencyCode);
-        $this->savePayments($paymentDetails, $parentId, true, $currencyCode, (float) ($inv['CurrencyRate'] ?? 1));
+
+        $this->savePayments($paymentDetails, $parentId, false, $currencyCode, (float) ($inv['CurrencyRate'] ?? 1));
     }
 
     // ================================================================
@@ -337,7 +419,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         return round(1 / $rate, 4);
     }
 
-    private function syncBill(array $inv, array $paymentDetails): void
+    private function syncBill(array $inv, array $paymentDetails, ?string $updatedByName = null): void
     {
         $lineItems = $inv['LineItems'] ?? [];
         $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
@@ -368,6 +450,11 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
         }
 
+        $existingName = PBill::where('bills_uuid_xero', $inv['InvoiceID'])
+            ->value('created_by_name');
+        $userName = $updatedByName ?: $existingName;
+  $fx = $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0));
+
         PBill::upsert(
             [
                 [
@@ -387,7 +474,11 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     'created_by' => 1,
                     'created_at' => now(),
                     'updated_at' => now(),
-                    'nominal_currency' => $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0)),
+                    'total_base' => round((float) ($inv['Total'] ?? 0) * $fx, 2),
+                    'created_by_name' => $userName,
+                    'nominal_currency' => $fx,
+                    'nominal_paid_base' => round((float) ($inv['AmountPaid'] ?? 0) * $fx, 2),
+                    'nominal_due_base' => round((float) ($inv['AmountDue'] ?? 0) * $fx, 2),
                 ]
             ],
             ['bills_uuid_xero'],
@@ -405,6 +496,10 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'status',
                 'currency',
                 'updated_at',
+                'created_by_name',
+                'total_base',
+                'nominal_paid_base',
+                'nominal_due_base'
             ]
         );
 
@@ -478,6 +573,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     'paket_tracking_uuid',
                     'divisi_travel_tracking_uuid',
                     'amount',
+                    'total_base',
                     'updated_at',
                 ]
             );
@@ -512,7 +608,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             }
         }
 
-        // $this->savePayments($paymentDetails, $parentId, true, $currencyCode);
         $this->savePayments($paymentDetails, $parentId, true, $currencyCode, (float) ($inv['CurrencyRate'] ?? 1));
     }
 
