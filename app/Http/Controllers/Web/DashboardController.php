@@ -126,7 +126,8 @@ class DashboardController extends Controller
     {
         $travel = TravelName::get();
         $bank = BankXero::get();
-        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank', 'idInvoice'));
+        $cur = MasterCurrency::where('is_active', 1)->get();
+        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank', 'idInvoice', 'cur'));
     }
 
     public function warehouse()

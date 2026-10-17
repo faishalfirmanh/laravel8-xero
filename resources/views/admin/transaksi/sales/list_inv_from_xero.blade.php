@@ -969,8 +969,11 @@
                             <label>Currency <span class="text-danger">*</span></label>
                             <select class="form-control" name="code_curr"
                                     id="currency_selected" required>
-                                <option value="IDR">IDR &ndash; Rupiah</option>
-                                <option value="SAR">SAR &ndash; Saudi Riyal</option>
+                                {{-- <option value="IDR">IDR &ndash; Rupiah</option>
+                                <option value="SAR">SAR &ndash; Saudi Riyal</option> --}}
+                                @foreach ($cur as $item)
+                                        <option value="{{ $item->code_curr }}">{{ $item->code_curr ." | ".(int)$item->nominal_currency }}</option>
+                                @endforeach
                             </select>
                         </div>
 
