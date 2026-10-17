@@ -62,6 +62,188 @@ class ProfitLossController extends Controller
         $hasTracking = count($filterDivisi) > 0 || count($filterPaket) > 0;
 
         $coa = DB::table('coas')->where('id', $account)->first();
+        if (!$coa) {
+            return $this->error('Akun COA tidak ditemukan', 404);
+        }
+
+        // Satu baris per kontak supaya join jamaah tidak menggandakan transaksi
+        $jamaahSub = DB::table('data_jamaah_xeros')
+            ->select('uuid_contact', DB::raw('MIN(full_name) as full_name'))
+            ->whereNotNull('uuid_contact')
+            ->where('uuid_contact', '<>', '')
+            ->groupBy('uuid_contact');
+
+        // ── 2. Query: sumber sama dengan getHome ─────────────────────────
+        $query = DB::table('transaction_all_coas as t')
+            // Invoice (ACCREC)
+            ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
+            ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id')
+            // Bill (ACCPAY)
+            ->leftJoin('d_bills as db', 'db.uuid_detail', '=', 't.uuid_detail')
+            ->leftJoin('p_bills as pb', 'pb.id', '=', 'db.bills_parent_id')
+            ->leftJoin('data_jamaah_xeros as jb', 'jb.id', '=', 'pb.uuid_from')
+            // Bank (receive & spend)
+            ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
+            ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
+            // Fee overpay
+            ->leftJoin('fee_overpays as fo', 'fo.uuid_details_feeoverpay', '=', 't.uuid_detail')
+            ->leftJoin('invoices_all_from_xeros as fi', 'fi.id', '=', 'fo.invoice_id')
+            ->leftJoinSub($jamaahSub, 'jamaah_bank', 'jamaah_bank.uuid_contact', '=', 'ptbi.uuid_to')
+            ->leftJoinSub($jamaahSub, 'jamaah_invoice', 'jamaah_invoice.uuid_contact', '=', 'inv.uuid_contact')
+            ->leftJoinSub($jamaahSub, 'jamaah_fee', 'jamaah_fee.uuid_contact', '=', 'fi.uuid_contact')
+            ->where('t.uuid_coa', $account)
+            ->where('t.date_transaction', '>=', $start->toDateTimeString())
+            ->where('t.date_transaction', '<=', $end->toDateTimeString())
+            ->where(function ($src) {
+                $src->whereNotNull('di.id')
+                    ->orWhereNotNull('db.id')
+                    ->orWhereNotNull('dtbi.id')
+                    ->orWhereNotNull('fo.id');
+            });
+
+        if ($hasTracking) {
+            // Fee overpay tidak punya tracking divisi/paket, jadi dikecualikan
+            $query->whereNull('fo.id');
+        }
+
+        if (count($filterDivisi) > 0) {
+            $query->where(function ($sub) use ($filterDivisi) {
+                $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
+                    ->orWhereIn('db.divisi_travel_tracking_uuid', $filterDivisi)
+                    ->orWhereIn('dtbi.divisi_travel_tracking_uuid', $filterDivisi);
+            });
+        }
+
+        if (count($filterPaket) > 0) {
+            $query->where(function ($sub) use ($filterPaket) {
+                $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
+                    ->orWhereIn('db.paket_tracking_uuid', $filterPaket)
+                    ->orWhereIn('dtbi.paket_tracking_uuid', $filterPaket);
+            });
+        }
+
+        $transactions = $query
+            ->selectRaw("
+            t.id,
+            t.date_transaction,
+            t.base_nominal as nominal,
+            t.is_speend,
+            t.uuid_detail,
+            inv.invoice_number,
+            inv.reference as invoice_reference,
+            pb.reference as bill_reference,
+            ptbi.reference as bank_reference,
+            di.desc as invoice_desc,
+            db.desc as bill_desc,
+            dtbi.desc as bank_desc,
+            fi.invoice_number as fee_invoice_number,
+            fo.reference as fee_reference,
+            fo.bank_tujuan_jamaah_rek as fee_rek,
+            CASE
+                WHEN di.id IS NOT NULL THEN jamaah_invoice.full_name
+                WHEN db.id IS NOT NULL THEN jb.full_name
+                WHEN dtbi.id IS NOT NULL THEN jamaah_bank.full_name
+                WHEN fo.id IS NOT NULL THEN jamaah_fee.full_name
+                ELSE NULL
+            END as jamaah_name,
+            CASE
+                WHEN di.id IS NOT NULL THEN 'invoice'
+                WHEN db.id IS NOT NULL THEN 'bill'
+                WHEN dtbi.id IS NOT NULL THEN 'bank'
+                WHEN fo.id IS NOT NULL THEN 'fee'
+                ELSE NULL
+            END as source
+        ")
+            ->orderBy('t.date_transaction')
+            ->orderBy('t.id')
+            ->get()
+            ->unique('id')
+            ->values();
+
+        // ── 3. Tanda +/- (sama dengan getHome) ───────────────────────────
+        $isRevenue = in_array(
+            strtoupper((string) $coa->account_type),
+            ['REVENUE', 'SALES', 'OTHERINCOME'],
+            true
+        );
+
+        $total = 0.0;
+
+        $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
+            $nominal = (float) $t->nominal;
+
+            $signed = $isRevenue
+                ? ((int) $t->is_speend === 0 ? $nominal : -$nominal)
+                : ((int) $t->is_speend === 1 ? $nominal : -$nominal);
+
+            $total += $signed;
+
+            switch ($t->source) {
+                case 'invoice':
+                    $reference = $t->invoice_number ?? $t->invoice_reference;
+                    $desc = $t->invoice_desc;
+                    break;
+
+                case 'bill':
+                    $reference = $t->bill_reference;
+                    $desc = $t->bill_desc;
+                    break;
+
+                case 'bank':
+                    $reference = $t->bank_reference;
+                    $desc = $t->bank_desc;
+                    break;
+
+                case 'fee':
+                    $reference = $t->fee_invoice_number ?? $t->fee_reference;
+                    $desc = 'Fee overpay' . ($t->fee_rek ? ' ke ' . $t->fee_rek : '');
+                    break;
+
+                default:
+                    $reference = null;
+                    $desc = null;
+            }
+
+            $parts = array_filter([$t->jamaah_name, $desc], function ($v) {
+                return $v !== null && trim($v) !== '';
+            });
+
+            return [
+                'date' => $t->date_transaction,
+                'nominal' => $signed,
+                'reference' => $reference,
+                'description' => count($parts) ? implode(' - ', $parts) : null,
+                'source' => $t->source,
+            ];
+        })->values();
+
+        return $this->autoResponse([
+            'coa' => ['id' => $coa->id, 'name' => $coa->name, 'account_type' => $coa->account_type],
+            'period' => ['date_start' => $date_start, 'date_end' => $date_end],
+            'transactions' => $items,
+            'total' => $total,
+        ]);
+    }
+
+    public function profitAndLossDetailDataOld(Request $request, $account, $date_start, $date_end)
+    {
+        // ── 1. Validasi tanggal ──────────────────────────────────────────
+        try {
+            $start = Carbon::parse($date_start)->startOfDay();
+            $end = Carbon::parse($date_end)->endOfDay();
+        } catch (\Exception $e) {
+            return $this->error('Format tanggal tidak valid', 422);
+        }
+
+        if ($start->gt($end)) {
+            return $this->error('date_start tidak boleh lebih besar dari date_end', 422);
+        }
+
+        $filterPaket = $this->parseTrackingFilter($request->query('track_paket'));
+        $filterDivisi = $this->parseTrackingFilter($request->query('track_divisi'));
+        $hasTracking = count($filterDivisi) > 0 || count($filterPaket) > 0;
+
+        $coa = DB::table('coas')->where('id', $account)->first();
 
         if (!$coa) {
             return $this->error('Akun COA tidak ditemukan', 404);
@@ -218,105 +400,105 @@ class ProfitLossController extends Controller
         ]);
     }
 
-    public function profitAndLossDetailDataOLd(Request $request, $account, $date_start, $date_end)
-    {
-        $track_paket = $request->query('track_paket');
-        $track_divisi = $request->query('track_divisi');
+    // public function profitAndLossDetailDataOLd1(Request $request, $account, $date_start, $date_end)
+    // {
+    //     $track_paket = $request->query('track_paket');
+    //     $track_divisi = $request->query('track_divisi');
 
-        if ($track_paket !== null) {
-            $track_paket = str_replace('?', '', $track_paket);
-        }
+    //     if ($track_paket !== null) {
+    //         $track_paket = str_replace('?', '', $track_paket);
+    //     }
 
-        if ($track_divisi !== null) {
-            $track_divisi = str_replace('?', '', $track_divisi);
-        }
+    //     if ($track_divisi !== null) {
+    //         $track_divisi = str_replace('?', '', $track_divisi);
+    //     }
 
-        $filterPaket = $track_paket ? explode(',', $track_paket) : [];
-        $filterDivisi = $track_divisi ? explode(',', $track_divisi) : [];
+    //     $filterPaket = $track_paket ? explode(',', $track_paket) : [];
+    //     $filterDivisi = $track_divisi ? explode(',', $track_divisi) : [];
 
-        $coa = DB::table('coas')->where('id', $account)->first();
+    //     $coa = DB::table('coas')->where('id', $account)->first();
 
-        if (!$coa) {
-            return $this->error('Akun COA tidak ditemukan', 404);
-        }
+    //     if (!$coa) {
+    //         return $this->error('Akun COA tidak ditemukan', 404);
+    //     }
 
-        $query = DB::table('transaction_all_coas as t')
-            ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
-            ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id')
-            ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
-            ->leftJoin('p_bills as pbi', 'pbi.id', '=', 'dbi.bills_parent_id')
-            ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
-            ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
-            // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'ptbi.uuid_to')
-            // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'pbi.uuid_from')
-            // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'inv.contact_id')
-            ->where('t.uuid_coa', $account)
-            ->whereBetween('t.date_transaction', [$date_start, $date_end]);
+    //     $query = DB::table('transaction_all_coas as t')
+    //         ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
+    //         ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id')
+    //         ->leftJoin('d_bills as dbi', 'dbi.uuid_detail', '=', 't.uuid_detail')
+    //         ->leftJoin('p_bills as pbi', 'pbi.id', '=', 'dbi.bills_parent_id')
+    //         ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
+    //         ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
+    //         // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'ptbi.uuid_to')
+    //         // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'pbi.uuid_from')
+    //         // ->Join('data_jamaah_xeros as dtj', 'dtj.uuid_contact', '=', 'inv.contact_id')
+    //         ->where('t.uuid_coa', $account)
+    //         ->whereBetween('t.date_transaction', [$date_start, $date_end]);
 
-        if (count($filterDivisi) > 0) {
-            $query->where(function ($sub) use ($filterDivisi) {
-                $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
-                    ->orWhereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi)
-                    ->orWhereIn('dtbi.divisi_travel_tracking_uuid', $filterDivisi);
-            });
-        }
+    //     if (count($filterDivisi) > 0) {
+    //         $query->where(function ($sub) use ($filterDivisi) {
+    //             $sub->whereIn('di.divisi_travel_tracking_uuid', $filterDivisi)
+    //                 ->orWhereIn('dbi.divisi_travel_tracking_uuid', $filterDivisi)
+    //                 ->orWhereIn('dtbi.divisi_travel_tracking_uuid', $filterDivisi);
+    //         });
+    //     }
 
-        if (count($filterPaket) > 0) {
-            $query->where(function ($sub) use ($filterPaket) {
-                $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
-                    ->orWhereIn('dbi.paket_tracking_uuid', $filterPaket)
-                    ->orWhereIn('dtbi.paket_tracking_uuid', $filterPaket);
-            });
-        }
+    //     if (count($filterPaket) > 0) {
+    //         $query->where(function ($sub) use ($filterPaket) {
+    //             $sub->whereIn('di.paket_tracking_uuid', $filterPaket)
+    //                 ->orWhereIn('dbi.paket_tracking_uuid', $filterPaket)
+    //                 ->orWhereIn('dtbi.paket_tracking_uuid', $filterPaket);
+    //         });
+    //     }
 
-        $transactions = $query
-            ->selectRaw('
-            t.id,
-            t.date_transaction,
-            t.base_nominal   as nominal,
-            t.is_speend,
-            t.uuid_detail,
-            inv.invoice_number,                 -- ⚠️ sesuaikan nama kolom no. invoice
-            pbi.reference     as bill_reference, -- ⚠️ sesuaikan nama kolom no. bill
-            ptbi.reference    as bank_reference,
-            di.desc           as invoice_desc,   -- ⚠️ sesuaikan kalau nama kolomnya beda
-            dbi.desc          as bill_desc,      -- ⚠️ sesuaikan kalau nama kolomnya beda
-            dtbi.desc         as bank_desc,
-            CASE
-                WHEN di.id IS NOT NULL THEN \'invoice\'
-                WHEN dbi.id IS NOT NULL THEN \'bill\'
-                WHEN dtbi.id IS NOT NULL THEN \'bank\'
-                ELSE NULL
-            END as source
-        ')
-            ->orderBy('t.date_transaction')
-            ->get();
+    //     $transactions = $query
+    //         ->selectRaw('
+    //         t.id,
+    //         t.date_transaction,
+    //         t.base_nominal   as nominal,
+    //         t.is_speend,
+    //         t.uuid_detail,
+    //         inv.invoice_number,                 -- ⚠️ sesuaikan nama kolom no. invoice
+    //         pbi.reference     as bill_reference, -- ⚠️ sesuaikan nama kolom no. bill
+    //         ptbi.reference    as bank_reference,
+    //         di.desc           as invoice_desc,   -- ⚠️ sesuaikan kalau nama kolomnya beda
+    //         dbi.desc          as bill_desc,      -- ⚠️ sesuaikan kalau nama kolomnya beda
+    //         dtbi.desc         as bank_desc,
+    //         CASE
+    //             WHEN di.id IS NOT NULL THEN \'invoice\'
+    //             WHEN dbi.id IS NOT NULL THEN \'bill\'
+    //             WHEN dtbi.id IS NOT NULL THEN \'bank\'
+    //             ELSE NULL
+    //         END as source
+    //     ')
+    //         ->orderBy('t.date_transaction')
+    //         ->get();
 
-        $isRevenue = $coa->account_type === 'REVENUE';
-        $total = 0;
+    //     $isRevenue = $coa->account_type === 'REVENUE';
+    //     $total = 0;
 
-        $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
-            $signed = $isRevenue
-                ? ($t->is_speend == 0 ? $t->nominal : -$t->nominal)
-                : ($t->is_speend == 1 ? $t->nominal : -$t->nominal);
-            $total += $signed;
+    //     $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
+    //         $signed = $isRevenue
+    //             ? ($t->is_speend == 0 ? $t->nominal : -$t->nominal)
+    //             : ($t->is_speend == 1 ? $t->nominal : -$t->nominal);
+    //         $total += $signed;
 
-            return [
-                'date' => $t->date_transaction,
-                'nominal' => (float) $signed,
-                'reference' => $t->invoice_number ?? $t->bill_reference ?? $t->bank_reference,
-                'description' => $t->invoice_desc ?? $t->bill_desc ?? $t->bank_desc,
-                'source' => $t->source,
-            ];
-        })->values();
+    //         return [
+    //             'date' => $t->date_transaction,
+    //             'nominal' => (float) $signed,
+    //             'reference' => $t->invoice_number ?? $t->bill_reference ?? $t->bank_reference,
+    //             'description' => $t->invoice_desc ?? $t->bill_desc ?? $t->bank_desc,
+    //             'source' => $t->source,
+    //         ];
+    //     })->values();
 
-        return $this->autoResponse([
-            'coa' => ['id' => $coa->id, 'name' => $coa->name, 'account_type' => $coa->account_type],
-            'period' => ['date_start' => $date_start, 'date_end' => $date_end],
-            'transactions' => $items,
-            'total' => (float) $total,
-        ]);
-    }
+    //     return $this->autoResponse([
+    //         'coa' => ['id' => $coa->id, 'name' => $coa->name, 'account_type' => $coa->account_type],
+    //         'period' => ['date_start' => $date_start, 'date_end' => $date_end],
+    //         'transactions' => $items,
+    //         'total' => (float) $total,
+    //     ]);
+    // }
 
     public function getHome(Request $request)
     {
