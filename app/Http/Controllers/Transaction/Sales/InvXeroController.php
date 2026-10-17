@@ -187,6 +187,50 @@ class InvXeroController extends Controller
         );
     }
 
+    public function deletedInvoice(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer|exists:invoices_all_from_xeros,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+
+        $invParent = $this->repo->whereData(['id' => $request->id])->first();
+        DB::beginTransaction();
+        try {
+            $get_id_bank = $this->repo_trans_bank->whereData(['id_parent_invoice', $request->id])->get();//transaksi bank mengembalikan id bank
+            $this->repo_fee_over->whereData(['invoice_id' => $request->id])->delete();
+            foreach ($get_id_bank as $key => $value) {
+                $cek_sum_bank = $this->repo_bank_summary->whereData(['bank_id' => $value->uuid_bank])->first();
+                if ($cek_sum_bank) {
+                    $cek_sum_bank->final_nominal = $cek_sum_bank->final_nominal - $value->nominal_receive;
+                    $cek_sum_bank->nominal_in = $cek_sum_bank->nominal_in - $value->nominal_in;//nominal in di kembalikan
+                    $cek_sum_bank->save();
+                }
+            }
+            $this->repo_over->whereData(['invoice_id' => $request->id])->delete();
+            $get_detail_inv = $this->repo_all_trans->whereData(['invoice_id' => $request->id])->get();
+            foreach ($get_detail_inv as $key => $value) {
+                $find_coa = $this->repo_all_trans->whereData(['uuid_detail' => $value->line_item_uuid])->first();
+                if ($find_coa) {
+                    $find_coa->delete();
+                }
+            }
+            $this->repo_detail->whereData(['invoice_number' => $invParent->invoice_number])->delete();
+            $hapus_P = $this->repo->whereData(['id' => $request->id])->delete();
+            DB::commit();
+            return $this->autoResponse($hapus_P);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error(
+                $th->getMessage() . ' at line ' . $th->getLine(),
+                422
+            );
+        }
+    }
+
     public function duplicateParent(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -213,7 +257,8 @@ class InvXeroController extends Controller
             */
             $src = $this->repo->whereData(['id' => $request->id])->first();
             if (!$src) {
-                throw new \RuntimeException('Invoice sumber tidak ditemukan.');
+                return $this->error('Invoice sumber tidak ditemukan.', 500);
+                //throw new \RuntimeException('Invoice sumber tidak ditemukan.');
             }
 
             $srcDetails = $this->repo_detail
@@ -309,20 +354,20 @@ class InvXeroController extends Controller
                 $sumD += $totalRow;
 
                 // Jurnal hanya untuk baris yang punya item & status bukan DRAFT
-                //if ($request->action_save != 0 && !empty($d->item_id)) {
-                $this->repo_all_trans->CreateOrUpdate([
-                    'date_transaction' => $request->issue_date,
-                    'uuid_coa' => $d->coa_id,
-                    'reference' => $newParent->reference,
-                    'is_speend' => false,
-                    'nominal' => $totalRow,
-                    'created_by' => $request->user_login->id,
-                    'uuid_detail' => $uuidNew,
-                    'code_curr' => $currency,
-                    'nominal_currency' => $nominalCurrency,
-                    'base_nominal' => round($totalRow * $nominalCurrency, 2),
-                ], null);
-                //}
+                if ($status != 'DRAFT' && !empty($d->item_id)) {
+                    $this->repo_all_trans->CreateOrUpdate([
+                        'date_transaction' => $request->issue_date,
+                        'uuid_coa' => $d->coa_id,
+                        'reference' => $newParent->reference,
+                        'is_speend' => false,
+                        'nominal' => $totalRow,
+                        'created_by' => $request->user_login->id,
+                        'uuid_detail' => $uuidNew,
+                        'code_curr' => $currency,
+                        'nominal_currency' => $nominalCurrency,
+                        'base_nominal' => round($totalRow * $nominalCurrency, 2),
+                    ], null);
+                }
             }
 
             /*

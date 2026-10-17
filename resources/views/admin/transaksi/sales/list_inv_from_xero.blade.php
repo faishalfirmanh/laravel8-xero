@@ -3864,6 +3864,7 @@ function setRowRequiredState($row, isRequired) {
 
         const $btn = $('#btnSubmitContactDuplicate').prop('disabled', true);
 
+       
         try {
             const res = await ajaxRequest("{{ route('duplicate-save-sales-inv') }}", 'POST', {
                 id                  : sourceId,

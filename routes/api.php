@@ -281,7 +281,9 @@ Route::prefix("admin-web")->group(function () {
                     Route::get('list', [InvXeroController::class, 'getAllPaginate'])->name('list-inv-xero-local');
                     //Route::get('list', [BillXeroController::class, 'getAllPaginate'])->name('sales-inv');
                     Route::post('saveP', [InvXeroController::class, 'storeParent'])->middleware('reclock:invoice')->name('save-sales-inv');
+                    //saat duplicate tidak ikut tercreate trans_coa,->edit duplicate approve ->tercreate
                     Route::post('savePDuplicate', [InvXeroController::class, 'duplicateParent'])->middleware('reclock:invoice')->name('duplicate-save-sales-inv');
+                    Route::post('deleteInv', [InvXeroController::class, 'deletedInvoice'])->name('delete-p-inv-trans');
                     //***payment***
                     Route::post('pay_inv', [InvXeroController::class, 'storePayment'])->name('save-pay-sales-inv');
                     Route::post('edit_pay_inv', [InvXeroController::class, 'EditStorePayment'])->name('update-pay-sales-inv');
@@ -312,7 +314,7 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('getByIdCoa', [CoaController::class, 'getListTransByCoaId'])->name('rep-detail-coa');
             });
             Route::prefix('profit-and-loss')->group(function () {
-                Route::get('index', [ProfitLossController::class, 'getHome'])->name('profit-and-loss');
+                Route::get('index', [ProfitLossController::class, 'getHome'])->name('profit-and-loss');//yang invoice statusnya tidak draft(yg tampil authorized dan paid)
                 Route::get('detail-profit-and-loss/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailData'])
                     ->name('api-profit-loss-detail');
             });
