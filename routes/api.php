@@ -100,7 +100,7 @@ Route::post('save-jamaah-alhidglobal', [DataApiJamaahController::class, 'storeGl
 Route::get('ubah-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountCodes']);//
 Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyBankAccountNumbers']);
 
-
+Route::post('deleteInv', [InvXeroController::class, 'deletedInvoice'])->name('delete-trans');
 Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
 
 

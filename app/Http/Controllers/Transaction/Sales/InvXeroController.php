@@ -9,7 +9,9 @@ use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
+use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\MasterData\MasterCurrency;
+use App\Models\Transaction\TransactionAllCoa;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use Cache;
 use Illuminate\Http\Request;
@@ -197,33 +199,72 @@ class InvXeroController extends Controller
             return $this->error($validator->errors(), 422);
         }
 
-        $invParent = $this->repo->whereData(['id' => $request->id])->first();
         DB::beginTransaction();
         try {
-            $get_id_bank = $this->repo_trans_bank->whereData(['id_parent_invoice', $request->id])->get();//transaksi bank mengembalikan id bank
-            $this->repo_fee_over->whereData(['invoice_id' => $request->id])->delete();
-            foreach ($get_id_bank as $key => $value) {
-                $cek_sum_bank = $this->repo_bank_summary->whereData(['bank_id' => $value->uuid_bank])->first();
-                if ($cek_sum_bank) {
-                    $cek_sum_bank->final_nominal = $cek_sum_bank->final_nominal - $value->nominal_receive;
-                    $cek_sum_bank->nominal_in = $cek_sum_bank->nominal_in - $value->nominal_in;//nominal in di kembalikan
-                    $cek_sum_bank->save();
-                }
+            $invParent = $this->repo->whereData(['id' => $request->id])->lockForUpdate()->first();
+            if (!$invParent) {
+                throw new \RuntimeException('Invoice tidak ditemukan.');
             }
-            $this->repo_over->whereData(['invoice_id' => $request->id])->delete();
-            $get_detail_inv = $this->repo_all_trans->whereData(['invoice_id' => $request->id])->get();
-            foreach ($get_detail_inv as $key => $value) {
-                $find_coa = $this->repo_all_trans->whereData(['uuid_detail' => $value->line_item_uuid])->first();
-                if ($find_coa) {
-                    $find_coa->delete();
-                }
+
+            // 1. Kumpulkan data sebelum ada yang dihapus
+            $detailUuids = ItemDetailInvoices::where('parent_inv_id', $invParent->id)
+                ->pluck('uuid_detail_inv')
+                ->filter()
+                ->values()
+                ->all();
+
+            $fees = $this->repo_fee_over->whereData(['invoice_id' => $invParent->id])->get();
+
+            $feeUuids = $fees->pluck('uuid_details_feeoverpay')->filter()->values()->all();
+
+            $affectedBanks = TransactionNominalBankAccount::where('id_parent_invoice', $invParent->id)
+                ->pluck('uuid_bank')
+                ->merge($fees->pluck('bank_id_origin'))
+                ->filter()
+                ->map(fn($v) => (int) $v)
+                ->unique()
+                ->values()
+                ->all();
+
+            // 6. Hitung ulang saldo bank yang terdampak
+            foreach ($affectedBanks as $bankId) {
+                $this->recallDeleteSummary($bankId, $request->id);
             }
-            $this->repo_detail->whereData(['invoice_number' => $invParent->invoice_number])->delete();
-            $hapus_P = $this->repo->whereData(['id' => $request->id])->delete();
+            // 2. Hapus jurnal (detail invoice + fee overpay)
+            $allUuids = array_values(array_unique(array_merge($detailUuids, $feeUuids)));
+            if (!empty($allUuids)) {
+                TransactionAllCoa::whereIn('uuid_detail', $allUuids)->delete();
+            }
+
+            // 3. Hapus pembayaran bank (termasuk baris fee yang terkait invoice)
+            TransactionNominalBankAccount::where('id_parent_invoice', $invParent->id)->delete();
+
+            $feeIds = $fees->pluck('id')->filter()->values()->all();
+            if (!empty($feeIds)) {
+                TransactionNominalBankAccount::whereIn('id_fee_overpay', $feeIds)->delete();
+            }
+
+            // 4. Hapus fee overpay, overpay, detail, dan header
+            $this->repo_fee_over->whereData(['invoice_id' => $invParent->id])->delete();
+            $this->repo_over->whereData(['invoice_id' => $invParent->id])->delete();
+            ItemDetailInvoices::where('parent_inv_id', $invParent->id)->delete();
+            $invParent->delete();
+
+            // 5. Lepas lock record
+            DB::table('record_locks')
+                ->where('lockable_type', 'invoice')
+                ->where('lockable_id', $request->id)
+                ->delete();
+
+
+
             DB::commit();
-            return $this->autoResponse($hapus_P);
+
+            return $this->success(null, 'Invoice berhasil dihapus');
+
         } catch (\Throwable $th) {
             DB::rollBack();
+
             return $this->error(
                 $th->getMessage() . ' at line ' . $th->getLine(),
                 422
@@ -1804,6 +1845,25 @@ class InvXeroController extends Controller
         ]);
     }
 
+    private function recallDeleteSummary(int $bankId, $inv_id)
+    {
+        $receive = $this->repo_trans_bank->sumDataWhereDinamis(
+            ['uuid_bank' => $bankId, 'id_parent_invoice' => $inv_id],
+            'total_base_receive'
+        );
+        $spend = $this->repo_trans_bank->sumDataWhereDinamis(
+            ['uuid_bank' => $bankId, 'id_parent_invoice' => $inv_id],
+            'total_base_spend'
+        );
+
+        $oldIn = $this->repo_bank_summary->whereData(['bank_id' => $bankId])->first();
+        $this->repo_bank_summary->updateCreate([
+            'bank_id' => $bankId,
+            'nominal_in' => $oldIn->nominal_in - $receive,
+            'nominal_out' => $oldIn->nominal_out - $spend,
+            'final_nominal' => $oldIn->final_nominal - ($receive - $spend),
+        ]);
+    }
     private function _recalcBankSummary(int $bankId): void
     {
         $receive = $this->repo_trans_bank->sumDataWhereDinamis(
@@ -1821,11 +1881,12 @@ class InvXeroController extends Controller
         // var_dump($receive);
         // echo "<br>";
         // dd($spend);
+        $oldTrans = $this->repo_bank_summary->whereData(['bank_id' => $bankId])->first();
         $this->repo_bank_summary->updateCreate([
             'bank_id' => $bankId,
             'nominal_in' => $receive,
             'nominal_out' => $spend,
-            'final_nominal' => $receive - $spend,
+            'final_nominal' => $oldTrans->final_nominal - ($receive - $spend),// $receive - $spend
         ]);
     }
 
