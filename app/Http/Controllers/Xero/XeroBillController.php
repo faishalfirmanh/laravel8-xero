@@ -242,10 +242,11 @@ class XeroBillController extends Controller
 
     public function fetchBillDetail(string $billUuid)
     {
-        $tokenData = $this->getValidToken();
-        $accessToken = $tokenData['access_token'];
-        $tenantId = $this->getTenantId($accessToken);
         try {
+            $tokenData = $this->getValidToken();
+            $accessToken = $tokenData['access_token'];
+            $tenantId = $this->getTenantId($accessToken);
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $accessToken,
                 'Xero-Tenant-Id' => $tenantId,
@@ -259,23 +260,70 @@ class XeroBillController extends Controller
                     ]
                 );
 
-            if (!$response->successful() && $response->status() !== 429) {
+            // Tangani rate limit Xero
+            if ($response->status() === 429) {
+                Log::warning(
+                    "[SyncBillJob] Rate limit Xero saat fetch bill {$billUuid}"
+                );
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Batas request API Xero tercapai. Silakan coba lagi.',
+                ], 429);
+            }
+
+            // Tangani error HTTP lainnya
+            if (!$response->successful()) {
                 Log::error(
                     "[SyncBillJob] Fetch bill detail {$billUuid} gagal " .
                     "[{$response->status()}]: " .
                     substr($response->body(), 0, 500)
                 );
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mengambil detail bill dari Xero.',
+                    'status' => $response->status(),
+                    'error' => $response->json() ?: $response->body(),
+                ], $response->status());
             }
 
-            return response()->json(['data' => $response]);
+            // Ambil data JSON dari response Xero
+            $result = $response->json();
 
-        } catch (\Exception $e) {
+            $bill = $result['Invoices'][0] ?? null;
+
+            if (!$bill) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bill tidak ditemukan di Xero.',
+                ], 404);
+            }
+
+            // Pastikan transaksi memang bill (Accounts Payable)
+            if (($bill['Type'] ?? null) !== 'ACCPAY') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data ditemukan, tetapi bukan bill pemasok.',
+                    'type' => $bill['Type'] ?? null,
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $bill,
+            ]);
+
+        } catch (\Throwable $e) {
             Log::error(
                 "[SyncBillJob] Exception fetch bill detail {$billUuid}: " .
                 $e->getMessage()
             );
 
-            return null;
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil detail bill.',
+            ], 500);
         }
     }
 

@@ -419,6 +419,34 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         return round(1 / $rate, 4);
     }
 
+    public function createDataJamaah(?array $contact): ?int
+    {
+        $contactId = $contact['ContactID'] ?? null;
+
+        if (!$contactId) {
+            return null;
+        }
+
+        $phones = $contact['Phones'] ?? [];
+        $mobile = collect($phones)->firstWhere('PhoneType', 'MOBILE');
+        $phone = $mobile['PhoneNumber'] ?? ($phones[0]['PhoneNumber'] ?? null);
+
+        $addresses = $contact['Addresses'] ?? [];
+        $street = collect($addresses)->firstWhere('AddressType', 'STREET');
+        $address = $street['AddressLine1'] ?? ($addresses[0]['AddressLine1'] ?? null);
+
+        $saved = DataJamaahXero::firstOrCreate([
+            'uuid_contact'
+        ], [
+            'uuid_contact' => $contactId,
+            'full_name' => $contact['Name'] ?? null,
+            'phone_number' => $phone,
+            'detail_address' => $address,
+        ]);
+
+        return (int) $saved->id;
+    }
+
     private function syncBill(array $inv, array $paymentDetails, ?string $updatedByName = null): void
     {
         $lineItems = $inv['LineItems'] ?? [];
@@ -427,8 +455,10 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $contactId = data_get($inv, 'Contact.ContactID');
         $currencyCode = $inv['CurrencyCode'] ?? 'IDR';
 
-        $fromId = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? 1;
-
+        //$fromId = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? $this->createDataJamaah(data_get($inv, 'Contact'));
+        $fromId = DataJamaahXero::where('uuid_contact', $contactId)->value('id')
+            ?? $this->createDataJamaah($inv['Contact'] ?? null)
+            ?? 1;
         if (
             !PBill::where('bills_uuid_xero', $inv['InvoiceID'])->exists()
             && !empty($inv['InvoiceNumber'])
@@ -453,7 +483,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $existingName = PBill::where('bills_uuid_xero', $inv['InvoiceID'])
             ->value('created_by_name');
         $userName = $updatedByName ?: $existingName;
-  $fx = $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0));
+        $fx = $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0));
 
         PBill::upsert(
             [
