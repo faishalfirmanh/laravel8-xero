@@ -614,6 +614,7 @@ class InvXeroController extends Controller
                 'contact_name' => $getContact->full_name ?? $getContact->nama_jamaah,
                 'uuid_contact' => 'from_local',
                 'status' => $status,
+                'created_by_name' => 'web-' . $request->user_login->name,
                 'reference' => strtolower(trim($request->reference)),
                 'code_curr' => $currency,
                 'created_by' => $request->user_login->id,

@@ -826,6 +826,7 @@ class BillXeroController extends Controller
             'reference' => 'required|string',
             'currency' => 'required|string',
             'account_id' => 'required|array|min:1',
+            'account_id.*' => 'required',
             'action_save' => 'required|integer|between:0,2',
 
             'item_code' => 'nullable|array',
@@ -838,8 +839,10 @@ class BillXeroController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->error($validator->errors());
+            return $this->error($validator->errors(), 500);
         }
+
+
 
         $isUpdate = !empty($request->id);
         $oldParent = $isUpdate ? $this->repo->whereData(['id' => $request->id])->first() : null;
@@ -855,7 +858,8 @@ class BillXeroController extends Controller
             'status' => $request->action_save, // 0->draft, 1/2->approve
             'reference' => strtolower($request->reference),
             'nominal_currency' => $cek_nominal_currency,
-            'created_by' => $request->user_login->id
+            'created_by' => $request->user_login->id,
+            'created_by_name' => 'web-' . $request->user_login->name,
         ]);
         if (!$request->id) {
             $request->merge([
