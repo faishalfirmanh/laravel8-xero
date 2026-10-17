@@ -1074,8 +1074,16 @@
                                 <td id="summaryTax">0.00</td>
                             </tr>
                             <tr class="row-total">
-                                <td>Total</td>
+                                <td>Total Tagihan</td>
                                 <td id="summaryTotal">Rp 0</td>
+                            </tr>
+                            <tr class="">
+                                <td>Total Dibayarkan</td>
+                                <td id="summaryTotalPayment">Rp 0</td>
+                            </tr>
+                             <tr class="row-total">
+                                <td>Sisa Kekurangan</td>
+                                <td id="summaryRemainder">Rp 0</td>
                             </tr>
                         </table>
                     </div>
@@ -2979,6 +2987,8 @@ function setRowSelect2Value($row, selector, id, text) {
                 setSelect2Value('#id_jamaah_alhid', d.id_jamaah_alhid, contactText);
             }
 
+            $("#summaryTotalPayment").text(d.code_curr == 'IDR' ?  formatNumber(d.invoice_amount) : '–');
+            $("#summaryRemainder").text(d.code_curr == 'IDR' ?  formatNumber(d.less_nominal) : '–');
             // ── 3. Detail rows ───────────────────────────────
             // Bersihkan dulu (destroy select2 dalam baris lama)
             destroyRowSelect2();
