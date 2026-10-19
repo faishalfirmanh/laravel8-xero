@@ -684,11 +684,11 @@ class BillXeroController extends Controller
                 ['uuid_bank' => $request->uuid_bank],
                 'nominal_spend'
             );
+            $exsistingBank = $this->repo_bank_summary->whereData(['bank_id' => $request->uuid_bank])->first();
             $save_nom_bank = [
                 'bank_id' => $request->uuid_bank,
-                'nominal_in' => $receive,
-                'nominal_out' => $spend,
-                'final_nominal' => $receive - $spend,
+                'nominal_out' => $exsistingBank->nominal_out + $request->nominal_spend,
+                'final_nominal' => $exsistingBank->final_nominal - $request->nominal_spend,
             ];
             $this->repo_bank_summary->updateCreate($save_nom_bank);
 
@@ -813,6 +813,145 @@ class BillXeroController extends Controller
         $rateSAR = floatval($rates['SAR']);
         $result = ($amountSar / $rateSAR) * $rateIDR;
         return round($result, 2);
+    }
+
+
+    public function deletedBill(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer|exists:p_bills,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $bill = $this->repo->whereData(['id' => $request->id])->lockForUpdate()->first();
+
+            if (!$bill) {
+                return $this->error('Bill tidak ditemukan.', 404);
+            }
+            /*
+            |--------------------------------------------------------------------------
+            | 1. Kumpulkan data sebelum ada yang dihapus
+            |--------------------------------------------------------------------------
+            */
+
+            // UUID jurnal dari detail bill (d_bills.uuid_detail = transaction_all_coas.uuid_detail)
+            $detailUuids = $this->repo_detail
+                ->whereData(['bills_parent_id' => $bill->id])
+                ->pluck('uuid_detail')
+                ->filter()
+                ->values()
+                ->all();
+
+            // Semua pembayaran bill (uang keluar) di transaction_nominal_bank_accounts
+            $payments = $this->repo_trans_bill
+                ->whereData(['id_parent_bill' => $bill->id])
+                ->get();
+
+            // Akumulasi nominal per bank, untuk dikurangkan ke summary
+            $bankChanges = [];
+            foreach ($payments as $p) {
+                $bankId = (int) $p->uuid_bank;
+
+                if (!isset($bankChanges[$bankId])) {
+                    $bankChanges[$bankId] = ['receive' => 0.0, 'spend' => 0.0];
+                }
+
+                $bankChanges[$bankId]['receive'] += (float) $p->nominal_receive;
+                $bankChanges[$bankId]['spend'] += (float) $p->nominal_spend;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 2. Hapus jurnal (transaction_all_coas)
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($detailUuids)) {
+                $this->repo_all_trans
+                    ->wherenDataIn('uuid_detail', $detailUuids)
+                    ->delete();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3. Hapus semua transaksi bank milik bill ini
+            |--------------------------------------------------------------------------
+            */
+
+            $this->repo_trans_bill
+                ->whereData(['id_parent_bill' => $bill->id])
+                ->delete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | 4. Update summary bank: nominal_in, nominal_out, final_nominal
+            |--------------------------------------------------------------------------
+            | Nominal pembayaran dikurangkan dari summary, bukan dihitung ulang.
+            | final_nominal = nominal_in - nominal_out.
+            */
+
+            foreach ($bankChanges as $bankId => $chg) {
+                $summary = $this->repo_bank_summary
+                    ->whereData(['bank_id' => $bankId])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$summary) {
+                    continue;
+                }
+
+                $nominalIn = (float) $summary->nominal_in - $chg['receive'];
+                $nominalOut = (float) $summary->nominal_out - $chg['spend'];
+
+                $this->repo_bank_summary->CreateOrUpdate([
+                    'nominal_in' => $nominalIn,
+                    'nominal_out' => $nominalOut,
+                    'final_nominal' => $summary->final_nominal < 0 ? $summary->final_nominal + $nominalOut : $summary->final_nominal - $nominalOut,
+                ], $summary->id);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 5. Hapus detail dan header bill
+            |--------------------------------------------------------------------------
+            */
+
+            $this->repo_detail
+                ->whereData(['bills_parent_id' => $bill->id])
+                ->delete();
+
+            $this->repo
+                ->whereData(['id' => $bill->id])
+                ->delete();
+
+            /*
+            |--------------------------------------------------------------------------
+            | 6. Lepas lock record
+            |--------------------------------------------------------------------------
+            */
+
+            DB::table('record_locks')
+                ->where('lockable_type', 'bill')
+                ->where('lockable_id', $bill->id)
+                ->delete();
+
+            DB::commit();
+
+            return $this->success(null, 'Bill berhasil dihapus');
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+
+            return $this->error(
+                $th->getMessage() . ' at line ' . $th->getLine(),
+                422
+            );
+        }
     }
 
     //belm suppor mutly currency,/repo_trans_bill

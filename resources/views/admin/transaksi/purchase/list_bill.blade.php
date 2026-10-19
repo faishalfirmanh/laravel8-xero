@@ -510,11 +510,57 @@ $(document).ready(function() {
             searchable: false,
             className: "text-center",
             render: function(data, type, row) {
-                return `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
+            let delete_bills = `<a style="margin-left:5px;" href="javascript:;" 
+                            data-id="${data}" 
+                            onclick="dellBill('${data}')"
+                            class="text-danger" 
+                            title="hapus bills">
+                            <i class="ti ti-trash"></i>
+                        </a>`
+                return `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a> &nbsp ${delete_bills}`;
             },
         }
     ];
 
+   
+window.dellBill = function(id) {
+    Swal.fire({
+        title: 'Apakah Anda yakin?',
+        text: 'Data Bills ini akan dihapus. Tindakan ini mungkin tidak dapat dibatalkan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            ajaxRequest(
+                `{{ route('delete-p-bills') }}`,
+                'POST',
+                { id: id },
+                localStorage.getItem('token')
+            )
+            .then(response => {
+                if (response.status == 200) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: 'Bills berhasil dihapus.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                    table.ajax.reload();
+                }
+            })
+            .catch(err => {
+                cathError(err);
+            });
+        }
+    });
+};
 
     let myDropzone;
     let isClearingDropzone = false;

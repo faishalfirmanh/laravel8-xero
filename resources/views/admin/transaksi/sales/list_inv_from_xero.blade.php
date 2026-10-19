@@ -2694,6 +2694,20 @@ let payFormMode = 'new'; // 'new' | 'edit'
             className: "text-center",
             render: function(data, type, row) {
                 let uuid_nya = row.invoice_uuid;
+                let print_Inv = `<a style="margin-left:5px;" href="javascript:;" 
+                                    data-id="${uuid_nya}" 
+                                    onclick="printInvoice('${uuid_nya}')"
+                                    class="text-success show-invoice-modal" 
+                                    title="invoice">
+                                    <i class="ti ti-clipboard"></i>
+                                </a>`
+                let delete_inv = `<a style="margin-left:5px;" href="javascript:;" 
+                                    data-id="${uuid_nya}" 
+                                    onclick="hapusInvoice('${data}')"
+                                    class="text-danger show-invoice-modal" 
+                                    title="hapus invoice">
+                                    <i class="ti ti-trash"></i>
+                                </a>`
                 return `
                     <a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2" title="Edit Invoice"><i class="ti ti-pencil"></i></a>
                     <a href="javascript:;" data-id="${data}" class="text-success show-payment-modal mr-2" title="Payment History"><i class="ti ti-credit-card"></i></a>
@@ -2704,13 +2718,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
                         title="preview invoice">
                         <i class="ti ti-eye"></i>
                     </a>
-                    <a style="margin-left:5px;" href="javascript:;" 
-                        data-id="${uuid_nya}" 
-                        onclick="printInvoice('${uuid_nya}')"
-                        class="text-success show-invoice-modal" 
-                        title="invoice">
-                        <i class="ti ti-clipboard"></i>
-                    </a>
+                   ${delete_inv}
                     `
                 ;
             },
@@ -2723,6 +2731,46 @@ let payFormMode = 'new'; // 'new' | 'edit'
         const [y, m, d] = date.split('-');
         return `${d}/${m}/${y}`;
     }
+
+    
+function hapusInvoice(id) {
+    Swal.fire({
+        title: 'Apakah Anda yakin?',
+        text: 'Data invoice ini akan dihapus. Tindakan ini mungkin tidak dapat dibatalkan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            ajaxRequest(
+                `{{ route('delete-p-inv-trans') }}`,
+                'POST',
+                { id: id },
+                localStorage.getItem("token")
+            )
+            .then(response => {
+                if (response.status == 200) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: 'Invoice berhasil dihapus.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                    table.ajax.reload();
+                }
+            })
+            .catch((err) => {
+                cathError(err);
+            });
+        }
+    });
+}
 
     // ── Preview Invoice → buka di modal (iframe) ────────────────────────────
     function privewiInvoice(uuid) {
