@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MasterData\BrandingThemeController;
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\MasterData\JamaahAlhidController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
@@ -88,7 +89,7 @@ Route::middleware(['auth:sanctum', 'xss'])->post('/me', [AuthController::class, 
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 //local contact-cron-job contact
-
+Route::get('branding-theme/travel/{id}', [BrandingThemeController::class, 'travelLogo'])->name('get-img-travel');
 Route::post('/extract-text', [ImageController::class, 'extractText']);
 
 
@@ -332,6 +333,15 @@ Route::prefix("admin-web")->group(function () {
             Route::get('detail-item', [ProducAndServiceXeroLocalController::class, 'detail'])->name('item-detail-xero');
         });
 
+        Route::prefix('branding')->group(function () {
+            Route::get('/', [BrandingThemeController::class, 'index'])->name('branding-theme');
+            Route::get('list', [BrandingThemeController::class, 'list'])->name('branding-theme-list');
+            Route::get('travel/{id}', [BrandingThemeController::class, 'travelLogo'])->where('id', '[0-9]+')->name('branding-theme-travel-logo');
+            Route::get('{id}', [BrandingThemeController::class, 'show'])->where('id', '[0-9]+')->name('branding-theme-show');
+            Route::post('store', [BrandingThemeController::class, 'store'])->name('branding-theme-store');
+            Route::post('update/{id}', [BrandingThemeController::class, 'update'])->where('id', '[0-9]+')->name('branding-theme-update');
+            Route::post('delete', [BrandingThemeController::class, 'destroy'])->name('branding-theme-delete');
+        });
 
         Route::prefix('bank-xero')->group(function () {
             Route::get('list-bank', [BankXeroController::class, 'getAllPaginate'])->name('bank-list');

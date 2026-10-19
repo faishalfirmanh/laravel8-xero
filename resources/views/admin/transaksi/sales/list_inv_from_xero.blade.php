@@ -985,11 +985,20 @@
                                 <option value="2">Tax Inclusive</option>
                             </select> --}}
                             <label>Nama Trevel  <span class="text-danger">*</span></label>
-                            <select class="form-control" name="travel_id" id="travel_id" required>
+                            <select class="form-control" name="travel_id" id="travel_id">
                                     <option value="" selected>Pilih Travel</option>
                                @foreach ($travel as $item)
                                     <option value="{{ $item->id }}">{{ $item->name }}</option>
                                @endforeach
+                            </select>
+                        </div>
+                        <div class="xero-field">
+                            <label>Branding Theme</label>
+                            <select class="form-control" name="branding_theme_id" id="branding_theme_id">
+                                <option value="">Default</option>
+                                @foreach ($branding as $theme)
+                                    <option value="{{ $theme->id }}">{{ $theme->name }}</option>
+                                @endforeach
                             </select>
                         </div>
                     </div>
@@ -3022,6 +3031,7 @@ function setRowSelect2Value($row, selector, id, text) {
             $('#invoiceStatusBadge').text(d.status);
             $("#va_number").val(d.va_number || '')
             $("#currency_selected").val(d.code_curr).trigger('change')
+            $("#branding_theme_id").val(d.branding_theme_id ).trigger('change')
             if( d.travel_id)
               $("#travel_id").val(d.travel_id).trigger('change')
 
@@ -3934,6 +3944,7 @@ function setRowRequiredState($row, isRequired) {
                 due_date            : $('#due_date').val(),
                 travel_id           : $('#travel_id').val(),
                 va_number           : $('#va_number').val(),
+                branding_theme_id : $("#branding_theme_id").val(),
                 action_save         : 1,
             }, localStorage.getItem('token'));
 
@@ -4095,6 +4106,7 @@ function setRowRequiredState($row, isRequired) {
                 divisi_travel_tracking_uuid: getVals('select[name="divisi_travel_tracking_uuid[]"]'),
                 id_detail: getVals('input[name="id_detail[]"]'),
                 sort_order: getVals('input[name="sort_order[]"]'),
+                branding_theme_id : $("#branding_theme_id").val(),
             };
 
             if (contactId) {

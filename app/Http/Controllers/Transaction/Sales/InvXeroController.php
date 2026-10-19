@@ -9,6 +9,7 @@ use App\Http\Repository\Transaction\OverPayRepo;
 use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
+use App\Models\MasterData\BrandingThemes;
 use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\MasterData\MasterCurrency;
 use App\Models\Transaction\TransactionAllCoa;
@@ -474,7 +475,7 @@ class InvXeroController extends Controller
             'reference' => 'required|string',
             'va_number' => 'nullable|integer',
             'action_save' => 'required|integer|between:0,2',
-
+            'branding_theme_id' => 'required|integer|exists:branding_themes,id',
             'invoice_number' => [
                 'required',
                 'string',
@@ -493,7 +494,7 @@ class InvXeroController extends Controller
             'divisi_travel_tracking_uuid' => 'nullable|array',
             'id_detail' => 'nullable|array',
             'sort_order' => 'nullable|array',
-            'travel_id' => 'required|integer|exists:travel_names,id'
+            //'travel_id' => 'nullable|integer|exists:travel_names,id'
         ]);
 
         // var_dump($request->contact_id);
@@ -657,6 +658,7 @@ class InvXeroController extends Controller
                 ? ['contact_id' => $request->contact_id]
                 : ['id_jamaah_alhid' => $request->id_jamaah_alhid];
 
+            $find_travelBrand = BrandingThemes::find($request->branding_theme_id);
             $mergeData = [
                 'contact_name' => $getContact->full_name ?? $getContact->nama_jamaah,
                 'uuid_contact' => 'from_local',
@@ -667,6 +669,8 @@ class InvXeroController extends Controller
                 'created_by' => $request->user_login->id,
                 // snapshot rate
                 'nominal_currency' => $nominalCurrency,
+                'travel_id' => $find_travelBrand->travel_id,
+                'branding_theme_id' => $request->branding_theme_id ?: BrandingThemes::defaultId(),
                 $cekIdContact//untuk kondisi conatc atau alhid
             ];
 

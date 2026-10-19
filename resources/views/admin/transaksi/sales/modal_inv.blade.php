@@ -86,7 +86,7 @@
             color: #1a1a1a;
         }
 
-        .amount-blue { color: #3d76f1; }
+        .amount-blue { color: {{ $brand['primary'] }}; }
 
         .section-heading {
             font-size: 11px;
@@ -108,7 +108,7 @@
 
         .totals-table .value {
             text-align: right;
-            color: #3d76f1;
+            color: {{ $brand['primary'] }};
             font-weight: bold;
             width: 130px;
         }
@@ -158,7 +158,7 @@
             z-index: 999;
         }
         .print-toolbar button {
-            background: #3d76f1;
+            background: {{ $brand['primary'] }};
             color: #fff;
             border: none;
             border-radius: 4px;
@@ -166,7 +166,6 @@
             font-size: 12px;
             cursor: pointer;
         }
-        .print-toolbar button:hover { background: #2c5fd1; }
 
         @media print {
             .print-toolbar { display: none !important; }
@@ -178,10 +177,9 @@
 <body>
 
     <div class="print-toolbar">
-        <button type="button" onclick="window.print()">
-            Print
-        </button>
+        <button type="button" onclick="window.print()">Print</button>
     </div>
+
     @php
         $fmt = function ($num) {
             if ($num === null || $num === '') return '';
@@ -199,21 +197,13 @@
             }
         };
 
-        $detailItems = $invoice->getDetailById ?? collect();
-        $payments    = $invoice->getPayment ?? collect();
-        $kembaliOverpay    = $invoice->getFeeOverpay ?? collect();
+        $detailItems    = $invoice->getDetailById ?? collect();
+        $payments       = $invoice->getPayment ?? collect();
+        $kembaliOverpay = $invoice->getFeeOverpay ?? collect();
 
         $subTotal   = $invoice->invoice_total;
-        $totalIDR   = $invoice->invoice_total ?? $invoice->total_payment_rupiah ?? $subTotal;
         $amountPaid = $invoice->invoice_amount;
         $amountDue  = $invoice->less_nominal;
-        if((int)$sum_fee_overpay > 0){
-             $tot_idr_final =$invoice->invoice_amount - $totalIDR  - $sum_fee_overpay;
-        }else{
-            $tot_idr_final =  $totalIDR;
-        }   
-      
-       
     @endphp
 
     <table class="header-table">
@@ -235,15 +225,19 @@
                 </table>
             </td>
             <td width="35%" class="text-right">
-                @php
-                    $img_path =  $invoice->getTravel ?  $invoice->getTravel->location_path_image : 'assets/img/nam_min.webp';
-                @endphp
-                {{-- ✅ pakai logoBase64, bukan public_path() --}}
-                <img src="{{ $logoBase64 }}" class="company-logo" />
+                @if (!empty($brand['logo']))
+                    <img src="{{ $brand['logo'] }}" class="company-logo" />
+                @endif
                 <div class="company-info">
-                     {{  $invoice->getTravel ? $invoice->getTravel->full_name : '-'  }}
-                   <br>
-                   {{  $invoice->getTravel ? $invoice->getTravel->address ? $invoice->getTravel->address : '-' : '-'  }}
+                    {{ $brand['company_name'] }}
+                    <br>
+                    {{ $brand['address'] }}
+                    @if (!empty($brand['phone']))
+                        <br>Telp: {{ $brand['phone'] }}
+                    @endif
+                    @if (!empty($brand['email']))
+                        <br>{{ $brand['email'] }}
+                    @endif
                 </div>
             </td>
         </tr>
@@ -293,11 +287,11 @@
         </thead>
         <tbody>
             @foreach($payments as $item_pay)
+                @php
+                    $cek_over  = $item_pay->nominal_receive > 0 ? $item_pay->nominal_receive : $item_pay->nominal_spend;
+                    $desc_over = $item_pay->nominal_spend > 0 ? '<b style="color: red">overpayment</b>&nbsp;' : '';
+                @endphp
                 <tr>
-                    @php
-                        $cek_over = $item_pay->nominal_receive > 0 ? $item_pay->nominal_receive : $item_pay->nominal_spend;
-                        $desc_over = $item_pay->nominal_spend > 0 ? '<b style="color: red">overpayment</b>&nbsp;' : '';
-                    @endphp
                     <td>{{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}</td>
                     <td>{!! $desc_over !!}{{ $item_pay->name_bank ?? '-' }}</td>
                     <td class="text-right amount-blue">{{ $fmt($cek_over) }}</td>
@@ -321,7 +315,6 @@
             <tbody>
                 @foreach($kembaliOverpay as $item_pay)
                     <tr>
-                      
                         <td>{{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}</td>
                         <td>{{ $item_pay->name_bank }}</td>
                         <td>{{ $item_pay->bank_tujuan_jamaah_rek }}</td>
@@ -343,11 +336,6 @@
             <td width="20%" class="label">Total Pembayaran</td>
             <td width="20%" class="value">{{ $fmt($amountPaid) }}</td>
         </tr>
-        {{-- <tr class="line-top">
-            <td></td>
-            <td class="label">TOTAL IDR</td>
-            <td class="value">{{ $fmt($tot_idr_final) }}</td>
-        </tr> --}}
         <tr>
             <td></td>
             <td class="label">Tagihan Belum dibayar</td>
@@ -360,17 +348,9 @@
                 <td class="value">{{ $fmt($invoice->getOverPay->nominal_overpayment) }}</td>
             </tr>
         @endif
-        {{-- @if (count($invoice->getFeeOverpay) >0)
-            <tr class="line-top">
-                <td></td>
-                <td class="label">Total Overpayment Dibayarkan</td>
-                <td class="value">{{ $fmt($sum_fee_overpay) }}</td>
-            </tr>
-        @endif --}}
     </table>
 
     <div style="margin-top:-30px;">
-        {{-- ✅ qrCode sudah base64 (dari generateQrBase64), bukan URL eksternal --}}
         <img src="{{ $qrCode }}" width="120" height="120" alt="QR Code">
         <div style="font-size: 10px; margin-top: 5px;">
             Scan untuk melihat invoice
@@ -381,34 +361,50 @@
         Jatuh Tempo: {{ $fmtDate($invoice->due_date ?? null) ?? '-' }}
     </div>
 
-    <div class="footer-section">
+   <div class="footer-section">
+        {{-- Rekening: dari tema jika ada, kalau tidak pakai teks lama --}}
         <div class="bank-list">
-            BCA 614-077-750-0 an. PT AN NAMIROH TRAVELINDO<br>
-            MANDIRI 142-001-628-348-2 an. PT AN NAMIROH TRAVELINDO<br>
-            MUAMALAT 704-001-354-1 an. AN NAMIROH TRAVELINDO PT<br>
-            BNI 70-888-00-889 an. AN NAMIROH TRAVELINDO PT<br>
-            BSI 706-901-888-7 an. AN NAMIROH TRAVELINDO PT<br>
-            BRI 0586-0100-0710-308 an. PT AN NAMRIOH TRAVELINDO
+            @if (!empty($brand['bank_accounts']))
+                @foreach ($brand['bank_accounts'] as $bankAccount)
+                    {{ $bankAccount }}<br>
+                @endforeach
+            @else
+                BCA 614-077-750-0 an. PT AN NAMIROH TRAVELINDO<br>
+                MANDIRI 142-001-628-348-2 an. PT AN NAMIROH TRAVELINDO<br>
+                MUAMALAT 704-001-354-1 an. AN NAMIROH TRAVELINDO PT<br>
+                BNI 70-888-00-889 an. AN NAMIROH TRAVELINDO PT<br>
+                BSI 706-901-888-7 an. AN NAMIROH TRAVELINDO PT<br>
+                BRI 0586-0100-0710-308 an. PT AN NAMRIOH TRAVELINDO
+            @endif
         </div>
 
+        {{-- Syarat --}}
         <div class="terms-box">
             <ol>
-                <li>Harga dapat berubah mengikuti kurs USD/SAR, biaya akomodasi, tiket, serta kebijakan pemerintah Indonesia dan Arab Saudi.</li>
-                <li>Pemesanan wajib memenuhi kuota kursi (full seat); jika tidak terpenuhi, harga akan disesuaikan dan dapat dikenakan penalti.</li>
-                <li>DP blok seat sebesar Rp3.000.000 per jamaah.</li>
-                <li>Deposit 50% dibayarkan H-45 sebelum keberangkatan.</li>
-                <li>Pelunasan paling lambat H-30 sebelum keberangkatan.</li>
+                @if (!empty($brand['terms']))
+                    @foreach ($brand['terms'] as $term)
+                        <li>{{ $term }}</li>
+                    @endforeach
+                @else
+                    <li>Harga dapat berubah mengikuti kurs USD/SAR, biaya akomodasi, tiket, serta kebijakan pemerintah Indonesia dan Arab Saudi.</li>
+                    <li>Pemesanan wajib memenuhi kuota kursi (full seat); jika tidak terpenuhi, harga akan disesuaikan dan dapat dikenakan penalti.</li>
+                    <li>DP blok seat sebesar Rp3.000.000 per jamaah.</li>
+                    <li>Deposit 50% dibayarkan H-45 sebelum keberangkatan.</li>
+                    <li>Pelunasan paling lambat H-30 sebelum keberangkatan.</li>
+                @endif
             </ol>
         </div>
 
         <div class="signature-box">
             Hormat kami,<br><br><br>
-            <strong>{{ $invoice->name_created_user ?? 'Nuril Hidayati' }}</strong><br>
-            Devisi keuangan
+            {{-- <strong>{{ $brand['signature_name'] }}</strong><br>
+            {{ $brand['signature_title'] }} --}}
+             <strong>{{ $invoice->name_created_user }}</strong> <br>
+             {{-- {{ $invoice->title[0] }} --}}
         </div>
 
         <div class="registered-office">
-            Registered Office: {{   $invoice->getTravel ? $invoice->getTravel->address ? $invoice->getTravel->address : '-' : '-'  }}
+            Registered Office: {{ $brand['address'] }}
         </div>
     </div>
 

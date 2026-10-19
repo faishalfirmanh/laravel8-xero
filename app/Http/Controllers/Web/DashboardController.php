@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\MasterData\BankXero;
+use App\Models\MasterData\BrandingThemes;
 use App\Models\MasterData\MasterCurrency;
 use Illuminate\Http\Request;
 use App\Models\MasterData\Menu;
@@ -80,6 +81,12 @@ class DashboardController extends Controller
         return view('admin.master.jamaah');
     }
 
+    public function branding()
+    {
+        $travels = TravelName::get();
+        return view('admin.master.branding_thames', compact('travels'));
+    }
+
     public function getHotelSalesList()
     {
         return view('admin.master.hotel_sales');
@@ -127,7 +134,8 @@ class DashboardController extends Controller
         $travel = TravelName::get();
         $bank = BankXero::get();
         $cur = MasterCurrency::where('is_active', 1)->get();
-        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank', 'idInvoice', 'cur'));
+        $branding = BrandingThemes::all();
+        return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank', 'idInvoice', 'cur', 'branding'));
     }
 
     public function warehouse()

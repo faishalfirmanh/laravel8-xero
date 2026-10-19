@@ -13,9 +13,11 @@ class AddColumKetOnmCurrency extends Migration
      */
     public function up()
     {
-        Schema::table('m_currency', function (Blueprint $table) {
-            $table->string('ket')->nullable();
-        });
+        if (!Schema::hasColumn('m_currency', 'ket')) {
+            Schema::table('m_currency', function (Blueprint $table) {
+                $table->string('ket')->nullable();
+            });
+        }
     }
 
     /**

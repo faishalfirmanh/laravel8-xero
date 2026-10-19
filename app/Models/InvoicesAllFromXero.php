@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\MasterData\BrandingThemes;
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\MasterData\TravelName;
@@ -47,16 +48,27 @@ class InvoicesAllFromXero extends Model
         'id_jamaah_alhid',//jamaah id dari server alhidayah
         'travel_id',
         'va_number',
-        'created_by_name'
+        'created_by_name',
+        'branding_theme_id'
     ];
 
     protected $appends = [
-        'name_created_user'
+        'name_created_user',
+        'title'
     ];
 
+    public function brandingTheme()
+    {
+        return $this->belongsTo(BrandingThemes::class, 'branding_theme_id');
+    }
     public function getNameCreatedUserAttribute()
     {
         return $this->getCreated->name ?? '';
+    }
+
+    public function getTitleAttribute()
+    {
+        return $this->getCreated->list_role ?? '';
     }
 
     public function getCreated()

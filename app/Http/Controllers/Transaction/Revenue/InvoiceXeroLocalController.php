@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
 use App\Http\Repository\MasterData\DataJamaahXeroRepository;
 use App\Http\Repository\Revenue\HotelDetailInvoicesRepository;
+use Illuminate\Support\Facades\Storage;
 use Log;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Str;
@@ -24,7 +25,7 @@ use Carbon\Carbon;
 use App\Models\PaymentParams;
 use Illuminate\Support\Facades\Http;
 use App\ConfigRefreshXero;
-
+use App\Models\MasterData\BrandingThemes;
 use Barryvdh\DomPDF\Facade\Pdf;
 class InvoiceXeroLocalController extends Controller
 {
@@ -253,6 +254,36 @@ class InvoiceXeroLocalController extends Controller
     }
 
     // ── Preview → tampil di iframe modal, bukan PDF ──────────────────────────
+    // public function previewInvoice(Request $request, $id)
+    // {
+    //     $invoice = InvoicesAllFromXero::with([
+    //         'getDetailById',
+    //         'getPayment',
+    //         'getDetailById.getItems',
+    //         'getOverPay',
+    //         'getTravel',
+    //         'getFeeOverpay'
+    //     ])->where('invoice_uuid', $id)->first();
+
+    //     abort_if(!$invoice, 404);
+
+    //     $path_img_dinamis = $invoice->getTravel ? $invoice->getTravel->location_path_image ? $invoice->getTravel->location_path_image : 'assets/img/nam_min.webp' : 'assets/img/nam_min.webp';
+
+    //     // $urlTujuan = route('salles_invoice_preview', ['id' => $invoice->invoice_uuid]);
+    //     $urlTujuan = "https://inv.alhidayah.id/" . $invoice->invoice_uuid;
+
+    //     $data = [
+    //         'invoice' => $invoice,
+    //         'title' => 'Invoice #' . $invoice->invoice_number,
+    //         'date' => date('d-m-Y'),
+    //         'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview', $path_img_dinamis),
+    //         'logoBase64' => $this->getLogoBase64($path_img_dinamis),
+    //         'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal')
+    //     ];
+
+    //     return view('admin.transaksi.sales.modal_inv', $data);
+    // }
+
     public function previewInvoice(Request $request, $id)
     {
         $invoice = InvoicesAllFromXero::with([
@@ -261,26 +292,110 @@ class InvoiceXeroLocalController extends Controller
             'getDetailById.getItems',
             'getOverPay',
             'getTravel',
-            'getFeeOverpay'
+            'getFeeOverpay',
+            'brandingTheme.travel',
         ])->where('invoice_uuid', $id)->first();
 
         abort_if(!$invoice, 404);
 
-        $path_img_dinamis = $invoice->getTravel ? $invoice->getTravel->location_path_image ? $invoice->getTravel->location_path_image : 'assets/img/nam_min.webp' : 'assets/img/nam_min.webp';
+        $path_img_dinamis = $invoice->getTravel
+            ? ($invoice->getTravel->location_path_image ?: 'assets/img/nam_min.webp')
+            : 'assets/img/nam_min.webp';
 
-        // $urlTujuan = route('salles_invoice_preview', ['id' => $invoice->invoice_uuid]);
         $urlTujuan = "https://inv.alhidayah.id/" . $invoice->invoice_uuid;
+
+        $brand = $this->resolveBranding($invoice, $path_img_dinamis);
 
         $data = [
             'invoice' => $invoice,
             'title' => 'Invoice #' . $invoice->invoice_number,
             'date' => date('d-m-Y'),
             'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview', $path_img_dinamis),
-            'logoBase64' => $this->getLogoBase64($path_img_dinamis),
-            'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal')
+            'brand' => $brand,
+            'logoBase64' => $brand['logo'],
+            'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal'),
         ];
 
         return view('admin.transaksi.sales.modal_inv', $data);
+    }
+
+    /**
+     * Tentukan identitas cetak invoice.
+     * branding_theme_id null  -> perilaku lama (data & logo dari travel).
+     * branding_theme_id terisi -> data dari branding_themes.
+     */
+    private function resolveBranding($invoice, string $pathImgDinamis): array
+    {
+        $theme = $invoice->branding_theme_id ? $invoice->brandingTheme : null;
+
+        // ── Perilaku lama: tanpa tema ──
+        if (!$theme) {
+            return [
+                'use_theme' => false,
+                'logo' => $this->getLogoBase64($pathImgDinamis),
+                'company_name' => $invoice->getTravel->name ?? '-',
+                'address' => $invoice->getTravel->address ?? '-',
+                'phone' => null,
+                'email' => null,
+                'primary' => '#3d76f1',
+                'bank_accounts' => [],
+                'terms' => [],
+                'signature_name' => $invoice->name_created_user ?? 'Nuril Hidayati',
+                'signature_title' => 'Devisi keuangan',
+            ];
+        }
+
+        // ── Dari branding_themes + travel_names ──
+        $travel = $theme->travel;
+
+        $logoPath = $travel && $travel->location_path_image
+            ? $travel->location_path_image
+            : 'assets/img/nam_min.webp';
+
+        $primary = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $theme->primary_color)
+            ? $theme->primary_color
+            : '#3d76f1';
+
+        $bankAccounts = $this->splitLines($theme->bank_accounts);
+        $terms = $this->splitLines($theme->terms);
+
+        return [
+            'use_theme' => true,
+            'logo' => $this->getLogoBase64($logoPath),
+            'company_name' => $travel->name ?? $theme->name,
+            'address' => $travel->address ?? '-',
+            'phone' => null,
+            'email' => null,
+            'primary' => $primary,
+            'bank_accounts' => $bankAccounts,
+            'terms' => $terms,
+            'signature_name' => $theme->signature_name ?: '-',
+            'signature_title' => $theme->signature_title ?: '',
+        ];
+    }
+
+    private function splitLines(?string $text): array
+    {
+        return collect(preg_split('/\r\n|\r|\n/', (string) $text))
+            ->map(fn($l) => trim($l))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Logo dari storage/app/public (disimpan lewat BrandingThemeController) jadi base64.
+     */
+    private function themeLogoBase64(string $logoPath): ?string
+    {
+        if (!Storage::disk('public')->exists($logoPath)) {
+            return null;
+        }
+
+        $content = Storage::disk('public')->get($logoPath);
+        $mime = Storage::disk('public')->mimeType($logoPath) ?: 'image/png';
+
+        return 'data:' . $mime . ';base64,' . base64_encode($content);
     }
 
     // ── Print → PDF stream (tidak berubah banyak) ────────────────────────────
