@@ -977,7 +977,7 @@
                             </select>
                         </div>
 
-                        <div class="xero-field">
+                        <div class="xero-field d-none">
                             {{-- <label>Amounts are</label>
                             <select class="form-control" name="amount_are" id="amount_are">
                                 <option value="0" selected>No Tax</option>
