@@ -972,7 +972,7 @@
                                 {{-- <option value="IDR">IDR &ndash; Rupiah</option>
                                 <option value="SAR">SAR &ndash; Saudi Riyal</option> --}}
                                 @foreach ($cur as $item)
-                                        <option value="{{ $item->code_curr }}">{{ $item->code_curr ." | ".(int)$item->nominal_currency }}</option>
+                                        <option value="{{ $item->code_curr }}">{{ $item->ket ." | ".(int)$item->nominal_currency }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -1066,7 +1066,7 @@
                                 <td id="summarySubtotalSAR">–</td>
                             </tr>
                             <tr>
-                                <td>Subtotal (IDR)</td>
+                                <td>Subtotal </td>
                                 <td id="summarySubtotalIDR">Rp 0</td>
                             </tr>
                             <tr>
@@ -4372,14 +4372,14 @@ function setRowRequiredState($row, isRequired) {
             $('#summary_paid').text(formatCurrency(totalPaid, d.code_curr));
             const remaining   = parseFloat(d.invoice_total) - totalPaid;
             const cek_overpay = overpay
-                ? `overpayment ${formatCurrency(overpay.nominal_overpayment, d.code_curr)}`
+                ? `overpayment ${formatCurrency(overpay.nominal_overpayment /parseInt(d.nominal_currency) , d.code_curr)}`
                 : '';
             $('#summary_remaining').text(
                 `${formatCurrency(remaining < 0 ? 0 : remaining, d.code_curr)}  ${cek_overpay}`
             );
 
             // ── FEE OVERPAY: INI YANG SEBELUMNYA BELUM ADA ──
-            renderFeeOverpaySection(overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
+            renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
         })
         .catch(function (err) {
             console.log('err', err);
@@ -4681,13 +4681,13 @@ function loadFeeOverpayHistory(invoiceId) {
 }
 
 // Dipanggil dari loadPaymentHistoryModal()
-function renderFeeOverpaySection(overpay, invoiceId, jamaahId, currency) {
+function renderFeeOverpaySection(_nom_curr=1,overpay, invoiceId, jamaahId, currency) {
     if (!overpay) {
         $('#feeOverpaySection, #feeOverpayHistoryWrap').hide();
         return;
     }
 
-    const sisa = parseFloat(overpay.nominal_overpayment) || 0;
+    const sisa = parseFloat(overpay.nominal_overpayment / parseInt(_nom_curr)) || 0;
 
     $('#fee_overpay_id').val(overpay.id);
     $('#fee_jamaah_id').val(jamaahId || '');

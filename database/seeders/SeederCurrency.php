@@ -14,18 +14,41 @@ class SeederCurrency extends Seeder
      */
     public function run()
     {
-        //
-        $code = ['IDR', 'SAR', 'USD'];
-        $nominal = [1, 4800, 18000];
-        foreach ($code as $key => $value) {
-            MasterCurrency::updateOrCreate([
-                'code_curr' => $value
-            ], [
-                'satu_rupiah' => 1,
-                'nominal_currency' => $nominal[$key],
-                'is_active' => true
-            ]);
-        }
+        $currencies = [
+            [
+                'code_curr' => 'IDR',
+                'ket' => 'indonesia-idr',
+                'nominal_currency' => 1,
+            ],
+            [
+                'code_curr' => 'SAR-invoice',
+                'ket' => 'SAR-BILL',
+                'nominal_currency' => 4800,
+            ],
+            [
+                'code_curr' => 'SAR-bill',
+                'ket' => 'SAR-Invoice',
+                'nominal_currency' => 4750,
+            ],
+            [
+                'code_curr' => 'USD',
+                'ket' => 'USD',
+                'nominal_currency' => 18000,
+            ],
+        ];
 
+        foreach ($currencies as $currency) {
+            MasterCurrency::updateOrCreate(
+                [
+                    'ket' => $currency['ket'],
+                ],
+                [
+                    'code_curr' => $currency['code_curr'],
+                    'satu_rupiah' => 1,
+                    'nominal_currency' => $currency['nominal_currency'],
+                    'is_active' => true,
+                ]
+            );
+        }
     }
 }

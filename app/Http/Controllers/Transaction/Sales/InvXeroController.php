@@ -450,6 +450,18 @@ class InvXeroController extends Controller
         }
     }
 
+    public function getCurr(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'code_curr' => 'required|string|exists:code_curr,m_currency',
+        ]);
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+        $data = MasterCurrency::where('code_curr', $request->code_curr)->first();
+        return $this->autoResponse($data);
+    }
+
     public function storeParent(Request $request)//store with multy currency
     {
         $validator = Validator::make($request->all(), [
@@ -470,13 +482,7 @@ class InvXeroController extends Controller
                     ->ignore($request->id),
             ],
             // contoh 3 huruf ISO currency
-            'code_curr' => [
-                'required',
-                'string',
-                'size:3',
-                'regex:/^[A-Za-z]{3}$/'
-            ],
-
+            'code_curr' => 'required|string|exists:m_currency,code_curr',
             'item_id' => 'nullable|array|min:1',
             'desc' => 'required|array|min:1',
             'qty' => 'required|array',
@@ -1037,7 +1043,7 @@ class InvXeroController extends Controller
                 $totalOverpayment = round(
                     $totalPayInvoiceCurrency - $sumD,
                     4
-                );
+                ) * $saveP->nominal_currency;
 
                 if ($existingOver) {
 
@@ -1866,30 +1872,27 @@ class InvXeroController extends Controller
     }
     private function _recalcBankSummary(int $bankId): void
     {
-        $receive = $this->repo_trans_bank->sumDataWhereDinamis(
+        $nominalIn = (float) ($this->repo_trans_bank->sumDataWhereDinamis(
             ['uuid_bank' => $bankId],
-            'nominal_receive'
-        );
-        $spend = $this->repo_trans_bank->sumDataWhereDinamis(
+            'total_base_receive'
+        ) ?? 0);
+
+        $nominalOut = (float) ($this->repo_trans_bank->sumDataWhereDinamis(
             ['uuid_bank' => $bankId],
-            'nominal_spend'
-        );
+            'total_base_spend'
+        ) ?? 0);
 
-        //$receive = $this->repo_bank_summary->whereData(['bank_id' => $bankId])->value('nominal_in');
-        //$spend = $this->repo_bank_summary->whereData(['bank_id' => $bankId])->value('nominal_out');
+        $summary = $this->repo_bank_summary
+            ->whereData(['bank_id' => $bankId])
+            ->first();
 
-        // var_dump($receive);
-        // echo "<br>";
-        // dd($spend);
-        $oldTrans = $this->repo_bank_summary->whereData(['bank_id' => $bankId])->first();
-        $this->repo_bank_summary->updateCreate([
+        $this->repo_bank_summary->CreateOrUpdate([
             'bank_id' => $bankId,
-            'nominal_in' => $receive,
-            'nominal_out' => $spend,
-            'final_nominal' => $oldTrans->final_nominal - ($receive - $spend),// $receive - $spend
-        ]);
+            'nominal_in' => round($nominalIn, 4),
+            'nominal_out' => round($nominalOut, 4),
+            'final_nominal' => round($nominalIn - $nominalOut, 4),
+        ], $summary ? $summary->id : null);
     }
-
     public function storePayment(Request $request)
     {
 

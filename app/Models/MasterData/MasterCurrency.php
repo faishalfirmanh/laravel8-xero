@@ -17,7 +17,8 @@ class MasterCurrency extends Model
         'satu_rupiah',
         'nominal_currency',
         'is_active',
-        'created_by'
+        'created_by',
+        'ket'
     ];
 
     protected $appends = [

@@ -11,6 +11,7 @@
             <thead>
                 <tr>
                     <th style="width: 50px">No</th>
+                    <th>Keterangan</th>
                     <th>Kode Mata Uang</th>
                     <th>Satu Rupiah</th>
                     <th>Nominal Currency</th>
@@ -39,9 +40,10 @@ $(document).ready(function() {
         return `
         <tr data-id="${item.id}">
             <td class="text-center">${index + 1}</td>
+             <td>${item.ket ?? '-'}</td>
             <td>${item.code_curr ?? '-'}</td>
             <td class="col-satu-rupiah" data-value="${item.satu_rupiah ?? 0}">${item.satu_rupiah ?? 0}</td>
-            <td class="col-nominal" data-value="${item.nominal_currency ?? 0}">${Number(item.nominal_currency ?? 0)}</td>
+            <td class="col-nominal" data-value="${parseInt(item.nominal_currency) ?? 0}">${Number(item.nominal_currency ?? 0)}</td>
             <td class="col-status" data-value="${item.is_active ?? 0}">${statusBadge}</td>
             <td class="text-center">
                 <button type="button" class="btn btn-sm btn-warning btn-edit">Edit</button>

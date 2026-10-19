@@ -53,6 +53,12 @@ function formatCurrency(value, currency = 'IDR', decimals = 0) {
     case 'SAR':
       locale = 'id-ID'; //'ar-SA';
       break;
+    case 'SAR-INV':
+      locale = 'id-ID'; //'ar-SA';
+      break;
+    case 'SAR-BILL':
+      locale = 'id-ID'; //'ar-SA';
+      break;
     default:
       locale = 'id-ID'; // Default Rupiah (1.000,00)
       break;
@@ -61,7 +67,7 @@ function formatCurrency(value, currency = 'IDR', decimals = 0) {
   // 3. Format
   return number.toLocaleString(locale, {
     style: 'currency',
-    currency: currency,
+    currency: currency == 'SAR-BILL' || currency == 'SAR-INV' ? 'SAR' : currency,
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals
   });

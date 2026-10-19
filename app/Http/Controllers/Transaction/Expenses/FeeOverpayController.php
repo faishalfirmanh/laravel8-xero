@@ -264,11 +264,12 @@ class FeeOverpayController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors()->first(), 422);
         }
-
+        $invoiceId = (int) $request->invoice_id;
         DB::beginTransaction();
+        $inv = $this->repo_invoice->whereData(['id' => $invoiceId])->first();
         try {
-            $nominal = round((float) $request->nominal, 4);
-            $invoiceId = (int) $request->invoice_id;
+            $nominal = round((float) $request->nominal, 4) * $inv->nominal_currency;
+
             $newOverpayId = (int) $request->overpay_id;
             $newBankId = (int) $request->bank_id_origin;
 
@@ -316,7 +317,7 @@ class FeeOverpayController extends Controller
                 throw new \Exception('COA diskon penjualan (4800) tidak ditemukan');
             }
 
-            $inv = $this->repo_invoice->whereData(['id' => $invoiceId])->first();
+
             if (!$inv) {
                 throw new \Exception('Invoice tidak ditemukan');
             }

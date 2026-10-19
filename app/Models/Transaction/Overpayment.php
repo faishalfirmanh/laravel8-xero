@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class Overpayment extends Model
 {
     use HasFactory;
-
+    //yang di simpan nominal rp (yg sudah di conversi)
     protected $fillable = [
         'nominal_overpayment',
         'invoice_id',

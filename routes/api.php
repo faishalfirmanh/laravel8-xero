@@ -103,6 +103,7 @@ Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyB
 Route::post('deleteInv', [InvXeroController::class, 'deletedInvoice'])->name('delete-trans');
 Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
 
+Route::get('get_curr_local', [InvXeroController::class, 'getCurr'])->name('get_curr_local');
 
 Route::get('get_inv_external/{uuid_inv}', [InvoiceXeroLocalController::class, 'InvExternal'])->name('get_inv_external');
 Route::get('get_new_inv_number', [InvoiceXeroLocalController::class, 'GenerateNewInvNumber'])->name('get_new_inv_number');

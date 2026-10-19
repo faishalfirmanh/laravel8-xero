@@ -12,6 +12,7 @@ class FeeOverpay extends Model
 {
     use HasFactory;
 
+    //yang di simpan nominal rp (yg sudah di conversi)
     protected $fillable = [
         'date_transaction',
         'invoice_id',

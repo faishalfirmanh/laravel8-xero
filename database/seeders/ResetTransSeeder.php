@@ -8,6 +8,7 @@ use App\Models\InvoicesAllFromXero;
 use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\Transaction\FeeOverpay;
 use App\Models\Transaction\Overpayment;
+use App\Models\Transaction\SummaryNominalBank;
 use App\Models\Transaction\TransactionAllCoa;
 use App\Models\Transaction\TransactionBankTransD;
 use App\Models\Transaction\TransactionBankTransP;
@@ -37,6 +38,13 @@ class ResetTransSeeder extends Seeder
         InvoicesAllFromXero::truncate();
         Overpayment::truncate();
         FeeOverpay::truncate();
+        $get = SummaryNominalBank::get();
+        foreach ($get as $key => $value) {
+            $value->nominal_in = 0;
+            $value->nominal_out = 0;
+            $value->final_nominal = 0;
+            $value->save();
+        }
         // 3. Aktifkan kembali foreign key checks
         Schema::enableForeignKeyConstraints();
         $paths = [

@@ -687,8 +687,8 @@ class BillXeroController extends Controller
             $exsistingBank = $this->repo_bank_summary->whereData(['bank_id' => $request->uuid_bank])->first();
             $save_nom_bank = [
                 'bank_id' => $request->uuid_bank,
-                'nominal_out' => $exsistingBank->nominal_out + $request->nominal_spend,
-                'final_nominal' => $exsistingBank->final_nominal - $request->nominal_spend,
+                'nominal_out' => $exsistingBank->nominal_out + $nominalSpendBase,
+                'final_nominal' => $exsistingBank->final_nominal - $nominalSpendBase,
             ];
             $this->repo_bank_summary->updateCreate($save_nom_bank);
 

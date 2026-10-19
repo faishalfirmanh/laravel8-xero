@@ -201,7 +201,7 @@
                                     <select class="form-control" id="cur_id" name="currency" required>
                                         <option value="0">Pilih mata uang</option>
                                         @foreach ($list_currency as $item)
-                                              <option value="{{ $item->code_curr }}">{{ $item->code_curr ." | ".(int)$item->nominal_currency }}</option>
+                                              <option value="{{ $item->code_curr }}">{{ $item->ket ." | ".(int)$item->nominal_currency }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -1288,7 +1288,7 @@ window.dellBill = function(id) {
             $row.find('.desc-input').val(d.text || '');
 
             if (d.harga !== undefined && d.harga !== null) {
-               $row.find('.price-input').val(parseFloat(d.harga).toFixed(2));
+               $row.find('.price-input').val(parseInt(d.harga));
             }
             $row.find('.price-input').trigger('input');
         });
