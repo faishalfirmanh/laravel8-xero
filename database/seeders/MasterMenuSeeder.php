@@ -61,6 +61,7 @@ class MasterMenuSeeder extends Seeder
                     'travel-master-data',
                     'product-and-service',
                     'branding',
+                    'paket-umroh',
                     //toko
                     'warehouse',
                     'unit',
@@ -77,6 +78,7 @@ class MasterMenuSeeder extends Seeder
                     'travel/admin/master-data/travel',
                     'travel/admin/master-data/product-and-service',
                     'travel/admin/master-data/branding',
+                    'travel/admin/master-data/paket-umroh',
                     //toko
                     'toko/admin/master-data/warehouse',
                     'toko/admin/master-data/unit',

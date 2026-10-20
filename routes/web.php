@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GoHalal\PaketUmrohController;
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\Report\ProfitLossController;
 use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
@@ -70,6 +71,7 @@ Route::prefix('travel')->group(function () {
             Route::get('/bank-xero', [DashboardController::class, 'getWebListBank'])->name('bank-web-travel');
             Route::get('product-and-service', [DashboardController::class, 'getWebProduct'])->name('product-and-service');
             Route::get('branding', [DashboardController::class, 'branding'])->name('branding');
+            Route::get('paket-umroh', [PaketUmrohController::class, 'view'])->name('paket-umroh');
         });
 
         Route::prefix('config')->group(function () {

@@ -310,6 +310,7 @@ async function ajaxRequest(url, method = 'GET', data = null, token = null) {
     if (data && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
       if (data instanceof FormData) {
         options.body = data; // No need to stringify, FormData handles this
+        delete options.headers['Content-Type'];//tambahaan 20-10-2026
       } else if (data) {
         options.headers['Content-Type'] = 'application/json'; // For JSON payloads
         options.body = JSON.stringify(data);

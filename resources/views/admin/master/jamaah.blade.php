@@ -13,7 +13,7 @@
 
             <!-- Button Tambah COA -->
           
-                <div class="d-flex flex-column align-items-end">
+                <div class="d-none flex-column align-items-end">
                     <button onclick="syncContactFromXero()" 
                             type="button" 
                             class="d-none btn btn-success shadow-sm fw-bold">
@@ -80,7 +80,7 @@
                 <input type="hidden" id="id_jamaah" value="">
 
                 <div class="form-group mb-3">
-                    <label for="full_name">Nama Lengkap</label>
+                    <label for="full_name">Nama Lengkap <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="full_name" placeholder="Nama lengkap jamaah">
                 </div>
 
@@ -90,7 +90,7 @@
                 </div>
 
                 <div class="form-group mb-3">
-                    <label for="nik">NIK</label>
+                    <label for="nik">NIK  <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="nik" maxlength="16" placeholder="16 digit NIK (opsional)">
                 </div>
 

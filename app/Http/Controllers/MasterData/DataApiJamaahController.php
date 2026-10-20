@@ -85,13 +85,13 @@ class DataApiJamaahController extends Controller//from xero when create transact
             'id' => 'nullable|integer|exists:data_jamaah_xeros,id',
             'full_name' => 'required|string|max:150',
             'phone_number' => [
-                'required',
+                'nullable',
                 'string',
                 'max:20',
                 Rule::unique('data_jamaah_xeros', 'phone_number')->ignore($request->id),
             ],
             'nik' => [
-                'nullable',
+                'required',
                 // 'digits:16',
                 Rule::unique('data_jamaah_xeros', 'nik')->ignore($request->id),
             ],
@@ -114,7 +114,7 @@ class DataApiJamaahController extends Controller//from xero when create transact
         } catch (\Throwable $th) {
             DB::rollBack();
             \Log::error('store jamaah error: ' . $th->getMessage());
-            return $this->error('Gagal menyimpan data jamaah', 400);
+            return $this->error('Gagal menyimpan data jamaah ' . $th->getMessage(), 400);
         }
     }
 

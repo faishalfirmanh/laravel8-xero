@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\GoHalal\PaketUmrohController;
+use App\Http\Controllers\GoHalal\PaketUmrohJamaahController;
 use App\Http\Controllers\MasterData\BrandingThemeController;
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\MasterData\JamaahAlhidController;
@@ -333,6 +335,37 @@ Route::prefix("admin-web")->group(function () {
             Route::get('detail-item', [ProducAndServiceXeroLocalController::class, 'detail'])->name('item-detail-xero');
         });
 
+        Route::prefix('paket-umroh')->group(function () {
+            Route::get('paket-umroh/options', [PaketUmrohController::class, 'options'])->name('paket-umroh.options');
+            Route::get('paket-umroh', [PaketUmrohController::class, 'index'])->name('paket-umroh.index');
+            Route::post('paket-umroh', [PaketUmrohController::class, 'store'])->name('paket-umroh.store');
+            Route::get('paket-umroh/{id}', [PaketUmrohController::class, 'show'])
+                ->where('id', '[0-9]+')->name('paket-umroh.show');
+            Route::match(['put', 'post'], 'paket-umroh/{id}', [PaketUmrohController::class, 'update'])
+                ->where('id', '[0-9]+')->name('paket-umroh.update');
+            Route::delete('paket-umroh/{id}', [PaketUmrohController::class, 'destroy'])
+                ->where('id', '[0-9]+')->name('paket-umroh.destroy');
+
+            //paket umroh-jamaah
+            Route::get('paket-umroh/jamaah-select2', [PaketUmrohJamaahController::class, 'jamaahSelect2'])->name('paket-umroh.jamaah-select2');
+            Route::get('paket-umroh/{id}/jamaah', [PaketUmrohJamaahController::class, 'index'])->where('id', '[0-9]+')->name('paket-umroh.jamaah.index');
+            Route::post('paket-umroh/{id}/jamaah', [PaketUmrohJamaahController::class, 'store'])->where('id', '[0-9]+')->name('paket-umroh.jamaah.store');
+            Route::delete('paket-umroh/{id}/jamaah/{rowId}', [PaketUmrohJamaahController::class, 'destroy'])->where(['id' => '[0-9]+', 'rowId' => '[0-9]+'])->name('paket-umroh.jamaah.destroy');
+            //paket umroh-jamaah
+
+
+            Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+            Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
+            Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
+            Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+            // Route::prefix('hotel')->group(function () {
+            //     Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+            //     Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
+            //     Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
+            //     Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+            // });
+        });
+
         Route::prefix('branding')->group(function () {
             Route::get('/', [BrandingThemeController::class, 'index'])->name('branding-theme');
             Route::get('list', [BrandingThemeController::class, 'list'])->name('branding-theme-list');
@@ -470,12 +503,12 @@ Route::prefix("admin-web")->group(function () {
             Route::get('delete_local_sync_inv', [XeroSyncInvoicePaidController::class, 'deletedDataLocal'])->name('delete-sync-invoice-paid');
         });
 
-        Route::prefix('hotel')->group(function () {
-            Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
-            Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
-            Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
-            Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
-        });
+        // Route::prefix('hotel')->group(function () {
+        //     Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
+        //     Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
+        //     Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
+        //     Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+        // });
 
 
         // Route::prefix('bank-xero')->group(function () {

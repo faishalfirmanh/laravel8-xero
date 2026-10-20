@@ -4,6 +4,8 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Http\Repository\MasterData\HotelRepository;
+use App\Models\MasterData\Hotel;
+use App\Models\MasterData\TravelName;
 use Illuminate\Http\Request;
 use Validator;
 use App\Traits\ApiResponse;
@@ -55,6 +57,9 @@ class HotelApiController extends Controller
         return $this->autoResponse($data);
     }
 
+
+    // GET /api/paket-umroh/optio
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -65,6 +70,9 @@ class HotelApiController extends Controller
             ],
             'type_location_hotel' => 'integer|between:1,5',
             'id' => 'nullable|integer',
+            'address' => 'nullable|string',
+            'distance' => 'nullable|integer',
+            'star' => 'nullable|integer'
         ]);
 
         if ($validator->fails()) {

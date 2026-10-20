@@ -1,0 +1,956 @@
+@extends('layouts.app')
+
+<style>
+    #modalPaket .modal-dialog {
+        max-width: 1100px;
+        margin: 1.75rem auto;
+    }
+    #modalPaket .modal-content {
+        max-height: calc(100vh - 3.5rem);
+        display: flex;
+        flex-direction: column;
+    }
+    #formPaket {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+    #modalPaket .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
+    #modalPaket .modal-footer {
+        flex-shrink: 0;
+    }
+
+    /*--rapikan select2*/
+    /* ══════════════════════════════════════════════
+   MODAL ADD JAMAAH — Select2 rapi di input-group
+   ══════════════════════════════════════════════ */
+#modalAddJamaah .input-group {
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+#modalAddJamaah .input-group > .select2-container {
+    flex: 1 1 auto;
+    width: 1% !important;      /* trik agar flex-grow bekerja di input-group */
+    min-width: 0;
+    position: relative;
+}
+#modalAddJamaah .select2-container--bootstrap4 .select2-selection--single {
+    height: calc(1.5em + 0.75rem + 2px) !important;
+    display: flex !important;
+    align-items: center !important;
+    position: relative !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 0.25rem 0 0 0.25rem !important;  /* sambung dengan tombol di kanan */
+    background-color: #fff !important;
+}
+#modalAddJamaah .select2-selection__rendered {
+    display: block !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.5 !important;
+    padding-left: 0.6rem !important;
+    padding-right: 2.2rem !important;
+    font-size: 0.875rem !important;
+    color: #333 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+#modalAddJamaah .select2-selection__clear {
+    position: absolute !important;
+    right: 1.5rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+    color: #888 !important;
+}
+#modalAddJamaah .select2-selection__arrow {
+    position: absolute !important;
+    right: 0.4rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    height: auto !important;
+}
+#modalAddJamaah .select2-selection__placeholder {
+    color: #aaa !important;
+    font-size: 0.875rem !important;
+}
+</style>
+@section('content')
+<div class="card shadow mb-5">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 flex-wrap">
+        <h5 class="mb-0 font-weight-bold text-primary">Paket Umroh</h5>
+        <div class="d-flex flex-wrap">
+            <select id="filterTipe" class="form-control form-control-sm mr-2" style="width:160px;">
+                <option value="">Semua Tipe</option>
+            </select>
+            <input type="text" id="filterKeyword" class="form-control form-control-sm mr-2" placeholder="Cari nama paket" style="width:220px;">
+            <button type="button" class="btn btn-sm btn-outline-secondary mr-2" id="btnFilter">Cari</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnAddPaket">
+                <i class="ti ti-plus mr-1"></i> Tambah Paket
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive p-3">
+        <table class="table table-hover table-bordered w-100">
+            <thead class="thead-dark">
+                <tr>
+                    <th class="text-center" width="4%">No</th>
+                    <th>Tipe</th>
+                    <th>Nama Paket</th>
+                    <th>Travel</th>
+                    <th>Berangkat</th>
+                    <th class="text-center">Hari</th>
+                    <th class="text-center">Slot (tersedia/max)</th>
+                    <th class="text-right">Harga Quad</th>
+                    <th class="text-center" width="12%">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="paketBody"></tbody>
+        </table>
+        <div id="pager" class="d-flex align-items-center justify-content-end"></div>
+    </div>
+</div>
+
+{{-- ================= MODAL PAKET ================= --}}
+<div class="modal fade" id="modalPaket" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalPaketTitle">Tambah Paket Umroh</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+
+            <form id="formPaket">
+                <input type="hidden" id="paket_id">
+
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Tipe <span class="text-danger">*</span></label>
+                            <select class="form-control" name="tipe" id="tipe" required></select>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold">Travel <span class="text-danger">*</span></label>
+                            <select class="form-control" name="travel" id="travel" required></select>
+                        </div>
+                        <div class="form-group col-md-5">
+                            <label class="small font-weight-bold">Nama Paket <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="nama_paket" required maxlength="255"
+                                   placeholder="contoh: Umroh 12 hari an namiroh">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Tgl Berangkat <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="tgl_berangkat" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Jumlah Hari <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="jumlah_hari" min="1" required>
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Maskapai <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="maskapai" required maxlength="100">
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Kode Flight</label>
+                            <input type="text" class="form-control" name="kodeflight" maxlength="50">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Keberangkatan <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="keberangkatan" required maxlength="100">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Landing <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="landing" required maxlength="100">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Harga Infant <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="hrginfant" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Harga Quad <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="hrgquad" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Harga Triple <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="hrgtriple" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Harga Double <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="hrgdouble" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Perlengkapan</label>
+                            <input type="number" class="form-control" name="hrgperlengkapan" min="0" step="0.01" value="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Max Slot <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="max_slot" min="1" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Tersedia <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="available_slot" min="0" required>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <label class="small font-weight-bold">Terisi <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="filled_slot" min="0" required>
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Gambar Paket</label>
+                            <input type="file" class="form-control-file" name="imgpaketumroh" accept="image/*">
+                            <img id="previewImg" src="" alt="" style="max-height:50px;display:none;" class="mt-1">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Itinerary (PDF)</label>
+                            <input type="file" class="form-control-file" name="itinerary" accept="application/pdf">
+                            <a id="linkItinerary" href="#" target="_blank" class="small" style="display:none;">Lihat itinerary saat ini</a>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="font-weight-bold mb-0">Hotel</h6>
+                        <div>
+                            <button type="button" class="btn btn-outline-success btn-sm mr-1" id="btnAddMasterHotel">
+                                <i class="ti ti-building"></i> Tambah Master Hotel
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddHotel">
+                                <i class="ti ti-plus"></i> Tambah Hotel
+                            </button>
+                        </div>
+                    </div>
+                    <div id="hotelRows"></div>
+                </div>
+
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm font-weight-bold" id="btnSavePaket">
+                        <i class="ti ti-check mr-1"></i> Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- ================= MODAL MASTER HOTEL ================= --}}
+<div class="modal fade" id="modalMasterHotel" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Tambah Master Hotel</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+
+            <form id="formMasterHotel">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-8">
+                            <label class="small font-weight-bold">Nama Hotel <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="mh_name" required maxlength="191">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold">Lokasi <span class="text-danger">*</span></label>
+                            <select class="form-control" id="mh_type_location_hotel" required>
+                                <option value="">-- Pilih --</option>
+                                <option value="1">Makkah</option>
+                                <option value="2">Madinah</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Alamat</label>
+                        <textarea class="form-control" id="mh_address" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label class="small font-weight-bold">Jarak (m)</label>
+                            <input type="number" class="form-control" id="mh_distance" min="0" step="1">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label class="small font-weight-bold">Bintang (1-5)</label>
+                            <select class="form-control" id="mh_star">
+                                <option value="">-</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success btn-sm font-weight-bold" id="btnSaveMasterHotel">
+                        <i class="ti ti-check mr-1"></i> Simpan Hotel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- ================= MODAL ADD JAMAAH ================= --}}
+<div class="modal fade" id="modalAddJamaah" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">Add Jamaah - <span id="aj_paket_name"></span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+
+            <form id="formAddJamaah">
+                <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+                    <div class="alert alert-light border small mb-3">
+                        Terisi <b id="aj_filled">0</b> / <b id="aj_max">0</b>, sisa slot <b id="aj_sisa">0</b>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-8">
+                            <label class="small font-weight-bold">Jamaah <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <select id="aj_jamaah" class="form-control" required></select>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-outline-success" id="btnAddMasterJamaah">
+                                        <i class="ti ti-user-plus"></i> Master
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label class="small font-weight-bold">Jumlah jamaah dibawa <span class="text-danger">*</span></label>
+                            <input type="number" id="aj_jumlah" class="form-control" min="1" required>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h6 class="font-weight-bold">Jamaah pada paket ini</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th width="6%" class="text-center">No</th>
+                                    <th>Nama</th>
+                                    <th>NIK</th>
+                                    <th class="text-center" width="15%">Jumlah</th>
+                                    <th class="text-center" width="10%">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aj_list"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Tutup</button>
+                    <button type="submit" class="btn btn-info btn-sm font-weight-bold" id="btnSaveAddJamaah">
+                        <i class="ti ti-check mr-1"></i> Simpan Jamaah
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- ================= MODAL MASTER JAMAAH ================= --}}
+<div class="modal fade" id="modalMasterJamaah" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Tambah Master Jamaah</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+
+            <form id="formMasterJamaah">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Nama Lengkap <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="mj_full_name" required maxlength="150">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">NIK <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="mj_nik" required maxlength="32">
+                    </div>
+                    <div class="form-group">
+                        <label class="small font-weight-bold">No HP</label>
+                        <input type="text" class="form-control" id="mj_phone" maxlength="20">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="small font-weight-bold">Alamat</label>
+                        <textarea class="form-control" id="mj_address" rows="2" maxlength="500"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success btn-sm font-weight-bold" id="btnSaveMasterJamaah">
+                        <i class="ti ti-check mr-1"></i> Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+
+@push('scripts')
+<script>
+const paketRoutes = {
+    list           : "{{ route('paket-umroh.index') }}",
+    show           : "{{ route('paket-umroh.show', ['id' => '__ID__']) }}",
+    store          : "{{ route('paket-umroh.store') }}",
+    update         : "{{ route('paket-umroh.update', ['id' => '__ID__']) }}",
+    destroy        : "{{ route('paket-umroh.destroy', ['id' => '__ID__']) }}",
+    options        : "{{ route('paket-umroh.options') }}",
+    saveMasterHotel: "{{ route('saveMasterHotel') }}",
+};
+
+let opts = { tipe: [], travel: [], hotels: [] };
+let hotelIdx = 0;
+
+const token = () => localStorage.getItem('token');
+
+function paketUrl(template, id) {
+    return template.replace('__ID__', id);
+}
+
+function esc(s) {
+    return $('<div>').text(s == null ? '' : String(s)).html().replace(/"/g, '&quot;');
+}
+
+function fillSelect($sel, items, placeholder) {
+    let html = `<option value="">${placeholder}</option>`;
+    items.forEach(i => {
+        html += `<option value="${esc(i.value)}">${esc(i.label)}</option>`;
+    });
+    $sel.html(html);
+}
+
+// ── Options (tipe, travel, hotel) ──
+async function loadOptions() {
+    try {
+        const res = await ajaxRequest(paketRoutes.options, 'GET', null, token());
+        opts = res.data.data;
+
+        fillSelect($('#tipe'), opts.tipe.map(t => ({ value: t, label: t })), '-- Pilih Tipe --');
+        fillSelect($('#filterTipe'), opts.tipe.map(t => ({ value: t, label: t })), 'Semua Tipe');
+        fillSelect($('#travel'), opts.travel.map(t => ({ value: t.id, label: t.name })), '-- Pilih Travel --');
+    } catch (err) {
+        cathError(err);
+    }
+}
+
+// ── List ──
+async function loadPaket(page = 1) {
+    try {
+        const params = { page: page, per_page: 10 };
+
+        const tipe = $('#filterTipe').val();
+        if (tipe) params.tipe = tipe;
+
+        const keyword = $('#filterKeyword').val().trim();
+        if (keyword) params.keyword = keyword;
+
+        const res = await ajaxRequest(paketRoutes.list, 'GET', params, token());
+        const pg = res.data.data;
+
+        renderRows(pg.data || []);
+        renderPager(pg);
+    } catch (err) {
+        cathError(err);
+    }
+}
+
+function renderRows(rows) {
+    if (rows.length === 0) {
+        $('#paketBody').html('<tr><td colspan="9" class="text-center text-muted">Belum ada data</td></tr>');
+        return;
+    }
+
+    let html = '';
+    rows.forEach((p, i) => {
+        html += `
+            <tr>
+                <td class="text-center">${i + 1}</td>
+                <td>${esc(p.tipe)}</td>
+                <td>${esc(p.nama_paket)}</td>
+                <td>${esc(p.travel ? p.travel.name : '-')}</td>
+                <td>${esc(p.tgl_berangkat)}</td>
+                <td class="text-center">${esc(p.jumlah_hari)}</td>
+                <td class="text-center">${esc(p.available_slot)} / ${esc(p.max_slot)}</td>
+                <td class="text-right">${Number(p.hrgquad || 0).toLocaleString('id-ID')}</td>
+                <td class="text-center">
+                     <button type="button" class="btn btn-xs btn-info btn-add-jamaah"
+                            data-id="${p.id}"
+                            data-name="${esc(p.nama_paket)}"
+                            data-max="${p.max_slot}"
+                            data-filled="${p.filled_slot}"
+                            title="Add Jamaah">
+                        <i class="ti ti-users"></i>
+                    </button>
+                    <button type="button" class="btn btn-xs btn-warning btn-edit-paket" data-id="${p.id}" title="Edit">
+                        <i class="ti ti-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-xs btn-danger btn-delete-paket" data-id="${p.id}" title="Hapus">
+                        <i class="ti ti-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+    });
+    $('#paketBody').html(html);
+}
+
+function renderPager(pg) {
+    $('#pager').html(`
+        <span class="small text-muted mr-2">Hal ${pg.current_page} / ${pg.last_page} (total ${pg.total})</span>
+        <button class="btn btn-sm btn-outline-secondary mr-1" ${pg.current_page <= 1 ? 'disabled' : ''}
+                onclick="loadPaket(${pg.current_page - 1})">Prev</button>
+        <button class="btn btn-sm btn-outline-secondary" ${pg.current_page >= pg.last_page ? 'disabled' : ''}
+                onclick="loadPaket(${pg.current_page + 1})">Next</button>`);
+}
+
+// ── Form paket ──
+function resetForm() {
+    $('#formPaket')[0].reset();
+    $('#paket_id').val('');
+    $('#hotelRows').empty();
+    $('#previewImg').attr('src', '').hide();
+    $('#linkItinerary').hide();
+}
+
+
+
+function fillForm(p) {
+    resetForm();
+    $('#paket_id').val(p.id);
+
+    ['tipe', 'nama_paket', 'tgl_berangkat', 'jumlah_hari', 'maskapai', 'keberangkatan',
+     'landing', 'kodeflight', 'hrginfant', 'hrgquad', 'hrgtriple', 'hrgdouble',
+     'hrgperlengkapan', 'max_slot', 'available_slot', 'filled_slot'
+    ].forEach(k => $(`#formPaket [name="${k}"]`).val(p[k] ?? ''));
+
+    $('#formPaket [name="travel"]').val(p.travel_id);
+
+    if (p.imgpaketumroh) {
+        $('#previewImg').attr('src', p.imgpaketumroh).show();
+    }
+    if (p.itinerary) {
+        $('#linkItinerary').attr('href', p.itinerary).show();
+    }
+
+    (p.hotels || []).forEach(h => addHotelRow(h));
+}
+
+// ── Event: paket ──
+$('#btnAddPaket').on('click', function () {
+    resetForm();
+    $('#modalPaketTitle').text('Tambah Paket Umroh');
+    addHotelRow();
+    $('#modalPaket').modal('show');
+});
+
+$('#btnAddHotel').on('click', function () {
+    addHotelRow();
+});
+
+$(document).on('click', '.btn-del-hotel', function () {
+    $(this).closest('.hotel-row').remove();
+});
+
+// Pilih travel -> isi nama paket awal jika masih kosong
+$('#travel').on('change', function () {
+    const id = $(this).val();
+    const travel = opts.travel.find(t => String(t.id) === String(id));
+    const $nama = $('#formPaket [name="nama_paket"]');
+    if (travel && !$nama.val()) {
+        $nama.val('paket umroh an ' + travel.name);
+    }
+});
+
+$(document).on('click', '.btn-edit-paket', async function () {
+    const id = $(this).data('id');
+    try {
+        const res = await ajaxRequest(paketUrl(paketRoutes.show, id), 'GET', null, token());
+        fillForm(res.data.data);
+        $('#modalPaketTitle').text('Edit Paket Umroh');
+        $('#modalPaket').modal('show');
+    } catch (err) {
+        cathError(err);
+    }
+});
+
+$(document).on('click', '.btn-delete-paket', function () {
+    const id = $(this).data('id');
+
+    Swal.fire({
+        title: 'Hapus paket ini?',
+        text: 'Data hotel paket dan file terkait ikut dihapus.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Ya, hapus',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+    }).then(async function (result) {
+        if (!result.isConfirmed) return;
+
+        try {
+            const res = await ajaxRequest(paketUrl(paketRoutes.destroy, id), 'DELETE', null, token());
+            Swal.fire({ icon: 'success', title: 'Dihapus', text: res.data.message, timer: 1200, showConfirmButton: false });
+            loadPaket(1);
+        } catch (err) {
+            cathError(err);
+        }
+    });
+});
+
+$('#formPaket').on('submit', async function (e) {
+    e.preventDefault();
+
+    const id   = $('#paket_id').val();
+    const url  = id ? paketUrl(paketRoutes.update, id) : paketRoutes.store;
+    const data = new FormData(this);
+
+    const $btn = $('#btnSavePaket').prop('disabled', true);
+
+    try {
+        const res = await ajaxRequest(url, 'POST', data, token());
+        $('#modalPaket').modal('hide');
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data.message, timer: 1500, showConfirmButton: false });
+        loadPaket(1);
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
+
+$('#btnFilter').on('click', function () {
+    loadPaket(1);
+});
+
+$('#filterKeyword').on('keypress', function (e) {
+    if (e.which === 13) loadPaket(1);
+});
+
+// ── Master hotel ──
+
+// Muat ulang daftar hotel dan isi dropdown baris hotel yang ada.
+// Pilihan yang sudah dipilih tetap dipertahankan.
+function hotelOptionsHtml(selectedId = null) {
+    let html = '<option value="">-- Pilih Hotel --</option>';
+    opts.hotels.forEach(h => {
+        const sel = String(h.id) === String(selectedId) ? 'selected' : '';
+        html += `<option value="${esc(h.id)}" ${sel}>${esc(h.name)} (${esc(h.lokasi)})</option>`;
+    });
+    return html;
+}
+
+function addHotelRow(d = {}) {
+    const i = hotelIdx++;
+
+    $('#hotelRows').append(`
+        <div class="border rounded p-2 mb-2 hotel-row d-flex align-items-end">
+            <div class="form-group mb-0 flex-grow-1 mr-2">
+                <label class="small mb-0">Hotel (master)</label>
+                <select class="form-control form-control-sm" name="hotels[${i}][idhotelmitra]" required>
+                    ${hotelOptionsHtml(d.hotel_id)}
+                </select>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger btn-del-hotel">
+                <i class="ti ti-trash"></i> Hapus
+            </button>
+        </div>`);
+}
+
+async function refreshHotelOptions(selectValueForEmpty = null) {
+    const res = await ajaxRequest(paketRoutes.options, 'GET', null, token());
+    opts.hotels = res.data.data.hotels || [];
+
+    $('#hotelRows select[name$="[idhotelmitra]"]').each(function () {
+        const $sel = $(this);
+        const current = $sel.val();
+
+        $sel.html(hotelOptionsHtml(current || selectValueForEmpty));
+        if (current) $sel.val(current);
+    });
+}
+
+$('#btnAddMasterHotel').on('click', function () {
+    $('#formMasterHotel')[0].reset();
+    $('#modalMasterHotel').modal('show');
+});
+
+$('#formMasterHotel').on('submit', async function (e) {
+    e.preventDefault();
+
+    const payload = {
+        name: $('#mh_name').val().trim(),
+        type_location_hotel: $('#mh_type_location_hotel').val(),
+        address: $('#mh_address').val().trim() || null,
+        distance: $('#mh_distance').val() || null,
+        star: $('#mh_star').val() || null,
+    };
+
+    const $btn = $('#btnSaveMasterHotel').prop('disabled', true);
+
+    try {
+        const res = await ajaxRequest(paketRoutes.saveMasterHotel, 'POST', payload, token());
+        const saved = res.data.data;
+
+        $('#modalMasterHotel').modal('hide');
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data.message, timer: 1200, showConfirmButton: false });
+
+        await refreshHotelOptions(saved && saved.id ? saved.id : null);
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
+
+
+const jamaahRoutes = {
+    select2   : "{{ route('paket-umroh.jamaah-select2') }}",
+    list      : "{{ route('paket-umroh.jamaah.index', ['id' => '__ID__']) }}",
+    store     : "{{ route('paket-umroh.jamaah.store', ['id' => '__ID__']) }}",
+    destroy   : "{{ route('paket-umroh.jamaah.destroy', ['id' => '__ID__', 'rowId' => '__ROW__']) }}",
+    saveMaster: "{{ route('save-jamaah') }}",
+};
+
+let currentPaketId = null;
+
+// ── Select2 jamaah (ambil dari data_jamaah_xeros) ──
+function initJamaahSelect2() {
+    const $el = $('#aj_jamaah');
+    if ($el.hasClass('select2-hidden-accessible')) {
+        $el.select2('destroy');
+    }
+
+    $el.select2({
+        theme: 'bootstrap4',
+        width: '100%',
+        dropdownParent: $('#modalAddJamaah'),
+        placeholder: 'Ketik nama atau NIK jamaah...',
+        allowClear: true,
+        minimumInputLength: 3,
+        language: {
+            inputTooShort: () => 'Ketik minimal 3 huruf / angka...',
+            searching    : () => 'Mencari...',
+            noResults    : () => 'Jamaah tidak ditemukan',
+        },
+        ajax: {
+            url: jamaahRoutes.select2,
+            dataType: 'json',
+            delay: 400,
+            cache: false,
+            data: params => ({ keyword: params.term || '' }),
+            // Select2 memakai transport custom agar header Authorization ikut terkirim
+            transport: function (params, success, failure) {
+                const req = $.ajax({
+                    url: params.url,
+                    data: params.data,
+                    dataType: 'json',
+                    headers: { 'Authorization': 'Bearer ' + token() },
+                });
+                req.then(success);
+                req.fail(failure);
+                return req;
+            },
+            processResults: response => ({ results: response.data.results || [] }),
+        },
+    });
+}
+
+// ── Buka modal Add Jamaah ──
+$(document).on('click', '.btn-add-jamaah', function () {
+    currentPaketId = $(this).data('id');
+    $('#aj_paket_name').text($(this).data('name'));
+    $('#formAddJamaah')[0].reset();
+    initJamaahSelect2();
+    $('#modalAddJamaah').modal('show');
+});
+
+$('#modalAddJamaah').on('shown.bs.modal', function () {
+    loadPaketJamaah();
+});
+
+$('#modalAddJamaah').on('hidden.bs.modal', function () {
+    const $el = $('#aj_jamaah');
+    if ($el.hasClass('select2-hidden-accessible')) {
+        $el.select2('destroy');
+    }
+    loadPaket(1);
+});
+
+// ── Daftar jamaah + slot ──
+async function loadPaketJamaah() {
+    try {
+        const url = jamaahRoutes.list.replace('__ID__', currentPaketId);
+        const res = await ajaxRequest(url, 'GET', null, token());
+        const d = res.data.data;
+
+        $('#aj_max').text(d.paket.max_slot);
+        $('#aj_filled').text(d.paket.filled_slot);
+        $('#aj_sisa').text(Math.max(0, d.paket.max_slot - d.paket.filled_slot));
+
+        renderPaketJamaah(d.jamaah || []);
+    } catch (err) {
+        cathError(err);
+    }
+}
+
+function renderPaketJamaah(rows) {
+    if (rows.length === 0) {
+        $('#aj_list').html('<tr><td colspan="5" class="text-center text-muted">Belum ada jamaah</td></tr>');
+        return;
+    }
+
+    let html = '';
+    rows.forEach((r, i) => {
+        html += `
+            <tr>
+                <td class="text-center">${i + 1}</td>
+                <td>${esc(r.jamaah ? r.jamaah.full_name : '-')}</td>
+                <td>${esc(r.jamaah ? r.jamaah.nik : '-')}</td>
+                <td class="text-center">${esc(r.jumlah_jamaah)}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-xs btn-danger btn-del-jamaah" data-row-id="${r.id}" title="Hapus">
+                        <i class="ti ti-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+    });
+    $('#aj_list').html(html);
+}
+
+// ── Simpan booking jamaah ──
+$('#formAddJamaah').on('submit', async function (e) {
+    e.preventDefault();
+
+    const payload = {
+        data_jamaah_id: $('#aj_jamaah').val(),
+        jumlah_jamaah : parseInt($('#aj_jumlah').val(), 10),
+    };
+
+    if (!payload.data_jamaah_id) {
+        Swal.fire('Peringatan', 'Pilih jamaah terlebih dahulu.', 'warning');
+        return;
+    }
+
+    const $btn = $('#btnSaveAddJamaah').prop('disabled', true);
+
+    try {
+        const url = jamaahRoutes.store.replace('__ID__', currentPaketId);
+        const res = await ajaxRequest(url, 'POST', payload, token());
+
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data.message, timer: 1200, showConfirmButton: false });
+
+        $('#aj_jamaah').val(null).trigger('change');
+        $('#aj_jumlah').val('');
+        await loadPaketJamaah();
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
+
+// ── Hapus booking jamaah ──
+$(document).on('click', '.btn-del-jamaah', function () {
+    const rowId = $(this).data('row-id');
+
+    Swal.fire({
+        title: 'Hapus jamaah dari paket ini?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Ya, hapus',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+    }).then(async function (result) {
+        if (!result.isConfirmed) return;
+
+        try {
+            const url = jamaahRoutes.destroy
+                .replace('__ID__', currentPaketId)
+                .replace('__ROW__', rowId);
+            const res = await ajaxRequest(url, 'DELETE', null, token());
+
+            Swal.fire({ icon: 'success', title: 'Dihapus', text: res.data.message, timer: 1000, showConfirmButton: false });
+            await loadPaketJamaah();
+        } catch (err) {
+            cathError(err);
+        }
+    });
+});
+
+// ── Master jamaah ──
+$('#btnAddMasterJamaah').on('click', function () {
+    $('#formMasterJamaah')[0].reset();
+    $('#modalMasterJamaah').modal('show');
+});
+
+// Bootstrap 4 + select2: cegah fokus modal merebut input di dalam select2
+$('#modalMasterJamaah').on('shown.bs.modal', function () {
+    $(document).off('focusin.modal');
+});
+
+$('#formMasterJamaah').on('submit', async function (e) {
+    e.preventDefault();
+
+    const payload = {
+        full_name     : $('#mj_full_name').val().trim(),
+        nik           : $('#mj_nik').val().trim(),
+        phone_number  : $('#mj_phone').val().trim() || null,
+        detail_address: $('#mj_address').val().trim() || null,
+    };
+
+    const $btn = $('#btnSaveMasterJamaah').prop('disabled', true);
+
+    try {
+        const res = await ajaxRequest(jamaahRoutes.saveMaster, 'POST', payload, token());
+        const j = res.data.data;
+
+        // Langsung pilih jamaah baru di select2
+        const opt = new Option(`${j.full_name} (${j.nik})`, j.id, true, true);
+        $('#aj_jamaah').append(opt).trigger('change');
+
+        $('#modalMasterJamaah').modal('hide');
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data.message, timer: 1000, showConfirmButton: false });
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
+// ── Init ──
+$(async function () {
+    await loadOptions();
+    loadPaket(1);
+});
+</script>
+@endpush
