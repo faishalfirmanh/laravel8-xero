@@ -96,13 +96,20 @@
             </select>
             <input type="text" id="filterKeyword" class="form-control form-control-sm mr-2" placeholder="Cari nama paket" style="width:320px;">
             <button type="button" class="btn btn-sm btn-outline-secondary mr-2" id="btnFilter">Cari</button>
+            <button type="button" class="btn btn-sm btn-outline-success mr-2" id="btnDownloadImg">
+                <i class="ti ti-photo-down mr-1"></i> Download Gambar
+            </button>
             <button type="button" class="btn btn-primary btn-sm" id="btnAddPaket">
                 <i class="ti ti-plus mr-1"></i> Tambah Paket
             </button>
         </div>
     </div>
 
-    <div class="table-responsive p-3">
+    <div class="table-responsive p-3"  id="tableCapture">
+        <div id="captureTitle" style="display:none;" class="mb-3">
+            <h5 class="font-weight-bold mb-0">Daftar Paket Umroh</h5>
+            <small class="text-muted" id="captureDate"></small>
+        </div>
         <table class="table table-hover table-bordered w-100">
             <thead class="thead-dark">
                 <tr>
@@ -118,7 +125,7 @@
                     <th class="text-right">Harga Quad</th>
                     <th class="text-right">Harga Triple</th>
                     <th class="text-right">Harga Double</th>
-                    <th class="text-center" width="12%">Aksi</th>
+                    <th class="text-center no-capture" width="12%">Aksi</th>
                 </tr>
             </thead>
             <tbody id="paketBody"></tbody>
@@ -468,6 +475,7 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 const paketRoutes = {
     list           : "{{ route('paket-umroh.index') }}",
@@ -478,6 +486,82 @@ const paketRoutes = {
     options        : "{{ route('paket-umroh.options') }}",
     saveMasterHotel: "{{ route('saveMasterHotel') }}",
 };
+
+// ── Download tabel sebagai gambar HD ──
+// ── Download tabel sebagai gambar HD ──
+$('#btnDownloadImg').on('click', async function () {
+    const el = document.getElementById('tableCapture');
+    if (!el) {
+        Swal.fire('Gagal', 'Elemen #tableCapture tidak ditemukan.', 'error');
+        return;
+    }
+    if (!$('#paketBody tr').length) {
+        Swal.fire('Peringatan', 'Belum ada data untuk diunduh.', 'warning');
+        return;
+    }
+
+    const $btn = $(this).prop('disabled', true);
+    const oldHtml = $btn.html();
+    $btn.html('<span class="spinner-border spinner-border-sm mr-1"></span> Memproses...');
+
+    // Wrapper sementara di dalam halaman (CSS Bootstrap tetap berlaku)
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;top:0;left:0;z-index:-1;background:#fff;padding:16px;'
+                       + 'width:' + el.scrollWidth + 'px;';
+
+    try {
+        const clone = el.cloneNode(true);
+
+        // Judul tampil
+        const title = clone.querySelector('#captureTitle');
+        if (title) {
+            title.style.display = 'block';
+            const dt = title.querySelector('#captureDate');
+            if (dt) dt.textContent = 'Dicetak: ' + new Date().toLocaleString('id-ID');
+        }
+
+        // Buang kolom Aksi dan pager langsung dari clone
+        clone.querySelectorAll('.no-capture, #pager').forEach(n => n.remove());
+
+        // Hindari id ganda di halaman
+        clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+        clone.style.overflow = 'visible';
+
+        wrap.appendChild(clone);
+        document.body.appendChild(wrap);
+
+        // Beri waktu browser menghitung layout
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const w = wrap.scrollWidth;
+        const h = wrap.scrollHeight;
+        const scale = Math.min(3, 16000 / Math.max(w, h));
+
+        const canvas = await html2canvas(wrap, {
+            scale: scale,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+        });
+
+        canvas.toBlob(function (blob) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `paket-umroh-${new Date().toISOString().slice(0, 10)}.png`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }, 'image/png');
+
+    } catch (err) {
+        console.error(err);
+        Swal.fire('Gagal', 'Tidak bisa membuat gambar: ' + err.message, 'error');
+    } finally {
+        if (wrap.parentNode) wrap.remove();
+        $btn.prop('disabled', false).html(oldHtml);
+    }
+});
 
 let opts = { tipe: [], travel: [], hotels: [] };
 let hotelIdx = 0;
@@ -600,30 +684,28 @@ async function loadPaket(page = 1) {
 
 function renderRows(rows) {
     if (rows.length === 0) {
-        $('#paketBody').html('<tr><td colspan="9" class="text-center text-muted">Belum ada data</td></tr>');
+        $('#paketBody').html('<tr><td colspan="13" class="text-center text-muted">Belum ada data</td></tr>');
         return;
     }
 
     let html = '';
     rows.forEach((p, i) => {
-       
-        let convert_hotel = p.hotels
         html += `
             <tr>
                 <td class="text-center">${i + 1}</td>
                 <td>${esc(p.nama_paket)}</td>
                 <td>${esc(p.maskapai)}</td>
                 <td>${esc(p.keberangkatan)}-${esc(p.landing)}</td>
-                <td class="text-center" style="font-size:13px;">${formatHotels(p.hotels)}</td>
+                <td style="font-size:13px;">${formatHotels(p.hotels)}</td>
                 <td class="text-center">${esc(p.jumlah_hari)}</td>
-                <th class="text-center">${esc(p.max_slot)}</th>
-                <th class="text-center">${esc(p.filled_slot)}</th>
-                <th class="text-center">${esc(p.available_slot)}</th>              
+                <td class="text-center font-weight-bold">${esc(p.max_slot)}</td>
+                <td class="text-center font-weight-bold">${esc(p.filled_slot)}</td>
+                <td class="text-center font-weight-bold">${esc(p.available_slot)}</td>
                 <td class="text-right">${Number(p.hrgquad || 0).toLocaleString('id-ID')}</td>
-                <td class="text-right">${Number(p.hrgtriple  || 0).toLocaleString('id-ID')}</td>
+                <td class="text-right">${Number(p.hrgtriple || 0).toLocaleString('id-ID')}</td>
                 <td class="text-right">${Number(p.hrgdouble || 0).toLocaleString('id-ID')}</td>
-                <td class="text-center">
-                     <button type="button" class="btn btn-xs btn-info btn-add-jamaah"
+                <td class="text-center no-capture">
+                    <button type="button" class="btn btn-xs btn-info btn-add-jamaah"
                             data-id="${p.id}"
                             data-name="${esc(p.nama_paket)}"
                             data-max="${p.max_slot}"
@@ -807,7 +889,7 @@ function addHotelRow(d = {}) {
                 </select>
             </div>
             <div class="form-group mb-0 mr-2" style="width:120px;">
-                <label class="small mb-0">Night</label>
+                <label class="small mb-0">Night <span class="text-danger">*</span></label>
                 <input type="number" class="form-control form-control-sm"
                        name="hotels[${i}][night]"
                        value="${esc(d.night ?? '')}"

@@ -38,29 +38,32 @@ class CreatePaketUmrohsTable extends Migration
             $table->timestamps();
         });
 
-        Schema::create('paket_umroh_hotels', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('paket_umroh_id')->constrained('paket_umrohs')->onDelete('cascade');
-            $table->unsignedBigInteger('hotel_id')->index();
-            $table->string('kota', 20);
-            $table->string('nama_hotel', 191);
-            $table->string('alamat', 255)->nullable();
-            $table->unsignedInteger('jarak')->nullable();
-            $table->unsignedTinyInteger('bintang')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('paket_umroh_hotels')) {
+            Schema::create('paket_umroh_hotels', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('paket_umroh_id')->constrained('paket_umrohs')->onDelete('cascade');
+                $table->unsignedBigInteger('hotel_id')->index();
+                $table->string('kota', 20);
+                $table->string('nama_hotel', 191);
+                $table->string('alamat', 255)->nullable();
+                $table->unsignedInteger('jarak')->nullable();
+                $table->unsignedTinyInteger('bintang')->nullable();
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('paket_umroh_hotels', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('paket_umroh_id')->constrained('paket_umrohs')->onDelete('cascade');
-            $table->unsignedBigInteger('hotel_id')->index();
-            $table->string('kota', 20);
-            $table->string('nama_hotel', 191);
-            $table->string('alamat', 255)->nullable();
-            $table->unsignedInteger('jarak')->nullable();
-            $table->unsignedTinyInteger('bintang')->nullable();
-            $table->timestamps();
-        });
+
+        // Schema::create('paket_umroh_hotels', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->foreignId('paket_umroh_id')->constrained('paket_umrohs')->onDelete('cascade');
+        //     $table->unsignedBigInteger('hotel_id')->index();
+        //     $table->string('kota', 20);
+        //     $table->string('nama_hotel', 191);
+        //     $table->string('alamat', 255)->nullable();
+        //     $table->unsignedInteger('jarak')->nullable();
+        //     $table->unsignedTinyInteger('bintang')->nullable();
+        //     $table->timestamps();
+        // });
     }
 
     /**
