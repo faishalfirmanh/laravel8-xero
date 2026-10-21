@@ -13,30 +13,33 @@ class CreatePaketUmrohsTable extends Migration
      */
     public function up()
     {
-        Schema::create('paket_umrohs', function (Blueprint $table) {
-            $table->id();
-            $table->string('tipe', 20);
-            $table->unsignedBigInteger('travel_id')->index();
-            $table->string('nama_paket', 255);
-            $table->date('tgl_berangkat')->index();
-            $table->unsignedSmallInteger('jumlah_hari');
-            $table->string('maskapai', 100);
-            $table->string('keberangkatan', 100);
-            $table->string('landing', 100);
-            $table->string('kodeflight', 50)->nullable();
-            $table->decimal('hrginfant', 15, 2)->default(0);
-            $table->decimal('hrgquad', 15, 2)->default(0);
-            $table->decimal('hrgtriple', 15, 2)->default(0);
-            $table->decimal('hrgdouble', 15, 2)->default(0);
-            $table->decimal('hrgperlengkapan', 15, 2)->default(0);
-            $table->string('imgpaketumroh', 500)->nullable();
-            $table->string('itinerary', 500)->nullable();
-            $table->unsignedInteger('max_slot')->default(0);
-            $table->unsignedInteger('available_slot')->default(0);
-            $table->unsignedInteger('filled_slot')->default(0);
-            $table->unsignedBigInteger('created_by')->nullable();
-            $table->timestamps();
-        });
+
+        if (!Schema::hasTable('paket_umrohs')) {
+            Schema::create('paket_umrohs', function (Blueprint $table) {
+                $table->id();
+                $table->string('tipe', 20);
+                $table->unsignedBigInteger('travel_id')->index();
+                $table->string('nama_paket', 255);
+                $table->date('tgl_berangkat')->index();
+                $table->unsignedSmallInteger('jumlah_hari');
+                $table->string('maskapai', 100);
+                $table->string('keberangkatan', 100);
+                $table->string('landing', 100);
+                $table->string('kodeflight', 50)->nullable();
+                $table->decimal('hrginfant', 15, 2)->default(0);
+                $table->decimal('hrgquad', 15, 2)->default(0);
+                $table->decimal('hrgtriple', 15, 2)->default(0);
+                $table->decimal('hrgdouble', 15, 2)->default(0);
+                $table->decimal('hrgperlengkapan', 15, 2)->default(0);
+                $table->string('imgpaketumroh', 500)->nullable();
+                $table->string('itinerary', 500)->nullable();
+                $table->unsignedInteger('max_slot')->default(0);
+                $table->unsignedInteger('available_slot')->default(0);
+                $table->unsignedInteger('filled_slot')->default(0);
+                $table->unsignedBigInteger('created_by')->nullable();
+                $table->timestamps();
+            });
+        }
 
         if (!Schema::hasTable('paket_umroh_hotels')) {
             Schema::create('paket_umroh_hotels', function (Blueprint $table) {

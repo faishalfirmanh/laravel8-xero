@@ -13,21 +13,23 @@ class CreatePaketUmrohJamaahsTable extends Migration
      */
     public function up()
     {
-        Schema::create('paket_umroh_jamaahs', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('paket_umroh_id');
-            $table->unsignedBigInteger('data_jamaah_id');
-            $table->unsignedInteger('jumlah_jamaah')->default(1);
-            $table->unsignedBigInteger('created_by')->nullable();
-            $table->timestamps();
+        if (!Schema::hasTable('paket_umroh_jamaahs')) {
+            Schema::create('paket_umroh_jamaahs', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('paket_umroh_id');
+                $table->unsignedBigInteger('data_jamaah_id');
+                $table->unsignedInteger('jumlah_jamaah')->default(1);
+                $table->unsignedBigInteger('created_by')->nullable();
+                $table->timestamps();
 
-            $table->unique(['paket_umroh_id', 'data_jamaah_id'], 'uq_paket_jamaah');
-            $table->index('data_jamaah_id');
+                $table->unique(['paket_umroh_id', 'data_jamaah_id'], 'uq_paket_jamaah');
+                $table->index('data_jamaah_id');
 
-            $table->foreign('paket_umroh_id')
-                ->references('id')->on('paket_umrohs')
-                ->onDelete('cascade');
-        });
+                $table->foreign('paket_umroh_id')
+                    ->references('id')->on('paket_umrohs')
+                    ->onDelete('cascade');
+            });
+        }
     }
 
     /**
