@@ -20,6 +20,7 @@ class PaketUmrohHotel extends Model
         'alamat',
         'jarak',
         'bintang',
+        'night'
     ];
 
     protected $casts = [

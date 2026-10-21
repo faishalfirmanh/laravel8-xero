@@ -81,6 +81,10 @@
     color: #aaa !important;
     font-size: 0.875rem !important;
 }
+
+.kota-badge { font-weight: 600; font-size: 0.8em; }
+.kota-madinah { color: #198754; }  /* hijau */
+.kota-makkah  { color: #b8860b; }  /* emas */
 </style>
 @section('content')
 <div class="card shadow mb-5">
@@ -90,7 +94,7 @@
             <select id="filterTipe" class="form-control form-control-sm mr-2" style="width:160px;">
                 <option value="">Semua Tipe</option>
             </select>
-            <input type="text" id="filterKeyword" class="form-control form-control-sm mr-2" placeholder="Cari nama paket" style="width:220px;">
+            <input type="text" id="filterKeyword" class="form-control form-control-sm mr-2" placeholder="Cari nama paket" style="width:320px;">
             <button type="button" class="btn btn-sm btn-outline-secondary mr-2" id="btnFilter">Cari</button>
             <button type="button" class="btn btn-primary btn-sm" id="btnAddPaket">
                 <i class="ti ti-plus mr-1"></i> Tambah Paket
@@ -103,13 +107,17 @@
             <thead class="thead-dark">
                 <tr>
                     <th class="text-center" width="4%">No</th>
-                    <th>Tipe</th>
                     <th>Nama Paket</th>
-                    <th>Travel</th>
-                    <th>Berangkat</th>
+                    <th>Maskapai</th>
+                    <th>Rute</th>
+                    <th>Hotel</th>
                     <th class="text-center">Hari</th>
-                    <th class="text-center">Slot (tersedia/max)</th>
+                    <th class="text-center">Quota</th>
+                    <th class="text-center">Terisi</th>
+                    <th class="text-center">Tersedia</th>
                     <th class="text-right">Harga Quad</th>
+                    <th class="text-right">Harga Triple</th>
+                    <th class="text-right">Harga Double</th>
                     <th class="text-center" width="12%">Aksi</th>
                 </tr>
             </thead>
@@ -141,11 +149,11 @@
                             <label class="small font-weight-bold">Travel <span class="text-danger">*</span></label>
                             <select class="form-control" name="travel" id="travel" required></select>
                         </div>
-                        <div class="form-group col-md-5">
-                            <label class="small font-weight-bold">Nama Paket <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="nama_paket" required maxlength="255"
-                                   placeholder="contoh: Umroh 12 hari an namiroh">
-                        </div>
+                        {{-- <div class="form-group col-md-5">
+                            <label class="small font-weight-bold">Harga <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="price" required 
+                                   placeholder="contoh: 29000000">
+                        </div> --}}
                     </div>
 
                     <div class="form-row">
@@ -159,22 +167,27 @@
                         </div>
                         <div class="form-group col-md-3">
                             <label class="small font-weight-bold">Maskapai <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="maskapai" required maxlength="100">
+                            <input type="text" class="form-control" placeholder="Lion" name="maskapai" required maxlength="100">
                         </div>
                         <div class="form-group col-md-2">
                             <label class="small font-weight-bold">Kode Flight</label>
-                            <input type="text" class="form-control" name="kodeflight" maxlength="50">
+                            <input type="text" placeholder="GA 321" class="form-control" name="kodeflight" maxlength="50">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group col-md-3">
-                            <label class="small font-weight-bold">Keberangkatan <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="keberangkatan" required maxlength="100">
+                            <label class="small font-weight-bold">Keberangkatan <span class="text-danger">*</span> </label>
+                            <input type="text" placeholder="Surabaya atau SBY" class="form-control" name="keberangkatan" required maxlength="100">
                         </div>
                         <div class="form-group col-md-3">
                             <label class="small font-weight-bold">Landing <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="landing" required maxlength="100">
+                            <input type="text" placeholder="Jeddah atau JED" class="form-control" name="landing" required maxlength="100">
+                        </div>
+                          <div class="form-group col-md-3">
+                            <label class="small font-weight-bold">Nama Paket <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control"  style="width:420px;" name="nama_paket" required  id="nama_paket"
+                                   placeholder="contoh: Umroh 12 hari an namiroh">
                         </div>
                     </div>
 
@@ -414,6 +427,44 @@
         </div>
     </div>
 </div>
+
+{{-- ================= MODAL PINDAH PAKET ================= --}}
+<div class="modal fade" id="modalPindah" tabindex="-1" role="dialog" data-backdrop="static" style="z-index:1060;">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Pindah Paket</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <form id="formPindah">
+                <div class="modal-body">
+                    <div class="alert alert-light border small mb-3">
+                        Jamaah: <b id="pp_nama">-</b><br>
+                        Jumlah di paket ini: <b id="pp_jumlah_asal">0</b>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Paket tujuan <span class="text-danger">*</span></label>
+                        <select id="pp_paket" class="form-control" required></select>
+                    </div>
+
+                    <div class="form-group mb-0">
+                        <label class="small font-weight-bold">Jumlah orang dipindah <span class="text-danger">*</span></label>
+                        <input type="number" id="pp_jumlah" class="form-control" min="1" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-warning btn-sm font-weight-bold" id="btnSavePindah">
+                        <i class="ti ti-arrows-exchange mr-1"></i> Pindahkan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -430,6 +481,69 @@ const paketRoutes = {
 
 let opts = { tipe: [], travel: [], hotels: [] };
 let hotelIdx = 0;
+
+const BULAN_ID = ['januari', 'februari', 'maret', 'april', 'mei', 'juni',
+                   'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+
+let namaPaketManual = false;
+
+
+function formatHotels(hotels) {
+    if (!Array.isArray(hotels) || hotels.length === 0) return '-';
+
+    // Madinah dulu (0), lalu Makkah (1), lainnya di belakang
+    const rank = k => {
+        const x = String(k || '').toLowerCase();
+        if (x === 'madinah') return 0;
+        if (x === 'makkah')  return 1;
+        return 2;
+    };
+
+    return [...hotels]
+        .sort((a, b) => rank(a.kota) - rank(b.kota))
+        .map(h => {
+            const kota  = String(h.kota || '');
+            const cls   = kota.toLowerCase() === 'madinah' ? 'kota-madinah'
+                        : kota.toLowerCase() === 'makkah'  ? 'kota-makkah' : '';
+            const night = h.night ? ` ${esc(h.night)}N` : '';
+            return `${esc(h.nama_hotel.toLowerCase())} <span class="kota-badge ${cls}">(${esc(kota)})</span>${night}`;
+        })
+        .join(' - ');
+}
+
+function buildNamaPaket() {
+    if (namaPaketManual) return;
+
+    const tipe        = ($('#tipe').val() || '').trim();
+    const hari        = ($('#formPaket [name="jumlah_hari"]').val() || '').trim();
+    const travelId    = ($('#travel').val() || '').trim();
+    const travel_name = travelId ? $('#travel option:selected').text().trim() : '';  // ambil NAMA, bukan ID
+    const tgl         = ($('#formPaket [name="tgl_berangkat"]').val() || '').trim(); // YYYY-MM-DD
+    const maskapai    = ($('#formPaket [name="maskapai"]').val() || '').trim();
+
+    if (!tipe || !hari || !tgl || !travel_name) {
+        $('#nama_paket').val('');
+        return;
+    }
+
+    const [y, m, d] = tgl.split('-').map(Number);
+
+    let nama = `${tipe.toLowerCase()} ${travel_name.toLowerCase()} ${hari} hari keberangkatan ${d} ${BULAN_ID[m - 1]} ${y}`;
+    if (maskapai) nama += ` - ${maskapai}`;
+
+    $('#nama_paket').val(nama);
+}
+
+// Trigger saat tipe, hari, tanggal, atau maskapai berubah
+$('#formPaket').on('change input',
+    'select[name="tipe"], select[name="travel"], input[name="jumlah_hari"], input[name="tgl_berangkat"], input[name="maskapai"]',
+    buildNamaPaket
+);
+
+// Deteksi input manual pada nama paket
+$('#nama_paket').on('input', function () {
+    namaPaketManual = $(this).val().trim() !== '';
+});
 
 const token = () => localStorage.getItem('token');
 
@@ -492,16 +606,22 @@ function renderRows(rows) {
 
     let html = '';
     rows.forEach((p, i) => {
+       
+        let convert_hotel = p.hotels
         html += `
             <tr>
                 <td class="text-center">${i + 1}</td>
-                <td>${esc(p.tipe)}</td>
                 <td>${esc(p.nama_paket)}</td>
-                <td>${esc(p.travel ? p.travel.name : '-')}</td>
-                <td>${esc(p.tgl_berangkat)}</td>
+                <td>${esc(p.maskapai)}</td>
+                <td>${esc(p.keberangkatan)}-${esc(p.landing)}</td>
+                <td class="text-center" style="font-size:13px;">${formatHotels(p.hotels)}</td>
                 <td class="text-center">${esc(p.jumlah_hari)}</td>
-                <td class="text-center">${esc(p.available_slot)} / ${esc(p.max_slot)}</td>
+                <th class="text-center">${esc(p.max_slot)}</th>
+                <th class="text-center">${esc(p.filled_slot)}</th>
+                <th class="text-center">${esc(p.available_slot)}</th>              
                 <td class="text-right">${Number(p.hrgquad || 0).toLocaleString('id-ID')}</td>
+                <td class="text-right">${Number(p.hrgtriple  || 0).toLocaleString('id-ID')}</td>
+                <td class="text-right">${Number(p.hrgdouble || 0).toLocaleString('id-ID')}</td>
                 <td class="text-center">
                      <button type="button" class="btn btn-xs btn-info btn-add-jamaah"
                             data-id="${p.id}"
@@ -539,6 +659,7 @@ function resetForm() {
     $('#hotelRows').empty();
     $('#previewImg').attr('src', '').hide();
     $('#linkItinerary').hide();
+    namaPaketManual =false
 }
 
 
@@ -552,14 +673,19 @@ function fillForm(p) {
      'hrgperlengkapan', 'max_slot', 'available_slot', 'filled_slot'
     ].forEach(k => $(`#formPaket [name="${k}"]`).val(p[k] ?? ''));
 
+    // Pastikan format YYYY-MM-DD (jaga-jaga kalau API mengirim datetime)
+    if (p.tgl_berangkat) {
+        $('#formPaket [name="tgl_berangkat"]').val(String(p.tgl_berangkat).substring(0, 10));
+    }
+
     $('#formPaket [name="travel"]').val(p.travel_id);
 
-    if (p.imgpaketumroh) {
-        $('#previewImg').attr('src', p.imgpaketumroh).show();
-    }
-    if (p.itinerary) {
-        $('#linkItinerary').attr('href', p.itinerary).show();
-    }
+    // Mode otomatis tetap aktif saat edit.
+    // Nama dari database tampil apa adanya sampai tipe/travel/hari/tanggal/maskapai diubah.
+    namaPaketManual = false;
+
+    if (p.imgpaketumroh) $('#previewImg').attr('src', p.imgpaketumroh).show();
+    if (p.itinerary) $('#linkItinerary').attr('href', p.itinerary).show();
 
     (p.hotels || []).forEach(h => addHotelRow(h));
 }
@@ -581,14 +707,14 @@ $(document).on('click', '.btn-del-hotel', function () {
 });
 
 // Pilih travel -> isi nama paket awal jika masih kosong
-$('#travel').on('change', function () {
-    const id = $(this).val();
-    const travel = opts.travel.find(t => String(t.id) === String(id));
-    const $nama = $('#formPaket [name="nama_paket"]');
-    if (travel && !$nama.val()) {
-        $nama.val('paket umroh an ' + travel.name);
-    }
-});
+// $('#travel').on('change', function () {
+//     const id = $(this).val();
+//     const travel = opts.travel.find(t => String(t.id) === String(id));
+//     const $nama = $('#formPaket [name="nama_paket"]');
+//     if (travel && !$nama.val()) {
+//         $nama.val('umroh ' + travel.name);
+//     }
+// });
 
 $(document).on('click', '.btn-edit-paket', async function () {
     const id = $(this).data('id');
@@ -680,6 +806,13 @@ function addHotelRow(d = {}) {
                     ${hotelOptionsHtml(d.hotel_id)}
                 </select>
             </div>
+            <div class="form-group mb-0 mr-2" style="width:120px;">
+                <label class="small mb-0">Night</label>
+                <input type="number" class="form-control form-control-sm"
+                       name="hotels[${i}][night]"
+                       value="${esc(d.night ?? '')}"
+                       min="1" step="1" required>
+            </div>
             <button type="button" class="btn btn-sm btn-outline-danger btn-del-hotel">
                 <i class="ti ti-trash"></i> Hapus
             </button>
@@ -739,9 +872,56 @@ const jamaahRoutes = {
     store     : "{{ route('paket-umroh.jamaah.store', ['id' => '__ID__']) }}",
     destroy   : "{{ route('paket-umroh.jamaah.destroy', ['id' => '__ID__', 'rowId' => '__ROW__']) }}",
     saveMaster: "{{ route('save-jamaah') }}",
+    select2paket : "{{ route('paket-umroh-select2') }}",
+    pindah       : "{{ route('paket-umroh.jamaah.pindah', ['id' => '__ID__', 'rowId' => '__ROW__']) }}",
 };
 
 let currentPaketId = null;
+
+
+function initCariPaketSelect2() {
+    const $el = $('#pp_paket');
+    if ($el.hasClass('select2-hidden-accessible')) {
+        $el.select2('destroy');
+    }
+
+    $el.select2({
+        theme: 'bootstrap4',
+        width: '100%',
+        dropdownParent: $('#modalPindah'),
+        placeholder: 'Ketik nama paket...',
+        allowClear: true,
+        minimumInputLength: 3,
+        language: {
+            inputTooShort: () => 'Ketik minimal 3 huruf / angka...',
+            searching    : () => 'Mencari...',
+            noResults    : () => 'Paket tidak ditemukan',
+        },
+        ajax: {
+            url: jamaahRoutes.select2paket,
+            dataType: 'json',
+            delay: 400,
+            cache: false,
+            data: params => ({ keyword: params.term || '' }),
+            transport: function (params, success, failure) {
+                const req = $.ajax({
+                    url: params.url,
+                    data: params.data,
+                    dataType: 'json',
+                    headers: { 'Authorization': 'Bearer ' + token() },
+                });
+                req.then(success);
+                req.fail(failure);
+                return req;
+            },
+            // Paket asal tidak ditampilkan sebagai pilihan
+            processResults: response => ({
+                results: (response.data.results || [])
+                    .filter(r => String(r.id) !== String(currentPaketId))
+            }),
+        },
+    });
+}
 
 // ── Select2 jamaah (ambil dari data_jamaah_xeros) ──
 function initJamaahSelect2() {
@@ -838,6 +1018,13 @@ function renderPaketJamaah(rows) {
                 <td>${esc(r.jamaah ? r.jamaah.nik : '-')}</td>
                 <td class="text-center">${esc(r.jumlah_jamaah)}</td>
                 <td class="text-center">
+                    <button type="button" class="btn btn-xs btn-warning btn-pindah-jamaah mr-1"
+                            data-row-id="${r.id}"
+                            data-nama="${esc(r.jamaah ? r.jamaah.full_name : '-')}"
+                            data-jumlah="${esc(r.jumlah_jamaah)}"
+                            title="Pindah paket" style="margin:10px;">
+                        <i class="ti ti-arrows-exchange"></i>
+                    </button>
                     <button type="button" class="btn btn-xs btn-danger btn-del-jamaah" data-row-id="${r.id}" title="Hapus">
                         <i class="ti ti-trash"></i>
                     </button>
@@ -948,6 +1135,71 @@ $('#formMasterJamaah').on('submit', async function (e) {
     }
 });
 // ── Init ──
+
+// ── Pindah paket jamaah ──
+let pindahRowId = null;
+
+$(document).on('click', '.btn-pindah-jamaah', function () {
+    pindahRowId = $(this).data('row-id');
+    const jumlah = parseInt($(this).data('jumlah'), 10) || 1;
+
+    $('#formPindah')[0].reset();
+    $('#pp_nama').text($(this).data('nama'));
+    $('#pp_jumlah_asal').text(jumlah);
+    $('#pp_jumlah').attr('max', jumlah).val(jumlah);
+
+    initCariPaketSelect2();
+    $('#modalPindah').modal('show');
+});
+
+// Modal bertumpuk: backdrop kedua harus di atas modal Add Jamaah
+$('#modalPindah').on('shown.bs.modal', function () {
+    $('.modal-backdrop').last().css('z-index', 1055);
+});
+
+$('#modalPindah').on('hidden.bs.modal', function () {
+    const $el = $('#pp_paket');
+    if ($el.hasClass('select2-hidden-accessible')) {
+        $el.select2('destroy');
+    }
+    // Bootstrap 4 melepas modal-open saat modal kedua tutup, padahal Add Jamaah masih terbuka
+    if ($('#modalAddJamaah').hasClass('show')) {
+        $('body').addClass('modal-open');
+    }
+});
+
+$('#formPindah').on('submit', async function (e) {
+    e.preventDefault();
+
+    const targetId = $('#pp_paket').val();
+    if (!targetId) {
+        Swal.fire('Peringatan', 'Pilih paket tujuan terlebih dahulu.', 'warning');
+        return;
+    }
+
+    const payload = {
+        target_paket_id: targetId,
+        jumlah_jamaah  : parseInt($('#pp_jumlah').val(), 10),
+    };
+
+    const $btn = $('#btnSavePindah').prop('disabled', true);
+
+    try {
+        const url = jamaahRoutes.pindah
+            .replace('__ID__', currentPaketId)
+            .replace('__ROW__', pindahRowId);
+        const res = await ajaxRequest(url, 'PUT', payload, token());
+
+        $('#modalPindah').modal('hide');
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data.message, timer: 1200, showConfirmButton: false });
+
+        await loadPaketJamaah();   // refresh daftar + sisa slot paket asal
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
 $(async function () {
     await loadOptions();
     loadPaket(1);

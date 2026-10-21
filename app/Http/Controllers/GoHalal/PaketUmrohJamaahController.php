@@ -41,6 +41,125 @@ class PaketUmrohJamaahController extends Controller
         return $this->autoResponse(['results' => $results]);
     }
 
+
+    public function pindah(Request $request, $id, $rowId)
+    {
+        $validator = Validator::make($request->all(), [
+            'target_paket_id' => 'required|integer|exists:paket_umrohs,id',
+            'jumlah_jamaah' => 'required|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors()->first(), 422);
+        }
+
+        if ((int) $request->target_paket_id === (int) $id) {
+            return $this->error('Paket tujuan tidak boleh sama dengan paket asal', 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Lock dua paket dengan urutan id yang konsisten agar tidak deadlock
+            $pakets = PaketUmroh::whereIn('id', [(int) $id, (int) $request->target_paket_id])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $asal = $pakets->get((int) $id);
+            $tujuan = $pakets->get((int) $request->target_paket_id);
+
+            if (!$asal || !$tujuan) {
+                throw new \RuntimeException('Paket umroh tidak ditemukan');
+            }
+
+            $row = PaketUmrohJamaah::where('id', $rowId)
+                ->where('paket_umroh_id', $asal->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$row) {
+                throw new \RuntimeException('Data jamaah pada paket asal tidak ditemukan');
+            }
+
+            $jumlah = (int) $request->jumlah_jamaah;
+
+            if ($jumlah > (int) $row->jumlah_jamaah) {
+                throw new \RuntimeException('Jumlah pindah melebihi jumlah jamaah di paket asal (' . $row->jumlah_jamaah . ')');
+            }
+
+            $sisa = (int) $tujuan->max_slot - (int) $this->totalJamaah($tujuan->id);
+            if ($jumlah > $sisa) {
+                throw new \RuntimeException('Slot paket tujuan tidak cukup. Sisa slot: ' . max(0, $sisa));
+            }
+
+            // Paket tujuan: update kalau sudah ada, create kalau belum
+            $existing = PaketUmrohJamaah::where('paket_umroh_id', $tujuan->id)
+                ->where('data_jamaah_id', $row->data_jamaah_id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                $existing->update([
+                    'jumlah_jamaah' => (int) $existing->jumlah_jamaah + $jumlah,
+                ]);
+            } else {
+                PaketUmrohJamaah::create([
+                    'paket_umroh_id' => $tujuan->id,
+                    'data_jamaah_id' => $row->data_jamaah_id,
+                    'jumlah_jamaah' => $jumlah,
+                    'created_by' => optional($request->user_login)->id,
+                ]);
+            }
+
+            // Paket asal: hapus kalau semua pindah, kurangi kalau sebagian
+            if ($jumlah === (int) $row->jumlah_jamaah) {
+                $row->delete();
+            } else {
+                $row->update(['jumlah_jamaah' => (int) $row->jumlah_jamaah - $jumlah]);
+            }
+
+            $this->syncSlot($asal);
+            $this->syncSlot($tujuan);
+
+            DB::commit();
+
+            return $this->success([
+                'paket_asal_id' => $asal->id,
+                'paket_tujuan_id' => $tujuan->id,
+            ], 'Jamaah berhasil dipindahkan');
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('[PaketUmrohJamaah] pindah: ' . $e->getMessage());
+
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    public function NamaPaketSelect2(Request $request)
+    {
+        $keyword = trim((string) $request->input('keyword', ''));
+
+        $results = PaketUmroh::query()
+            ->select('id', 'nama_paket', 'tipe')
+            ->when($keyword !== '', function ($q) use ($keyword) {
+                $q->where(function ($w) use ($keyword) {
+                    $w->where('nama_paket', 'like', '%' . $keyword . '%')
+                        ->orWhere('tipe', 'like', '%' . $keyword . '%');
+                });
+            })
+            ->orderBy('nama_paket')
+            ->limit(20)
+            ->get()
+            ->map(fn($j) => [
+                'id' => $j->id,
+                'text' => $j->nama_paket . ' (' . $j->nik . ')',
+            ]);
+
+        return $this->autoResponse(['results' => $results]);
+    }
+
     // GET /api/paket-umroh/{id}/jamaah
     public function index($id)
     {

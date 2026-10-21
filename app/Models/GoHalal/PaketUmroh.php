@@ -31,7 +31,8 @@ class PaketUmroh extends Model
         'available_slot',
         'filled_slot',
         'created_by',
-        'random_uuid_paket'
+        'random_uuid_paket',
+        'price'
     ];
 
     protected $casts = [

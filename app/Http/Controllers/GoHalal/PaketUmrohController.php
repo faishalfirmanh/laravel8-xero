@@ -104,6 +104,9 @@ class PaketUmrohController extends Controller
         try {
             $data = $this->payload($request);
             $data['created_by'] = $request->user_login->id;
+            $data['maskapai'] = strtoupper($request->maskapai);
+            $data['keberangkatan '] = strtoupper($request->keberangkatan);
+            $data['landing'] = strtoupper($request->landing);
             $data['random_uuid_paket'] = $this->generateUniqueRandomUuid();
             $paket = PaketUmroh::create($data);
             $paket->hotels()->createMany($this->hotelRows($request));
@@ -142,6 +145,9 @@ class PaketUmrohController extends Controller
 
         DB::beginTransaction();
         try {
+            $data['maskapai'] = strtoupper($request->maskapai);
+            $data['keberangkatan '] = strtoupper($request->keberangkatan);
+            $data['landing'] = strtoupper($request->landing);
             $data = $this->payload($request, $paket);
 
             $paket->update($data);
@@ -204,6 +210,7 @@ class PaketUmrohController extends Controller
             'travel' => 'required|integer|exists:travel_names,id',
             'nama_paket' => 'required|string|max:255',
             'tgl_berangkat' => 'required|date',
+            // 'price' => 'required|integer',
             'jumlah_hari' => 'required|integer|min:1',
             'maskapai' => 'required|string|max:100',
             'keberangkatan' => 'required|string|max:100',
@@ -229,6 +236,7 @@ class PaketUmrohController extends Controller
 
             'hotels' => 'nullable|array',
             'hotels.*.idhotelmitra' => 'required|integer|exists:hotels,id',
+            'hotels.*.night' => 'required|integer|min:1',
         ];
     }
 
@@ -325,6 +333,7 @@ class PaketUmrohController extends Controller
                 'alamat' => $m->address,
                 'jarak' => $m->distance,
                 'bintang' => $m->star,
+                'night' => (int) ($h['night'] ?? 0),
             ];
         }
 

@@ -346,10 +346,12 @@ Route::prefix("admin-web")->group(function () {
             Route::delete('paket-umroh/{id}', [PaketUmrohController::class, 'destroy'])
                 ->where('id', '[0-9]+')->name('paket-umroh.destroy');
 
+            Route::get('paket-umroh/select2', [PaketUmrohJamaahController::class, 'NamaPaketSelect2'])->name('paket-umroh-select2');
+
             //paket umroh-jamaah
             Route::get('paket-umroh/jamaah-select2', [PaketUmrohJamaahController::class, 'jamaahSelect2'])->name('paket-umroh.jamaah-select2');
             Route::get('paket-umroh/{id}/jamaah', [PaketUmrohJamaahController::class, 'index'])->where('id', '[0-9]+')->name('paket-umroh.jamaah.index');
-            Route::post('paket-umroh/{id}/jamaah', [PaketUmrohJamaahController::class, 'store'])->where('id', '[0-9]+')->name('paket-umroh.jamaah.store');
+            Route::post('paket-umroh/{id}/jamaah', [PaketUmrohJamaahController::class, 'store'])->where('id', '[0-9]+')->name('paket-umroh.jamaah.store');// //update seat
             Route::delete('paket-umroh/{id}/jamaah/{rowId}', [PaketUmrohJamaahController::class, 'destroy'])->where(['id' => '[0-9]+', 'rowId' => '[0-9]+'])->name('paket-umroh.jamaah.destroy');
             //paket umroh-jamaah
 
@@ -358,6 +360,7 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');
             Route::post('/save', [HotelApiController::class, 'store'])->name('saveMasterHotel');
             Route::post('/delete', [HotelApiController::class, 'delete'])->name('deleteMasterHotel');
+            Route::put('paket-umroh/{id}/jamaah/{rowId}/pindah', [PaketUmrohJamaahController::class, 'pindah'])->name('paket-umroh.jamaah.pindah'); //update seat
             // Route::prefix('hotel')->group(function () {
             //     Route::get('/get', [HotelApiController::class, 'getAllPaginate'])->name('getAllHotelApi');
             //     Route::get('/search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2');

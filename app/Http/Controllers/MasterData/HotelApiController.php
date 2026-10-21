@@ -30,6 +30,10 @@ class HotelApiController extends Controller
         $validator = Validator::make($request->all(), [
             'keyword' => 'nullable|string'
         ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
         $where = [];
         $data = $this->repo->searchData($where, $request->limit, $request->page, 'name', strtoupper($request->keyword));
         return $this->autoResponse($data);
