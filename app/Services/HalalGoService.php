@@ -2,7 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\PaketUmroh;
+
+use App\Models\GoHalal\PaketUmroh;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
