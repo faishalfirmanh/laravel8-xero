@@ -4,6 +4,7 @@ namespace App\Http\Controllers\GoHalal;
 
 use App\Http\Controllers\Controller;
 
+use App\Models\DataJamaah;
 use App\Models\GoHalal\PaketUmroh;
 use App\Models\GoHalal\PaketUmrohJamaah;
 use App\Models\MasterData\DataJamaahXero;
@@ -36,6 +37,29 @@ class PaketUmrohJamaahController extends Controller
             ->map(fn($j) => [
                 'id' => $j->id,
                 'text' => $j->full_name . ' (' . $j->nik . ')',
+            ]);
+
+        return $this->autoResponse(['results' => $results]);
+    }
+
+    public function jamaahSelect2Alhid(Request $request)
+    {
+        $keyword = trim((string) $request->input('keyword', ''));
+
+        $results = DataJamaah::query()
+            ->select('id_jamaah', 'nama_jamaah', 'no_ktp')
+            ->when($keyword !== '', function ($q) use ($keyword) {
+                $q->where(function ($w) use ($keyword) {
+                    $w->where('nama_jamaah', 'like', '%' . $keyword . '%')
+                        ->orWhere('no_ktp', 'like', '%' . $keyword . '%');
+                });
+            })
+            ->orderBy('nama_jamaah')
+            ->limit(20)
+            ->get()
+            ->map(fn($j) => [
+                'id' => $j->id_jamaah,
+                'text' => $j->nama_jamaah . ' (' . $j->no_ktp . ')',
             ]);
 
         return $this->autoResponse(['results' => $results]);
@@ -95,7 +119,8 @@ class PaketUmrohJamaahController extends Controller
 
             // Paket tujuan: update kalau sudah ada, create kalau belum
             $existing = PaketUmrohJamaah::where('paket_umroh_id', $tujuan->id)
-                ->where('data_jamaah_id', $row->data_jamaah_id)
+                // ->where('data_jamaah_id', $row->data_jamaah_id)
+                ->where('id_jamaah_alhid', $row->id_jamaah_alhid)
                 ->lockForUpdate()
                 ->first();
 
@@ -106,7 +131,8 @@ class PaketUmrohJamaahController extends Controller
             } else {
                 PaketUmrohJamaah::create([
                     'paket_umroh_id' => $tujuan->id,
-                    'data_jamaah_id' => $row->data_jamaah_id,
+                    // 'data_jamaah_id' => $row->data_jamaah_id,
+                    'id_jamaah_alhid' => $row->id_jamaah_alhid,
                     'jumlah_jamaah' => $jumlah,
                     'created_by' => optional($request->user_login)->id,
                 ]);
@@ -185,6 +211,29 @@ class PaketUmrohJamaahController extends Controller
         ]);
     }
 
+    public function index2($id)
+    {
+        $paket = PaketUmroh::find($id);
+        if (!$paket) {
+            return $this->error('Paket umroh tidak ditemukan', 404);
+        }
+        $jamaah = PaketUmrohJamaah::with('jamaahAlhid:id_jamaah,nama_jamaah,no_ktp')
+            ->where('paket_umroh_id', $id)
+            ->orderBy('id')
+            ->get();
+
+        return $this->autoResponse([
+            'paket' => [
+                'id' => $paket->id,
+                'nama_paket' => $paket->nama_paket,
+                'max_slot' => (int) $paket->max_slot,
+                'filled_slot' => (int) $paket->filled_slot,
+                'available_slot' => (int) $paket->available_slot,
+            ],
+            'jamaah' => $jamaah,
+        ]);
+    }
+
     // POST /api/paket-umroh/{id}/jamaah
     public function store(Request $request, $id)
     {
@@ -206,7 +255,8 @@ class PaketUmrohJamaahController extends Controller
             }
 
             $sudahAda = PaketUmrohJamaah::where('paket_umroh_id', $paket->id)
-                ->where('data_jamaah_id', $request->data_jamaah_id)
+                // ->where('data_jamaah_id', $request->data_jamaah_id)
+                ->where('id_jamaah_alhid', $request->data_jamaah_id)
                 ->exists();
 
             if ($sudahAda) {
@@ -214,14 +264,15 @@ class PaketUmrohJamaahController extends Controller
             }
 
             $sisa = (int) $paket->max_slot - (int) $this->totalJamaah($paket->id);
-            if ((int) $request->jumlah_jamaah > $sisa) {
-                throw new \RuntimeException('Slot tidak cukup. Sisa slot: ' . max(0, $sisa));
-            }
+            // if ((int) $request->jumlah_jamaah > $sisa) {
+            //     throw new \RuntimeException('Slot tidak cukup. Sisa slot: ' . max(0, $sisa));
+            // }
 
             PaketUmrohJamaah::create([
                 'paket_umroh_id' => $paket->id,
-                'data_jamaah_id' => $request->data_jamaah_id,
+                // 'data_jamaah_id' => $request->data_jamaah_id,//xero
                 'jumlah_jamaah' => $request->jumlah_jamaah,
+                'id_jamaah_alhid' => $request->data_jamaah_id,
                 'created_by' => optional($request->user_login)->id,
             ]);
 

@@ -93,9 +93,9 @@ class PaketUmrohController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors()->first(), 422);
         }
-        if ($msg = $this->slotError($request)) {
-            return $this->error($msg, 422);
-        }
+        // if ($msg = $this->slotError($request)) {
+        //     return $this->error($msg, 422);
+        // }
 
         $this->newFiles = [];
         $this->oldFiles = [];
@@ -136,9 +136,10 @@ class PaketUmrohController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors()->first(), 422);
         }
-        if ($msg = $this->slotError($request)) {
-            return $this->error($msg, 422);
-        }
+        //input bebas
+        // if ($msg = $this->slotError($request)) {
+        //     return $this->error($msg, 422);
+        // }
 
         $this->newFiles = [];
         $this->oldFiles = [];
@@ -183,6 +184,7 @@ class PaketUmrohController extends Controller
         DB::beginTransaction();
         try {
             $paket->hotels()->delete();
+            $paket->jamaahs()->delete();
             $paket->delete();
 
             DB::commit();
@@ -212,16 +214,18 @@ class PaketUmrohController extends Controller
             'tgl_berangkat' => 'required|date',
             // 'price' => 'required|integer',
             'jumlah_hari' => 'required|integer|min:1',
-            'maskapai' => 'required|string|max:100',
+            'maskapai' => 'nullable|string|max:100',
             'keberangkatan' => 'required|string|max:100',
             'landing' => 'required|string|max:100',
             'kodeflight' => 'nullable|string|max:50',
-            'hrginfant' => 'required|numeric|min:0',
+            'hrginfant' => 'nullable|numeric',
             'hrgquad' => 'required|numeric|min:0',
             'hrgtriple' => 'required|numeric|min:0',
             'hrgdouble' => 'required|numeric|min:0',
             'hrgperlengkapan' => 'nullable|numeric|min:0',
-
+            'is_posting' => 'required|boolean',
+            'is_internal' => 'required|boolean',
+            'fasilitas_tambahan' => 'nullable|string',
             // Jika file dikirim -> validasi file, jika URL -> validasi URL
             'imgpaketumroh' => $request->hasFile('imgpaketumroh')
                 ? 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240'   // input maks 10 MB, dikompres ke 300 KB
@@ -280,6 +284,9 @@ class PaketUmrohController extends Controller
             'max_slot' => $request->max_slot,
             'available_slot' => $request->available_slot,
             'filled_slot' => $request->filled_slot,
+            'fasilitas_tambahan' => $request->fasilitas_tambahan,
+            'is_posting' => $request->is_posting ? true : false,
+            'is_internal' => $request->is_internal ? true : false
         ];
 
         if ($request->hasFile('imgpaketumroh')) {

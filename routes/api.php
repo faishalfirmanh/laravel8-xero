@@ -350,7 +350,9 @@ Route::prefix("admin-web")->group(function () {
 
             //paket umroh-jamaah
             Route::get('paket-umroh/jamaah-select2', [PaketUmrohJamaahController::class, 'jamaahSelect2'])->name('paket-umroh.jamaah-select2');
+            Route::get('paket-umroh/jamaah-alhid-select2', [PaketUmrohJamaahController::class, 'jamaahSelect2Alhid'])->name('paket-umroh.jamaah-alhid-select2');
             Route::get('paket-umroh/{id}/jamaah', [PaketUmrohJamaahController::class, 'index'])->where('id', '[0-9]+')->name('paket-umroh.jamaah.index');
+            Route::get('paket-umroh/{id}/jamaahAlhid', [PaketUmrohJamaahController::class, 'index2'])->where('id', '[0-9]+')->name('paket-umroh.jamaah-alhid');
             Route::post('paket-umroh/{id}/jamaah', [PaketUmrohJamaahController::class, 'store'])->where('id', '[0-9]+')->name('paket-umroh.jamaah.store');// //update seat
             Route::delete('paket-umroh/{id}/jamaah/{rowId}', [PaketUmrohJamaahController::class, 'destroy'])->where(['id' => '[0-9]+', 'rowId' => '[0-9]+'])->name('paket-umroh.jamaah.destroy');
             //paket umroh-jamaah
@@ -529,6 +531,7 @@ Route::prefix("admin-web")->group(function () {
             Route::get('/get', [DataApiJamaahController::class, 'getAllPaginate'])->name('getAllContactApi');
             Route::get('/get_by_id', [DataApiJamaahController::class, 'getById'])->name('getByIdContact');
             Route::post('/store', [DataApiJamaahController::class, 'store'])->name('save-jamaah');
+            Route::post('/store-alhid', [DataApiJamaahController::class, 'storeAlhid'])->name('save-jamaah-alhid');
         });
         Route::prefix("maskapai")->group(function () {
             Route::get('/get-data', [MasterMaskapaiController::class, 'getData'])->name('maskapai.getdata');

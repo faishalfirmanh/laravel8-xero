@@ -32,7 +32,10 @@ class PaketUmroh extends Model
         'filled_slot',
         'created_by',
         'random_uuid_paket',
-        'price'
+        'price',
+        'fasilitas_tambahan',
+        'is_internal',// yang dikirim ke go halal go hanya yang status is_internal false & is_Posting true
+        'is_posting',//
     ];
 
     protected $casts = [

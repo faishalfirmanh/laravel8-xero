@@ -114,6 +114,7 @@
             <thead class="thead-dark">
                 <tr>
                     <th class="text-center" width="4%">No</th>
+                    <th>Status</th>
                     <th>Nama Paket</th>
                     <th>Maskapai</th>
                     <th>Rute</th>
@@ -125,6 +126,7 @@
                     <th class="text-right">Harga Quad</th>
                     <th class="text-right">Harga Triple</th>
                     <th class="text-right">Harga Double</th>
+                    <th class="text-right">Fasilitas Tambahan</th>
                     <th class="text-center no-capture" width="12%">Aksi</th>
                 </tr>
             </thead>
@@ -155,12 +157,73 @@
                         <div class="form-group col-md-4">
                             <label class="small font-weight-bold">Travel <span class="text-danger">*</span></label>
                             <select class="form-control" name="travel" id="travel" required></select>
+                        </div>           
+                        <div class="form-group col-md-5">
+                            <label class="small font-weight-bold d-block">
+                                Status Jual <span class="text-danger">*</span>
+                            </label>
+
+                            <div class="form-check form-check-inline">
+                                <input
+                                    type="radio"
+                                    class="form-check-input"
+                                    name="is_posting"
+                                    id="is_posting_1"
+                                    value="1"
+                                    required
+                                >
+                                <label class="form-check-label" for="is_posting_1">
+                                    Posting
+                                </label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                                <input
+                                    type="radio"
+                                    class="form-check-input"
+                                    name="is_posting"
+                                    id="is_posting_0"
+                                    value="0"
+                                    required
+                                >
+                                <label class="form-check-label" for="is_posting_0">
+                                    Draft
+                                </label>
+                            </div>
                         </div>
-                        {{-- <div class="form-group col-md-5">
-                            <label class="small font-weight-bold">Harga <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" name="price" required 
-                                   placeholder="contoh: 29000000">
-                        </div> --}}
+                         <div class="form-group col-md-5">
+                            <label class="small font-weight-bold d-block">
+                                Paket <span class="text-danger">*</span>
+                            </label>
+
+                            <div class="form-check form-check-inline">
+                                <input
+                                    type="radio"
+                                    class="form-check-input"
+                                    name="is_internal"
+                                    id="is_internal_1"
+                                    value="1"
+                                    required
+                                >
+                                <label class="form-check-label" for="is_internal_1">
+                                    Internal (agent)
+                                </label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                                <input
+                                    type="radio"
+                                    class="form-check-input"
+                                    name="is_internal"
+                                    id="is_internal_0"
+                                    value="0"
+                                    required
+                                >
+                                <label class="form-check-label" for="is_internal_0">
+                                    External (kantor)
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-row">
@@ -173,8 +236,8 @@
                             <input type="number" class="form-control" name="jumlah_hari" min="1" required>
                         </div>
                         <div class="form-group col-md-3">
-                            <label class="small font-weight-bold">Maskapai <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" placeholder="Lion" name="maskapai" required maxlength="100">
+                            <label class="small font-weight-bold">Maskapai</label>
+                            <input type="text" class="form-control" placeholder="Lion" name="maskapai" maxlength="100">
                         </div>
                         <div class="form-group col-md-2">
                             <label class="small font-weight-bold">Kode Flight</label>
@@ -200,8 +263,8 @@
 
                     <div class="form-row">
                         <div class="form-group col-md-2">
-                            <label class="small font-weight-bold">Harga Infant <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" name="hrginfant" min="0" step="0.01" required>
+                            <label class="small font-weight-bold">Harga Infant</label>
+                            <input type="number" class="form-control" name="hrginfant" min="0" step="0.01">
                         </div>
                         <div class="form-group col-md-2">
                             <label class="small font-weight-bold">Harga Quad <span class="text-danger">*</span></label>
@@ -245,7 +308,21 @@
                             <a id="linkItinerary" href="#" target="_blank" class="small" style="display:none;">Lihat itinerary saat ini</a>
                         </div>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="fasilitas_tambahan" class="small font-weight-bold">
+                                Fasilitas Tambahan
+                            </label>
 
+                            <textarea
+                                id="fasilitas_tambahan"
+                                name="fasilitas_tambahan"
+                                class="form-control"
+                                rows="3"
+                                placeholder="Masukkan fasilitas tambahan..."
+                            ></textarea>
+                        </div>
+                    </div>
                     <hr>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="font-weight-bold mb-0">Hotel</h6>
@@ -612,7 +689,7 @@ function buildNamaPaket() {
 
     const [y, m, d] = tgl.split('-').map(Number);
 
-    let nama = `${tipe.toLowerCase()} ${travel_name.toLowerCase()} ${hari} hari keberangkatan ${d} ${BULAN_ID[m - 1]} ${y}`;
+    let nama = `${tipe.toLowerCase()} - ${d} ${BULAN_ID[m - 1]} ${y} -${hari} H  - ${travel_name.toLowerCase()}`;
     if (maskapai) nama += ` - ${maskapai}`;
 
     $('#nama_paket').val(nama);
@@ -690,9 +767,12 @@ function renderRows(rows) {
 
     let html = '';
     rows.forEach((p, i) => {
+        let cek_status_paket = p.is_internal ? 'agen' : 'umum'
+        let cek_status_posting = p.is_posting ? 'posting' : 'draf';
         html += `
             <tr>
                 <td class="text-center">${i + 1}</td>
+                <td class="text-center">${cek_status_paket}-${cek_status_posting}</td>
                 <td>${esc(p.nama_paket)}</td>
                 <td>${esc(p.maskapai)}</td>
                 <td>${esc(p.keberangkatan)}-${esc(p.landing)}</td>
@@ -704,6 +784,7 @@ function renderRows(rows) {
                 <td class="text-right">${Number(p.hrgquad || 0).toLocaleString('id-ID')}</td>
                 <td class="text-right">${Number(p.hrgtriple || 0).toLocaleString('id-ID')}</td>
                 <td class="text-right">${Number(p.hrgdouble || 0).toLocaleString('id-ID')}</td>
+                <td class="text-right">${p.fasilitas_tambahan}</td>
                 <td class="text-center no-capture">
                     <button type="button" class="btn btn-xs btn-info btn-add-jamaah"
                             data-id="${p.id}"
@@ -735,42 +816,102 @@ function renderPager(pg) {
 }
 
 // ── Form paket ──
+
 function resetForm() {
     $('#formPaket')[0].reset();
     $('#paket_id').val('');
     $('#hotelRows').empty();
     $('#previewImg').attr('src', '').hide();
-    $('#linkItinerary').hide();
-    namaPaketManual =false
+    $('#linkItinerary').attr('href', '#').hide();
+    // Default saat create
+    $('#formPaket input[name="is_posting"][value="1"]')
+        .prop('checked', true);
+
+    $('#formPaket input[name="is_internal"][value="1"]')
+        .prop('checked', true);
+
+    $('#formPaket [name="fasilitas_tambahan"]').val('');
+
+    namaPaketManual = false;
 }
+
 
 
 
 function fillForm(p) {
     resetForm();
+
     $('#paket_id').val(p.id);
 
-    ['tipe', 'nama_paket', 'tgl_berangkat', 'jumlah_hari', 'maskapai', 'keberangkatan',
-     'landing', 'kodeflight', 'hrginfant', 'hrgquad', 'hrgtriple', 'hrgdouble',
-     'hrgperlengkapan', 'max_slot', 'available_slot', 'filled_slot'
-    ].forEach(k => $(`#formPaket [name="${k}"]`).val(p[k] ?? ''));
+    // Isi field biasa
+    [
+        'tipe',
+        'nama_paket',
+        'tgl_berangkat',
+        'jumlah_hari',
+        'maskapai',
+        'keberangkatan',
+        'landing',
+        'kodeflight',
+        'hrginfant',
+        'hrgquad',
+        'hrgtriple',
+        'hrgdouble',
+        'hrgperlengkapan',
+        'max_slot',
+        'available_slot',
+        'filled_slot',
+        'fasilitas_tambahan'
+    ].forEach(function (k) {
+        $('#formPaket [name="' + k + '"]').val(p[k] ?? '');
+    });
 
-    // Pastikan format YYYY-MM-DD (jaga-jaga kalau API mengirim datetime)
-    if (p.tgl_berangkat) {
-        $('#formPaket [name="tgl_berangkat"]').val(String(p.tgl_berangkat).substring(0, 10));
+    // Status Jual: pilih sesuai data API
+    $('#formPaket input[name="is_posting"]')
+        .prop('checked', false);
+
+    if (p.is_posting !== undefined && p.is_posting !== null) {
+        $('#formPaket input[name="is_posting"][value="' +
+            String(p.is_posting) + '"]')
+            .prop('checked', true);
     }
 
+    // Jenis Paket: pilih sesuai data API
+    $('#formPaket input[name="is_internal"]')
+        .prop('checked', false);
+
+    if (p.is_internal !== undefined && p.is_internal !== null) {
+        $('#formPaket input[name="is_internal"][value="' +
+            String(p.is_internal) + '"]')
+            .prop('checked', true);
+    }
+
+    // Format tanggal menjadi YYYY-MM-DD
+    if (p.tgl_berangkat) {
+        $('#formPaket [name="tgl_berangkat"]')
+            .val(String(p.tgl_berangkat).substring(0, 10));
+    }
+    // Travel
     $('#formPaket [name="travel"]').val(p.travel_id);
 
-    // Mode otomatis tetap aktif saat edit.
-    // Nama dari database tampil apa adanya sampai tipe/travel/hari/tanggal/maskapai diubah.
+    // Nama paket
     namaPaketManual = false;
 
-    if (p.imgpaketumroh) $('#previewImg').attr('src', p.imgpaketumroh).show();
-    if (p.itinerary) $('#linkItinerary').attr('href', p.itinerary).show();
+    // Preview gambar dan itinerary
+    if (p.imgpaketumroh) {
+        $('#previewImg').attr('src', p.imgpaketumroh).show();
+    }
 
-    (p.hotels || []).forEach(h => addHotelRow(h));
+    if (p.itinerary) {
+        $('#linkItinerary').attr('href', p.itinerary).show();
+    }
+
+    // Hotel
+    (p.hotels || []).forEach(function (h) {
+        addHotelRow(h);
+    });
 }
+
 
 // ── Event: paket ──
 $('#btnAddPaket').on('click', function () {
@@ -950,10 +1091,13 @@ $('#formMasterHotel').on('submit', async function (e) {
 
 const jamaahRoutes = {
     select2   : "{{ route('paket-umroh.jamaah-select2') }}",
+    select2_alhid   : "{{ route('paket-umroh.jamaah-alhid-select2') }}",
     list      : "{{ route('paket-umroh.jamaah.index', ['id' => '__ID__']) }}",
+    list_alhid      : "{{ route('paket-umroh.jamaah-alhid', ['id' => '__ID__']) }}",
     store     : "{{ route('paket-umroh.jamaah.store', ['id' => '__ID__']) }}",
     destroy   : "{{ route('paket-umroh.jamaah.destroy', ['id' => '__ID__', 'rowId' => '__ROW__']) }}",
     saveMaster: "{{ route('save-jamaah') }}",
+    saveMasterAlhid: "{{ route('save-jamaah-alhid') }}",
     select2paket : "{{ route('paket-umroh-select2') }}",
     pindah       : "{{ route('paket-umroh.jamaah.pindah', ['id' => '__ID__', 'rowId' => '__ROW__']) }}",
 };
@@ -1025,7 +1169,7 @@ function initJamaahSelect2() {
             noResults    : () => 'Jamaah tidak ditemukan',
         },
         ajax: {
-            url: jamaahRoutes.select2,
+            url: jamaahRoutes.select2_alhid,
             dataType: 'json',
             delay: 400,
             cache: false,
@@ -1071,7 +1215,7 @@ $('#modalAddJamaah').on('hidden.bs.modal', function () {
 // ── Daftar jamaah + slot ──
 async function loadPaketJamaah() {
     try {
-        const url = jamaahRoutes.list.replace('__ID__', currentPaketId);
+        const url = jamaahRoutes.list_alhid.replace('__ID__', currentPaketId);
         const res = await ajaxRequest(url, 'GET', null, token());
         const d = res.data.data;
 
@@ -1079,6 +1223,7 @@ async function loadPaketJamaah() {
         $('#aj_filled').text(d.paket.filled_slot);
         $('#aj_sisa').text(Math.max(0, d.paket.max_slot - d.paket.filled_slot));
 
+        console.log('d',d)
         renderPaketJamaah(d.jamaah || []);
     } catch (err) {
         cathError(err);
@@ -1093,16 +1238,19 @@ function renderPaketJamaah(rows) {
 
     let html = '';
     rows.forEach((r, i) => {
+       let jam_alhid = r.jamaah_alhid;
+       console.log('rr',r)
+       console.log(jam_alhid)
         html += `
             <tr>
                 <td class="text-center">${i + 1}</td>
-                <td>${esc(r.jamaah ? r.jamaah.full_name : '-')}</td>
-                <td>${esc(r.jamaah ? r.jamaah.nik : '-')}</td>
+                <td>${esc(jam_alhid.nama_jamaah ?? '-')}</td>
+                <td>${esc(jam_alhid.no_ktp ?? '-')}</td>
                 <td class="text-center">${esc(r.jumlah_jamaah)}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-xs btn-warning btn-pindah-jamaah mr-1"
                             data-row-id="${r.id}"
-                            data-nama="${esc(r.jamaah ? r.jamaah.full_name : '-')}"
+                            data-nama="${esc(jam_alhid.nama_jamaah ?? '-')}"
                             data-jumlah="${esc(r.jumlah_jamaah)}"
                             title="Pindah paket" style="margin:10px;">
                         <i class="ti ti-arrows-exchange"></i>
@@ -1201,11 +1349,12 @@ $('#formMasterJamaah').on('submit', async function (e) {
     const $btn = $('#btnSaveMasterJamaah').prop('disabled', true);
 
     try {
-        const res = await ajaxRequest(jamaahRoutes.saveMaster, 'POST', payload, token());
+        const res = await ajaxRequest(jamaahRoutes.saveMasterAlhid, 'POST', payload, token());
         const j = res.data.data;
 
         // Langsung pilih jamaah baru di select2
-        const opt = new Option(`${j.full_name} (${j.nik})`, j.id, true, true);
+        // const opt = new Option(`${j.full_name} (${j.nik})`, j.id, true, true);//xero
+        const opt = new Option(`${j.nama_jamaah} (${j.no_ktp})`, j.id, true, true);//alhid
         $('#aj_jamaah').append(opt).trigger('change');
 
         $('#modalMasterJamaah').modal('hide');
