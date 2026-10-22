@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
+use App\Services\HalalGoService;
 
 class PaketUmrohController extends Controller
 {
@@ -86,8 +87,63 @@ class PaketUmrohController extends Controller
         return $this->autoResponse($paket);
     }
 
-    // POST /api/paket-umroh
+
     public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), $this->rules($request));
+        if ($validator->fails()) {
+            return $this->error($validator->errors()->first(), 422);
+        }
+
+        $this->newFiles = [];
+        $this->oldFiles = [];
+
+        DB::beginTransaction();
+        try {
+            $data = $this->payload($request);
+            $data['created_by'] = $request->user_login->id;
+            $data['maskapai'] = strtoupper($request->maskapai);
+            $data['keberangkatan'] = strtoupper($request->keberangkatan);
+            $data['landing'] = strtoupper($request->landing);
+            $data['random_uuid_paket'] = $this->generateUniqueRandomUuid();
+            $data['is_posting'] = $request->boolean('is_posting') ? 1 : 0;
+            $data['is_internal'] = $request->boolean('is_internal') ? 1 : 0;
+
+            $paket = PaketUmroh::create($data);
+            $paket->hotels()->createMany($this->hotelRows($request));
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $this->deleteFiles($this->newFiles);
+            Log::error('[PaketUmroh] store: ' . $e->getMessage());
+
+            return $this->error($e->getMessage(), 422);
+        }
+
+        // Kirim ke Halal Go hanya jika diposting dan bukan internal.
+        // Dilakukan setelah commit, sehingga kegagalan API tidak membatalkan data lokal.
+        $halal = null;
+        if ($request->boolean('is_posting') && !$request->boolean('is_internal')) {
+            $halal = $this->sendToHalalGo($paket);
+        }
+
+        return $this->success(
+            ['paket' => $this->fresh($paket), 'halal_go' => $halal],
+            'Paket umroh berhasil dibuat',
+            201
+        );
+    }
+
+    private function sendToHalalGo(PaketUmroh $paket): array
+    {
+        $service = app(HalalGoService::class);
+        $paket = $this->fresh($paket);
+
+        return $service->createPackage($service->buildPayload($paket));
+    }
+    // POST /api/paket-umroh
+    public function storeLocal(Request $request)
     {
         $validator = Validator::make($request->all(), $this->rules($request));
         if ($validator->fails()) {
@@ -105,7 +161,7 @@ class PaketUmrohController extends Controller
             $data = $this->payload($request);
             $data['created_by'] = $request->user_login->id;
             $data['maskapai'] = strtoupper($request->maskapai);
-            $data['keberangkatan '] = strtoupper($request->keberangkatan);
+            $data['keberangkatan'] = strtoupper($request->keberangkatan);
             $data['landing'] = strtoupper($request->landing);
             $data['random_uuid_paket'] = $this->generateUniqueRandomUuid();
             $paket = PaketUmroh::create($data);

@@ -41,4 +41,10 @@ return [
         'channel_integration_id' => env('MEKARI_WA_CHANNEL_ID'),
         'va_template_id' => env('MEKARI_VA_TEMPLATE_ID'),
     ],
+
+    'halal' => [
+        'base_url' => env('HALAL_BASE_URL', 'https://testing.duft.co.id/api/mitra/v2'),
+        'client_id' => env('client_id_halal'),
+        'client_key' => env('client_key_halal'),
+    ],
 ];
