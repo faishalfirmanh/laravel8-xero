@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\XeroRateLimitException;
 use App\Services\XeroService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -44,23 +45,30 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
         ]);
 
         $zip = new ZipArchive();
-        if ($zip->open(Storage::path($relPath), ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new \RuntimeException('Gagal membuat ZIP');
-        }
-
+        $zipOpened = false;
         $totalInv = 0;
         $totalFile = 0;
         $paused = false;
         $page = 1;
 
         try {
+            if ($zip->open(Storage::path($relPath), ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                throw new \RuntimeException('Gagal membuat ZIP');
+            }
+            $zipOpened = true;
+
             do {
                 $invoices = $xero->getAllInvoices($this->tenantId, $page, $from);
 
                 foreach ($invoices as $inv) {
                     $invoiceId = $inv['InvoiceID'];
                     $number = $inv['InvoiceNumber'] ?? 'NOINV';
+                    $docType = $inv['Type'] ?? 'ACCREC';
                     $invDate = Carbon::parse($inv['DateString'] ?? $inv['Date'] ?? now())->toDateString();
+
+                    $prefix = $docType === 'ACCPAY' ? 'BILL' : 'INV';
+                    $cleanNo = preg_replace('/[^A-Za-z0-9\-_]+/', '_', $number);
+                    $folder = $prefix . '-' . $cleanNo . '/';
 
                     if ($this->isDone($invoiceId)) {
                         continue;
@@ -73,23 +81,23 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
 
                     try {
                         $attachments = $xero->getInvoiceAttachments($this->tenantId, $invoiceId);
+                    } catch (XeroRateLimitException $e) {
+                        throw $e;
                     } catch (\Throwable $e) {
-                        // Gagal ambil daftar lampiran: catat sebagai failed agar dicoba lagi
-                        $this->saveInvoiceLog($invoiceId, $number, $invDate, 'failed', 0, $e->getMessage());
+                        $this->saveInvoiceLog($invoiceId, $number, $invDate, $docType, 'failed', 0, $e->getMessage());
                         Log::warning('[XeroExport] gagal ambil lampiran', [
                             'export_id' => $this->exportId,
+                            'doc_type' => $docType,
                             'invoice_no' => $number,
                             'error' => $e->getMessage(),
                         ]);
                         continue;
                     }
 
-                    // Tidak ada lampiran: lewati, tanpa folder dan tanpa log
                     if (empty($attachments)) {
                         continue;
                     }
 
-                    $folder = preg_replace('/[^A-Za-z0-9\-_]+/', '_', $number) . '/';
                     $zip->addEmptyDir(rtrim($folder, '/'));
                     $totalInv++;
 
@@ -97,8 +105,9 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                     $status = 'done';
                     $error = null;
 
-                    Log::info('[XeroExport] invoice dengan lampiran', [
+                    Log::info('[XeroExport] dokumen dengan lampiran', [
                         'export_id' => $this->exportId,
+                        'doc_type' => $docType,
                         'invoice_no' => $number,
                         'attachments' => count($attachments),
                     ]);
@@ -106,7 +115,7 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                     foreach ($attachments as $att) {
                         try {
                             $ext = pathinfo($att['FileName'], PATHINFO_EXTENSION) ?: 'pdf';
-                            $fileName = $number . '_' . $att['AttachmentID'] . '.' . $ext;
+                            $fileName = $cleanNo . '_' . $att['AttachmentID'] . '.' . $ext;
 
                             $content = $xero->downloadAttachment($this->tenantId, $invoiceId, $att['FileName']);
                             $zip->addFromString($folder . $fileName, $content);
@@ -116,15 +125,19 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
 
                             Log::info('[XeroExport] file didownload', [
                                 'export_id' => $this->exportId,
+                                'doc_type' => $docType,
                                 'invoice_no' => $number,
                                 'file' => $fileName,
                                 'size' => strlen($content),
                             ]);
+                        } catch (XeroRateLimitException $e) {
+                            throw $e;
                         } catch (\Throwable $e) {
                             $status = 'failed';
                             $error = $e->getMessage();
                             Log::warning('[XeroExport] gagal download file', [
                                 'export_id' => $this->exportId,
+                                'doc_type' => $docType,
                                 'invoice_no' => $number,
                                 'error' => $error,
                             ]);
@@ -132,20 +145,27 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                         }
                     }
 
-                    $this->saveInvoiceLog($invoiceId, $number, $invDate, $status, $fileCount, $error);
-
+                    $this->saveInvoiceLog($invoiceId, $number, $invDate, $docType, $status, $fileCount, $error);
                     $this->update(['total_invoice' => $totalInv, 'total_file' => $totalFile]);
                 }
 
                 $page++;
             } while (count($invoices) === 100);
 
+        } catch (XeroRateLimitException $e) {
+            $paused = true;
+            Log::warning('[XeroExport] berhenti karena rate limit', [
+                'export_id' => $this->exportId,
+                'type' => $e->type,
+            ]);
         } catch (\Throwable $e) {
             $this->update(['status' => 'failed', 'error' => $e->getMessage()]);
             Log::error('[XeroExport] gagal', ['export_id' => $this->exportId, 'error' => $e->getMessage()]);
             return;
         } finally {
-            $zip->close();
+            if ($zipOpened) {
+                $zip->close();
+            }
         }
 
         $this->update([
@@ -186,12 +206,13 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
             ->exists();
     }
 
-    private function saveInvoiceLog(string $invoiceId, string $number, string $date, string $status, int $fileCount, ?string $error): void
+    private function saveInvoiceLog(string $invoiceId, string $number, string $date, string $docType, string $status, int $fileCount, ?string $error): void
     {
         DB::table('xero_attachment_invoice_logs')->updateOrInsert(
             ['tenant_id' => $this->tenantId, 'invoice_id' => $invoiceId],
             [
                 'invoice_number' => $number,
+                'doc_type' => $docType,
                 'invoice_date' => $date,
                 'status' => $status,
                 'total_file' => $fileCount,
