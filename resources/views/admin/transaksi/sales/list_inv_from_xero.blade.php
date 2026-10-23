@@ -1748,6 +1748,7 @@
 @endsection
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 @push('scripts')
 <script>
     //  function printInvoice() {
@@ -1793,6 +1794,49 @@ function deleteBuktiPayFromServer(file) {
         }
     });
 }
+
+// Download PDF: file dibuat server (dompdf)
+$('#btnDownloadPdf').off('click').on('click', function () {
+    const url = "{{ route('salles_invoice_pdf', ['id' => '__ID__']) }}".replace('__ID__', uuid);
+    window.location.href = url;
+});
+
+// Download gambar: screenshot isi iframe jadi PNG
+$('#btnDownloadImage').off('click').on('click', async function () {
+    const $btn = $(this).prop('disabled', true);
+    try {
+        const frame = document.getElementById('previewInvoiceFrame');
+        const doc   = frame.contentDocument;
+        if (!doc || !doc.body) {
+            throw new Error('Preview belum selesai dimuat.');
+        }
+
+        // Sembunyikan tombol print supaya tidak ikut tergambar
+        const toolbar = doc.querySelector('.print-toolbar');
+        if (toolbar) toolbar.style.display = 'none';
+
+        const canvas = await html2canvas(doc.body, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            windowWidth: doc.body.scrollWidth,
+        });
+
+        if (toolbar) toolbar.style.display = '';
+
+        // Nama file dari <title> preview: "Invoice #INV-0001"
+        const name = (doc.title || 'invoice').replace(/[^A-Za-z0-9\-_#]+/g, '_');
+
+        const link = document.createElement('a');
+        link.download = name + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
 
 // Tampilkan bukti dari server ke Dropzone pembayaran
 function loadPaymentBuktiImages(invoiceId) {

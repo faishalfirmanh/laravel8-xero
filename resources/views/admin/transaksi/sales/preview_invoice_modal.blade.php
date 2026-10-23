@@ -28,6 +28,15 @@
                </iframe>
             </div>
 
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="btnDownloadImage">
+                    <i class="ti ti-photo mr-1"></i> Download Gambar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnDownloadPdf">
+                    <i class="ti ti-file-type-pdf mr-1"></i> Download PDF
+                </button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+            </div>
         </div>
     </div>
 </div>

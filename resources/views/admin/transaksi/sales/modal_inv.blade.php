@@ -21,6 +21,10 @@
             border-collapse: collapse;
         }
 
+        tr, td, th {
+            page-break-inside: avoid;
+        }
+
         .header-table td { vertical-align: top; }
 
         .invoice-title {
@@ -118,6 +122,10 @@
             padding-top: 6px;
         }
 
+        .qr-block {
+            margin-top: 6px;
+        }
+
         .due-date {
             font-size: 11px;
             font-weight: bold;
@@ -151,6 +159,7 @@
             line-height: 1.5 !important;
         }
 
+        /* Toolbar hanya untuk preview di browser */
         .print-toolbar {
             position: fixed;
             top: 10px;
@@ -171,14 +180,41 @@
             .print-toolbar { display: none !important; }
             @page { margin: 12mm; }
         }
+
+
+        .print-toolbar {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 999;
+            display: flex;
+            gap: 6px;
+        }
+        .print-toolbar .btn-tb {
+            background: {{ $brand['primary'] }};
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .print-toolbar .btn-tb-green { background: #1ab394; }
+        .print-toolbar .btn-tb-blue  { background: #3d76f1; }
+          .print-toolbar .btn-tb-red  { background: #e75643; }
+        .print-toolbar .btn-tb:hover { opacity: .9; }
     </style>
 </head>
 
 <body>
 
-    <div class="print-toolbar">
-        <button type="button" onclick="window.print()">Print</button>
+   @unless(!empty($forPdf))
+    <div class="print-toolbar" data-role="toolbar">
+        <button type="button" class="btn-tb" onclick="window.print()">
+            <i class="ti ti-printer"></i> Print
+        </button>
     </div>
+@endunless
 
     @php
         $fmt = function ($num) {
@@ -191,7 +227,7 @@
         $fmtDate = function ($val) {
             if (!$val) return null;
             try {
-                return \Carbon\Carbon::parse($val)->translatedFormat('d M Y');
+                return \Carbon\Carbon::parse($val)->locale('id')->translatedFormat('d M Y');
             } catch (\Exception $e) {
                 return $val;
             }
@@ -350,7 +386,7 @@
         @endif
     </table>
 
-    <div style="margin-top:-30px;">
+    <div class="qr-block">
         <img src="{{ $qrCode }}" width="120" height="120" alt="QR Code">
         <div style="font-size: 10px; margin-top: 5px;">
             Scan untuk melihat invoice
@@ -361,7 +397,7 @@
         Jatuh Tempo: {{ $fmtDate($invoice->due_date ?? null) ?? '-' }}
     </div>
 
-   <div class="footer-section">
+    <div class="footer-section">
         {{-- Rekening: dari tema jika ada, kalau tidak pakai teks lama --}}
         <div class="bank-list">
             @if (!empty($brand['bank_accounts']))
@@ -397,10 +433,7 @@
 
         <div class="signature-box">
             Hormat kami,<br><br><br>
-            {{-- <strong>{{ $brand['signature_name'] }}</strong><br>
-            {{ $brand['signature_title'] }} --}}
-             <strong>{{ $invoice->name_created_user }}</strong> <br>
-             {{-- {{ $invoice->title[0] }} --}}
+            <strong>{{ $invoice->name_created_user }}</strong>
         </div>
 
         <div class="registered-office">

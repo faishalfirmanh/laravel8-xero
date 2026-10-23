@@ -309,6 +309,8 @@ Route::prefix("admin-web")->group(function () {
                     Route::get('getFeeOverByInv', [FeeOverpayController::class, 'getOverpayByInvId'])->name('get-fee-overpay');
                     Route::post('delete-fee-overpay', [FeeOverpayController::class, 'deleteFeeOverpay'])->name('delete-fee-overpay');
 
+                    Route::get('sales-invoice/{id}/pdf', [InvoiceXeroLocalController::class, 'downloadInvoicePdf'])->name('salles_invoice_pdf');
+
                 });
             });
 

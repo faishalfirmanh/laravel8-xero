@@ -196,6 +196,52 @@ class InvoiceXeroLocalController extends Controller
         return 'data:' . $mime . ';base64,' . $base64;
     }
 
+    private function buildInvoiceViewData(string $uuid): ?array
+    {
+        $invoice = InvoicesAllFromXero::with([
+            'getDetailById',
+            'getPayment',
+            'getDetailById.getItems',
+            'getOverPay',
+            'getTravel',
+            'getFeeOverpay',
+            'brandingTheme.travel',
+        ])->where('invoice_uuid', $uuid)->first();
+
+        if (!$invoice) {
+            return null;
+        }
+
+        $path = $invoice->getTravel
+            ? ($invoice->getTravel->location_path_image ?: 'assets/img/nam_min.webp')
+            : 'assets/img/nam_min.webp';
+
+        $urlTujuan = 'https://inv.alhidayah.id/' . $invoice->invoice_uuid;
+
+        return [
+            'invoice' => $invoice,
+            'title' => 'Invoice #' . $invoice->invoice_number,
+            'date' => date('d-m-Y'),
+            'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview', $path),
+            'brand' => $this->resolveBranding($invoice, $path),
+            'logoBase64' => $this->resolveBranding($invoice, $path)['logo'],
+            'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal'),
+        ];
+    }
+
+
+    public function downloadInvoicePdf($id)
+    {
+        $data = $this->buildInvoiceViewData($id);
+        abort_if(!$data, 404);
+
+        $fileName = 'Invoice-' . str_replace(['/', '\\'], '-', $data['invoice']->invoice_number) . '.pdf';
+
+        return Pdf::loadView('admin.transaksi.sales.modal_inv', $data)
+            ->setPaper('a4')
+            ->download($fileName);
+    }
+
     // ── Generate QR lokal (base64) — dipakai bersama preview & print ──
     private function generateQrBase64(string $url, string $uniqueKey, $path_image): string
     {
@@ -286,35 +332,37 @@ class InvoiceXeroLocalController extends Controller
 
     public function previewInvoice(Request $request, $id)
     {
-        $invoice = InvoicesAllFromXero::with([
-            'getDetailById',
-            'getPayment',
-            'getDetailById.getItems',
-            'getOverPay',
-            'getTravel',
-            'getFeeOverpay',
-            'brandingTheme.travel',
-        ])->where('invoice_uuid', $id)->first();
+        // $invoice = InvoicesAllFromXero::with([
+        //     'getDetailById',
+        //     'getPayment',
+        //     'getDetailById.getItems',
+        //     'getOverPay',
+        //     'getTravel',
+        //     'getFeeOverpay',
+        //     'brandingTheme.travel',
+        // ])->where('invoice_uuid', $id)->first();
 
-        abort_if(!$invoice, 404);
+        // abort_if(!$invoice, 404);
 
-        $path_img_dinamis = $invoice->getTravel
-            ? ($invoice->getTravel->location_path_image ?: 'assets/img/nam_min.webp')
-            : 'assets/img/nam_min.webp';
+        // $path_img_dinamis = $invoice->getTravel
+        //     ? ($invoice->getTravel->location_path_image ?: 'assets/img/nam_min.webp')
+        //     : 'assets/img/nam_min.webp';
 
-        $urlTujuan = "https://inv.alhidayah.id/" . $invoice->invoice_uuid;
+        // $urlTujuan = "https://inv.alhidayah.id/" . $invoice->invoice_uuid;
 
-        $brand = $this->resolveBranding($invoice, $path_img_dinamis);
+        // $brand = $this->resolveBranding($invoice, $path_img_dinamis);
 
-        $data = [
-            'invoice' => $invoice,
-            'title' => 'Invoice #' . $invoice->invoice_number,
-            'date' => date('d-m-Y'),
-            'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview', $path_img_dinamis),
-            'brand' => $brand,
-            'logoBase64' => $brand['logo'],
-            'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal'),
-        ];
+        // $data = [
+        //     'invoice' => $invoice,
+        //     'title' => 'Invoice #' . $invoice->invoice_number,
+        //     'date' => date('d-m-Y'),
+        //     'qrCode' => $this->generateQrBase64($urlTujuan, $invoice->invoice_uuid . '_preview', $path_img_dinamis),
+        //     'brand' => $brand,
+        //     'logoBase64' => $brand['logo'],
+        //     'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal'),
+        // ];
+        $data = $this->buildInvoiceViewData($id);
+        abort_if(!$data, 404);
 
         return view('admin.transaksi.sales.modal_inv', $data);
     }
