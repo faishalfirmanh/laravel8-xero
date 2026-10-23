@@ -380,7 +380,7 @@
         @if ($invoice->getOverPay)
             <tr class="line-top">
                 <td></td>
-                <td class="label">Sisa Overpayment</td>
+                <td class="label">Lebih Bayar</td>
                 <td class="value">{{ $fmt($invoice->getOverPay->nominal_overpayment) }}</td>
             </tr>
         @endif
