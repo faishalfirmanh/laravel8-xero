@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\MasterData;
 use App\Http\Controllers\Controller;
+use App\Http\Repository\Transaction\SummaryBankRepo;
 use Illuminate\Http\Request;
 use App\Http\Repository\Revenue\InvoiceXeroLocalRepo;
 use App\Http\Repository\MasterData\TrackingRepo;
@@ -30,14 +31,16 @@ class BankXeroController extends Controller
     use ConfigRefreshXero;
     use ApiResponse;
 
-    protected $repo, $repo_trans, $repo_tracking;
+    protected $repo, $repo_trans, $repo_tracking, $repo_summary_bank;
 
 
-    public function __construct(BankXeroRepo $repo, SpendMoneyRepo $repo_trans, TrackingRepo $repo_tracking)
+
+    public function __construct(BankXeroRepo $repo, SpendMoneyRepo $repo_trans, TrackingRepo $repo_tracking, SummaryBankRepo $repo_summary_bank)
     {
         $this->repo = $repo;
         $this->repo_trans = $repo_trans;
         $this->repo_tracking = $repo_tracking;
+        $this->repo_summary_bank = $repo_summary_bank;
     }
 
     public function updateTrans(Request $request, $id)
@@ -257,6 +260,13 @@ class BankXeroController extends Controller
         $request['type'] = 'BANK';
 
         $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
+
+        if (empty($request->id)) {
+            $cek = $this->repo_summary_bank->whereData(['bank_id' => $saved->id])->first();
+            if ($cek == null) {
+                $this->repo_summary_bank->CreateOrUpdate(['bank_id' => $saved->id, 'nominal_id' => 0, 'nominal_out' => 0, 'final_nominal' => 0], null);
+            }
+        }
 
         return $this->autoResponse($saved);
     }

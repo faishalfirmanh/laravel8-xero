@@ -483,7 +483,20 @@ class InvXeroController extends Controller
                     ->ignore($request->id),
             ],
             // contoh 3 huruf ISO currency
-            'code_curr' => 'required|string|exists:m_currency,code_curr',
+            // 'code_curr' => 'required|string|exists:m_currency,code_curr',
+            'code_curr' => [
+                'required',
+                'string',
+                'in:IDR,SAR',
+                // create: hanya IDR/SAR. update: currency tidak berubah, jadi boleh currency lama
+                //$request->id ? 'exists:m_currency,code_curr' : 'in:IDR,SAR',
+            ],
+            'nominal_currency' => [
+                'nullable',
+                'numeric',
+                'min:1',
+                Rule::requiredIf(fn() => !$request->id && strtoupper($request->code_curr) === 'SAR'),
+            ],
             'item_id' => 'nullable|array|min:1',
             'desc' => 'required|array|min:1',
             'qty' => 'required|array',
@@ -583,20 +596,24 @@ class InvXeroController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            $oldCurrency = $oldParent
-                ? strtoupper((string) $oldParent->code_curr)
-                : null;
+            $oldCurrency = $oldParent ? strtoupper((string) $oldParent->code_curr) : null;
 
-            $currencyChanged = $isUpdate
-                && $oldCurrency
-                && $oldCurrency !== $currency;
+            $currencyChanged = $isUpdate && $oldCurrency && $oldCurrency !== $currency;
 
-            if ($currencyChanged && $paymentCount > 0) {
+            if ($currencyChanged) {
                 throw new \RuntimeException(
-                    "Currency invoice tidak boleh diubah dari {$oldCurrency} ke {$currency} "
-                    . "karena invoice sudah memiliki {$paymentCount} transaksi payment. "
-                    . "Buat invoice baru atau lakukan proses revaluation terpisah."
+                    "Currency invoice tidak boleh diubah dari {$oldCurrency} ke {$currency}."
                 );
+            }
+
+            $nominalCurrency = 0;
+            if ($request->code_curr == 'IDR')
+                $request->nominal_currency = 1;
+
+
+
+            if ($request->nominal_currency <= 0) {
+                throw new \RuntimeException('Kurs (nominal_currency) tidak valid. Isi kurs terlebih dahulu.');
             }
 
             /*
@@ -612,14 +629,24 @@ class InvXeroController extends Controller
             |
             */
 
-            if (
-                $isUpdate
-                && !$currencyChanged
-                && !empty($oldParent->nominal_currency)
-            ) {
+            // if (
+            //     $isUpdate
+            //     && !$currencyChanged
+            //     && !empty($oldParent->nominal_currency)
+            // ) {
+            //     $nominalCurrency = (float) $oldParent->nominal_currency;
+            // } else {
+            //     $nominalCurrency = $this->getRateToIdr($currency);
+            // }
+
+            if ($isUpdate && !empty($oldParent->nominal_currency)) {
+                // edit: kurs dikunci, pakai snapshot lama
                 $nominalCurrency = (float) $oldParent->nominal_currency;
             } else {
-                $nominalCurrency = $this->getRateToIdr($currency);
+                // create: IDR selalu 1, SAR dari input user
+                $nominalCurrency = $currency === 'IDR'
+                    ? 1
+                    : (float) $request->nominal_currency;
             }
 
             /*

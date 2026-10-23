@@ -48,6 +48,6 @@ class Coa extends Model
 
     public function getSumNominalAttribute()
     {
-        return TransactionAllCoa::where('uuid_coa', $this->id)->sum('nominal');
+        return TransactionAllCoa::where('uuid_coa', $this->id)->sum('base_nominal');//awal nominal ,conversi final base nominal
     }
 }

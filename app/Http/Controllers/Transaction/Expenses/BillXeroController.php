@@ -18,6 +18,7 @@ use App\Http\Repository\MasterData\Finance\ItemPaketAllXeroRepo;
 use App\Http\Repository\MasterData\Finance\InvoiceAllXeroRepo;
 use App\Http\Repository\Expenses\DInvPackageExpensesRepository;
 use App\Http\Repository\Expenses\PackageExpensesRepository;
+use Illuminate\Validation\Rule;
 use Validator;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Auth;
@@ -678,11 +679,11 @@ class BillXeroController extends Controller
             // Hitung ulang seluruh saldo bank dari ledger (repo_trans_bill mencatat semua jenis transaksi bank)
             $receive = $this->repo_trans_bill->sumDataWhereDinamis(
                 ['uuid_bank' => $request->uuid_bank],
-                'nominal_receive'
+                'total_base_receive'
             );
             $spend = $this->repo_trans_bill->sumDataWhereDinamis(
                 ['uuid_bank' => $request->uuid_bank],
-                'nominal_spend'
+                'total_base_spend'
             );
             $exsistingBank = $this->repo_bank_summary->whereData(['bank_id' => $request->uuid_bank])->first();
             $save_nom_bank = [
@@ -963,7 +964,14 @@ class BillXeroController extends Controller
             'date_req' => 'required|date',
             'due_date' => 'required|date',
             'reference' => 'required|string',
-            'currency' => 'required|string',
+            //'currency' => 'required|string',
+            'currency' => ['required', 'string', $request->id ? 'max:10' : 'in:IDR,SAR'],
+            'nominal_currency' => [
+                'nullable',
+                'numeric',
+                'min:1',
+                Rule::requiredIf(fn() => !$request->id && strtoupper($request->currency) === 'SAR'),
+            ],
             'account_id' => 'required|array|min:1',
             'account_id.*' => 'required',
             'action_save' => 'required|integer|between:0,2',
@@ -982,15 +990,49 @@ class BillXeroController extends Controller
         }
 
 
+        //currency select
 
+        // $isUpdate = !empty($request->id);
+        // $oldParent = $isUpdate ? $this->repo->whereData(['id' => $request->id])->first() : null;
+
+        // $currencyChanged = $isUpdate && $oldParent && $oldParent->currency !== $request->currency;
+
+        // $cek_nominal_currency = ($isUpdate && $oldParent && !$currencyChanged)
+        //     ? $oldParent->nominal_currency
+        //     : $this->getRateToIdr($request->currency);
+        //currency select
+
+        $currency = strtoupper(trim($request->currency));
         $isUpdate = !empty($request->id);
         $oldParent = $isUpdate ? $this->repo->whereData(['id' => $request->id])->first() : null;
 
-        $currencyChanged = $isUpdate && $oldParent && $oldParent->currency !== $request->currency;
+        if ($isUpdate && !$oldParent) {
+            return $this->error('Bill tidak ditemukan.', 422);
+        }
 
-        $cek_nominal_currency = ($isUpdate && $oldParent && !$currencyChanged)
-            ? $oldParent->nominal_currency
-            : $this->getRateToIdr($request->currency);
+        $currencyChanged = $isUpdate
+            && strtoupper((string) $oldParent->currency) !== $currency;
+
+        if ($currencyChanged) {
+            return $this->error(
+                "Currency bill tidak boleh diubah dari {$oldParent->currency} ke {$currency}.",
+                422
+            );
+        }
+
+        if ($isUpdate && (float) $oldParent->nominal_currency > 0) {
+            // edit: kurs dikunci, pakai snapshot lama
+            $cek_nominal_currency = (float) $oldParent->nominal_currency;
+        } else {
+            // create: IDR selalu 1, SAR dari input user
+            $cek_nominal_currency = $currency === 'IDR'
+                ? 1
+                : (float) $request->nominal_currency;
+        }
+
+        if ($cek_nominal_currency <= 0) {
+            return $this->error('Kurs (nominal_currency) tidak valid. Isi kurs terlebih dahulu.', 422);
+        }
 
         // Gunakan merge agar field ini terbaca dengan baik saat request->except() atau validasi lanjutan
         $request->merge([

@@ -198,12 +198,24 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label>Currency <span class="text-danger">*</span></label>
-                                    <select class="form-control" id="cur_id" name="currency" required>
+                                    {{-- <select class="form-control" id="cur_id" name="currency" required>
                                         <option value="0">Pilih mata uang</option>
                                         @foreach ($list_currency as $item)
                                               <option value="{{ $item->code_curr }}">{{ $item->ket ." | ".(int)$item->nominal_currency }}</option>
                                         @endforeach
+                                    </select> --}}
+                                    <select class="form-control" name="currency" id="cur_id" required>
+                                        <option value="IDR" selected>IDR – Rupiah</option>
+                                        <option value="SAR">SAR – Saudi Riyal</option>
                                     </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3" id="wrap_nominal_currency" style="display:none;">
+                                <div class="form-group">
+                                    <label>Kurs <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" name="nominal_currency" id="nominal_currency"
+                                        min="1" step="any" placeholder="mis. 4350">
+                                    <span class="text-danger font-weight-bold small" id="text_currency">1 SAR = Rp 0</span>
                                 </div>
                             </div>
                         </div>
@@ -387,6 +399,35 @@
 // mencoba new Dropzone("#buktiDropzone", {...}) sendiri, elemen itu sudah
 // terpasang Dropzone lain → "Uncaught Error: Dropzone already attached."
 Dropzone.autoDiscover = false;
+
+function toggleKursInput() {
+    const cur = $('#cur_id').val() || 'IDR';
+    if (cur === 'SAR') {
+        $('#wrap_nominal_currency').show();
+    } else {
+        $('#wrap_nominal_currency').hide();
+        $('#nominal_currency').val(1);
+    }
+    syncKurs();
+}
+
+function syncKurs() {
+    const cur = $('#cur_id').val() || 'IDR';
+    if (cur === 'SAR') {
+        const rate = parseFloat($('#nominal_currency').val()) || 0;
+        $('#text_currency').text('1 SAR = Rp ' + rate.toLocaleString('id-ID'));
+    } else {
+        $('#text_currency').text('');
+    }
+}
+
+function lockCurrency(lock) {
+    $('#cur_id, #nominal_currency').prop('disabled', lock);
+}
+
+$('#cur_id').on('change', toggleKursInput);
+$('#nominal_currency').on('input', syncKurs);
+
 
 $(document).ready(function() {
     var table;
@@ -930,12 +971,15 @@ window.dellBill = function(id) {
     // --- 3. MODAL & BUTTON EVENTS ---
     $("#button_add_hotel").on("click", function(){
         $("#modal_pay").addClass('d-none');
+        $('#formCreateHotel')[0].reset();
         $('#idHotelInput').val(0);
-        $('#cur_id').val(0); 
         $("#ref_id").val('');
         $("#d_id_parent_bill").val(0);
-        $('#formCreateHotel')[0].reset();
-        
+
+        lockCurrency(false);
+        $('#cur_id').val('IDR').trigger('change');
+        $('#nominal_currency').val('');
+
         $('.modal-title').text('Tambah Invoice / Bill Baru');
     });
 
@@ -1016,7 +1060,21 @@ window.dellBill = function(id) {
                     $('#contact_id').empty().append(newOption).trigger('change');
                     
                     $("#ref_id").val(data_res.reference || '');
+                   // jaga-jaga bill lama dengan currency selain IDR/SAR
+                    if ($('#cur_id option[value="' + data_res.currency + '"]').length === 0) {
+                        $('#cur_id').append(new Option(data_res.currency, data_res.currency));
+                    }
                     $('#cur_id').val(data_res.currency).trigger('change');
+                    if (data_res.currency !== 'IDR') {
+                        $('#nominal_currency').val(parseFloat(data_res.nominal_currency) || '');
+                    }
+                    syncKurs();
+                    lockCurrency(true);   // edit: currency + kurs dikunci
+                    if (data_res.currency !== 'IDR' && !(parseFloat(data_res.nominal_currency) > 0)) {
+                        $('#nominal_currency').prop('disabled', false);  // legacy tanpa kurs, boleh diisi
+                    }
+
+
                     $('#date_req').val(data_res.date_req).trigger('change');
                     $('#due_date').val(data_res.due_date).trigger('change');
 
@@ -1127,7 +1185,8 @@ window.dellBill = function(id) {
             date_req: params.get('date_req'),
             due_date: params.get('due_date'),
             reference: params.get('reference'),
-            currency: params.get('currency'),
+            currency: $('#cur_id').val(),    
+            nominal_currency: $('#nominal_currency').val(),
             action_save : action_selected,
             account_id: $('select[name="account_id[]"]').map(function(){ return $(this).val(); }).get(),
             desc: $('input[name="description[]"]').map(function(){ return $(this).val(); }).get(),
@@ -1139,9 +1198,16 @@ window.dellBill = function(id) {
             id_detail:$('input[name="id_detail[]"]').map(function(){ return $(this).val(); }).get(),
         };
 
+        if (!id_bill && $('#cur_id').val() === 'SAR'
+            && (parseFloat($('#nominal_currency').val()) || 0) <= 0) {
+            Swal.fire('Peringatan', 'Isi kurs 1 SAR = berapa Rupiah.', 'warning');
+            return;
+        }
+
         ajaxRequest(`{{ route('save-p-bills') }}`, 'POST', selectedData, localStorage.getItem("token"))
             .then(response => {
                 if(response.status == 200){
+                    lockCurrency(true);  
                     // Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
                     // $('#modalCreateHotel').modal('hide');
                     // table.ajax.reload(null, false);

@@ -61,17 +61,17 @@
                 @csrf
                 <div class="modal-body">
                     <input type="hidden" name="id" id="idHotelInput">
-                    <div class="form-group"> <label for="nameHotel">Nama Bank</label>
+                    <div class="form-group"> <label for="nameHotel">Nama Bank <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="nameHotel" name="name" placeholder="Contoh: Bank BCA Namiroh" required>
                     </div>
 
-                    <div class="form-group"> <label for="account_number">No Rek Bank</label>
+                    <div class="form-group"> <label for="account_number">No Rek Bank  <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="account_number" name="account_number" placeholder="Contoh: 017382****" required>
                     </div>
-                    <div class="form-group"> <label for="code">code</label>
+                    <div class="form-group"> <label for="code">code  <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="code" name="code" placeholder="Contoh: 12233****" required>
                     </div>
-                    <div class="form-group"> <label for="currency_code">Jenis Mata Uang</label>
+                    <div class="form-group"> <label for="currency_code">Jenis Mata Uang  <span class="text-danger">*</span></label>
                           <select class="form-control" id="currency_code" name="currency_code" required> <option value="" selected disabled>Pilih Jenis Mata Uang...</option>
                             <option value="0">--pilih jenis mata uang--</option>
                             <option value="SAR">SAR</option>

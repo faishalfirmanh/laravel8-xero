@@ -138,8 +138,8 @@ $(document).ready(function() {
             }
         },
         {
-            data: 'nominal',
-            name: 'nominal',
+            data: 'base_nominal',//'nominal',
+            name: 'base_nominal',//'nominal',
             render: function (data) {
                 // Pastikan fungsi formatCurrency sudah ada secara global
                 return formatCurrency(data);

@@ -967,13 +967,17 @@
 
                         <div class="xero-field">
                             <label>Currency <span class="text-danger">*</span></label>
-                            <select class="form-control" name="code_curr"
-                                    id="currency_selected" required>
+                            {{-- <select class="form-control" name="code_curr"
+                                    id="currency_selected" required> --}}
                                 {{-- <option value="IDR">IDR &ndash; Rupiah</option>
                                 <option value="SAR">SAR &ndash; Saudi Riyal</option> --}}
-                                @foreach ($cur as $item)
+                                {{-- @foreach ($cur as $item)
                                         <option value="{{ $item->code_curr }}">{{ $item->ket ." | ".(int)$item->nominal_currency }}</option>
                                 @endforeach
+                            </select> --}}
+                            <select class="form-control" name="code_curr" id="currency_selected" required>
+                                <option value="IDR" selected>IDR – Rupiah</option>
+                                <option value="SAR">SAR – Saudi Riyal</option>
                             </select>
                         </div>
 
@@ -993,7 +997,7 @@
                             </select>
                         </div>
                         <div class="xero-field">
-                            <label>Branding Theme</label>
+                            <label>Branding Theme <span class="text-danger">*</span></label>
                             <select class="form-control" name="branding_theme_id" id="branding_theme_id">
                                 <option value="">Default</option>
                                 @foreach ($branding as $theme)
@@ -1004,11 +1008,12 @@
                     </div>
 
                     {{-- ── KURS ALERT ── --}}
-                    <div class="kurs-alert">
+                    <div class="kurs-alert" id="wrap_nominal_currency" style="display:none;">
                         <i class="ti ti-info-circle" style="font-size:15px;color:#f0a500;"></i>
-                        <span><strong>Info Kurs:</strong> Harga 1 SAR saat ini diestimasi
-                            <b id="text_currency">–</b>
-                        </span>
+                        <strong>Kurs:</strong>
+                        <input type="number" class="form-control" name="nominal_currency" id="nominal_currency"
+                            min="1" step="any" placeholder="mis. 4350" style="width:160px; height:32px;">
+                        <span class="text-danger font-weight-bold" id="text_currency">1 SAR = Rp 0</span>
                     </div>
 
                     {{-- ── LINE ITEMS TABLE ── --}}
@@ -1076,7 +1081,7 @@
                             </tr>
                             <tr>
                                 <td>Subtotal </td>
-                                <td id="summarySubtotalIDR">Rp 0</td>
+                                <td id="summarySubtotalIDR">0</td>
                             </tr>
                             <tr>
                                 <td>Total tax</td>
@@ -3074,7 +3079,18 @@ function setRowSelect2Value($row, selector, id, text) {
             $('#reference').val(d.reference || '');
             $('#invoiceStatusBadge').text(d.status);
             $("#va_number").val(d.va_number || '')
-            $("#currency_selected").val(d.code_curr).trigger('change')
+            // $("#currency_selected").val(d.code_curr).trigger('change')
+
+            if ($('#currency_selected option[value="' + d.code_curr + '"]').length === 0) {
+                $('#currency_selected').append(new Option(d.code_curr, d.code_curr));
+            }
+            $('#currency_selected').val(d.code_curr).trigger('change');
+            if (d.code_curr !== 'IDR') {
+                $('#nominal_currency').val(parseFloat(d.nominal_currency));
+            }
+            syncKurs();
+            lockCurrency(true);
+
             $("#branding_theme_id").val(d.branding_theme_id ).trigger('change')
             if( d.travel_id)
               $("#travel_id").val(d.travel_id).trigger('change')
@@ -3198,7 +3214,10 @@ function setRowSelect2Value($row, selector, id, text) {
         }
 
         // ── Plain <select> dikembalikan ke opsi default ──
-        $('#currency_selected').val('IDR');
+       // $('#currency_selected').val('IDR');
+        lockCurrency(false);
+        $('#currency_selected').val('IDR').trigger('change');
+        $('#nominal_currency').val('');
         //$('#amount_are').val('0');
 
         // ── Text/date fields (extra safety net, walau harusnya sudah ke-cover reset() di atas) ──
@@ -3783,8 +3802,43 @@ function updateDeleteButtons() {
     $rows.find('.btn-del-line').prop('disabled', $rows.length <= 1);
 }
 
+
+function toggleKursInput() {
+    const cur = $('#currency_selected').val() || 'IDR';
+    if (cur === 'SAR') {
+        $('#wrap_nominal_currency').show();
+    } else {
+        $('#wrap_nominal_currency').hide();
+        $('#nominal_currency').val('');
+    }
+    syncKurs();
+}
+
+
+$(document).on('input', '#nominal_currency', function () {
+    syncKurs();
+    recalcSummary();
+});
+
+
+function syncKurs() {
+    const cur = $('#currency_selected').val() || 'IDR';
+    if (cur === 'SAR') {
+        kursRate = parseFloat($('#nominal_currency').val()) || 0;
+        $('#text_currency').text('1 SAR = Rp ' + kursRate.toLocaleString('id-ID'));
+    } else {
+        kursRate = 1;
+        $('#text_currency').text('');
+    }
+}
+
+function lockCurrency(lock) {
+    $('#currency_selected, #nominal_currency').prop('disabled', lock);
+}
+
 // ── Currency parent — ubah label SAR/IDR di semua baris ───
 $('#currency_selected').on('change', function () {
+    toggleKursInput();
     syncCurrencyLabels();
     recalcSummary();
 });
@@ -4138,6 +4192,7 @@ function setRowRequiredState($row, isRequired) {
                 reference: params.get('reference'),
                 invoice_number: params.get('invoice_number'),
                 code_curr: $("#currency_selected").val(),
+                nominal_currency: $('#nominal_currency').val(),
                 action_save: action_selected,
                 travel_id :$("#travel_id").val(),
                 va_number: $("#va_number").val(),
@@ -4196,6 +4251,11 @@ function setRowRequiredState($row, isRequired) {
             }
 
             let cek_val_action = $("#actionTypeValue").val();
+            if (!id_inv && $('#currency_selected').val() === 'SAR'
+                && (parseFloat($('#nominal_currency').val()) || 0) <= 0) {
+                Swal.fire('Peringatan', 'Isi kurs 1 SAR = berapa Rupiah.', 'warning');
+                return;
+            }
             
             ajaxRequest(`{{ route('save-sales-inv') }}`, 'POST', selectedData, localStorage.getItem("token"))
                 .then(response => {
