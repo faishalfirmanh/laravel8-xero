@@ -145,6 +145,7 @@ trait ConfigRefreshXero
 
         // Simpan ke storage/app/xero_token_2.json
         Storage::put($this->tokenFile, json_encode($tokens, JSON_PRETTY_PRINT));
+        Log::info("Storage berhasil dibuat xero_token_2.json berhasil dibuat");
     }
 
     protected function getTenantId($accessToken)

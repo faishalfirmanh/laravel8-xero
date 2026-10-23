@@ -32,6 +32,7 @@ use App\Http\Controllers\GlobalExternal\ImageController;
 use App\Http\Controllers\InvoiceItemController;
 use App\Http\Controllers\Config\ConfigCurrencyApiController;
 use App\Http\Controllers\Xero\XeroBillController;
+use App\Http\Controllers\Xero\XeroDownloadInvoiceController;
 use App\Http\Controllers\Xero\XeroSyncInvoicePaidController;
 use App\Http\Controllers\Xero\XeroContactController;
 use App\Http\Controllers\GlobalExternal\CurrencyController;
@@ -130,6 +131,8 @@ Route::prefix("xero")->group(function () {
     //bank trans
     Route::get('/bank-accounts', [BankController::class, 'bankAccounts']);
     Route::get('/bank-accounts/{accountId}/transaction', [BankSyncTransController::class, 'receivedTransactions']);//BankSyncTransController,//BankController
+
+    Route::get('tes-download', [XeroDownloadInvoiceController::class, 'testXeroExport'])->name('download-inv-export');
 });
 
 Route::get('status-job/{jobId}', [InvoiceXeroLocalController::class, 'getSyncStatus'])->name('cek-sync-job-inv-xero');

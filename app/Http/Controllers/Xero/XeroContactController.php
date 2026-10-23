@@ -14,6 +14,7 @@ class XeroContactController extends Controller
 {
     private $tokenFile = 'xero_token.json';
     private $tokenFile_prod = 'xero_token_2.json';
+    private $scope_global = 'accounting.contacts accounting.contacts.read accounting.settings accounting.settings.read accounting.transactions accounting.transactions.read accounting.attachments accounting.attachments.read offline_access';
 
     //get tanpa bearer token
     // =========================================================================
@@ -25,15 +26,15 @@ class XeroContactController extends Controller
      */
     public function connect()
     {
-        $scope = 'accounting.contacts accounting.contacts.read accounting.settings accounting.settings.read accounting.transactions accounting.transactions.read offline_access';
-
+        //$scope = 'accounting.contacts accounting.contacts.read accounting.settings accounting.settings.read accounting.transactions accounting.transactions.read offline_access';
+        $scope = 'accounting.contacts accounting.contacts.read accounting.settings accounting.settings.read accounting.transactions accounting.transactions.read accounting.attachments accounting.attachments.read offline_access';
         $state = Str::random(64);
         session(['oauth2_state' => $state]);
 
         $url = 'https://login.xero.com/identity/connect/authorize?' . http_build_query([
             'response_type' => 'code',
             'client_id' => env('XERO_PROD_CLIENT_ID'),
-            'redirect_uri' =>env('XERO_REDIRECT_URL_PROD'),
+            'redirect_uri' => env('XERO_REDIRECT_URL_PROD'),
             'scope' => $scope,
             'state' => '1dfa45sdf',
             'prompt' => 'consent'
@@ -55,7 +56,7 @@ class XeroContactController extends Controller
             env('XERO_PROD_CLIENT_ID'),//env('XERO_CLIENT_ID'),//
             env('XERO_PROD_CLIENT_SECRET')
             // env('XERO_CLIENT_SECRET')
-            )
+        )
             ->post('https://identity.xero.com/connect/token', [
                 'grant_type' => 'authorization_code',
                 'code' => $request->code,
@@ -109,20 +110,20 @@ class XeroContactController extends Controller
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $tokenData['access_token'],
             'Xero-Tenant-Id' => $tenantId,
-           'Content-Type' => 'application/json',
+            'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ])->get('https://api.xero.com/api.xro/2.0/Contacts');
 
         dd($tokenData['access_token']);
 
-         if ($response->failed()) {
+        if ($response->failed()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal ambil data contact ',
                 'xero_status_code' => $response->status(),
                 'xero_error_detail' => $response->json()
             ], $response->status());
-         }
+        }
 
         return response()->json($response->json()['Contacts']);
     }
@@ -142,7 +143,7 @@ class XeroContactController extends Controller
                 'expires_in' => 1800,
                 'token_type' => "Bearer",
                 "refresh_token" => "ojguKUVyFtuzQpYduQKX52GjAAoqrtO3ymG5h08DGqc",
-                "scope" => "accounting.contacts accounting.contacts.read accounting.settings accounting.settings.read accounting.transactions accounting.transactions.read offline_access",
+                "scope" => $this->scope_global,//"accounting.contacts accounting.contacts.read accounting.settings accounting.settings.read accounting.transactions accounting.transactions.read offline_access",
                 "expires_at" => 1765619502
 
             ];
@@ -175,7 +176,8 @@ class XeroContactController extends Controller
     {
         $response = Http::asForm()->withBasicAuth(
             env('XERO_PROD_CLIENT_ID'),
-            env('XERO_PROD_CLIENT_SECRET'))
+            env('XERO_PROD_CLIENT_SECRET')
+        )
             ->post('https://identity.xero.com/connect/token', [
                 'grant_type' => 'refresh_token',
                 'refresh_token' => $currentRefreshToken
