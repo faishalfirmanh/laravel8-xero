@@ -515,15 +515,36 @@ class InvXeroController extends Controller
         // dd($request->id_jamaah_alhid);
         $validator->after(function ($validator) use ($request) {
             $itemIds = $request->item_id ?? [];
+            $coaIds = $request->coa_id ?? [];
 
-            foreach ($itemIds as $i => $itemId) {
-                if (empty($itemId)) {
-                    continue;
-                }
+            //validasi lama boleh bebas row invoice
+            // foreach ($itemIds as $i => $itemId) {
+            //     if (empty($itemId)) {
+            //         continue;
+            //     }
 
+            //     $qty = $request->qty[$i] ?? null;
+            //     $price = $request->unit_price[$i] ?? null;
+            //     $coa = $request->coa_id[$i] ?? null;
+            //     $rowLabel = 'Baris ke-' . ($i + 1);
+
+            //     if ($qty === null || $qty === '' || (float) $qty <= 0) {
+            //         $validator->errors()->add("qty.$i", "$rowLabel: Qty wajib diisi dan lebih dari 0.");
+            //     }
+
+            //     if ($price === null || $price === '' || (float) $price <= 0) {
+            //         $validator->errors()->add("unit_price.$i", "$rowLabel: Harga wajib diisi dan lebih dari 0.");
+            //     }
+
+            //     if (empty($coa)) {
+            //         $validator->errors()->add("coa_id.$i", "$rowLabel: Account (COA) wajib dipilih.");
+            //     }
+            // }
+
+            //validasi baru tidak bebas row invoice
+            foreach ($coaIds as $i => $coa) {
                 $qty = $request->qty[$i] ?? null;
                 $price = $request->unit_price[$i] ?? null;
-                $coa = $request->coa_id[$i] ?? null;
                 $rowLabel = 'Baris ke-' . ($i + 1);
 
                 if ($qty === null || $qty === '' || (float) $qty <= 0) {
@@ -871,9 +892,10 @@ class InvXeroController extends Controller
                 | Transaction COA
                 |--------------------------------------------------------------------------
                 */
-                $rowItemId = $request->item_id[$key] ?? null;
+                // $rowItemId = $request->item_id[$key] ?? null;
+                //sebelumnya : if ($request->action_save != 0 && !empty($rowItemId)) { hilang agar trans tanpoa pilih item masih bisa ke insert
 
-                if ($request->action_save != 0 && !empty($rowItemId)) { //kusus detail yang ada itemnya
+                if ($request->action_save != 0 && !empty($accountId)) { //kusus detail yang ada itemnya
 
                     $nominal = (float) $saveD->total_amount_each_row;
 

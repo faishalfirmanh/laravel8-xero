@@ -43,6 +43,11 @@ class ProfitLossController extends Controller
         }));
     }
 
+    public function profitAndLossDetailDataV2(Request $request, $account, $date_start, $date_end)
+    {
+
+    }
+
     public function profitAndLossDetailData(Request $request, $account, $date_start, $date_end)
     {
         // ── 1. Validasi tanggal ──────────────────────────────────────────
@@ -506,7 +511,8 @@ class ProfitLossController extends Controller
         $validator = Validator::make($request->all(), [
             'date_start' => 'required|date',
             'date_end' => 'required|date|after_or_equal:date_start',
-            'nama_paket' => 'nullable|string|max:255',
+            'nama_paket' => 'nullable',          // boleh string atau array
+            'nama_paket.*' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -516,50 +522,31 @@ class ProfitLossController extends Controller
         $dateStart = Carbon::parse($request->date_start)->startOfDay();
         $dateEndExclusive = Carbon::parse($request->date_end)->addDay()->startOfDay();
 
-        $namaPaket = trim((string) $request->input('nama_paket', ''));
-        $hasFilterPaket = $namaPaket !== '';
-        $likePaket = '%' . $namaPaket . '%';
+        // Normalisasi nama_paket: string / array -> array kata kunci bersih
+        $rawPaket = $request->input('nama_paket');
+        $keywords = collect(is_array($rawPaket) ? $rawPaket : [$rawPaket])
+            ->map(fn($v) => trim((string) $v))
+            ->filter(fn($v) => $v !== '')
+            ->unique()
+            ->values()
+            ->all();
 
-        /*
-         * Base query per sumber transaksi.
-         * Jika nama_paket diisi, baris detail hanya diambil jika item-nya
-         * (items_paket_all_from_xeros.nama_paket) cocok dengan kata kunci.
-         * whereExists menjaga satu t.id tidak berlipat.
-         */
-        $makeSourceQuery = function (string $detailTable, string $detailUuidColumn, string $detailItemColumn, string $itemsKeyColumn) use ($dateStart, $dateEndExclusive, $hasFilterPaket, $likePaket) {
+        $hasFilterPaket = count($keywords) > 0;
 
-            return DB::table('transaction_all_coas as t')
-                ->join('coas as c', 'c.id', '=', 't.uuid_coa')
-                ->where('t.date_transaction', '>=', $dateStart)
-                ->where('t.date_transaction', '<', $dateEndExclusive)
-                ->whereExists(function ($sub) use ($detailTable, $detailUuidColumn, $detailItemColumn, $itemsKeyColumn, $hasFilterPaket, $likePaket) {
-                    $sub->select(DB::raw(1))
-                        ->from($detailTable . ' as d')
-                        ->whereColumn('d.' . $detailUuidColumn, 't.uuid_detail');
-
-                    if ($hasFilterPaket) {
-                        $sub->join('items_paket_all_from_xeros as ip', 'ip.' . $itemsKeyColumn, '=', 'd.' . $detailItemColumn)
-                            ->where('ip.nama_paket', 'like', $likePaket);
-                    }
-                })
-                ->select(
-                    't.id as trx_row_id',
-                    't.uuid_detail',
-                    't.date_transaction',
-                    't.is_speend',
-                    't.base_nominal',
-                    't.nominal_currency',
-                    't.code_curr',
-                    'c.id as coa_id',
-                    'c.name as coa_name',
-                    'c.account_type'
-                );
+        // Terapkan OR LIKE untuk semua kata kunci pada ip.nama_paket
+        $applyKeywords = function ($query) use ($keywords) {
+            $query->where(function ($w) use ($keywords) {
+                foreach ($keywords as $kw) {
+                    $w->orWhere('ip.nama_paket', 'like', '%' . $kw . '%');
+                }
+            });
         };
 
-        // Fee overpay tidak punya item paket, jadi dikecualikan saat filter nama_paket aktif
-        $feeQuery = DB::table('transaction_all_coas as t')
+        /*
+         * Base query: SEMUA transaksi pada rentang tanggal.
+         */
+        $baseQuery = DB::table('transaction_all_coas as t')
             ->join('coas as c', 'c.id', '=', 't.uuid_coa')
-            ->join('fee_overpays as f', 'f.uuid_details_feeoverpay', '=', 't.uuid_detail')
             ->where('t.date_transaction', '>=', $dateStart)
             ->where('t.date_transaction', '<', $dateEndExclusive)
             ->select(
@@ -575,23 +562,46 @@ class ProfitLossController extends Controller
                 'c.account_type'
             );
 
+        /*
+         * Hanya jika nama_paket diisi: cari di detail yang punya item/code paket.
+         * Invoice : d.item_id               = ip.id
+         * Bill    : d.item_code             = ip.code  ATAU d.item_id_prod_serv = ip.id
+         * Bank    : d.item_code             = ip.id
+         */
         if ($hasFilterPaket) {
-            $feeQuery->whereRaw('1 = 0');
+            $baseQuery->where(function ($q) use ($applyKeywords) {
+
+                // Invoice (ACCREC)
+                $q->whereExists(function ($sub) use ($applyKeywords) {
+                    $sub->select(DB::raw(1))
+                        ->from('item_detail_invoices as d')
+                        ->join('items_paket_all_from_xeros as ip', 'ip.id', '=', 'd.item_id')
+                        ->whereColumn('d.uuid_detail_inv', 't.uuid_detail');
+                    $applyKeywords($sub);
+                });
+
+                // Bill (ACCPAY)
+                $q->orWhereExists(function ($sub) use ($applyKeywords) {
+                    $sub->select(DB::raw(1))
+                        ->from('d_bills as d')
+                        ->join('items_paket_all_from_xeros as ip', function ($join) {
+                            $join->on('ip.code', '=', 'd.item_code')
+                                ->orOn('ip.id', '=', 'd.item_id_prod_serv');
+                        })
+                        ->whereColumn('d.uuid_detail', 't.uuid_detail');
+                    $applyKeywords($sub);
+                });
+
+                // Bank
+                $q->orWhereExists(function ($sub) use ($applyKeywords) {
+                    $sub->select(DB::raw(1))
+                        ->from('transaction_bank_trans_d_s as d')
+                        ->join('items_paket_all_from_xeros as ip', 'ip.id', '=', 'd.item_code')
+                        ->whereColumn('d.uuid_detail_trans_bank', 't.uuid_detail');
+                    $applyKeywords($sub);
+                });
+            });
         }
-
-        // Invoice (ACCREC): d.uuid_detail_inv, item di d.item_id = ip.id
-        $invoiceQuery = $makeSourceQuery('item_detail_invoices', 'uuid_detail_inv', 'item_id', 'id');
-
-        // Bill (ACCPAY): d.uuid_detail, item di d.item_code = ip.code
-        $billQuery = $makeSourceQuery('d_bills', 'uuid_detail', 'item_code', 'code');
-
-        // Bank: d.uuid_detail_trans_bank, item di d.item_code = ip.id
-        $bankQuery = $makeSourceQuery('transaction_bank_trans_d_s', 'uuid_detail_trans_bank', 'item_code', 'id');
-
-        $baseQuery = $invoiceQuery
-            ->union($billQuery)
-            ->union($bankQuery)
-            ->union($feeQuery);
 
         $getSection = function (array $accountTypes, bool $isExpense) use ($baseQuery) {
             $normalSpend = $isExpense ? 1 : 0;
@@ -616,18 +626,14 @@ class ProfitLossController extends Controller
                 ->orderBy('unified.coa_name')
                 ->get();
 
-            $total = $rows->sum(function ($row) {
-                return (float) $row->total;
-            });
+            $total = $rows->sum(fn($row) => (float) $row->total);
 
             return [
-                'items' => $rows->map(function ($row) {
-                    return [
-                        'coa_id' => $row->id,
-                        'name' => $row->name,
-                        'total' => (float) $row->total,
-                    ];
-                })->values(),
+                'items' => $rows->map(fn($row) => [
+                    'coa_id' => $row->id,
+                    'name' => $row->name,
+                    'total' => (float) $row->total,
+                ])->values(),
                 'total' => (float) $total,
             ];
         };
@@ -638,10 +644,7 @@ class ProfitLossController extends Controller
         $operatingExpenses = $getSection(['EXPENSE'], true);
 
         $grossProfit = $tradingIncome['total'] - $costOfSales['total'];
-
-        $netProfit = $grossProfit
-            + $otherIncome['total']
-            - $operatingExpenses['total'];
+        $netProfit = $grossProfit + $otherIncome['total'] - $operatingExpenses['total'];
 
         $data = [
             'period' => [
@@ -650,7 +653,10 @@ class ProfitLossController extends Controller
             ],
 
             'active_filters' => [
-                'nama_paket' => $hasFilterPaket ? $namaPaket : null,
+                // bentuk sama seperti input: string jika 1 kata kunci dikirim sebagai string, array jika multiple
+                'nama_paket' => $hasFilterPaket
+                    ? (is_array($rawPaket) ? $keywords : $keywords[0])
+                    : null,
             ],
 
             'trading_income' => $tradingIncome,

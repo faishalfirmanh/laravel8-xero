@@ -329,6 +329,8 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('index', [ProfitLossController::class, 'getHome'])->name('profit-and-loss');//yang invoice statusnya tidak draft(yg tampil authorized dan paid)
                 Route::get('detail-profit-and-loss/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailData'])
                     ->name('api-profit-loss-detail');
+                Route::get('detail-profit-and-lossv2/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailDataV2'])
+                    ->name('api-profit-loss-detailv2');
             });
         });
 

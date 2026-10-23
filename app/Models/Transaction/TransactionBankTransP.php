@@ -25,7 +25,10 @@ class TransactionBankTransP extends Model
         'bank_id_xero',
         'id_jamaah_alhid',
         'uuid_bank_trans',//unutk ambil dari sync xero, nullable
-        'status'//0 : direct, 1 : prepayment, 2: overpay
+        'status',//0 : direct, 1 : prepayment, 2: overpay
+        'code_currency',
+        'nominal_currency',
+        'base_nominal',
     ];
     // RECEIVE	: Uang masuk biasa yang tidak terkait invoice	\ dipake
 // SPEND	: Uang keluar biasa yang tidak terkait bill	\ dipake

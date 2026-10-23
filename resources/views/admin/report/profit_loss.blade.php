@@ -377,6 +377,108 @@
 .paket-select-wrap .select2-container {
     width: 100% !important;
 }
+
+/*css nama paket selec2*/
+/* ── Nama Paket (select2 multiple) ── */
+.paket-select-wrap {
+    width: 320px;
+    min-width: 200px;
+    max-width: 100%;
+}
+.paket-select-wrap .select2-container { width: 100% !important; }
+
+/* Box utama: tinggi mengikuti isi */
+.paket-select-wrap .select2-selection--multiple {
+    position: relative;
+    display: block !important;
+    min-height: 34px;
+    height: auto !important;
+    padding: 2px 26px 2px 4px !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    background: #fff !important;
+    cursor: text;
+}
+
+/* Daftar tag: flex wrap, bukan list vertikal */
+.paket-select-wrap .select2-selection--multiple .select2-selection__rendered {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none;
+}
+
+/* Satu tag */
+.paket-select-wrap .select2-selection__choice {
+    display: inline-flex !important;
+    align-items: flex-start;
+    float: none !important;
+    max-width: 100%;
+    margin: 0 !important;
+    padding: 2px 6px !important;
+    background: #e8f0fe !important;
+    border: 1px solid #c2d0f8 !important;
+    border-radius: 3px !important;
+    color: #1a56db !important;
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: normal;       /* nama paket panjang boleh wrap */
+    word-break: break-word;
+}
+
+/* Tombol × di dalam tag: reset tampilan <button> bawaan */
+.paket-select-wrap .select2-selection__choice__remove {
+    position: static !important;
+    float: none !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 6px 0 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    color: #1a56db !important;
+    font-size: 14px;
+    line-height: 1.1;
+    cursor: pointer;
+}
+.paket-select-wrap .select2-selection__choice__remove:hover { color: #c0392b !important; }
+.paket-select-wrap .select2-selection__choice__display { padding: 0 !important; }
+
+/* Input pencarian di sebelah tag */
+.paket-select-wrap .select2-search--inline {
+    flex: 1 1 80px;
+    float: none !important;
+    margin: 0 !important;
+}
+.paket-select-wrap .select2-search--inline .select2-search__field {
+    width: 100% !important;
+    min-width: 80px;
+    height: 24px;
+    margin: 0 !important;
+    padding: 0 4px;
+    border: 0 !important;
+    font-size: 12px;
+}
+
+/* Tombol clear semua: pojok kanan atas, bukan baris sendiri */
+.paket-select-wrap .select2-selection__clear {
+    position: absolute !important;
+    top: 5px;
+    right: 8px;
+    float: none !important;
+    margin: 0 !important;
+    color: #999;
+    cursor: pointer;
+    z-index: 1;
+}
+
+/* Dropdown (ada di <body>, jadi tidak bisa di-scope ke wrapper) */
+.select2-results__option { white-space: normal; word-break: break-word; font-size: 12px; }
+.select2-container--open { z-index: 9999; }
 </style>
 
 {{-- ── FILTER BAR ── --}}
@@ -404,7 +506,7 @@
             <div>
                 <span class="filter-label">Nama Paket</span>
                 <div class="paket-select-wrap">
-                    <select class="form-control" name="nama_paket" id="nama_paket"></select>
+                   <select id="nama_paket" name="nama_paket[]" class="form-control" multiple></select>
                 </div>
             </div>
 
@@ -532,28 +634,55 @@ $(function () {
     });
 
     function initNamaPaketSelect2() {
-        $('#nama_paket').select2({
+        var $el = $('#nama_paket');
+
+        // Hindari init ganda kalau fungsi ini dipanggil ulang
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+
+        var limit = 10;
+
+        $el.select2({
             theme: 'bootstrap4',
             placeholder: 'Semua paket',
             allowClear: true,
+            multiple: true,
+            closeOnSelect: false,          // dropdown tetap terbuka saat memilih beberapa
             width: '100%',
             dropdownParent: $('body'),
+            language: {
+                searching: function () { return 'Mencari...'; },
+                noResults: function () { return 'Paket tidak ditemukan'; },
+                loadingMore: function () { return 'Memuat lainnya...'; }
+            },
             ajax: {
                 url: '{{ route("list-paket-select2") }}',
                 dataType: 'json',
                 delay: 300,
                 data: function (params) {
-                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+                    return {
+                        page: params.page || 1,
+                        keyword: params.term || '',
+                        limit: limit
+                    };
                 },
-                processResults: function (response) {
+                processResults: function (response, params) {
+                    params.page = params.page || 1;
+
                     if (response.status != 'success') {
                         return { results: [] };
                     }
+
+                    var items = (response.data && response.data.results) || [];
+
                     return {
-                        results: $.map(response.data.results || [], function (item) {
+                        results: $.map(items, function (item) {
                             // id dan text sama: nilai ini dikirim sebagai filter nama_paket
                             return { id: item.nama_paket, text: item.nama_paket };
-                        })
+                        }),
+                        // infinite scroll: lanjut selama halaman penuh
+                        pagination: { more: items.length >= limit }
                     };
                 },
                 cache: true
@@ -562,17 +691,19 @@ $(function () {
     }
 
   var plRouteTemplate = "{{ route('view-report-profit-loss-detail', ['account' => '__ACCOUNT__', 'date_start' => '__DATE_START__','date_end' => '__DATE_END__']) }}";
-function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) {
+   
+    function buildDetailUrl(accountId, dateStart, dateEnd, namaPaket) {
         var url = plRouteTemplate
             .replace('__ACCOUNT__', accountId)
             .replace('__DATE_START__', dateStart)
             .replace('__DATE_END__', dateEnd);
-        var qs = [];
-            if (trackPaket)  qs.push('track_paket=' + encodeURIComponent(trackPaket));
-            if (trackDivisi) qs.push('track_divisi=' + encodeURIComponent(trackDivisi));
-            if (qs.length) url += '?' + qs.join('&');
 
-            return url;
+        var qs = $.map(namaPaket || [], function (p) {
+            return 'nama_paket[]=' + encodeURIComponent(p);
+        });
+        if (!qs.length) return url;
+
+        return url + (url.indexOf('?') === -1 ? '?' : '&') + qs.join('&');
     }
 
     
@@ -809,13 +940,17 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
     var _lastParams = null
 
     function loadReport() {
-        var namaPaket = $('#nama_paket').val() || '';
+         var namaPaket = $('#nama_paket').val() || [];
 
         var params = {
             date_start: $('#date_from').val(),
             date_end  : $('#date_to').val()
         };
-        if (namaPaket) params.nama_paket = namaPaket;
+
+        // Kirim sebagai key berindeks supaya tidak digabung koma
+        $.each(namaPaket, function (i, val) {
+            params['nama_paket[' + i + ']'] = val;
+        });
 
         _lastParams = {
             date_start: params.date_start,
@@ -842,9 +977,12 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
             // Info filter aktif di bawah judul
             var af   = data.active_filters || {};
             var html = '';
-            if (af.nama_paket) {
-                html += '<span class="mr-2"><strong>Nama Paket:</strong></span>'
-                    + '<span class="badge badge-info mr-1 mb-1">' + escHtml(af.nama_paket) + '</span>';
+            var pk   = af.nama_paket ? [].concat(af.nama_paket) : [];
+            if (pk.length) {
+                html += '<span class="mr-2"><strong>Nama Paket:</strong></span>';
+                $.each(pk, function (i, n) {
+                    html += '<span class="badge badge-info mr-1 mb-1">' + escHtml(n) + '</span>';
+                });
             }
             $('#filterTrack').html(html);
 
@@ -959,7 +1097,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
 
         var dateStart = $('#date_from').val();
         var dateEnd   = $('#date_to').val();
-        var namaPaket = $('#nama_paket').val() || '';
+        var namaPaket = $('#nama_paket').val() || [];
 
         $.each(data.blocks || [], function (idx, block) {
 
@@ -1138,7 +1276,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
         // if (_lastParams.divisi.length) aoa.push(['Divisi: ' + safeText(_lastParams.divisi.join(', '))]);
         // if (_lastParams.paket.length)  aoa.push(['Nama Paket: ' + safeText(_lastParams.paket.join(', '))]);
         // aoa.push(['Currency: ' + _lastParams.currency]);
-        if (_lastParams.paket) aoa.push(['Nama Paket: ' + safeText(_lastParams.paket)]);
+        if (_lastParams.paket.length) aoa.push(['Nama Paket: ' + safeText(_lastParams.paket.join(', '))]);
         aoa.push([]);
         aoa.push(['', colHeader]);
 
@@ -1178,8 +1316,8 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
         var wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
 
-       var namaFile = _lastParams.paket
-            ? '_' + _lastParams.paket.replace(/[^A-Za-z0-9\-_]+/g, '_')
+        var namaFile = _lastParams.paket.length
+            ? '_' + _lastParams.paket.join('_').replace(/[^A-Za-z0-9\-_]+/g, '_').substring(0, 60)
             : '';
         var fileName = 'Profit_and_Loss' + namaFile + '_' + _lastParams.date_start + '_' + _lastParams.date_end + '.xlsx';
         XLSX.writeFile(wb, fileName);
@@ -1193,15 +1331,7 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
             Swal.fire('Gagal', 'Export Excel gagal: ' + e.message, 'error');
         }
     });
-    function buildDetailUrl(accountId, dateStart, dateEnd, namaPaket) {
-        var url = plRouteTemplate
-            .replace('__ACCOUNT__', accountId)
-            .replace('__DATE_START__', dateStart)
-            .replace('__DATE_END__', dateEnd);
-
-        if (namaPaket) url += '?nama_paket=' + encodeURIComponent(namaPaket);
-        return url;
-    }
+    
     // =========================================================
     // INIT
     // =========================================================

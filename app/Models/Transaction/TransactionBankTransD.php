@@ -22,7 +22,9 @@ class TransactionBankTransD extends Model
         'paket_tracking_uuid',
         'divisi_travel_tracking_uuid',
         'amount',
-        'uuid_detail_trans_bank'
+        'uuid_detail_trans_bank',
+        'nominal_currency',//kalau 1 = rp,
+        'total_base_nominal'//nominal yang sudah di konversi
     ];
 
 
