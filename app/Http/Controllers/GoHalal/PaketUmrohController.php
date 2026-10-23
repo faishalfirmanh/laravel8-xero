@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 
 
 use App\Models\GoHalal\PaketUmroh;
+use App\Models\ItemsPaketAllFromXero;
+use App\Models\MasterData\Coa;
 use App\Models\MasterData\Hotel;
 use App\Models\MasterData\TravelName;
 use App\Traits\ApiResponse;
@@ -108,6 +110,10 @@ class PaketUmrohController extends Controller
             $data['random_uuid_paket'] = $this->generateUniqueRandomUuid();
             $data['is_posting'] = $request->boolean('is_posting') ? 1 : 0;
             $data['is_internal'] = $request->boolean('is_internal') ? 1 : 0;
+
+            if ($request->id == null) {
+                $this->createProductItem($data);
+            }
 
             $paket = PaketUmroh::create($data);
             $paket->hotels()->createMany($this->hotelRows($request));
@@ -307,7 +313,10 @@ class PaketUmrohController extends Controller
     {
         do {
             $uuid = (string) Str::uuid();
-        } while (PaketUmroh::where('random_uuid_paket', $uuid)->exists());
+        } while (
+            PaketUmroh::where('random_uuid_paket', $uuid)->exists()
+            || ItemsPaketAllFromXero::where('uuid_proudct_and_service', $uuid)->exists()
+        );
 
         return $uuid;
     }
@@ -319,6 +328,42 @@ class PaketUmrohController extends Controller
             ? null
             : 'available_slot + filled_slot harus sama dengan max_slot';
     }
+
+
+    public function createProductItem($data)
+    {
+        $cariCoa = Coa::where('code', 4600)->first();
+
+        if (!$cariCoa) {
+            throw new \Exception('COA dengan kode 4600 tidak ditemukan.');
+        }
+
+        return ItemsPaketAllFromXero::firstOrCreate(
+            [
+                'uuid_proudct_and_service' => $data['random_uuid_paket'],
+            ],
+            [
+                'code' => Str::random(5),
+                'nama_paket' => $data['nama_paket'],
+                'sales_AccountCode' => 4600,
+                'purchase_AccountCode' => 'from cs',
+                'total_hari' => $data['jumlah_hari'],
+                'jenis_item' => 1,
+                'price_sales' => $data['hrgquad'],
+                'account_id_salles' => $cariCoa->id,
+                'is_active' => 1,
+                'departure_date' => !empty($data['tgl_berangkat'])
+                    ? $data['tgl_berangkat']
+                    : null,
+                'desc_salles' => $data['nama_paket'],
+                'tax_rate_salles' => 0,
+                'price_purchase' => 0,
+                'tax_rate_purchase' => 0,
+                'is_item_product' => 0
+            ]
+        );
+    }
+
 
     private function payload(Request $request, ?PaketUmroh $existing = null): array
     {
