@@ -43,7 +43,8 @@ class ItemsPaketAllFromXero extends Model
 
         'uuid_tracking_category',//UNTUK tracking kategory paket
         'va_number',
-        'is_item_product'//jika true->barang kasir
+        'is_item_product',//jika true->barang kasir
+        'departure_date',//jika paket umroh wajib diisi
     ];
 
 

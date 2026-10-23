@@ -66,6 +66,7 @@ class ProducAndServiceXeroLocalController extends Controller
                     )
             ],
             'nama_paket' => 'required|string',
+            'departure_date' => 'nullable|date',
             'desc' => 'nullable|string',
             'desc_salles' => 'nullable|string',
             'account_id_purchase' => 'nullable|integer|exists:coas,id',
