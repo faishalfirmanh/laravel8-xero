@@ -977,6 +977,8 @@ class BillXeroController extends Controller
             'action_save' => 'required|integer|between:0,2',
 
             'item_code' => 'nullable|array',
+            'item_id_prod_serv' => 'nullable|array',
+            'item_id_prod_serv.*' => 'nullable|integer',
             'desc' => 'required|array|min:1',
             'qty' => 'required|array|min:1',
             'unit_price' => 'required|array|min:1',
@@ -1068,7 +1070,7 @@ class BillXeroController extends Controller
                 : [];
             // 1. Save Parent
             $saveP = $this->repo->CreateOrUpdate(
-                $request->except(['item_code', 'account_id', 'desc', 'qty', 'unit_price', 'tax_rate', 'nama_paket', 'divisi', 'id_detail', 'action_save']),
+                $request->except(['item_id_prod_serv', 'item_code', 'account_id', 'desc', 'qty', 'unit_price', 'tax_rate', 'nama_paket', 'divisi', 'id_detail', 'action_save']),
                 $request->id
             );
             $deleted_array = [];
@@ -1106,6 +1108,9 @@ class BillXeroController extends Controller
                     'bills_parent_id' => $saveP->id,
                     'account_id_coa' => $accountId,
                     'item_code' => $request->item_code[$key] ?? null,
+                    'item_id_prod_serv' => !empty($request->item_id_prod_serv[$key])
+                        ? (int) $request->item_id_prod_serv[$key]
+                        : null,
                     'desc' => $request->desc[$key] ?? null,
                     'qty' => $request->qty[$key] ?? 0,
                     'unit_price' => $request->unit_price[$key] ?? 0,

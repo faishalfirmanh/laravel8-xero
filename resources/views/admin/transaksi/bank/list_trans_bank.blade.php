@@ -23,6 +23,51 @@
     .dropdown-menu {
        z-index: 1060 !important;
     }
+
+    /*fix item select2*/
+    /* kolom fixed: nama item panjang tidak melebarkan kolom lain */
+#itemTable { table-layout: fixed; width: 100%; }
+#itemTable td { overflow: hidden; }
+#itemTable .select2-container { width: 100% !important; }
+
+/* selection box seragam untuk Item/Account/Paket/Divisi */
+#itemTable .select2-selection--single {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: calc(1.5em + .75rem + 2px);
+    border: 1px solid #ced4da;
+    border-radius: .25rem;
+}
+#itemTable .select2-selection--single .select2-selection__rendered {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    line-height: 1.5;
+    padding-left: .6rem;
+    padding-right: 42px;          /* ruang untuk × dan ▾ */
+    overflow: hidden;
+    text-overflow: ellipsis;      /* teks panjang dipotong "...", tidak turun baris */
+    white-space: nowrap;
+}
+#itemTable .select2-selection--single .select2-selection__clear {
+    position: absolute;
+    right: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    float: none;
+    margin: 0;
+    line-height: 1;
+}
+#itemTable .select2-selection--single .select2-selection__arrow {
+    position: absolute;
+    right: 4px;
+    top: 0;
+    height: 100%;
+}
+
+/* opsi di dropdown boleh wrap supaya nama paket panjang terbaca penuh */
+.select2-results__option { white-space: normal; word-break: break-word; }
 </style>
 
 <div class="card shadow mb-5">
@@ -109,7 +154,7 @@
                         <!-- FROM -->
                         <div class="form-row align-items-center mb-2">
                             <div class="col-md-1 d-flex align-items-end" style="padding-bottom: 0;">
-                                <label class="font-weight-bold mb-0">From</label>
+                                <label class="font-weight-bold mb-0">From <span class="text-danger">*</span></label>
                             </div>
                             <div class="col-md-11">
                                 <div class="row">
@@ -231,7 +276,8 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered" 
          style="max-width: 95% !important; width: 95% !important;" 
          role="document">
@@ -259,19 +305,19 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label id="title_to_from"></label>
+                                    <label id="title_to_from"><span class="text-danger">*</span></label>
                                     <select class="form-control select2-contact" name="uuid_to" id="contact_id" style="width: 100%;" required></select>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label>Date</label>
+                                    <label>Date <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" id="date_h" name="date_h" value="{{ date('Y-m-d') }}" required>
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
-                                    <label>Reference</label>
+                                    <label>Reference <span class="text-danger">*</span></label>
                                     <input type="text" id="ref_id" class="form-control" name="reference">
                                 </div>
                             </div>
@@ -293,6 +339,19 @@
                         <div class="table-responsive">
                             <input type="hidden" id="d_id_parent_bill" name="bills_parent_id"/>
                             <table class="table table-bordered table-hover" id="itemTable">
+                                <colgroup>
+                                    <col style="width:40px;">   <!-- No -->
+                                    <col style="width:240px;">  <!-- Item -->
+                                    <col style="width:240px;">  <!-- Description -->
+                                    <col style="width:70px;">   <!-- Qty -->
+                                    <col style="width:130px;">  <!-- Unit Price -->
+                                    <col style="width:220px;">  <!-- Account -->
+                                    <col style="width:90px;">   <!-- Tax Rate -->
+                                    <col style="width:180px;">  <!-- Nama Paket -->
+                                    <col style="width:160px;">  <!-- Divisi -->
+                                    <col style="width:140px;">  <!-- Amount -->
+                                    <col style="width:50px;">   <!-- Action -->
+                                </colgroup>
                                 <thead class="table-light">
                                     <tr>
                                         <th width="40" class="text-center">No</th>
@@ -406,6 +465,7 @@
 <script>
 $(document).ready(function() {
     var table;
+    const modalParent = $('#modalCreateHotel .modal-content');
     let full_url = window.location.href;
    // const segments = full_url.split('/').filter(Boolean);
     const segments = window.location.pathname.split('/');
@@ -470,7 +530,7 @@ $(document).ready(function() {
                    // console.log('aaa',data)
                     return data.get_p_bank.name_contact_trans_bank;
                 }else if(data.get_inv){
-                     return data.get_inv.contact_name;
+                     return '-';//ata.get_inv.contact_name;
                 }else{
                     return  '-'
                 }
@@ -540,7 +600,7 @@ $(document).ready(function() {
                 }
                 else if (row.get_p_bank && row.get_p_bank.id) {
                     url = `${base_url}/travel/admin/transaksi/bank-trans/?open=${row.get_p_bank.id}`
-                    id = row.get_inv.id
+                    id = row.get_p_bank.id
                 } else {
                     //url = `${base_url}/travel/admin/transaksi/bank-trans/${row.uuid_bank}/?open=${row.get_p_bank.id}`
                     //id = row.get_p_bank.id;

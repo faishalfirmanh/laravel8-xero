@@ -369,6 +369,14 @@
     color: #888;
     font-size: 13px;
 }
+
+.paket-select-wrap {
+    width: 320px;
+    min-width: 200px;
+}
+.paket-select-wrap .select2-container {
+    width: 100% !important;
+}
 </style>
 
 {{-- ── FILTER BAR ── --}}
@@ -393,37 +401,44 @@
                 </div>
             </div>
 
-            {{-- Divisi --}}
             <div>
+                <span class="filter-label">Nama Paket</span>
+                <div class="paket-select-wrap">
+                    <select class="form-control" name="nama_paket" id="nama_paket"></select>
+                </div>
+            </div>
+
+            {{-- Divisi --}}
+            {{-- <div>
                 <span class="filter-label">Divisi</span>
                 <div class="tracking-select-wrap">
                     <select class="select2-divisi" name="tracking_divisi[]"
                             id="tracking_divisi" multiple="multiple" style="width:100%;">
                     </select>
                 </div>
-            </div>
+            </div> --}}
 
             {{-- Nama Paket --}}
-            <div>
+            {{-- <div>
                 <span class="filter-label">Nama Paket</span>
                 <div class="tracking-select-wrap">
                     <select class="select2-paket" name="tracking_paket_name[]"
                             id="tracking_paket_name" multiple="multiple" style="width:100%;">
                     </select>
                 </div>
-            </div>
+            </div> --}}
 
             {{-- Currency --}}
-            <div>
+            {{-- <div>
                 <span class="filter-label">Currency</span>
                 <div class="currency-select-wrap">
                     <select class="form-control" name="currency" id="currency">
-                        <option value="IDR" selected>🇮🇩 Indonesian Rupiah</option>
+                        <option value="IDR" selected>🇮🇩 Indonesian Rupiah</option> --}}
                         {{-- <option value="SAR">🇸🇦 Saudi Riyal</option>
                         <option value="USD">🇺🇸 US Dollar</option> --}}
-                    </select>
+                    {{-- </select>
                 </div>
-            </div>
+            </div> --}}
 
         </div>{{-- /.filter-row --}}
 
@@ -515,6 +530,36 @@ $(function () {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+
+    function initNamaPaketSelect2() {
+        $('#nama_paket').select2({
+            theme: 'bootstrap4',
+            placeholder: 'Semua paket',
+            allowClear: true,
+            width: '100%',
+            dropdownParent: $('body'),
+            ajax: {
+                url: '{{ route("list-paket-select2") }}',
+                dataType: 'json',
+                delay: 300,
+                data: function (params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+                },
+                processResults: function (response) {
+                    if (response.status != 'success') {
+                        return { results: [] };
+                    }
+                    return {
+                        results: $.map(response.data.results || [], function (item) {
+                            // id dan text sama: nilai ini dikirim sebagai filter nama_paket
+                            return { id: item.nama_paket, text: item.nama_paket };
+                        })
+                    };
+                },
+                cache: true
+            }
+        });
+    }
 
   var plRouteTemplate = "{{ route('view-report-profit-loss-detail', ['account' => '__ACCOUNT__', 'date_start' => '__DATE_START__','date_end' => '__DATE_END__']) }}";
 function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) {
@@ -686,8 +731,8 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
         $container.find('.select2-selection__rendered').append($badge);
     }
 
-    initTrackingSelect($('#tracking_divisi'),     'divisi');
-    initTrackingSelect($('#tracking_paket_name'), 'nama paket');
+    // initTrackingSelect($('#tracking_divisi'),     'divisi');
+    // initTrackingSelect($('#tracking_paket_name'), 'nama paket');
 
     // =========================================================
     // PRELOAD nilai tersimpan (edit mode / old())
@@ -764,6 +809,57 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
     var _lastParams = null
 
     function loadReport() {
+        var namaPaket = $('#nama_paket').val() || '';
+
+        var params = {
+            date_start: $('#date_from').val(),
+            date_end  : $('#date_to').val()
+        };
+        if (namaPaket) params.nama_paket = namaPaket;
+
+        _lastParams = {
+            date_start: params.date_start,
+            date_end  : params.date_end,
+            paket     : namaPaket
+        };
+
+        $('#reportLoading').show();
+        $('#reportContent').hide();
+
+        ajaxRequest(
+            '{{ route("profit-and-loss-v2") }}',
+            'GET',
+            params,
+            localStorage.getItem('token')
+        )
+        .then(function (response) {
+            if (!response.status || !response.data) {
+                throw new Error(response.message || 'Gagal memuat data');
+            }
+
+            var data = response.data.data;
+
+            // Info filter aktif di bawah judul
+            var af   = data.active_filters || {};
+            var html = '';
+            if (af.nama_paket) {
+                html += '<span class="mr-2"><strong>Nama Paket:</strong></span>'
+                    + '<span class="badge badge-info mr-1 mb-1">' + escHtml(af.nama_paket) + '</span>';
+            }
+            $('#filterTrack').html(html);
+
+            _lastData = adaptApiResponse(data);
+            renderReport(_lastData);
+        })
+        .catch(function (err) {
+            cathError(err);
+        })
+        .finally(function () {
+            $('#reportLoading').hide();
+            $('#reportContent').show();
+        });
+    }
+    function loadReportoLD() {
         // Kumpulkan semua UUID tracking yang dipilih (bisa multiple)
 
         var divisiVals = $('#tracking_divisi').val()      || [];
@@ -856,8 +952,66 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
 
     
     
-   
     function renderReport(data) {
+        var $body   = $('#reportBody');
+        var compact = $('#compactView').is(':checked');
+        $body.empty();
+
+        var dateStart = $('#date_from').val();
+        var dateEnd   = $('#date_to').val();
+        var namaPaket = $('#nama_paket').val() || '';
+
+        $.each(data.blocks || [], function (idx, block) {
+
+            if (block.type === 'total') {
+                $body.append(
+                    '<tr class="grand-total">' +
+                    '<td>' + escHtml(block.label) + '</td>' +
+                    '<td class="amt total ' + amtClass(block.amount) + '">' + formatAmt(block.amount) + '</td>' +
+                    '</tr>'
+                );
+                return;
+            }
+
+            $body.append(
+                '<tr class="section-header">' +
+                '<td>' + escHtml(block.name) + '</td>' +
+                '<td class="amt total"></td>' +
+                '</tr>'
+            );
+
+            if (!compact) {
+                $.each(block.items || [], function (i, item) {
+                    var detailUrl = buildDetailUrl(item.coa_id, dateStart, dateEnd, namaPaket);
+                    $body.append(
+                        '<tr class="detail-row">' +
+                        '<td>' + escHtml(item.name) + '</td>' +
+                        '<td class="' + amtClass(item.amount) + '">' +
+                            '<a href="' + detailUrl + '" target="_blank">' + formatAmt(item.amount) + '</a>' +
+                        '</td>' +
+                        '</tr>'
+                    );
+                });
+            }
+
+            $body.append(
+                '<tr class="section-total">' +
+                '<td>Total ' + escHtml(block.name) + '</td>' +
+                '<td class="amt total">' + formatAmt(block.total) + '</td>' +
+                '</tr>'
+            );
+        });
+
+        var npLabel = data.net_profit_label || 'Net Profit';
+        $body.append(
+            '<tr class="net-profit">' +
+            '<td>' + escHtml(npLabel) + '</td>' +
+            '<td class="amt">' + formatAmt(data.net_profit || 0) + '</td>' +
+            '</tr>'
+        );
+    }
+   
+    function renderReportoLD(data) {
         var $body   = $('#reportBody');
         var compact = $('#compactView').is(':checked');
         $body.empty();
@@ -981,9 +1135,10 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
         aoa.push(['Profit and Loss']);
         aoa.push([safeText(COMPANY_NAME)]);
         aoa.push([periodText]);
-        if (_lastParams.divisi.length) aoa.push(['Divisi: ' + safeText(_lastParams.divisi.join(', '))]);
-        if (_lastParams.paket.length)  aoa.push(['Nama Paket: ' + safeText(_lastParams.paket.join(', '))]);
-        aoa.push(['Currency: ' + _lastParams.currency]);
+        // if (_lastParams.divisi.length) aoa.push(['Divisi: ' + safeText(_lastParams.divisi.join(', '))]);
+        // if (_lastParams.paket.length)  aoa.push(['Nama Paket: ' + safeText(_lastParams.paket.join(', '))]);
+        // aoa.push(['Currency: ' + _lastParams.currency]);
+        if (_lastParams.paket) aoa.push(['Nama Paket: ' + safeText(_lastParams.paket)]);
         aoa.push([]);
         aoa.push(['', colHeader]);
 
@@ -1023,7 +1178,10 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
         var wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
 
-        var fileName = 'Profit_and_Loss_' + _lastParams.date_start + '_' + _lastParams.date_end + '.xlsx';
+       var namaFile = _lastParams.paket
+            ? '_' + _lastParams.paket.replace(/[^A-Za-z0-9\-_]+/g, '_')
+            : '';
+        var fileName = 'Profit_and_Loss' + namaFile + '_' + _lastParams.date_start + '_' + _lastParams.date_end + '.xlsx';
         XLSX.writeFile(wb, fileName);
     }
 
@@ -1035,10 +1193,20 @@ function buildDetailUrl(accountId, dateStart, dateEnd, trackPaket, trackDivisi) 
             Swal.fire('Gagal', 'Export Excel gagal: ' + e.message, 'error');
         }
     });
+    function buildDetailUrl(accountId, dateStart, dateEnd, namaPaket) {
+        var url = plRouteTemplate
+            .replace('__ACCOUNT__', accountId)
+            .replace('__DATE_START__', dateStart)
+            .replace('__DATE_END__', dateEnd);
+
+        if (namaPaket) url += '?nama_paket=' + encodeURIComponent(namaPaket);
+        return url;
+    }
     // =========================================================
     // INIT
     // =========================================================
     updatePeriodLabel();
+    initNamaPaketSelect2();
     loadReport();
 });
 </script>

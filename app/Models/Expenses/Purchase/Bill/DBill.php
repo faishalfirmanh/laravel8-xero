@@ -22,7 +22,8 @@ class DBill extends Model
         'divisi_travel_tracking_uuid',
         'amount',
         'uuid_detail',//untu relasi dengan tabel transaction_all_coas,
-        'total_base'//untuk total yang sudah di conversi 
+        'total_base',//untuk total yang sudah di conversi 
+        'item_id_prod_serv'//relasi dengna id tabel:item_detail_invoices
     ];
 
     public function getParent()

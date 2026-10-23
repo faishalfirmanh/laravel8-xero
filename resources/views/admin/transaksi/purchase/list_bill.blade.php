@@ -1180,6 +1180,9 @@ window.dellBill = function(id) {
     
         let selectedData = {
             item_code : $('select[name="item_code[]"]').map(function(){ return $(this).val(); }).get(),
+            item_id_prod_serv: $('input[name="item_id_prod_serv[]"]').map(function () {
+                return $(this).val();
+            }).get(),
             id: id_bill,
             uuid_from: params.get('uuid_from'),
             date_req: params.get('date_req'),
@@ -1285,6 +1288,7 @@ window.dellBill = function(id) {
                     <select class="select2-item form-control" required name="item_code[]" style="width:100%;">
                         <option value="">Pilih Item...</option>
                     </select>
+                    <input type="hidden" name="item_id_prod_serv[]" class="paket-id-input" value="${item && item.item_id_prod_serv ? item.item_id_prod_serv : ''}">
                 </td>
                 <td><input type="text" class="form-control desc-input" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
                 <td><input type="number" class="form-control qty-input" required name="qty[]" min="1" style="width:70px;" value="${qty}"></td>
@@ -1356,7 +1360,10 @@ window.dellBill = function(id) {
             if (d.harga !== undefined && d.harga !== null) {
                $row.find('.price-input').val(parseInt(d.harga));
             }
+            $row.find('.paket-id-input').val(d.paket_id || '');
             $row.find('.price-input').trigger('input');
+        }).on('select2:clear', function () {
+            $(this).closest('tr').find('.paket-id-input').val('');
         });
 
         $lastRow.find('.select2-account').select2({

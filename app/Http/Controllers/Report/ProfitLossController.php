@@ -500,6 +500,170 @@ class ProfitLossController extends Controller
     //     ]);
     // }
 
+
+    public function getProfitAndLostV2(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'date_start' => 'required|date',
+            'date_end' => 'required|date|after_or_equal:date_start',
+            'nama_paket' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+
+        $dateStart = Carbon::parse($request->date_start)->startOfDay();
+        $dateEndExclusive = Carbon::parse($request->date_end)->addDay()->startOfDay();
+
+        $namaPaket = trim((string) $request->input('nama_paket', ''));
+        $hasFilterPaket = $namaPaket !== '';
+        $likePaket = '%' . $namaPaket . '%';
+
+        /*
+         * Base query per sumber transaksi.
+         * Jika nama_paket diisi, baris detail hanya diambil jika item-nya
+         * (items_paket_all_from_xeros.nama_paket) cocok dengan kata kunci.
+         * whereExists menjaga satu t.id tidak berlipat.
+         */
+        $makeSourceQuery = function (string $detailTable, string $detailUuidColumn, string $detailItemColumn, string $itemsKeyColumn) use ($dateStart, $dateEndExclusive, $hasFilterPaket, $likePaket) {
+
+            return DB::table('transaction_all_coas as t')
+                ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+                ->where('t.date_transaction', '>=', $dateStart)
+                ->where('t.date_transaction', '<', $dateEndExclusive)
+                ->whereExists(function ($sub) use ($detailTable, $detailUuidColumn, $detailItemColumn, $itemsKeyColumn, $hasFilterPaket, $likePaket) {
+                    $sub->select(DB::raw(1))
+                        ->from($detailTable . ' as d')
+                        ->whereColumn('d.' . $detailUuidColumn, 't.uuid_detail');
+
+                    if ($hasFilterPaket) {
+                        $sub->join('items_paket_all_from_xeros as ip', 'ip.' . $itemsKeyColumn, '=', 'd.' . $detailItemColumn)
+                            ->where('ip.nama_paket', 'like', $likePaket);
+                    }
+                })
+                ->select(
+                    't.id as trx_row_id',
+                    't.uuid_detail',
+                    't.date_transaction',
+                    't.is_speend',
+                    't.base_nominal',
+                    't.nominal_currency',
+                    't.code_curr',
+                    'c.id as coa_id',
+                    'c.name as coa_name',
+                    'c.account_type'
+                );
+        };
+
+        // Fee overpay tidak punya item paket, jadi dikecualikan saat filter nama_paket aktif
+        $feeQuery = DB::table('transaction_all_coas as t')
+            ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+            ->join('fee_overpays as f', 'f.uuid_details_feeoverpay', '=', 't.uuid_detail')
+            ->where('t.date_transaction', '>=', $dateStart)
+            ->where('t.date_transaction', '<', $dateEndExclusive)
+            ->select(
+                't.id as trx_row_id',
+                't.uuid_detail',
+                't.date_transaction',
+                't.is_speend',
+                't.base_nominal',
+                't.nominal_currency',
+                't.code_curr',
+                'c.id as coa_id',
+                'c.name as coa_name',
+                'c.account_type'
+            );
+
+        if ($hasFilterPaket) {
+            $feeQuery->whereRaw('1 = 0');
+        }
+
+        // Invoice (ACCREC): d.uuid_detail_inv, item di d.item_id = ip.id
+        $invoiceQuery = $makeSourceQuery('item_detail_invoices', 'uuid_detail_inv', 'item_id', 'id');
+
+        // Bill (ACCPAY): d.uuid_detail, item di d.item_code = ip.code
+        $billQuery = $makeSourceQuery('d_bills', 'uuid_detail', 'item_code', 'code');
+
+        // Bank: d.uuid_detail_trans_bank, item di d.item_code = ip.id
+        $bankQuery = $makeSourceQuery('transaction_bank_trans_d_s', 'uuid_detail_trans_bank', 'item_code', 'id');
+
+        $baseQuery = $invoiceQuery
+            ->union($billQuery)
+            ->union($bankQuery)
+            ->union($feeQuery);
+
+        $getSection = function (array $accountTypes, bool $isExpense) use ($baseQuery) {
+            $normalSpend = $isExpense ? 1 : 0;
+
+            $amountExpression = "
+            CASE
+                WHEN unified.is_speend = ?
+                THEN unified.base_nominal
+                ELSE -unified.base_nominal
+            END
+        ";
+
+            $rows = DB::query()
+                ->fromSub(clone $baseQuery, 'unified')
+                ->whereIn('unified.account_type', $accountTypes)
+                ->selectRaw("
+                unified.coa_id as id,
+                unified.coa_name as name,
+                SUM($amountExpression) as total
+            ", [$normalSpend])
+                ->groupBy('unified.coa_id', 'unified.coa_name')
+                ->orderBy('unified.coa_name')
+                ->get();
+
+            $total = $rows->sum(function ($row) {
+                return (float) $row->total;
+            });
+
+            return [
+                'items' => $rows->map(function ($row) {
+                    return [
+                        'coa_id' => $row->id,
+                        'name' => $row->name,
+                        'total' => (float) $row->total,
+                    ];
+                })->values(),
+                'total' => (float) $total,
+            ];
+        };
+
+        $tradingIncome = $getSection(['REVENUE'], false);
+        $costOfSales = $getSection(['DIRECTCOSTS'], true);
+        $otherIncome = $getSection(['OTHERINCOME'], false);
+        $operatingExpenses = $getSection(['EXPENSE'], true);
+
+        $grossProfit = $tradingIncome['total'] - $costOfSales['total'];
+
+        $netProfit = $grossProfit
+            + $otherIncome['total']
+            - $operatingExpenses['total'];
+
+        $data = [
+            'period' => [
+                'date_start' => $dateStart->toDateString(),
+                'date_end' => $dateEndExclusive->copy()->subDay()->toDateString(),
+            ],
+
+            'active_filters' => [
+                'nama_paket' => $hasFilterPaket ? $namaPaket : null,
+            ],
+
+            'trading_income' => $tradingIncome,
+            'cost_of_sales' => $costOfSales,
+            'gross_profit' => $grossProfit,
+            'other_income' => $otherIncome,
+            'operating_expenses' => $operatingExpenses,
+            'net_profit' => $netProfit,
+        ];
+
+        return $this->autoResponse($data);
+    }
+
     public function getHome(Request $request)
     {
         $validator = Validator::make($request->all(), [
