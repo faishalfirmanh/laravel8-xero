@@ -63,6 +63,9 @@ class TravelController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string',
             'is_active' => 'required|boolean',
+            'address' => 'nullable|string',
+            'full_name' => 'required|string',
+            'contact' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {

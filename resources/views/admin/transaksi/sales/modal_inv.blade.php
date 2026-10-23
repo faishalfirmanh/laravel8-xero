@@ -258,6 +258,9 @@
                     <tr><td class="meta-value">{{ $invoice->invoice_number }}</td></tr>
                     <tr><td class="meta-label">Reference</td></tr>
                     <tr><td class="meta-value">{{ $invoice->reference ?? '-' }}</td></tr>
+                    @if ($invoice->code_curr == 'SAR')
+                        <tr><td class="meta-value">1 SAR = Rp. {{ number_format($invoice->nominal_currency, 0, ',', '.') }}</td></tr>
+                    @endif
                 </table>
             </td>
             <td width="35%" class="text-right">
@@ -380,7 +383,7 @@
         @if ($invoice->getOverPay)
             <tr class="line-top">
                 <td></td>
-                <td class="label">Lebih Bayar</td>
+                <td class="label">Lebih Bayar</td>fmodalPreviewInvoice
                 <td class="value">{{ $fmt($invoice->getOverPay->nominal_overpayment) }}</td>
             </tr>
         @endif

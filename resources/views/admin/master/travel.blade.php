@@ -59,6 +59,36 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Nama Lengkap (Full Name)</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="full_name"
+                            name="full_name"
+                            maxlength="255"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>Alamat</label>
+                        <textarea
+                            class="form-control"
+                            id="address"
+                            name="address"
+                            rows="3"
+                        ></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Contact</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="contact"
+                            name="contact"
+                            maxlength="255">
+                    </div>
+
+                    <div class="form-group">
                         <label>Status</label><br>
                         <label class="mr-3">
                             <input type="radio" name="is_active" value="1"> Aktif
@@ -165,6 +195,10 @@ $(document).ready(function () {
         $('#id_role_user').val(data.id);
         $('#nama_role').val(data.name);
 
+        $('#full_name').val(data.full_name || '');
+        $('#address').val(data.address || '');
+        $('#contact').val(data.contact || '');
+
         $('input[name="is_active"]').prop('checked', false);
         $(`input[name="is_active"][value="${data.is_active}"]`)
             .prop('checked', true);
@@ -183,6 +217,9 @@ $(document).ready(function () {
         let payload = {
             id: $('#id_role_user').val() || null,
             name : $('#nama_role').val(),
+            full_name: $('#full_name').val(),
+            address: $('#address').val(),
+            contact: $('#contact').val(),
             is_active: $('input[name="is_active"]:checked').val()
         };
 
