@@ -787,6 +787,27 @@
     color: #aaa !important;
     font-size: 0.875rem !important;
 }
+
+/**/
+/* ── MODAL ADD ITEM MASTER ── */
+#modalCreateItemMaster .xero-modal-section { padding: 14px 20px; border-bottom: 1px solid #eee; }
+#modalCreateItemMaster .xero-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+#modalCreateItemMaster .xero-field { margin-bottom: 8px; }
+#modalCreateItemMaster .xero-field label { font-size: 11px; font-weight: 600; color: #555; margin-bottom: 3px; }
+#modalCreateItemMaster .req { color: #e74c3c; font-weight: 400; }
+#modalCreateItemMaster .xero-check-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; }
+#modalCreateItemMaster .xero-check-row > input[type=checkbox] { margin-top: 4px; }
+#modalCreateItemMaster .xero-check-label h6 { margin: 0; font-size: 13px; font-weight: 600; }
+#modalCreateItemMaster .xero-check-label p  { margin: 0 0 6px; font-size: 11px; color: #888; }
+#modalCreateItemMaster .xero-expanded { display: none; padding: 8px 0 4px; }
+#modalCreateItemMaster .xero-expanded.show { display: block; }
+#modalCreateItemMaster .btn-save-main {
+    background: #1ab394; border: none; color: #fff;
+    border-radius: 4px; padding: 5px 18px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#modalCreateItemMaster .btn-save-main:hover { background: #17a085; }
+#modalCreateItemMaster .btn-save-main:disabled { opacity: .6; }
+#modalCreateItemMaster .select2-container { width: 100% !important; }
 </style>
 
 
@@ -1064,6 +1085,9 @@
                         <button type="button" class="btn-dashed" id="btn-show-dropzone" style="border-color: #007bff; color: #007bff; margin-left: 10px;">
                             <i class="ti ti-upload" style="font-size:12px;"></i> Upload Bukti
                         </button>
+                        <button type="button" class="btn-dashed" id="btn-add-item-master" style="border-color:#6f42c1; color:#6f42c1; margin-left:10px;">
+                            <i class="ti ti-package" style="font-size:12px;"></i> Add Item Master
+                        </button>
                     </div>
 
                     <div class="dropzone" id="buktiDropzone">
@@ -1241,6 +1265,126 @@
                 </div>
             </form>
 
+        </div>
+    </div>
+</div>
+
+{{-- ── MODAL ADD ITEM MASTER (dari halaman invoice) ── --}}
+<div class="modal fade" id="modalCreateItemMaster" tabindex="-1" role="dialog" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">New item</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form id="formCreateItemMaster">
+                <div class="modal-body p-0">
+
+                    {{-- Section 1 --}}
+                    <div class="xero-modal-section">
+                        <div class="xero-field-row">
+                            <div class="xero-field">
+                                <label>Code <span class="req">*</span></label>
+                                <input type="text" class="form-control" id="mi_code" placeholder="e.g. UMR-001" required>
+                            </div>
+                            <div class="xero-field">
+                                <label>Name</label>
+                                <input type="text" class="form-control" id="mi_name" placeholder="e.g. Umroh Group 16 hari">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Section 2 --}}
+                    <div class="xero-modal-section">
+                        <div class="xero-field">
+                            <label>Item Type <span class="req">*</span></label>
+                            <div class="d-flex align-items-center" style="gap:18px; min-height:34px;">
+                                <label class="mb-0 font-weight-normal" style="font-size:12px; cursor:pointer;">
+                                    <input type="radio" name="mi_is_item_product" value="1" checked style="margin-right:6px;"> Product
+                                </label>
+                                <label class="mb-0 font-weight-normal" style="font-size:12px; cursor:pointer;">
+                                    <input type="radio" name="mi_is_item_product" value="0" style="margin-right:6px;"> Service
+                                </label>
+                            </div>
+                        </div>
+                        <div class="xero-field">
+                            <label for="mi_departure_date">Tanggal Keberangkatan
+                                <span class="req">(wajib diisi jika item paket umroh)</span>
+                            </label>
+                            <input type="date" id="mi_departure_date" class="form-control">
+                        </div>
+                    </div>
+
+                    {{-- Section 3 --}}
+                    <div class="xero-modal-section">
+
+                        {{-- Purchase --}}
+                        <div class="xero-check-row">
+                            <input type="checkbox" id="mi_chkPurchase" value="1">
+                            <div class="xero-check-label" style="flex:1;">
+                                <h6>Purchase</h6>
+                                <p>Add item to bills, purchase orders, and other purchase transactions</p>
+                                <div class="xero-expanded" id="mi_purchaseFields">
+                                    <div class="xero-field">
+                                        <label>Purchase price</label>
+                                        <input type="number" class="form-control" id="mi_price_purchase" placeholder="0" step="any" min="0">
+                                    </div>
+                                    <div class="xero-field">
+                                        <label>Account</label>
+                                        <select class="form-control" id="mi_account_purchase" style="width:100%;">
+                                            <option value="">-- Pilih Akun --</option>
+                                        </select>
+                                    </div>
+                                    <div class="xero-field">
+                                        <label>Description</label>
+                                        <input type="text" class="form-control" id="mi_desc">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Sell --}}
+                        <div class="xero-check-row">
+                            <input type="checkbox" id="mi_chkSell" value="1">
+                            <div class="xero-check-label" style="flex:1;">
+                                <h6>Sell</h6>
+                                <p>Add item to invoices, quotes, and other sales transactions</p>
+                                <div class="xero-expanded" id="mi_sellFields">
+                                    <div class="xero-field">
+                                        <label>Sale price</label>
+                                        <input type="number" class="form-control" id="mi_price_sales" placeholder="0" step="any" min="0">
+                                    </div>
+                                    <div class="xero-field">
+                                        <label>Account</label>
+                                        <select class="form-control" id="mi_account_sales" style="width:100%;">
+                                            <option value="">-- Pilih Akun --</option>
+                                        </select>
+                                    </div>
+                                    <div class="xero-field">
+                                        <label>Va Number</label>
+                                        <input type="number" class="form-control" id="mi_va_number">
+                                    </div>
+                                    <div class="xero-field">
+                                        <label>Description</label>
+                                        <input type="text" class="form-control" id="mi_desc_salles">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn-save-main" id="mi_btnSave">Save</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -4985,5 +5129,194 @@ $('#paymentModal').on('hidden.bs.modal', function () {
         if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
     });
 });
+
+// ========================================================
+// ADD ITEM MASTER dari modal invoice
+// ========================================================
+
+// ── Buka modal ──
+$('#btn-add-item-master').on('click', function () {
+    $('#modalCreateItemMaster').modal('show');
+});
+
+// ── Nested modal fix (Bootstrap 4) ──
+$('#modalCreateItemMaster').on('show.bs.modal', function () {
+    const $m = $(this);
+    // modal kedua harus di atas modal invoice (z-index 1050)
+    const z = 1070;
+    $m.css('z-index', z);
+    setTimeout(function () {
+        $('.modal-backdrop').last().css('z-index', z - 1);
+    }, 0);
+});
+
+$('#modalCreateItemMaster').on('shown.bs.modal', function () {
+    // matikan enforceFocus modal induk, kalau tidak input di modal ini tidak bisa diketik
+    $(document).off('focusin.bs.modal');
+    initItemMasterSelect2();
+    $('#mi_code').trigger('focus');
+});
+
+$('#modalCreateItemMaster').on('hidden.bs.modal', function () {
+    resetItemMasterForm();
+    // kembalikan scroll modal invoice yang hilang setelah modal kedua ditutup
+    if ($('#modalCreateHotel').hasClass('show')) {
+        $('body').addClass('modal-open');
+    }
+});
+
+// ── Toggle field Purchase / Sell ──
+$('#mi_chkPurchase').on('change', function () {
+    $('#mi_purchaseFields').toggleClass('show', this.checked);
+});
+$('#mi_chkSell').on('change', function () {
+    $('#mi_sellFields').toggleClass('show', this.checked);
+});
+
+// ── Select2 account (pakai route COA yang sama dengan line item) ──
+function initItemMasterSelect2() {
+    ['#mi_account_purchase', '#mi_account_sales'].forEach(function (sel) {
+        const $el = $(sel);
+        if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+
+        $el.select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            dropdownParent: $('#modalCreateItemMaster'),
+            placeholder: '-- Pilih Akun --',
+            allowClear: true,
+            ajax: {
+                url: '{{ route("get-all-coa-select2") }}',
+                dataType: 'json',
+                delay: 300,
+                data: function (params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+                },
+                processResults: function (response) {
+                    return {
+                        results: $.map(response.data?.data || [], function (item) {
+                            return { id: item.id, text: item.name };
+                        })
+                    };
+                },
+                cache: false
+            }
+        });
+    });
+}
+
+function resetItemMasterForm() {
+    $('#formCreateItemMaster')[0].reset();
+    $('#mi_purchaseFields, #mi_sellFields').removeClass('show');
+    ['#mi_account_purchase', '#mi_account_sales'].forEach(function (sel) {
+        const $el = $(sel);
+        if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+        $el.empty().append('<option value="">-- Pilih Akun --</option>');
+    });
+    $('#mi_btnSave').prop('disabled', false).text('Save');
+}
+
+// ── Pilih item yang baru dibuat ke baris line item ──
+function selectNewItemOnRow(itemId, payload, salesAccountText) {
+    // cari baris dengan item masih kosong, kalau tidak ada tambah baris baru
+    let $row = $('#lineItemsBody tr').filter(function () {
+        return !$(this).find('.select2-item').val();
+    }).first();
+
+    if (!$row.length) {
+        $row = $(buildRow());
+        $('#lineItemsBody').append($row);
+        initRowSelect2($row);
+        syncCurrencyLabels();
+        updateDeleteButtons();
+    }
+
+    const $sel = $row.find('.select2-item');
+
+    // 1. set option terpilih
+    $sel.empty().append(new Option(payload.nama_paket, itemId, true, true)).trigger('change');
+
+    // 2. picu handler 'select2:select' milik initRowSelect2()
+    //    (auto-fill desc, price, qty, account COA, va_number, dan hitung summary)
+    $sel.trigger({
+        type: 'select2:select',
+        params: {
+            data: {
+                id        : itemId,
+                text      : payload.nama_paket,
+                nama_paket: payload.nama_paket,
+                harga     : payload.price_sales,
+                id_coa    : payload.account_id_salles
+                                ? { id: payload.account_id_salles, name: salesAccountText }
+                                : null,
+                track_id  : null,
+                va_number : payload.va_number
+            }
+        }
+    });
+}
+
+// ── Submit ──
+$('#formCreateItemMaster').on('submit', function (e) {
+    e.preventDefault();
+
+    const isPurchase = $('#mi_chkPurchase').is(':checked');
+    const isSell     = $('#mi_chkSell').is(':checked');
+
+    const selectedData = {
+        id               : null,
+        nama_paket       : $('#mi_name').val(),
+        code             : $('#mi_code').val(),
+        desc             : $('#mi_desc').val(),
+        desc_salles      : $('#mi_desc_salles').val(),
+        is_item_product  : $('input[name="mi_is_item_product"]:checked').val(),
+        departure_date   : $('#mi_departure_date').val(),
+
+        is_purchase         : isPurchase ? 1 : 0,
+        price_purchase      : isPurchase ? ($('#mi_price_purchase').val() || null) : null,
+        account_id_purchase : isPurchase ? ($('#mi_account_purchase').val() || null) : null,
+
+        is_sell             : isSell ? 1 : 0,
+        price_sales         : isSell ? ($('#mi_price_sales').val() || null) : null,
+        account_id_salles   : isSell ? ($('#mi_account_sales').val() || null) : null,
+        va_number           : $('#mi_va_number').val() ?? ''
+    };
+
+    // simpan teks akun sales sebelum form di-reset
+    const salesAccountText = $('#mi_account_sales option:selected').text();
+
+    $('#mi_btnSave').prop('disabled', true).text('Saving...');
+
+    ajaxRequest(`{{ route('save-item-product') }}`, 'POST', selectedData, localStorage.getItem("token"))
+        .then(response => {
+            if (response.status == 200 || response.status === true) {
+
+                // ⚠️ sesuaikan dengan struktur response backend-mu
+                const saved  = response.data?.data || response.data || {};
+                const itemId = saved.id;
+
+                $('#modalCreateItemMaster').modal('hide');
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: 'Item berhasil disimpan.',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => { /* noop */ });
+
+                if (itemId) {
+                    selectNewItemOnRow(itemId, selectedData, salesAccountText);
+                } else {
+                    console.warn('save-item-product tidak mengembalikan id, item tidak bisa auto-select', response);
+                }
+            } else {
+                cathError(response);
+            }
+        })
+        .catch(err => cathError(err))
+        .finally(() => $('#mi_btnSave').prop('disabled', false).text('Save'));
+});
+
 </script>
 @endpush
