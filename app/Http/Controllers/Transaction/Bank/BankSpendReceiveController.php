@@ -182,6 +182,10 @@ class BankSpendReceiveController extends Controller
             'is_spend' => 'required|boolean',
             'bank_id_xero' => 'required|integer|exists:bank_xeros,id',
 
+
+            'account_id' => 'required|array|min:1',
+            'account_id.*' => 'required',
+            'id_detail' => 'nullable|array',
             'item_code' => 'nullable|array',
             'desc' => 'required|array|min:1',
             'qty' => 'required|array|min:1',
@@ -220,7 +224,11 @@ class BankSpendReceiveController extends Controller
 
                 if (!empty($deleted_array)) {
                     // Asumsi wherenDataIn adalah fungsi custom repository Anda (mirip whereIn eloquent)
-                    $deletedUuids = $this->repo_bank_d_trans->wherenDataIn('id', $deleted_array)->pluck('uuid_detail')->toArray();
+                    //$deletedUuids = $this->repo_bank_d_trans->wherenDataIn('id', $deleted_array)->pluck('uuid_detail')->toArray();
+                    $deletedUuids = $this->repo_bank_d_trans
+                        ->wherenDataIn('id', $deleted_array)
+                        ->pluck('uuid_detail_trans_bank')
+                        ->toArray();
 
                     // B. Hapus data di tabel all_trans berdasarkan uuid_detail tersebut
                     if (!empty($deletedUuids)) {
@@ -241,7 +249,8 @@ class BankSpendReceiveController extends Controller
 
             // 3. Save Details (Create / Update)
             foreach ($request->account_id as $key => $accountId) {
-                $detailId = $request->id_detail[$key] ?? null;
+                //$detailId = $request->id_detail[$key] ?? null;
+                $detailId = !empty($request->id_detail[$key]) ? $request->id_detail[$key] : null;
 
                 $detailData = [
                     'trans_bank_parent_id' => $saveP->id,
@@ -267,15 +276,18 @@ class BankSpendReceiveController extends Controller
                 //if ($request->action_save != 0) {
 
                 //cek coa
-                $cek_create_trans = $this->repo_all_trans->whereData([
-                    'reference' => $request->reference,
-                    'uuid_coa' => $accountId,
+                $cek_create_trans = $this->repo_all_trans->whereData([//coa
+                    // 'reference' => $request->reference,
+                    // 'uuid_coa' => $accountId,
                     'uuid_detail' => $save_d->uuid_detail_trans_bank
                 ])->first();
 
 
                 if ($cek_create_trans) {
                     // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
+                    $cek_create_trans->date_transaction = $request->date_h;
+                    $cek_create_trans->uuid_coa = $accountId;
+                    $cek_create_trans->reference = $request->reference;
                     $cek_create_trans->is_speend = $request->is_spend;
                     $cek_create_trans->nominal = $save_d->amount;
                     $cek_create_trans->base_nominal = $save_d->amount;
@@ -306,6 +318,7 @@ class BankSpendReceiveController extends Controller
             $sumD = $this->repo_bank_d_trans->sumDataWhereDinamis(['trans_bank_parent_id' => $saveP->id], 'amount');
             $this->repo_bank_p_trans->CreateOrUpdate(['total' => $sumD], $saveP->id);
 
+
             //dd($request->is_spend);
             $send_money_bank = [
                 'date_transaction' => $request->date_h,
@@ -313,6 +326,11 @@ class BankSpendReceiveController extends Controller
                 'reference_detail' => $request->reference,
                 'id_parent_bank' => $saveP->id,
                 'created_by' => $request->user_login->id,
+                // reset kedua sisi, supaya aman jika tipe berubah / nilai berubah
+                'nominal_spend' => 0,
+                'total_base_spend' => 0,
+                'nominal_receive' => 0,
+                'total_base_receive' => 0,
             ];
 
             if ($request->is_spend == 1) {
@@ -323,8 +341,19 @@ class BankSpendReceiveController extends Controller
                 $send_money_bank['total_base_receive'] = $sumD;
             }
 
+            // cari baris bank milik parent ini, kalau ada → update, kalau tidak → create
+            $existingBank = $this->repo_trans_all_bank
+                ->whereData(['id_parent_bank' => $saveP->id])
+                ->first();
 
-            $this->repo_trans_all_bank->CreateOrUpdate($send_money_bank, null);
+            if (!$existingBank) {
+                $send_money_bank['created_by'] = $request->user_login->id;
+            }
+
+            $this->repo_trans_all_bank->CreateOrUpdate(
+                $send_money_bank,
+                $existingBank ? $existingBank->id : null
+            );
             // Hitung ulang seluruh saldo berdasarkan transaksi bank
             $receive = $this->repo_trans_all_bank
                 ->sumDataWhereDinamis(
@@ -375,9 +404,9 @@ class BankSpendReceiveController extends Controller
         $validator = Validator::make($request->all(), [
             'id' => 'nullable|integer|exists:transaction_transfer_banks,id',
             'bank_id_from' => 'required|integer|exists:bank_xeros,id',
-            'bank_id_to' => 'required|integer|exists:bank_xeros,id',
+            'bank_id_to' => 'required|integer|exists:bank_xeros,id|different:bank_id_from',
             'date_trans' => 'required|date',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|gt:0',
             'reference_transfer_bank' => 'nullable|string|max:255',
             'code_tracking_paket_from' => 'nullable|string',
             'code_tracking_divisi_from' => 'nullable|string',
@@ -389,18 +418,94 @@ class BankSpendReceiveController extends Controller
             return $this->error($validator->errors());
         }
 
+        DB::beginTransaction();
+        try {
+            $from = $request->bank_id_from;
+            $to = $request->bank_id_to;
+            $amount = $request->amount;
+            $ref = $request->reference_transfer_bank ?? null;
+            $uid = $request->user_login->id;
 
-        $data = $this->repo_transfer_bank->CreateOrUpdate($request->all(), $request->id);
-        $save_p = [
-            'nominal_transfer' => $request->amount,
-            'uuid_bank' => $request->bank_id_to,
-            'reference_detail' => $request->reference_transfer_bank ?? null,
-            'date_transaction' => $request->date_trans,
-            'trans_transfer_bank_id' => $data->id
-        ];
-        $trans = $this->repo_trans_all_bank->CreateOrUpdate($save_p, null);
+            // Saat edit: bank lama bisa berbeda dengan yang baru, simpan dulu untuk hitung ulang summary
+            $affectedBanks = [$from, $to];
+            if ($request->id) {
+                $oldRows = $this->repo_trans_all_bank
+                    ->whereData(['trans_transfer_bank_id' => $request->id])
+                    ->pluck('uuid_bank')->toArray();
+                $affectedBanks = array_unique(array_merge($affectedBanks, $oldRows));
 
-        return $this->autoResponse($data);
+                // hapus 3 baris lama, lalu dibuat ulang
+                $this->repo_trans_all_bank
+                    ->whereData(['trans_transfer_bank_id' => $request->id])
+                    ->delete();
+            }
+
+            // 1. Parent transfer
+            $data = $this->repo_transfer_bank->CreateOrUpdate($request->all(), $request->id);
+
+            // 2. Baris history
+            $this->repo_trans_all_bank->CreateOrUpdate([
+                'nominal_transfer' => $amount,
+                'uuid_bank' => $to,
+                'reference_detail' => $ref,
+                'date_transaction' => $request->date_trans,
+                'trans_transfer_bank_id' => $data->id,
+                'created_by' => $uid,
+            ], null);
+
+            // 3. Bank asal = SPEND
+            $this->repo_trans_all_bank->CreateOrUpdate([
+                'is_spend' => 1,
+                'uuid_bank' => $from,
+                'nominal_spend' => $amount,
+                'total_base_spend' => $amount,
+                'date_transaction' => $request->date_trans,
+                'reference_detail' => $ref,
+                'trans_transfer_bank_id' => $data->id,
+                'created_by' => $uid,
+            ], null);
+
+            // 4. Bank tujuan = RECEIVE
+            $this->repo_trans_all_bank->CreateOrUpdate([
+                'is_spend' => 0,
+                'uuid_bank' => $to,
+                'nominal_receive' => $amount,
+                'total_base_receive' => $amount,
+                'date_transaction' => $request->date_trans,
+                'reference_detail' => $ref,
+                'trans_transfer_bank_id' => $data->id,
+                'created_by' => $uid,
+            ], null);
+
+            // 5. Hitung ulang summary dari sum (aman untuk create, edit, dan baris summary yang belum ada)
+            foreach ($affectedBanks as $bankId) {
+                $receive = $this->repo_trans_all_bank
+                    ->sumDataWhereDinamis(['uuid_bank' => $bankId], 'nominal_receive');
+                $spend = $this->repo_trans_all_bank
+                    ->sumDataWhereDinamis(['uuid_bank' => $bankId], 'nominal_spend');
+
+                $this->repo_bank_summary->updateCreate([
+                    'bank_id' => $bankId,
+                    'nominal_in' => $receive,
+                    'nominal_out' => $spend,
+                    'final_nominal' => $receive - $spend,
+                ]);
+            }
+
+            $this->service_global->saveLogHistory(
+                $uid,
+                $request->user_login->name . ' transfer bank ' . $from . ' → ' . $to,
+                $request->userAgent(),
+                $request->ip()
+            );
+
+            DB::commit();
+            return $this->autoResponse($data);
+
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return $this->error($th->getMessage() . ' at line ' . $th->getLine(), 500);
+        }
     }
 
 

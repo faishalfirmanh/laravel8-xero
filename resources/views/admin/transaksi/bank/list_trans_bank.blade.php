@@ -68,6 +68,106 @@
 
 /* opsi di dropdown boleh wrap supaya nama paket panjang terbaca penuh */
 .select2-results__option { white-space: normal; word-break: break-word; }
+
+/*modal transfer*/
+
+/* ── MODAL TRANSFER ── */
+#modalTransfer .modal-dialog { max-width: 760px; }
+#modalTransfer .modal-content { border: none; border-radius: 10px; overflow: hidden; }
+
+#modalTransfer .tf-header {
+    background: linear-gradient(135deg, #1c3a5e, #2a5688);
+    color: #fff; padding: 14px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+#modalTransfer .tf-header h5 { margin: 0; font-size: 16px; font-weight: 600; }
+#modalTransfer .tf-header small { color: #9bb4cc; font-size: 11px; display: block; margin-top: 2px; }
+#modalTransfer .tf-header .close { color: #fff; opacity: .8; text-shadow: none; }
+#modalTransfer .tf-header .close:hover { opacity: 1; }
+
+#modalTransfer .modal-body { padding: 22px; background: #f7f9fb; }
+
+/* dua kartu + panah di tengah */
+#modalTransfer .tf-route {
+    display: grid;
+    grid-template-columns: 1fr 44px 1fr;
+    gap: 10px; align-items: center;
+    margin-bottom: 18px;
+}
+@media (max-width: 640px) {
+    #modalTransfer .tf-route { grid-template-columns: 1fr; }
+    #modalTransfer .tf-arrow { transform: rotate(90deg); margin: 0 auto; }
+}
+#modalTransfer .tf-card {
+    background: #fff; border: 1px solid #e3e8ee; border-radius: 8px;
+    padding: 14px 16px; border-top: 3px solid #ccc;
+}
+#modalTransfer .tf-card.from { border-top-color: #e74c3c; }
+#modalTransfer .tf-card.to   { border-top-color: #1ab394; }
+#modalTransfer .tf-card-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; margin-bottom: 8px;
+}
+#modalTransfer .tf-card.from .tf-card-title { color: #e74c3c; }
+#modalTransfer .tf-card.to   .tf-card-title { color: #1ab394; }
+
+#modalTransfer .tf-arrow {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #fff; border: 1px solid #dde3ea; color: #1c3a5e;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; transition: all .2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+#modalTransfer .tf-arrow:hover { background: #1c3a5e; color: #fff; transform: rotate(180deg); }
+
+/* kartu detail */
+#modalTransfer .tf-detail {
+    background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; padding: 16px;
+}
+#modalTransfer .tf-detail label,
+#modalTransfer .tf-card label.tf-label {
+    font-size: 11px; font-weight: 600; color: #555; margin-bottom: 4px;
+}
+#modalTransfer .tf-detail .form-control { height: 36px; font-size: 13px; border-color: #d5dbe3; }
+#modalTransfer .tf-detail .form-control:focus { border-color: #1ab394; box-shadow: 0 0 0 .15rem rgba(26,179,148,.15); }
+#modalTransfer .tf-amount-wrap { position: relative; }
+#modalTransfer .tf-amount-wrap .tf-prefix {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 38px;
+    display: flex; align-items: center; justify-content: center;
+    background: #f0f3f6; border: 1px solid #d5dbe3; border-right: none;
+    border-radius: 4px 0 0 4px; font-size: 12px; font-weight: 600; color: #555;
+}
+#modalTransfer .tf-amount-wrap .form-control {
+    padding-left: 48px; font-size: 16px; font-weight: 600; text-align: right;
+}
+
+/* ringkasan */
+#modalTransfer .tf-summary {
+    margin-top: 14px; padding: 10px 14px; border-radius: 6px;
+    background: #eef6ff; border: 1px dashed #b9d4f1;
+    font-size: 12px; color: #1c3a5e; display: none;
+}
+#modalTransfer .tf-summary.show { display: block; }
+
+#modalTransfer .modal-footer { background: #fff; border-top: 1px solid #eee; padding: 12px 22px; }
+#modalTransfer .btn-transfer {
+    background: #1ab394; border: none; color: #fff; font-weight: 600;
+    padding: 7px 24px; border-radius: 5px; font-size: 13px;
+}
+#modalTransfer .btn-transfer:hover { background: #17a085; color: #fff; }
+#modalTransfer .btn-transfer:disabled { opacity: .6; }
+
+/* select2 seragam */
+#modalTransfer .select2-container { width: 100% !important; }
+#modalTransfer .select2-container--default .select2-selection--single {
+    height: 36px; border: 1px solid #d5dbe3; border-radius: 4px;
+}
+#modalTransfer .select2-selection--single .select2-selection__rendered {
+    line-height: 34px; font-size: 13px; padding-left: 10px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#modalTransfer .select2-selection--single .select2-selection__arrow { height: 34px; }
 </style>
 
 <div class="card shadow mb-5">
@@ -91,10 +191,10 @@
                         <i class="ti ti-arrow-up-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Receive Money</span>
                     </button>
-                    {{-- <button type="button" id="button_trans_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
+                    <button type="button" id="button_trans_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                         <i class="ti ti-switch-horizontal" style="font-size: 1.2rem;"></i>
                         <span> Transfer</span>
-                    </button> --}}
+                    </button>
                     <button type="button" id="button_spend_money" class="dropdown-item d-flex align-items-center text-primary font-weight-bold action-submit" value="0">
                         <i class="ti ti-arrow-down-from-arc mr-2" style="font-size: 1.2rem;"></i>
                         <span>Spend Money</span>
@@ -120,7 +220,7 @@
                     <th>Ref</th>
                     <th>Spend</th>
                     <th>Received</th>
-                       
+                    <th>Transfer</th>
                     <th width="15%">Action</th>
                 </tr>
             </thead>
@@ -128,149 +228,89 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalTransfer" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+<div class="modal fade" id="modalTransfer" tabindex="-1" role="dialog" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
 
-            <div class="modal-header">
-                <h5 class="modal-title font-weight-bold">
-                    Enter Transfer Details
-                </h5>
-                <button class="close" data-dismiss="modal">
-                    <span>&times;</span>
+            {{-- Header --}}
+            <div class="tf-header">
+                <div>
+                    <h5><i class="ti ti-switch-horizontal mr-1"></i> Transfer Money</h5>
+                    <small>Pindahkan dana antar akun bank</small>
+                </div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
                 </button>
             </div>
 
             <form id="formTransfer">
                 @csrf
-
                 <div class="modal-body">
-                    <div class="border rounded p-3 bg-light">
 
-                        <h6 class="text-primary font-weight-bold mb-3">
-                            Enter Transfer Details
-                        </h6>
-
-                        <!-- FROM -->
-                        <div class="form-row align-items-center mb-2">
-                            <div class="col-md-1 d-flex align-items-end" style="padding-bottom: 0;">
-                                <label class="font-weight-bold mb-0">From <span class="text-danger">*</span></label>
+                    {{-- FROM → TO --}}
+                    <div class="tf-route">
+                        <div class="tf-card from">
+                            <div class="tf-card-title">
+                                <i class="ti ti-arrow-up-right"></i> From <span class="text-danger">*</span>
                             </div>
-                            <div class="col-md-11">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <label class="small mb-1">Account</label>
-                                        <select class="form-control form-control-sm select2-account"
-                                                id="from_account"
-                                                name="bank_id_from">
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="small mb-1">Nama Paket</label>
-                                        <select class="form-control form-control-sm select2-paket"
-                                                id="from_paket"
-                                                name="code_tracking_paket_from">
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="small mb-1">Divisi</label>
-                                        <select class="form-control form-control-sm select2-divisi"
-                                                id="from_divisi"
-                                                name="code_tracking_divisi_from">
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
+                            <select class="form-control select2-account"
+                                    id="from_account" name="bank_id_from">
+                            </select>
                         </div>
 
-                        <hr class="my-2">
-
-                        <!-- TO -->
-                        <div class="form-row align-items-center mb-3">
-                            <div class="col-md-1 d-flex align-items-end" style="padding-bottom: 0;">
-                                <label class="font-weight-bold mb-0">To</label>
-                            </div>
-                            <div class="col-md-11">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <label class="small mb-1">Account</label>
-                                        <select class="form-control form-control-sm select2-account"
-                                                id="to_account"
-                                                name="bank_id_to">
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="small mb-1">Nama Paket</label>
-                                        <select class="form-control form-control-sm select2-paket"
-                                                id="to_paket"
-                                                name="code_tracking_paket_to">
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="small mb-1">Divisi</label>
-                                        <select class="form-control form-control-sm select2-divisi"
-                                                id="to_divisi"
-                                                name="code_tracking_divisi_to">
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="tf-arrow" id="btnSwapTransfer" title="Tukar From / To">
+                            <i class="ti ti-arrows-exchange"></i>
                         </div>
 
-                        <!-- BOTTOM -->
+                        <div class="tf-card to">
+                            <div class="tf-card-title">
+                                <i class="ti ti-arrow-down-right"></i> To <span class="text-danger">*</span>
+                            </div>
+                            <select class="form-control select2-account"
+                                    id="to_account" name="bank_id_to">
+                            </select>
+                        </div>
+                    </div>
+
+                    {{-- Detail --}}
+                    <div class="tf-detail">
                         <div class="form-row">
-                            <div class="col-md-3">
-                                <label class="small mb-1">Date</label>
-                                <input type="date"
-                                       class="form-control form-control-sm"
-                                       name="date_trans"
-                                       id="date_trans_transfer"
+                            <div class="form-group col-md-4 mb-3">
+                                <label for="date_trans_transfer">Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control"
+                                       name="date_trans" id="date_trans_transfer"
                                        value="{{ date('Y-m-d') }}">
                             </div>
-                            <div class="col-md-3">
-                                <label class="small mb-1">Amount</label>
-                                <input type="number"
-                                       step="0.01"
-                                       class="form-control form-control-sm text-right"
-                                       name="amount"
-                                       id="amount_tranfser"
-                                       value="0.00">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="small mb-1">Reference</label>
-                                <input type="text"
-                                id="reference_transfer_bank"
-                                       class="form-control form-control-sm"
-                                       name="reference_transfer_bank">
+                            <div class="form-group col-md-8 mb-3">
+                                <label for="amount_tranfser">Amount <span class="text-danger">*</span></label>
+                                <div class="tf-amount-wrap">
+                                    <span class="tf-prefix">Rp</span>
+                                    <input type="number" step="0.01" min="0" class="form-control"
+                                           name="amount" id="amount_tranfser" value="0.00">
+                                </div>
                             </div>
                         </div>
-
+                        <div class="form-group mb-0">
+                            <label for="reference_transfer_bank">Reference</label>
+                            <input type="text" class="form-control"
+                                   name="reference_transfer_bank" id="reference_transfer_bank"
+                                   maxlength="255" placeholder="Catatan / nomor referensi (opsional)">
+                        </div>
                     </div>
+
+                    {{-- Ringkasan --}}
+                    <div class="tf-summary" id="tfSummary"></div>
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-secondary btn-sm"
-                            data-dismiss="modal"
-                            type="button">
-                        Cancel
+                    <button type="button" class="btn btn-light btn-sm border" data-dismiss="modal">
+                        <i class="ti ti-x mr-1"></i> Cancel
                     </button>
-
-                    <div class="btn-group">
-                        <button type="submit"
-                                class="btn btn-success btn-sm font-weight-bold">
-                            Transfer
-                        </button>
-                        <button class="btn btn-success btn-sm"
-                                data-toggle="dropdown"
-                                type="button">
-                        </button>
-                        {{-- <div class="dropdown-menu dropdown-menu-right"> --}}
-                            {{-- <button class="dropdown-item" type="button">Save Draft</button> --}}
-                            {{-- <button class="dropdown-item" type="button">Transfer & New</button> --}}
-                        {{-- </div> --}}
-                    </div>
+                    <button type="submit" class="btn-transfer" id="btnSubmitTransfer">
+                        <i class="ti ti-send mr-1"></i> Transfer
+                    </button>
                 </div>
-
             </form>
         </div>
     </div>
@@ -577,6 +617,15 @@ $(document).ready(function() {
                 return formatCurrency(data)
             }
         },
+        { 
+            data: 'nominal_transfer', 
+            name: 'nominal_transfer' ,
+            render: function(data,type,row){
+                let cek_n = data > 0  ? 'masuk history: '+  formatCurrency(data) : '-';
+                    return cek_n;
+
+            }
+        },
        {
             data: "id",
             orderable: false,
@@ -614,8 +663,19 @@ $(document).ready(function() {
                         <i class="ti ti-eye"></i>
                     </a>
                 `;
+                let btn_edit = '';
+                if (row.get_p_bank && row.get_p_bank.id) {
+                    btn_edit = `
+                        <a href="javascript:;"
+                        data-id="${row.get_p_bank.id}"
+                        title="Edit"
+                        class="text-primary edit-hotel mr-2">
+                            <i class="ti ti-pencil"></i>
+                        </a>
+                    `;
+                }
 
-                return btn_detail;
+                return btn_edit ;
             },
         }
     ];
@@ -785,18 +845,19 @@ $(document).ready(function() {
     });
 
 
-     $("#button_receive_money").on("click", function(){
-        $("#modalCreateHotel").modal('show');
-         $("#title_to_from").text('From')
-         $("#is_spend").val(0)
+     $("#button_receive_money").on("click", function () {
         $("#modal_pay").addClass('d-none');
         $('#idHotelInput').val(0);
-        $('#cur_id').val(0); 
+        $('#cur_id').val(0);
         $("#ref_id").val('');
         $("#d_id_parent_bill").val(0);
         $('#formCreateHotel')[0].reset();
-        
-        $('.modal-title').text('Create New Receive Money');
+
+        $("#title_to_from").html('From <span class="text-danger">*</span>');
+        $("#is_spend").val(0);
+        $('#modalCreateHotel .modal-title').text('Create New Receive Money');
+
+        $("#modalCreateHotel").modal('show');   // ← terakhir
     });
 
 
@@ -994,18 +1055,19 @@ $(document).ready(function() {
     }
 
 
-     $("#button_spend_money").on("click", function(){
-        $("#modalCreateHotel").modal('show');
-         $("#title_to_from").text('To')
-        $("#is_spend").val(1)
+     $("#button_spend_money").on("click", function () {
         $("#modal_pay").addClass('d-none');
         $('#idHotelInput').val(0);
-        $('#cur_id').val(0); 
+        $('#cur_id').val(0);
         $("#ref_id").val('');
         $("#d_id_parent_bill").val(0);
         $('#formCreateHotel')[0].reset();
-        
-        $('.modal-title').text('Create New Spend Money');
+
+        $("#title_to_from").html('To <span class="text-danger">*</span>');
+        $("#is_spend").val(1);
+        $('#modalCreateHotel .modal-title').text('Create New Spend Money');
+
+        $("#modalCreateHotel").modal('show');   // ← terakhir
     });
 
     $('#modalCreateHotel').on('show.bs.modal', function () {
@@ -1018,22 +1080,25 @@ $(document).ready(function() {
         }
     });
 
-    // --- 4. EDIT FUNCTIONALITY ---
-    $('#tableHotel').on('click', '.edit-hotel', function() {
-        let id = $(this).data('id');
-        console.log('id',id)
-        let rowData = table.row($(this).parents('tr')).data(); 
-        let kondisi_bank = rowData.is_spend ? 'Spend ' : ' Receive'
-        $('#idHotelInput').val(id);
-        $('.modal-title').text(`Edit Bank Trans ${kondisi_bank}` + (rowData.reference || ''));
+    $('#modalCreateHotel').on('hidden.bs.modal', function () {
+        $('#idHotelInput').val(0);
+        $('#itemTable tbody').empty();
+        $('#contact_id').empty().trigger('change');
+    });
 
+    // --- 4. EDIT FUNCTIONALITY ---
+    $('#tableHotel').on('click', '.edit-hotel', function () {
+        const id = $(this).data('id');   // = get_p_bank.id
+        if (!id) return;
+
+        // reset section payment
         $('#modal_pay input[name="nominal_spend"]').val(0);
-        $('#modal_pay select[name="uuid_bank"]').val(0).trigger('change');
+        $('#modal_pay select[name="uuid_bank"]').val(null).trigger('change');
         $('#modal_pay input[name="reference_detail"]').val('');
 
-        loadBankTrans(rowData.get_p_bank.id);
-        
+        $('#idHotelInput').val(id);              // dipakai submit sebagai param "id"
         $('#modalCreateHotel').modal('show');
+        loadBankTrans(id);                       // → route detail-bank-trans
     });
 
     function loadBankTrans(id){
@@ -1045,16 +1110,22 @@ $(document).ready(function() {
             .then(response =>{
                 if(response.status == 200){
                     let data_res = response.data.data;
-                   
+                    const isSpend = data_res.is_spend == 1;
+
+                    $('#modalCreateHotel .modal-title').text(
+                        (isSpend ? 'Edit Spend Money ' : 'Edit Receive Money ') + (data_res.reference || '')
+                    );
+                    $('#title_to_from').html((isSpend ? 'To' : 'From') + ' <span class="text-danger">*</span>');
+
                     $("#ammounts_are").val(data_res.amounts_are).trigger('change');
-                    console.log('data',data_res)
-                    let contactId = data_res.uuid_to;
+
+                    let contactId   = data_res.uuid_to;
                     let contactName = data_res.get_contact_from ? data_res.get_contact_from.full_name : 'Nama tidak ditemukan';
-                    let newOption = new Option(contactName, contactId, true, true);
+                    let newOption   = new Option(contactName, contactId, true, true);
 
                     $("#label_payment").text(data_res.currency);
                     $('#contact_id').empty().append(newOption).trigger('change');
-                    $("#is_spend").val(data_res.is_spend);
+                    $("#is_spend").val(data_res.is_spend);   // harus sebelum addNewRow (menentukan tipe COA)
                     $("#ref_id").val(data_res.reference || '');
                     $('#cur_id').val(data_res.currency).trigger('change');
                     $('#date_h').val(data_res.date_h).trigger('change');
@@ -1128,8 +1199,7 @@ $(document).ready(function() {
         let id_bill = (idInput && idInput > 0) ? idInput : null;
         let action_selected = params.get('action_type');
 
-        console.log('aaa',id_bill)
-
+        
         let selectedData = {
             id: id_bill,
             uuid_to: params.get('uuid_to'),
@@ -1429,6 +1499,59 @@ $(document).ready(function() {
         $('#grandTotal').text(formatCurrency(total_grand));
     };
 
+
+    // modall
+    // ── Ringkasan "dari → ke" ──
+function updateTransferSummary() {
+    const from   = $('#from_account').select2('data')[0]?.text;
+    const to     = $('#to_account').select2('data')[0]?.text;
+    const amount = parseFloat($('#amount_tranfser').val()) || 0;
+    const $box   = $('#tfSummary');
+
+    if (from && to && amount > 0) {
+        $box.html(
+            `<i class="ti ti-info-circle mr-1"></i>` +
+            `Transfer <b>Rp ${amount.toLocaleString('id-ID')}</b> ` +
+            `dari <b>${$('<div>').text(from).html()}</b> ` +
+            `ke <b>${$('<div>').text(to).html()}</b>`
+        ).addClass('show');
+    } else {
+        $box.removeClass('show').empty();
+    }
+}
+
+$(document).on('change input', '#from_account, #to_account, #amount_tranfser', updateTransferSummary);
+
+// ── Swap From <-> To ──
+$('#btnSwapTransfer').on('click', function () {
+    const f = $('#from_account').select2('data')[0];
+    const t = $('#to_account').select2('data')[0];
+
+    $('#from_account').empty();
+    $('#to_account').empty();
+
+    if (t && t.id) $('#from_account').append(new Option(t.text, t.id, true, true));
+    if (f && f.id) $('#to_account').append(new Option(f.text, f.id, true, true));
+
+    $('#from_account, #to_account').trigger('change');
+});
+
+// ── Validasi ringan sebelum submit (taruh di awal handler #formTransfer submit) ──
+// if ($('#from_account').val() === $('#to_account').val()) {
+//     Swal.fire('Peringatan', 'Bank asal dan tujuan tidak boleh sama.', 'warning'); return;
+// }
+// if (!(parseFloat($('#amount_tranfser').val()) > 0)) {
+//     Swal.fire('Peringatan', 'Nominal harus lebih dari 0.', 'warning'); return;
+// }
+
+// ── Reset saat modal ditutup ──
+$('#modalTransfer').on('hidden.bs.modal', function () {
+    $('#formTransfer')[0].reset();
+    $('#from_account, #to_account').empty().trigger('change');
+    $('#tfSummary').removeClass('show').empty();
+    $('#btnSubmitTransfer').prop('disabled', false)
+        .html('<i class="ti ti-send mr-1"></i> Transfer');
+});
 });
 </script>
 @endpush

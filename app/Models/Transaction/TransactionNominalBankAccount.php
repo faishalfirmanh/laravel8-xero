@@ -35,7 +35,8 @@ class TransactionNominalBankAccount extends Model
         //overpay yang wajib terisi : uuid_bank, nominal_spend, date_transaction,reference_detail,overpay_id
         'nominal_currency',//nominal currency ke rupiah
         'total_base_spend',//hasil final conversi nominal_speend 
-        'total_base_receive'//hasil final conversi nominal_receive 
+        'total_base_receive',//hasil final conversi nominal_receive 
+        // 'id_bank_transfer' //relasi dengan id_bank_transfer jika ada bank trasnfer
     ];
 
     protected $appends = [
@@ -45,6 +46,11 @@ class TransactionNominalBankAccount extends Model
     public function getNameBankAttribute()
     {
         return optional($this->getBank)->name ?? '-';
+    }
+
+    public function getBankTransfer()
+    {
+        return $this->belongsTo(TransactionTransferBank::class, 'id', 'trans_transfer_bank_id');
     }
 
     public function getBank()

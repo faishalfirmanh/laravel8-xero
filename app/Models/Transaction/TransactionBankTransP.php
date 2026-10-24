@@ -12,7 +12,7 @@ class TransactionBankTransP extends Model
     use HasFactory;
 
 
-    protected $fillable = [
+    protected $fillable = [//otomatis direct
         'uuid_to',
         'date_h',
         'reference',
@@ -26,6 +26,9 @@ class TransactionBankTransP extends Model
         'id_jamaah_alhid',
         'uuid_bank_trans',//unutk ambil dari sync xero, nullable
         'status',//0 : direct, 1 : prepayment, 2: overpay
+        //direct : saldo bank berubah dan transaksi dicatat ke akun akuntansi yang dipilih.
+        //prepayment : saldo bank berubah dan terbentuk saldo pembayaran di muka yang nantinya dapat dialokasikan ke bill atau invoice terkait. uang muka
+        //overpay : saldo bank berubah dan kelebihan tersebut dicatat sebagai saldo yang dapat digunakan untuk bill atau invoice lain, atau dikembalikan sesuai proses akuntansi.
         'code_currency',
         'nominal_currency',
         'base_nominal',
