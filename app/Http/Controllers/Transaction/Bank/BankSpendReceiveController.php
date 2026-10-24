@@ -101,10 +101,11 @@ class BankSpendReceiveController extends Controller
             return $this->error($validator->errors(), 404);
         }
         $where = ['uuid_bank' => $request->bank_id_xero];
+        $whereNull = [];
         if ($request->keyword != null) {
-            $data = $this->repo_trans_all_bank->searchData($where, $request->limit, $request->page, 'reference_detail', strtoupper($request->keyword), ['getPbill', 'getPBank', 'getInv', 'getFeeOver']);
+            $data = $this->repo_trans_all_bank->searchData($where, $request->limit, $request->page, 'reference_detail', $request->keyword, ['getPbill', 'getPBank', 'getInv', 'getFeeOver'], $whereNull);
         } else {
-            $data = $this->repo_trans_all_bank->getAllDataWithDefault($where, $request->limit, $request->page, 'date_transaction', 'DESC', ['getPbill', 'getPBank', 'getInv', 'getFeeOver']);//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo_trans_all_bank->getAllDataWithDefault($where, $request->limit, $request->page, 'date_transaction', 'DESC', ['getPbill', 'getPBank', 'getInv', 'getFeeOver'], $whereNull);
         }
         return $this->autoResponse($data);
     }

@@ -292,9 +292,9 @@
                             </div>
                         </div>
                         <div class="form-group mb-0">
-                            <label for="reference_transfer_bank">Reference</label>
+                            <label for="reference_transfer_bank">Reference <span class="text-danger">*</span></label>
                             <input type="text" class="form-control"
-                                   name="reference_transfer_bank" id="reference_transfer_bank"
+                                   name="reference_transfer_bank" id="reference_transfer_bank" required
                                    maxlength="255" placeholder="Catatan / nomor referensi (opsional)">
                         </div>
                     </div>

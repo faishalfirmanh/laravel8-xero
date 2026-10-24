@@ -11,6 +11,7 @@ use App\Http\Repository\Transaction\SummaryBankRepo;
 use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\MasterData\MasterCurrency;
+use App\Models\Transaction\SummaryNominalBank;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\Expenses\DPackageExpensesRepository;
@@ -19,6 +20,7 @@ use App\Http\Repository\MasterData\Finance\InvoiceAllXeroRepo;
 use App\Http\Repository\Expenses\DInvPackageExpensesRepository;
 use App\Http\Repository\Expenses\PackageExpensesRepository;
 use Illuminate\Validation\Rule;
+use Log;
 use Validator;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Auth;
@@ -676,6 +678,11 @@ class BillXeroController extends Controller
             ]);
             $saveP = $this->repo_trans_bill->CreateOrUpdate($request->all(), null);
 
+            $cek = fn($label) => Log::info($label, [
+                'level' => DB::transactionLevel(),
+                'summary' => DB::table('summary_nominal_banks')->where('bank_id', $request->uuid_bank)->first(),
+            ]);
+
             // Hitung ulang seluruh saldo bank dari ledger (repo_trans_bill mencatat semua jenis transaksi bank)
             $receive = $this->repo_trans_bill->sumDataWhereDinamis(
                 ['uuid_bank' => $request->uuid_bank],
@@ -691,13 +698,13 @@ class BillXeroController extends Controller
                 'nominal_out' => $exsistingBank->nominal_out + $nominalSpendBase,
                 'final_nominal' => $exsistingBank->final_nominal - $nominalSpendBase,
             ];
-            $this->repo_bank_summary->updateCreate($save_nom_bank);
+            $this->repo_bank_summary->CreateOrUpdate($save_nom_bank, $exsistingBank->id);//updateCreate($save_nom_bank);
 
             // ================================================================
             // Log: ambil nama bank & kontak dari sumber yang pasti terisi,
             // bukan dari $saveP (hasil CreateOrUpdate hanya berisi field request)
             // ================================================================
-            $bankName = DB::table('bank_xeros')->where('id', $request->uuid_bank)->value('name') ?? '-';
+            //$bankName = DB::table('bank_xeros')->where('id', $request->uuid_bank)->value('name') ?? '-';
 
             // ⚠️ sesuaikan nama kolom kontak & referensi sebenarnya di $findData (tabel p_bills)
             $contactName = $findData->name_contact ?? $findData->contact_name ?? '-';
@@ -713,7 +720,7 @@ class BillXeroController extends Controller
                 $billRef,
                 $contactName,
                 $nominalFormatted,
-                $bankName,
+                $exsistingBank->bank_name,
                 $request->date_transaction,
                 $sisaFormatted,
                 $statusText
@@ -735,12 +742,14 @@ class BillXeroController extends Controller
                 null,
                 $request->id_parent_bill
             );
-
+            $cek('sebelum commit');
             DB::commit();
+            $cek('setelah commit');
             return $this->autoResponse($saveP);
         } catch (\Throwable $th) {
             DB::rollBack();
-            \Log::error('storePayment error: ' . $th->getMessage());
+            //Log::error('storePayment error: ' . $th->getMessage());
+            Log::error('storePayment error: ' . $th->getMessage() . ' at ' . $th->getFile() . ':' . $th->getLine());
             return $this->error('Gagal memproses pembayaran', 400);
         }
     }
@@ -1238,6 +1247,7 @@ class BillXeroController extends Controller
 
         } catch (\Throwable $th) {
             DB::rollBack();
+            Log::error('storePayment error: ' . $th->getMessage() . ' at ' . $th->getFile() . ':' . $th->getLine());
             // Memunculkan pesan error dengan lengkap sangat membantu saat debugging di network tab inspect element
             return $this->error($th->getMessage() . ' at line ' . $th->getLine(), 500);
         }

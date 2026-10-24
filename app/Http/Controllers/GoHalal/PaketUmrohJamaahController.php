@@ -338,7 +338,7 @@ class PaketUmrohJamaahController extends Controller
 
         $paket->update([
             'filled_slot' => $filled,
-            'available_slot' => max(0, (int) $paket->max_slot - $filled),
+            'available_slot' => $paket->max_slot - $filled,
         ]);
     }
 }

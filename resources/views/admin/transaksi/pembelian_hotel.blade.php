@@ -496,7 +496,7 @@ $(document).ready(function() {
     $('#check_in, #check_out').on('change', hitungTotalHari);
 
     // --- HELPER 2: Currency ---
-    ajaxRequest(`{{ route('getByIdCurrency') }}`, 'GET', { id : 1 }, localStorage.getItem('token'))
+    ajaxRequest(`{{ route('getByIdCurrency', ['idMaster' => 1]) }}`, 'GET', {}, localStorage.getItem('token'))
         .then(response => {
             $("#text_currency").text(`Rp. ${Number(response.data.data.nominal_rupiah_1_riyal)}`);
         })

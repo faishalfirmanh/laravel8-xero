@@ -2,6 +2,7 @@
 
 namespace App\Http\Repository;
 use DB;
+use Exception;
 use Illuminate\Database\Eloquent\Model;
 class BaseRepository
 {
@@ -50,6 +51,11 @@ class BaseRepository
             DB::commit();
             return $data;
         } catch (Exception $e) {
+            \Log::error('CreateOrUpdate gagal: ' . $e->getMessage(), [
+                'model' => get_class($this->model),
+                'id' => $id,
+                'attributes' => $attributes,
+            ]);
             DB::rollBack();
             return "error saved";
         }
