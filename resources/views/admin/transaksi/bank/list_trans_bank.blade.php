@@ -510,6 +510,7 @@ $(document).ready(function() {
    // const segments = full_url.split('/').filter(Boolean);
     const segments = window.location.pathname.split('/');
     const lastSegment = segments.filter(Boolean).pop();//segments.pop();
+    let currentBank = { id: lastSegment, text: null };
     // --- HELPER FUNCTIONS ---
     function formatCurrency(amount) {
         return new Intl.NumberFormat('en-US', {
@@ -633,7 +634,8 @@ $(document).ready(function() {
             className: "text-center",
             render: function(data, type, row) {
                 let base_url = window.location.origin
-                $("#title_header").text('Daftar Transaksi ' + row.get_bank.name)
+                 $("#title_header").text('Daftar Transaksi ' + row.get_bank.name);
+                currentBank.text = row.get_bank.name + ' (' + (row.get_bank.currency_code || '-') + ')';
                 let url = '';
                 let id = '';
                 if (row.get_pbill && row.get_pbill.id) {
@@ -839,10 +841,42 @@ $(document).ready(function() {
     //     $('.modal-title').text('Tambah Invoice / Bill Baru');
     // });
 
-    $("#button_trans_money").on("click",function(){
-        $("#modalTransfer").modal('show');
+    $("#button_trans_money").on("click", function () {
         initSelect2ModalTransfer();
+        setDefaultFromBank();
+        $("#modalTransfer").modal('show');
     });
+
+
+    function setDefaultFromBank() {
+        const $from = $('#from_account');
+        $('#to_account').empty().trigger('change');
+        $from.empty();
+
+        const apply = function (text) {
+            $from.append(new Option(text, currentBank.id, true, true)).trigger('change');
+        };
+
+        if (currentBank.text) {
+            apply(currentBank.text);
+            return;
+        }
+
+        // Fallback: tabel masih kosong (belum ada transaksi), jadi nama bank belum ada.
+        // Ambil dari route select2 bank.
+        $.getJSON("{{ route('getbankselect2') }}", { page: 1, keyword: '', limit: 200, kolom_name: 'name' })
+            .done(function (res) {
+                const list  = res.data?.data || [];
+                const found = list.find(b => String(b.id) === String(currentBank.id));
+                currentBank.text = found
+                    ? found.name + ' (' + (found.currency_code || '-') + ')'
+                    : 'Bank #' + currentBank.id;
+                apply(currentBank.text);
+            })
+            .fail(function () {
+                apply('Bank #' + currentBank.id);   // value tetap benar, hanya label
+            });
+    }
 
 
      $("#button_receive_money").on("click", function () {
@@ -863,6 +897,9 @@ $(document).ready(function() {
 
     function initSelect2ModalTransfer() {
 
+        $('#from_account, #to_account, #from_paket, #to_paket, #from_divisi, #to_divisi').each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+        });
         // --- FROM ACCOUNT ---
         $('#from_account').select2({
             placeholder: "Cari nama bank...",
