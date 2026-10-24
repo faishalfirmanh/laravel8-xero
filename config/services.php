@@ -44,7 +44,11 @@ return [
 
     'halal' => [
         'base_url' => env('HALAL_BASE_URL', 'https://testing.duft.co.id/api/mitra/v2'),
+        'base_url_v2' => env('HALAL_BASE_URL_V2', 'https://testing.duft.co.id/api-v1/Auth'),
         'client_id' => env('client_id_halal'),
         'client_key' => env('client_key_halal'),
+        'basic_user' => env('HALAL_BASIC_USER'),
+        'basic_pass' => env('HALAL_BASIC_PASS'),
+        'ca_bundle' => env('HALAL_CA_BUNDLE')
     ],
 ];

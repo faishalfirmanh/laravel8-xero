@@ -132,6 +132,9 @@ class PaketUmrohController extends Controller
         $halal = null;
         if ($request->boolean('is_posting') && !$request->boolean('is_internal')) {
             $halal = $this->sendToHalalGo($paket);
+            if (!$halal['ok']) {
+                return $this->error($this->halalErrorMessage($halal), 422);
+            }
         }
 
         return $this->success(
@@ -139,6 +142,15 @@ class PaketUmrohController extends Controller
             'Paket umroh berhasil dibuat',
             201
         );
+    }
+
+    private function halalErrorMessage(array $halal): string
+    {
+        $detail = !empty($halal['errors'])
+            ? implode('; ', $halal['errors'])
+            : ($halal['message'] ?? 'Respon tidak dikenali');
+
+        return 'Gagal menyimpan ke Halal Go: ' . $detail;
     }
 
     private function sendToHalalGo(PaketUmroh $paket): array
