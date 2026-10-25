@@ -173,7 +173,11 @@
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0" id="title_header">List Transaction</h5>
-
+        <div id="summary">
+              <h6 id="receive_nom"></h6>
+            <h6 id="spen_nom"></h6>
+             <h6 id="final_nom"></h6>
+        </div>
         <div>
             {{-- <button type="button" id="btnProsesSelected" class="btn btn-success me-2">
                 <i class="ti ti-check me-1"></i> Cek Data Terpilih
@@ -608,14 +612,16 @@ $(document).ready(function() {
             data: 'nominal_spend', 
             name: 'nominal_spend' ,
             render: function(data,type,row){
-                return formatCurrency(data)
+                 let cek_sar = row.nominal_currency > 1 ? 'SAR' :'IDR';
+                return  `${cek_sar} - ` + formatCurrency(data)
             }
         },
         { 
             data: 'nominal_receive', 
             name: 'nominal_receive' ,
             render: function(data,type,row){
-                return formatCurrency(data)
+                let cek_sar = row.nominal_currency > 1 ? 'SAR' :'IDR';
+                return  `${cek_sar} - ` + formatCurrency(data)
             }
         },
         { 
@@ -633,8 +639,13 @@ $(document).ready(function() {
             searchable: false,
             className: "text-center",
             render: function(data, type, row) {
+                console.log('row',row)
                 let base_url = window.location.origin
                  $("#title_header").text('Daftar Transaksi ' + row.get_bank.name);
+                $("#spen_nom").text('Pengeluaran ' + formatCurrency(row.get_bank.sum_curr_spend));
+                $("#receive_nom").text('Penerimaan ' + formatCurrency(row.get_bank.sum_curr_receive));
+                $("#final_nom").text('Saldo akhir ' + formatCurrency(row.get_bank.final_nominal_currency));
+               
                 currentBank.text = row.get_bank.name + ' (' + (row.get_bank.currency_code || '-') + ')';
                 let url = '';
                 let id = '';

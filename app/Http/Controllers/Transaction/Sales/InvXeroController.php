@@ -1812,8 +1812,11 @@ class InvXeroController extends Controller
             $final_less = max(0, $cekData->invoice_total - $nominal_paid_final);
             $param_inv_save = ['invoice_amount' => $nominal_paid_final, 'less_nominal' => $final_less];
             $invP = $this->repo->CreateOrUpdate($param_inv_save, $request->parent_inv_id);//update invoice nominal
+            //dd($cekData->nominal_currency);
             $request->merge([
-                'id_parent_invoice' => $request->parent_inv_id
+                'id_parent_invoice' => $request->parent_inv_id,
+                'nominal_currency' => $cekData->nominal_currency, //AMBIL CUrrency invoice baru, bukan invoice lama
+                'total_base_spend' => $cekData->nominal_currency * $request->nominal_spend
             ]);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);//create transaksi
             $this->_recalcBankSummary((int) $request->uuid_bank);

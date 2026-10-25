@@ -4631,12 +4631,15 @@ function setRowRequiredState($row, isRequired) {
             // ── Summary cards ──
             $('#summary_paid').text(formatCurrency(totalPaid, d.code_curr));
             const remaining   = parseFloat(d.invoice_total) - totalPaid;
+            //`overpayment ${formatCurrency(overpay.nominal_overpayment /parseInt(d.nominal_currency) , d.code_curr)}`
             const cek_overpay = overpay
-                ? `overpayment ${formatCurrency(overpay.nominal_overpayment /parseInt(d.nominal_currency) , d.code_curr)}`
+                ? `overpayment ${formatCurrency(overpay.nominal_overpayment , d.code_curr)}`
                 : '';
             $('#summary_remaining').text(
                 `${formatCurrency(remaining < 0 ? 0 : remaining, d.code_curr)}  ${cek_overpay}`
             );
+
+            console.log('overpay',overpay)
 
             // ── FEE OVERPAY: INI YANG SEBELUMNYA BELUM ADA ──
             renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
