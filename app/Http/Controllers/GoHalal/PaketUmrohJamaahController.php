@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-
+use App\Services\HalalGoService;
 class PaketUmrohJamaahController extends Controller
 {
     use ApiResponse;
@@ -106,6 +106,10 @@ class PaketUmrohJamaahController extends Controller
                 throw new \RuntimeException('Data jamaah pada paket asal tidak ditemukan');
             }
 
+            if ($row->kode_booking) {
+                throw new \RuntimeException('Booking dari Halal Go tidak bisa dipindah dari sini');
+            }
+
             $jumlah = (int) $request->jumlah_jamaah;
 
             if ($jumlah > (int) $row->jumlah_jamaah) {
@@ -150,10 +154,10 @@ class PaketUmrohJamaahController extends Controller
 
             DB::commit();
 
-            return $this->success([
-                'paket_asal_id' => $asal->id,
-                'paket_tujuan_id' => $tujuan->id,
-            ], 'Jamaah berhasil dipindahkan');
+            // return $this->success([
+            //     'paket_asal_id' => $asal->id,
+            //     'paket_tujuan_id' => $tujuan->id,
+            // ], 'Jamaah berhasil dipindahkan');
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -161,6 +165,14 @@ class PaketUmrohJamaahController extends Controller
 
             return $this->error($e->getMessage(), 422);
         }
+
+        $halal = $this->pushSeats($asal, $tujuan);
+
+        return $this->success([
+            'paket_asal_id' => $asal->id,
+            'paket_tujuan_id' => $tujuan->id,
+            'halal_go' => $halal,
+        ], $this->seatMessage('Jamaah berhasil dipindahkan', $halal));
     }
 
     public function NamaPaketSelect2(Request $request)
@@ -180,7 +192,7 @@ class PaketUmrohJamaahController extends Controller
             ->get()
             ->map(fn($j) => [
                 'id' => $j->id,
-                'text' => $j->nama_paket . ' (' . $j->nik . ')',
+                'text' => $j->nama_paket . ' (' . $j->tipe . ')',
             ]);
 
         return $this->autoResponse(['results' => $results]);
@@ -280,7 +292,7 @@ class PaketUmrohJamaahController extends Controller
 
             DB::commit();
 
-            return $this->success(['paket_id' => $paket->id], 'Jamaah berhasil ditambahkan', 201);
+            //return $this->success(['paket_id' => $paket->id], 'Jamaah berhasil ditambahkan', 201);
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -288,6 +300,14 @@ class PaketUmrohJamaahController extends Controller
 
             return $this->error($e->getMessage(), 422);
         }
+
+        $halal = $this->pushSeats($paket);
+
+        return $this->success(
+            ['paket_id' => $paket->id, 'halal_go' => $halal],
+            $this->seatMessage('Jamaah berhasil ditambahkan', $halal),
+            201
+        );
     }
 
     // DELETE /api/paket-umroh/{id}/jamaah/{rowId}
@@ -305,19 +325,71 @@ class PaketUmrohJamaahController extends Controller
                 throw new \RuntimeException('Data jamaah tidak ditemukan');
             }
 
+
+            if ($row->kode_booking) {
+                throw new \RuntimeException('Booking dari Halal Go tidak bisa dihapus dari sini');
+            }
+
             $row->delete();
             $this->syncSlot($paket);
 
             DB::commit();
-
-            return $this->success(null, 'Jamaah berhasil dihapus');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('[PaketUmrohJamaah] destroy: ' . $e->getMessage());
 
             return $this->error($e->getMessage(), 422);
         }
+
+        $halal = $this->pushSeats($paket);
+
+        return $this->success(
+            ['halal_go' => $halal],
+            $this->seatMessage('Jamaah berhasil dihapus', $halal)
+        );
+    }
+
+    /**
+     * Kirim seat terbaru ke Halal Go. Hanya untuk paket yang sudah punya kode_paket Halal Go.
+     * Gagal kirim TIDAK membatalkan data lokal (sudah commit); hasilnya dikembalikan & di-log.
+     *
+     * @return array<int, array>  [paket_id => hasil service]
+     */
+    private function pushSeats(PaketUmroh ...$pakets): array
+    {
+        $service = app(HalalGoService::class);
+        $out = [];
+
+        foreach ($pakets as $paket) {
+            // Ambil ulang dari DB: kalau ada dua request berdekatan, yang terkirim selalu angka terbaru
+            $paket = $paket->fresh();
+
+            if (!$paket || !$service->hasKodePaket($paket)) {
+                continue; // paket lokal / internal, belum ada di Halal Go
+            }
+
+            $out[$paket->id] = $service->updateSeat(
+                $paket->random_uuid_paket,
+                (int) $paket->max_slot,
+                (int) $paket->available_slot,
+                (int) $paket->filled_slot
+            );
+        }
+
+        return $out;
+    }
+
+    private function seatMessage(string $base, array $halal): string
+    {
+        $gagal = array_filter($halal, fn($r) => !$r['ok']);
+
+        if (!$gagal) {
+            return $base;
+        }
+
+        $detail = implode('; ', array_map(fn($r) => $r['message'] ?? 'tidak diketahui', $gagal));
+
+        return $base . ', tetapi sinkronisasi seat ke Halal Go gagal (' . $detail . ')';
     }
 
     // ================================================================

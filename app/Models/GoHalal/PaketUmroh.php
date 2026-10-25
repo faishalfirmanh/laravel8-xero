@@ -64,4 +64,18 @@ class PaketUmroh extends Model
     {
         return $this->hasMany(PaketUmrohHotel::class, 'paket_umroh_id');
     }
+
+    /**
+     * Hitung ulang filled_slot & available_slot dari semua baris PaketUmrohJamaah
+     * (jamaah internal + booking Halal Go).
+     */
+    public function syncSlot(): void
+    {
+        $filled = (int) $this->jamaahs()->sum('jumlah_jamaah');
+
+        $this->update([
+            'filled_slot' => $filled,
+            'available_slot' => $this->max_slot - $filled,
+        ]);
+    }
 }

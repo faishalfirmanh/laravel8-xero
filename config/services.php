@@ -49,6 +49,7 @@ return [
         'client_key' => env('client_key_halal'),
         'basic_user' => env('HALAL_BASIC_USER'),
         'basic_pass' => env('HALAL_BASIC_PASS'),
-        'ca_bundle' => env('HALAL_CA_BUNDLE')
+        'ca_bundle' => env('HALAL_CA_BUNDLE'),
+        'callback_token' => env('HALALGO_CALLBACK_TOKEN'),
     ],
 ];

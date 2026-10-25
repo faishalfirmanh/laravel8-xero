@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
-
 use App\Models\GoHalal\PaketUmroh;
 use Carbon\Carbon;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Str;
+
 class HalalGoService
 {
     const CACHE_KEY = 'halal_go_token';
@@ -22,9 +23,9 @@ class HalalGoService
         $this->authUrl = rtrim(config('services.halal.base_url_v2'), '/');
     }
 
-    /**
-     * Ambil token dari cache, atau minta token baru ke get-token.
-     */
+    // ================================================================
+    // HELPER UMUM
+    // ================================================================
 
     private function http(int $timeout)
     {
@@ -38,11 +39,36 @@ class HalalGoService
         return (int) round((microtime(true) - $start) * 1000);
     }
 
-    private function snippet(?string $body, int $limit = 1000): string
+    private function snippet($body, int $limit = 1000): string
     {
-        $body = (string) $body;
+        $body = is_string($body) ? $body : (string) json_encode($body);
         return mb_strlen($body) > $limit ? mb_substr($body, 0, $limit) . '…[dipotong]' : $body;
     }
+
+    private function fail(int $status, string $message, array $errors = []): array
+    {
+        return [
+            'ok' => false,
+            'http_status' => $status,
+            'message' => $message,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * Paket dianggap SUDAH ada di Halal Go bila random_uuid_paket berisi kode_paket
+     * dari Halal Go (bukan UUID lokal hasil generateUniqueRandomUuid()).
+     */
+    public function hasKodePaket(PaketUmroh $paket): bool
+    {
+        $kode = (string) $paket->random_uuid_paket;
+
+        return $kode !== '' && !Str::isUuid($kode);
+    }
+
+    // ================================================================
+    // TOKEN
+    // ================================================================
 
     public function getToken(bool $forceNew = false): ?string
     {
@@ -123,9 +149,13 @@ class HalalGoService
         return $token;
     }
 
+    // ================================================================
+    // ENDPOINT
+    // ================================================================
+
     /**
-     * Kirim paket ke create-package.
-     * Return: ['ok' => bool, 'http_status' => int, 'kode_paket' => ?, 'status_ghg' => ?, 'message' => ?]
+     * POST /create-package
+     * Return: ['ok','http_status','kode_paket','status_ghg','message'] atau ['ok'=>false,...,'errors'=>[]]
      */
     public function createPackage(array $payload): array
     {
@@ -136,58 +166,149 @@ class HalalGoService
             'jumlah_hotel' => count($payload['hotels'] ?? []),
         ];
 
+        return $this->call(
+            'create-package',
+            '/create-package',
+            fn(string $token) => $this->http(60)->withToken($token)
+                ->post($this->baseUrl . '/create-package', $payload),
+            $ctx
+        );
+    }
+
+    /**
+     * POST /update-package
+     * Payload sama dengan create-package + kode_paket.
+     * Dokumentasi update-package TIDAK punya field itinerary -> pakai uploadItinerary().
+     */
+    public function updatePackage(string $kodePaket, array $payload): array
+    {
+        unset($payload['itinerary']);
+        $payload = ['kode_paket' => $kodePaket] + $payload;
+
+        $ctx = [
+            'kode_paket' => $kodePaket,
+            'nama_paket' => $payload['nama_paket'] ?? null,
+            'jumlah_hotel' => count($payload['hotels'] ?? []),
+        ];
+
+        return $this->call(
+            'update-package',
+            '/update-package',
+            fn(string $token) => $this->http(60)->withToken($token)
+                ->post($this->baseUrl . '/update-package', $payload),
+            $ctx
+        );
+    }
+
+    /**
+     * POST /update-seat
+     */
+    public function updateSeat(string $kodePaket, int $maxSlot, int $availableSlot, int $filledSlot): array
+    {
+        $payload = [
+            'kode_paket' => $kodePaket,
+            'max_slot' => max(0, $maxSlot),
+            'available_slot' => max(0, $availableSlot), // syncSlot() bisa negatif bila overbook
+            'filled_slot' => max(0, $filledSlot),
+        ];
+
+        return $this->call(
+            'update-seat',
+            '/update-seat',
+            fn(string $token) => $this->http(30)->withToken($token)
+                ->post($this->baseUrl . '/update-seat', $payload),
+            $payload
+        );
+    }
+
+    /**
+     * POST /upload-itenary  (multipart: kode_paket + file)
+     * $absolutePath = path file PDF di server ini.
+     */
+    public function uploadItinerary(string $kodePaket, string $absolutePath, ?string $filename = null): array
+    {
+        $ctx = ['kode_paket' => $kodePaket, 'file' => basename($absolutePath)];
+
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            Log::error('[HalalGo] upload-itenary: file tidak ditemukan', $ctx + ['path' => $absolutePath]);
+            return $this->fail(0, 'File itinerary tidak ditemukan');
+        }
+
+        $contents = file_get_contents($absolutePath);
+        $filename = $filename ?: 'itenary.pdf';
+
+        return $this->call(
+            'upload-itenary',
+            '/upload-itenary',
+            fn(string $token) => $this->http(120)->withToken($token)
+                ->attach('file', $contents, $filename)
+                ->post($this->baseUrl . '/upload-itenary', ['kode_paket' => $kodePaket]),
+            $ctx
+        );
+    }
+
+    // ================================================================
+    // PIPELINE BERSAMA: token -> request -> (401 => token baru, ulangi sekali) -> parse
+    // ================================================================
+
+    private function call(string $label, string $path, \Closure $request, array $ctx = []): array
+    {
+        $url = $this->baseUrl . $path;
+
         $token = $this->getToken();
         if (!$token) {
-            Log::error('[HalalGo] create-package: dibatalkan, token tidak didapat', $ctx);
-            return ['ok' => false, 'http_status' => 0, 'message' => 'Gagal mendapatkan token'];
+            Log::error("[HalalGo] {$label}: dibatalkan, token tidak didapat", $ctx);
+            return $this->fail(0, 'Gagal mendapatkan token');
         }
 
         $start = microtime(true);
 
         try {
-            Log::debug('[HalalGo] create-package: cek itinerary', [
-                'tipe_data' => gettype($payload['itinerary'] ?? null),
-                'panjang' => is_string($payload['itinerary'] ?? null) ? mb_strlen($payload['itinerary']) : null,
-                'ada_html' => is_string($payload['itinerary'] ?? null) && $payload['itinerary'] !== strip_tags($payload['itinerary']),
-                'ada_emoji' => is_string($payload['itinerary'] ?? null) && (bool) preg_match('/[\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}]/u', $payload['itinerary']),
-                'cuplikan' => is_string($payload['itinerary'] ?? null) ? mb_substr($payload['itinerary'], 0, 300) : $payload['itinerary'] ?? null,
-            ]);
-
-            $res = $this->post('/create-package', $payload, $token);
+            $res = $request($token);
 
             // Token bisa habis sebelum waktunya: minta token baru sekali lalu ulangi
             if ($res->status() === 401) {
-                Log::warning('[HalalGo] create-package: 401, token diperbarui lalu dicoba ulang', $ctx);
+                Log::warning("[HalalGo] {$label}: 401, token diperbarui lalu dicoba ulang", $ctx);
 
                 $token = $this->getToken(true);
                 if (!$token) {
-                    Log::error('[HalalGo] create-package: gagal memperbarui token', $ctx);
-                    return ['ok' => false, 'http_status' => 401, 'message' => 'Gagal memperbarui token'];
+                    Log::error("[HalalGo] {$label}: gagal memperbarui token", $ctx);
+                    return $this->fail(401, 'Gagal memperbarui token');
                 }
-                $res = $this->post('/create-package', $payload, $token);
+                $res = $request($token);
             }
         } catch (ConnectionException $e) {
-            Log::error('[HalalGo] create-package: koneksi gagal', $ctx + [
-                'url' => $this->baseUrl . '/create-package',
+            Log::error("[HalalGo] {$label}: koneksi gagal", array_merge($ctx, [
+                'url' => $url,
                 'duration_ms' => $this->elapsed($start),
                 'error' => $e->getMessage(),
-            ]);
-            return ['ok' => false, 'http_status' => 0, 'message' => 'Koneksi ke Halal Go gagal'];
+            ]));
+            return $this->fail(0, 'Koneksi ke Halal Go gagal');
         }
 
         $body = $res->json() ?? [];
         $duration = $this->elapsed($start);
 
-        if ($res->status() === 201 && data_get($body, 'status') === true) {
+        // Dokumen: create/update-package => 201. Terima 200 juga untuk endpoint lain.
+        if (in_array($res->status(), [200, 201], true) && data_get($body, 'status') === true) {
             $result = [
                 'ok' => true,
-                'http_status' => 201,
-                'kode_paket' => data_get($body, 'data.kode_paket'),
+                'http_status' => $res->status(),
+                // upload-itenary mengembalikan data: [] -> pakai kode dari request
+                'kode_paket' => data_get($body, 'data.kode_paket', $ctx['kode_paket'] ?? null),
                 'status_ghg' => data_get($body, 'data.status_ghg'),
                 'message' => data_get($body, 'message'),
             ];
 
-            Log::info('[HalalGo] create-package: sukses', $ctx + $result + ['duration_ms' => $duration]);
+            // status_ghg.status = false artinya relay Mitra -> GoHalalGo bermasalah,
+            // walau Mitra sendiri sukses. Tidak menggagalkan proses, tapi dicatat.
+            if (data_get($body, 'data.status_ghg.status') === false) {
+                Log::warning("[HalalGo] {$label}: sukses di mitra, tapi status_ghg=false", array_merge($ctx, [
+                    'status_ghg' => $this->snippet(data_get($body, 'data.status_ghg')),
+                ]));
+            }
+
+            Log::info("[HalalGo] {$label}: sukses", array_merge($ctx, $result, ['duration_ms' => $duration]));
             return $result;
         }
 
@@ -200,23 +321,18 @@ class HalalGoService
             'errors' => is_array($errors) ? $errors : [(string) $errors],
         ];
 
-        Log::error('[HalalGo] create-package: gagal', $ctx + $result + [
-            'url' => $this->baseUrl . '/create-package',
+        Log::error("[HalalGo] {$label}: gagal", array_merge($ctx, $result, [
+            'url' => $url,
             'duration_ms' => $duration,
             'body' => $this->snippet($res->body()),
-        ]);
+        ]));
 
         return $result;
     }
 
-    private function post(string $path, array $payload, string $token)
-    {
-        return Http::acceptJson()
-            ->withOptions(['verify' => config('services.halal.ca_bundle') ?: true])
-            ->withToken($token)
-            ->timeout(60)
-            ->post($this->baseUrl . $path, $payload);
-    }
+    // ================================================================
+    // PAYLOAD
+    // ================================================================
 
     /**
      * Susun payload sesuai format Halal Go dari data paket yang sudah tersimpan.
@@ -241,6 +357,8 @@ class HalalGoService
             'hrgtriple' => (float) $paket->hrgtriple,
             'hrgdouble' => (float) $paket->hrgdouble,
             'hrgperlengkapan' => (float) $paket->hrgperlengkapan,
+            // TODO produksi: ganti dua URL dummy ini dengan $paket->imgpaketumroh / $paket->itinerary
+            // (harus URL publik; http://127.0.0.1 tidak bisa diakses server Halal Go)
             'imgpaketumroh' => 'https://drive.google.com/uc?export=download&id=1YPxvOLIIW9ebPx1OLqC-R3GGZA24F4Yt',//$paket->imgpaketumroh ?? '',
             'itinerary' => 'https://pdfobject.com/pdf/sample.pdf',//$paket->itinerary ?? '',
             'max_slot' => (int) $paket->max_slot,

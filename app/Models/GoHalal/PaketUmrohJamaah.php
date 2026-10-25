@@ -16,11 +16,15 @@ class PaketUmrohJamaah extends Model
         'data_jamaah_id',
         'jumlah_jamaah',
         'created_by',
-        'id_jamaah_alhid'
+        'id_jamaah_alhid',
+        'kode_booking',
+        'tanggal_booked',
+        'source',
     ];
 
     protected $casts = [
         'jumlah_jamaah' => 'integer',
+        'tanggal_booked' => 'date:Y-m-d',
     ];
 
     public function paket()

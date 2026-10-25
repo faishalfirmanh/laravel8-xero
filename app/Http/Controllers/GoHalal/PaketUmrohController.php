@@ -158,7 +158,44 @@ class PaketUmrohController extends Controller
         $service = app(HalalGoService::class);
         $paket = $this->fresh($paket);
 
-        return $service->createPackage($service->buildPayload($paket));
+        $res = $service->createPackage($service->buildPayload($paket));
+
+        if (!$res['ok']) {
+            return $res;
+        }
+
+        $kode = $res['kode_paket'] ?? null;
+        if (!$kode) {
+            Log::error('[PaketUmroh] Halal Go sukses tapi kode_paket kosong', ['paket_id' => $paket->id]);
+            return $res;
+        }
+
+        // Ganti UUID lokal dengan kode_paket Halal Go.
+        // ItemsPaketAllFromXero ikut diganti karena ditautkan lewat nilai yang sama.
+        try {
+            DB::transaction(function () use ($paket, $kode) {
+                ItemsPaketAllFromXero::where('uuid_proudct_and_service', $paket->random_uuid_paket)
+                    ->update(['uuid_proudct_and_service' => $kode]);
+
+                $paket->update(['random_uuid_paket' => $kode]);
+            });
+        } catch (\Throwable $e) {
+            // Paket sudah ada di Halal Go: kode HARUS tercatat supaya tidak terkirim dobel
+            Log::critical('[PaketUmroh] kode_paket Halal Go gagal disimpan lokal', [
+                'paket_id' => $paket->id,
+                'kode_paket' => $kode,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'ok' => false,
+                'http_status' => $res['http_status'],
+                'message' => "Paket sudah terkirim ke Halal Go (kode {$kode}) tetapi gagal disimpan lokal: " . $e->getMessage(),
+                'errors' => [],
+            ];
+        }
+
+        return $res;
     }
     // POST /api/paket-umroh
     public function storeLocal(Request $request)
@@ -210,20 +247,16 @@ class PaketUmrohController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors()->first(), 422);
         }
-        //input bebas
-        // if ($msg = $this->slotError($request)) {
-        //     return $this->error($msg, 422);
-        // }
 
         $this->newFiles = [];
         $this->oldFiles = [];
 
         DB::beginTransaction();
         try {
-            $data['maskapai'] = strtoupper($request->maskapai);
-            $data['keberangkatan '] = strtoupper($request->keberangkatan);
-            $data['landing'] = strtoupper($request->landing);
             $data = $this->payload($request, $paket);
+            $data['maskapai'] = strtoupper($request->maskapai);
+            $data['keberangkatan'] = strtoupper($request->keberangkatan);
+            $data['landing'] = strtoupper($request->landing);
 
             $paket->update($data);
             $paket->hotels()->delete();
@@ -233,9 +266,6 @@ class PaketUmrohController extends Controller
 
             // File lama dihapus setelah transaksi sukses
             $this->deleteFiles($this->oldFiles);
-
-            return $this->success($this->fresh($paket), 'Paket umroh berhasil diupdate');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             $this->deleteFiles($this->newFiles);
@@ -243,8 +273,75 @@ class PaketUmrohController extends Controller
 
             return $this->error($e->getMessage(), 422);
         }
+
+        // Sinkron ke Halal Go setelah commit: kegagalan API tidak membatalkan data lokal
+        $halal = null;
+        if ($request->boolean('is_posting') && !$request->boolean('is_internal')) {
+            $halal = $this->syncToHalalGo($paket, $request->hasFile('itinerary'));
+            if (!$halal['ok']) {
+                return $this->error($this->halalErrorMessage($halal), 422);
+            }
+        }
+
+        return $this->success(
+            ['paket' => $this->fresh($paket), 'halal_go' => $halal],
+            'Paket umroh berhasil diupdate'
+        );
     }
 
+    private function syncToHalalGo(PaketUmroh $paket, bool $itineraryChanged): array
+    {
+        $service = app(HalalGoService::class);
+        $paket = $this->fresh($paket);
+
+        // Belum pernah terkirim (masih UUID lokal, mis. baru di-posting) -> create
+        if (!$service->hasKodePaket($paket)) {
+            return $this->sendToHalalGo($paket);
+        }
+
+        $res = $service->updatePackage($paket->random_uuid_paket, $service->buildPayload($paket));
+
+        if ($res['ok'] && $itineraryChanged) {
+            $res = $this->pushItinerary($paket, $res);
+        }
+
+        return $res;
+    }
+
+    private function pushItinerary(PaketUmroh $paket, array $res): array
+    {
+        $path = $this->localPath($paket->itinerary);
+        if (!$path) {
+            return $res; // itinerary berupa URL luar / file lokal tidak ada
+        }
+
+        $up = app(HalalGoService::class)->uploadItinerary($paket->random_uuid_paket, $path);
+
+        if (!$up['ok']) {
+            return [
+                'ok' => false,
+                'http_status' => $up['http_status'],
+                'message' => 'Paket terupdate, tetapi upload itinerary gagal: ' . ($up['message'] ?? ''),
+                'errors' => $up['errors'] ?? [],
+            ] + $res;
+        }
+
+        $res['itinerary'] = $up;
+        return $res;
+    }
+
+    // URL upload lokal -> path file di server (null bila bukan file lokal)
+    private function localPath(?string $url): ?string
+    {
+        if (!$url) {
+            return null;
+        }
+
+        $base = rtrim(url('/'), '/') . '/';
+        $path = str_replace($base, public_path() . '/', $url);
+
+        return (strpos($path, public_path()) === 0 && is_file($path)) ? $path : null;
+    }
     // DELETE /api/paket-umroh/{id}
     public function destroy($id)
     {

@@ -78,6 +78,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+//halal go
+use App\Http\Controllers\GoHalal\HalalGoCallbackController;
+use App\Http\Middleware\VerifyHalalGoCallback;
+
+
+//https://<domain-anda>/api/mitra/halalgo/callback-booking
+Route::post('mitra/halalgo/callback-booking', [HalalGoCallbackController::class, 'booking'])
+    ->middleware(VerifyHalalGoCallback::class);
+
+
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
