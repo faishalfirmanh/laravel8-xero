@@ -348,6 +348,7 @@ Route::prefix("admin-web")->group(function () {
 
         //atas master data
         Route::prefix('product-and-service')->group(function () {
+            Route::get('item-last-id', [ProducAndServiceXeroLocalController::class, 'lastId'])->name('item-last-id');
             Route::get('list-item', [ProducAndServiceXeroLocalController::class, 'getAllPaginate'])->name('item-list');
             Route::post('save-item', [ProducAndServiceXeroLocalController::class, 'store'])->name('save-item-product');
             Route::get('detail-item', [ProducAndServiceXeroLocalController::class, 'detail'])->name('item-detail-xero');

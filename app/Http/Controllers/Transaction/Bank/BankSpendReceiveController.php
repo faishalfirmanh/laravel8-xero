@@ -94,13 +94,23 @@ class BankSpendReceiveController extends Controller
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
-            'bank_id_xero' => 'required|integer|exists:bank_xeros,id'
+            'bank_id_xero' => 'required|integer|exists:bank_xeros,id',
+            'date_start' => 'nullable|date',
+            'date_end' => 'nullable|date|after_or_equal:date_start',
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
-        $where = ['uuid_bank' => $request->bank_id_xero];
+        $where = function ($q) use ($request) {
+            $q->where('uuid_bank', $request->bank_id_xero)
+                ->when($request->date_start, function ($q, $v) {
+                    $q->whereDate('date_transaction', '>=', $v);
+                })
+                ->when($request->date_end, function ($q, $v) {
+                    $q->whereDate('date_transaction', '<=', $v);
+                });
+        };
         $whereNull = [];
         if ($request->keyword != null) {
             $data = $this->repo_trans_all_bank->searchData($where, $request->limit, $request->page, 'reference_detail', $request->keyword, ['getPbill', 'getPBank', 'getInv', 'getFeeOver'], $whereNull);

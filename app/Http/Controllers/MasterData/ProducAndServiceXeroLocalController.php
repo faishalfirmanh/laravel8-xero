@@ -8,6 +8,7 @@ use App\Http\Repository\MasterData\Finance\ItemPaketAllXeroRepo;
 use App\Http\Repository\MasterData\TrackingRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\Expenses\Purchase\Bill\DBill;
+use App\Models\ItemsPaketAllFromXero;
 use DB;
 use Illuminate\Http\Request;
 use App\Services\GlobalService;
@@ -48,6 +49,14 @@ class ProducAndServiceXeroLocalController extends Controller
         return str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
     }
 
+    // controller
+    public function lastId()
+    {
+        return response()->json([
+            'status' => 200,
+            'last_id' => (int) ItemsPaketAllFromXero::max('id'),
+        ]);
+    }
 
     public function store(Request $request)
     {

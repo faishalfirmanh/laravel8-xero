@@ -634,6 +634,56 @@ $(document).ready(function () {
     // DATATABLE
     // =========================================================
     var table;
+    let codeManuallyEdited = false;   // true jika user mengetik code sendiri
+    let lastItemId = null;  
+
+
+    function isNewItem() {
+    return !(parseInt($('#idHotelInput').val()) > 0);
+}
+
+function firstWord(name) {
+    const w = (name || '').trim().split(/\s+/)[0] || 'ITM';
+    return (w.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 3)) || 'ITM';
+}
+
+function ymdFromDeparture() {
+    const val = $('#departure_date').val();           // format YYYY-MM-DD
+    if (val) return val.replace(/-/g, '');
+    const d = new Date();                              // kosong -> hari ini (waktu lokal)
+    return d.getFullYear()
+        + String(d.getMonth() + 1).padStart(2, '0')
+        + String(d.getDate()).padStart(2, '0');
+}
+
+function generateCode() {
+    if (!isNewItem() || codeManuallyEdited) return;   // jangan timpa saat edit / diketik manual
+
+    // lastId + 1; fallback jika server belum siap: max id di tabel, lalu timestamp
+    let seq;
+    if (lastItemId !== null) {
+        seq = lastItemId + 1;
+    } else {
+        const ids = table ? table.rows().data().toArray().map(r => parseInt(r.id) || 0) : [];
+        seq = ids.length ? Math.max(...ids) + 1 : parseInt(Date.now().toString().slice(-4));
+    }
+
+    $('#code').val(`${firstWord($('#nameHotel').val())}-${ymdFromDeparture()}-${String(seq).padStart(4, '0')}`);
+}
+
+function loadLastItemId() {
+    ajaxRequest(`{{ route('item-last-id') }}`, 'get', {}, localStorage.getItem("token"))
+        .then(res => {
+            lastItemId = parseInt(res.last_id ?? res.data?.last_id) || 0;
+        })
+        .catch(() => { lastItemId = null; })
+        .finally(() => generateCode());
+}
+
+$('#nameHotel').on('input', generateCode);
+$('#departure_date').on('change', generateCode);
+
+$('#code').on('input', function () { codeManuallyEdited = true; });
 
     let columnHotel = [
         {
@@ -794,11 +844,13 @@ $(document).ready(function () {
     });
 
     $('#modalCreateHotel').on('hidden.bs.modal', function () {
-        resetModal();
+         resetModal();
+        loadLastItemId();  
     });
 
     function resetModal() {
         $('#formCreateHotel')[0].reset();
+         codeManuallyEdited = false; 
         $('#idHotelInput').val(0);
         $('#modalItemTitle').text('New item');
         $('#chkPurchase, #chkSell').prop('checked', false);

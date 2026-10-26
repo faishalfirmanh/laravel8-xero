@@ -1088,6 +1088,9 @@
                         <button type="button" class="btn-dashed" id="btn-add-item-master" style="border-color:#6f42c1; color:#6f42c1; margin-left:10px;">
                             <i class="ti ti-package" style="font-size:12px;"></i> Add Item Master
                         </button>
+                        <button type="button" class="btn-dashed" id="btn-add-item-contact" style="border-color:#fd7e14; color:#fd7e14; margin-left:10px;">
+                            <i class="ti ti-user-plus" style="font-size:12px;"></i> Add Contact
+                        </button>
                     </div>
 
                     <div class="dropzone" id="buktiDropzone">
@@ -1551,6 +1554,7 @@
                     <div class="card-body py-2">
                         <small class="text-muted font-weight-bold text-uppercase">Sisa Kekurangan</small>
                         <h5 class="font-weight-bold text-danger mb-0" id="summary_remaining"></h5>
+                        <input type="hidden" name="over_pay_sisa" id="over_pay_sisa">
                         <h5 class="font-weight-bold text-danger mb-0" id="sum_pem_rp"></h5>
                     </div>
                 </div>
@@ -1894,6 +1898,49 @@
     </div>
 </div>
 
+
+{{-- ── MODAL ADD CONTACT (dari halaman invoice) ── --}}
+<div class="modal fade" id="modalCreateJamaah" tabindex="-1" role="dialog" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalJamaahTitle">Tambah Contact</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="id_jamaah" value="">
+
+                <div class="form-group mb-3">
+                    <label for="full_name">Nama Lengkap <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="full_name" placeholder="Nama lengkap jamaah">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="phone_number">No. Telepon <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="phone_number" placeholder="Contoh: 081234567890">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="nik">NIK <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="nik" maxlength="16" placeholder="16 digit NIK">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="detail_address">Alamat</label>
+                    <textarea class="form-control" id="detail_address" rows="3" placeholder="Alamat lengkap (opsional)"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                <button type="button" id="btn_save_jamaah" class="btn btn-primary" onclick="simpanJamaah()">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -2179,6 +2226,48 @@ $('#paymentModal').on('hide.bs.modal', function (e) {
     }
 });
 
+function simpanJamaah(){
+    let payload = {
+        id: $('#id_jamaah').val() || null,
+        full_name: $('#full_name').val().trim(),
+        phone_number: $('#phone_number').val().trim(),
+        nik: $('#nik').val().trim(),
+        detail_address: $('#detail_address').val().trim(),
+    };
+
+    if(!payload.full_name || !payload.phone_number){
+        Swal.fire('Peringatan', 'Nama lengkap dan No. Telepon wajib diisi', 'warning');
+        return;
+    }
+
+    $('#btn_save_jamaah').prop('disabled', true).text('Menyimpan...');
+
+    ajaxRequest(`{{ route('save-jamaah') }}`, 'POST', payload, localStorage.getItem('token'))
+        .then(response => {
+            if(response.status == 200){
+                // ⚠️ sesuaikan dengan struktur response backend-mu
+                const saved = response.data?.data || response.data || {};
+                console.log('savedj',response.data)
+                $('#modalCreateJamaah').modal('hide');
+                Swal.fire({ title: 'Berhasil', text: 'Data contact tersimpan', icon: 'success', timer: 1500, showConfirmButton: false });
+
+                if (saved.id) {
+                    setSelect2Value('#contact_id', saved.id, saved.full_name || payload.full_name);
+                } else {
+                    console.warn('save-jamaah tidak mengembalikan id, contact tidak bisa auto-select', response);
+                }
+            } else {
+                Swal.fire('Gagal', response?.data?.data?.message || 'Gagal menyimpan data contact', 'error');
+            }
+        })
+        .catch((err) => {
+           cathError(err)
+        })
+        .finally(() => {
+            $('#btn_save_jamaah').prop('disabled', false).text('Simpan');
+        });
+}
+
 $('#paymentModal').on('shown.bs.modal', function () {
     $(document).off('focusin.bs.modal');
  
@@ -2402,6 +2491,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
     const now = new Date();
     const year  = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
+    let nom_over_pay = 0;
 
     // ── APPLY CREDIT (OVERPAYMENT) ── daftar overpayment invoice yang sedang dibuka di paymentModal
     let listAllOverpayCurrent = [];
@@ -4643,7 +4733,13 @@ function setRowRequiredState($row, isRequired) {
                 `${formatCurrency(remaining < 0 ? 0 : remaining, d.code_curr)}  ${cek_overpay}`
             );
 
-            console.log('overpay',overpay)
+            if(overpay.nominal_overpayment > 0){
+                $("#over_pay_sisa").val(parseInt(overpay.nominal_overpayment))
+            }else{
+                $("#over_pay_sisa").val(0)
+            }
+
+            //console.log('overpay',overpay)
 
             // ── FEE OVERPAY: INI YANG SEBELUMNYA BELUM ADA ──
             renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
@@ -5098,7 +5194,8 @@ $('#btnSaveFeeOverpay').on('click', async function () {
         return;
     }
 
-    if (total > max) {
+    console.log(`${total} || ${max} ||` )
+    if (total > max) {//perlu fix
         Swal.fire('Peringatan', 'Total fee melebihi sisa overpayment.', 'warning');
         $btn.prop('disabled', false);
         return;
@@ -5141,10 +5238,59 @@ $('#paymentModal').on('hidden.bs.modal', function () {
 // ADD ITEM MASTER dari modal invoice
 // ========================================================
 
+// ── AUTO GENERATE CODE (item master) ──
+let miCodeManuallyEdited = false;   // true jika user mengetik code sendiri
+let miLastItemId = null;    
+
 // ── Buka modal ──
 $('#btn-add-item-master').on('click', function () {
+       miCodeManuallyEdited = false; 
+    miLoadLastItemId();  
     $('#modalCreateItemMaster').modal('show');
 });
+
+        // diisi dari server
+
+function miFirstWord(name) {
+    const w = (name || '').trim().split(/\s+/)[0] || 'ITM';
+    return (w.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 3)) || 'ITM';
+}
+
+function miYmd() {
+    const val = $('#mi_departure_date').val();          // format YYYY-MM-DD
+    if (val) return val.replace(/-/g, '');
+    const d = new Date();                                // kosong -> hari ini (waktu lokal)
+    return d.getFullYear()
+        + String(d.getMonth() + 1).padStart(2, '0')
+        + String(d.getDate()).padStart(2, '0');
+}
+
+function miGenerateCode() {
+    if (miCodeManuallyEdited) return;                    // jangan timpa ketikan manual
+
+    // lastId + 1; fallback jika server belum siap: 4 digit terakhir timestamp
+    const seq = (miLastItemId !== null)
+        ? miLastItemId + 1
+        : parseInt(Date.now().toString().slice(-4));
+
+    $('#mi_code').val(`${miFirstWord($('#mi_name').val())}-${miYmd()}-${String(seq).padStart(4, '0')}`);
+}
+
+function miLoadLastItemId() {
+    ajaxRequest(`{{ route('item-last-id') }}`, 'GET', {}, localStorage.getItem("token"))
+        .then(res => {
+            miLastItemId = parseInt(res.last_id ?? res.data?.last_id ?? res.data?.data?.last_id) || 0;
+        })
+        .catch(() => { miLastItemId = null; })
+        .finally(() => miGenerateCode());
+}
+
+// regenerate saat nama / tanggal berubah
+$('#mi_name').on('input', miGenerateCode);
+$('#mi_departure_date').on('change', miGenerateCode);
+
+// kalau user mengetik code sendiri, jangan ditimpa lagi
+$('#mi_code').on('input', function () { miCodeManuallyEdited = true; });
 
 // ── Nested modal fix (Bootstrap 4) ──
 $('#modalCreateItemMaster').on('show.bs.modal', function () {
@@ -5214,6 +5360,7 @@ function initItemMasterSelect2() {
 
 function resetItemMasterForm() {
     $('#formCreateItemMaster')[0].reset();
+     miCodeManuallyEdited = false;  
     $('#mi_purchaseFields, #mi_sellFields').removeClass('show');
     ['#mi_account_purchase', '#mi_account_sales'].forEach(function (sel) {
         const $el = $(sel);
@@ -5266,7 +5413,7 @@ function selectNewItemOnRow(itemId, payload, salesAccountText) {
 // ── Submit ──
 $('#formCreateItemMaster').on('submit', function (e) {
     e.preventDefault();
-
+    if (!$('#mi_code').val()) miGenerateCode();
     const isPurchase = $('#mi_chkPurchase').is(':checked');
     const isSell     = $('#mi_chkSell').is(':checked');
 
@@ -5323,6 +5470,37 @@ $('#formCreateItemMaster').on('submit', function (e) {
         })
         .catch(err => cathError(err))
         .finally(() => $('#mi_btnSave').prop('disabled', false).text('Save'));
+});
+
+
+// ========================================================
+// ADD CONTACT dari modal invoice
+// ========================================================
+$('#btn-add-item-contact').on('click', function () {
+    $('#modalCreateJamaah').modal('show');
+});
+
+// ── Nested modal fix (Bootstrap 4) ──
+$('#modalCreateJamaah').on('show.bs.modal', function () {
+    const z = 1070;                      // di atas modal invoice (1050)
+    $(this).css('z-index', z);
+    setTimeout(function () {
+        $('.modal-backdrop').last().css('z-index', z - 1);
+    }, 0);
+});
+
+$('#modalCreateJamaah').on('shown.bs.modal', function () {
+    $(document).off('focusin.bs.modal'); // kalau tidak, input tidak bisa diketik
+    $('#full_name').trigger('focus');
+});
+
+$('#modalCreateJamaah').on('hidden.bs.modal', function () {
+    $('#id_jamaah, #full_name, #phone_number, #nik, #detail_address').val('');
+    $('#btn_save_jamaah').prop('disabled', false).text('Simpan');
+    // kembalikan scroll modal invoice yang hilang setelah modal kedua ditutup
+    if ($('#modalCreateHotel').hasClass('show')) {
+        $('body').addClass('modal-open');
+    }
 });
 
 </script>

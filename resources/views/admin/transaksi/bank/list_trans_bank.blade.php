@@ -208,6 +208,21 @@
         </div>
     </div>
 
+    <form id="formFilterDate" class="px-3 pt-3 pb-0 d-flex flex-wrap align-items-end justify-content-end" style="gap:10px;">
+        <div>
+            <label class="mb-1 small font-weight-bold">Dari</label>
+            <input type="date" id="filter_date_start" class="form-control form-control-sm" style="width:150px;">
+        </div>
+        <div>
+            <label class="mb-1 small font-weight-bold">Sampai</label>
+            <input type="date" id="filter_date_end" class="form-control form-control-sm" style="width:150px;">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">
+            <i class="ti ti-filter mr-1"></i> Filter
+        </button>
+        <button type="button" id="btnResetFilterDate" class="btn btn-light btn-sm border">Reset</button>
+    </form>
+
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">
         <div class="spinner-border text-primary" role="status"></div>
         <div class="mt-2">Loading data...</div>
@@ -529,7 +544,7 @@ $(document).ready(function() {
 
      //console.log('******',openId)
     if (openId) {
-        console.log('open modal',openId)
+        //console.log('open modal',openId)
         openDetailModal(openId);
     }
 
@@ -639,7 +654,7 @@ $(document).ready(function() {
             searchable: false,
             className: "text-center",
             render: function(data, type, row) {
-                console.log('row',row)
+               
                 let base_url = window.location.origin
                  $("#title_header").text('Daftar Transaksi ' + row.get_bank.name);
                 $("#spen_nom").text('Pengeluaran ' + formatCurrency(row.get_bank.sum_curr_spend));
@@ -693,13 +708,51 @@ $(document).ready(function() {
         }
     ];
 
-    table = initGlobalDataTableTokenSelected(
-        '#tableHotel',
-        `{{ route('bank-trans-allByIdBank') }}`,
-        columnBills,
-        { "kolom_name": "reference" ,'bank_id_xero' : lastSegment}
-    );
+    // table = initGlobalDataTableTokenSelected(
+    //     '#tableHotel',
+    //     `{{ route('bank-trans-allByIdBank') }}`,
+    //     columnBills,
+    //     { "kolom_name": "reference" ,'bank_id_xero' : lastSegment}
+    // );
 
+
+    function loadTable() {
+        if ($.fn.DataTable.isDataTable('#tableHotel')) {
+            $('#tableHotel').DataTable().destroy();
+        }
+        table = initGlobalDataTableTokenSelected(
+            '#tableHotel',
+            `{{ route('bank-trans-allByIdBank') }}`,
+            columnBills,
+            {
+                'kolom_name'   : 'reference',
+                'bank_id_xero' : lastSegment,
+                'date_start'   : $('#filter_date_start').val() || '',
+                'date_end'     : $('#filter_date_end').val() || ''
+            }
+        );
+    }
+    loadTable();
+
+   $('#formFilterDate').on('submit', function (e) {
+    e.preventDefault();
+
+    let s = $('#filter_date_start').val();
+    let e2 = $('#filter_date_end').val();
+
+    if (s && e2 && s > e2) {
+        Swal.fire('Perhatian', 'Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', 'warning');
+        return;
+    }
+    loadTable();
+});
+
+$('#btnResetFilterDate').on('click', function () {
+    $('#filter_date_start, #filter_date_end').val('');
+    loadTable();
+});
+
+    
 
     $("#btnRecordPayment").on('click', function(e){
         e.preventDefault();
@@ -1303,7 +1356,7 @@ $(document).ready(function() {
         let taxRate = item ? (item.tax_rate !== null ? item.tax_rate : 0) : 0;
         let amount = item ? parseFloat(item.amount) : '';
 
-        console.log('select',item_select)
+        //console.log('select',item_select)
         let newRow = `
             <tr>
                 <td class="text-center">${rowCount}</td>
@@ -1460,7 +1513,7 @@ $(document).ready(function() {
                 // Restore selected item — buat Option langsung tanpa ajax call tambahan
                 // (item.item_name sudah tersimpan saat save, atau pakai desc sebagai fallback)
                 let itemLabel = item.item_name || item.desc || ('Item ID: ' + item.item_code);
-                console.log('itemid',item)
+               // console.log('itemid',item)
                 let itemOpt = new Option(itemLabel, item.item_code, true, true);
                 $lastRow.find('.select2-item').append(itemOpt).trigger('change');
             }
