@@ -142,6 +142,5 @@ Route::get('/detailInvoiceWeb/{invoiceId}', [InvoicesController::class, 'viewDet
 Route::get('/xero/list-transaksi', [XeroTransaksiController::class, 'index'])
     ->name('xero-list-transaksi');
 
-Route::get('/api/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
-Route::post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);
-
+Route::middleware('auth:sanctum')->get('/api/xero/list-transaksi', [XeroTransaksiController::class, 'listTransaksi']);
+Route::middleware('auth:sanctum')->post('/api/xero/void/{id}', [XeroTransaksiController::class, 'voidInvoice']);

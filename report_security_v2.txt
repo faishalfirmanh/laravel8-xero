@@ -1,0 +1,77 @@
+LAPORAN AUDIT ULANG — laravel8-xero | Tanggal: 26 Oktober 2026 | Mode: read-only | Scope: /working/annamiro/laravel8-xero
+
+1. RINGKASAN EKSEKUTIF
+Risiko keseluruhan: TINGGI; dibanding audit pertama: naik, karena ditemukan beberapa route mutasi publik dan jalur mutasi di luar role.menu.
+Perubahan yang diklaim terbukti sebagian; tidak semua seluruh project dapat ditelaah sampai ke otorisasi objek dan alur bisnis.
+Hitungan A1–A9: TERVERIFIKASI 2, SEBAGIAN 5, REGRESI 2, BELUM DIPERBAIKI 0.
+Temuan baru: Kritis 0, Tinggi 3, Sedang 3, Rendah 0 (temuan berdasarkan bukti statis yang disertakan).
+Prioritas: amankan route mutasi publik; benahi fail-closed webhook handler cadangan dan deduplikasi; tutup celah SQL identifier dan konfigurasi CORS kosong.
+
+2. VERIFIKASI PERBAIKAN (A1..A9)
+A1 REGRESI | app/Http/Controllers/Transaction/Revenue/XeroTransaksiController.php:68 — pemanggilan str_contains() hanya tersedia mulai PHP 8.0. Ada hit terpisah di RHotelApiController.php:322. Pindahkan ke strpos() !== false agar PHP 7.4 kompatibel.
+A2 REGRESI | routes/api.php:150-151 — getCodeBeforeToken/getToken publik dan merupakan endpoint integrasi OAuth/mutasi; pengecualian publik hanya login, webhook, callback. routes/api.php:576 juga mempublikasikan POST mekari-webhook; belum terbukti autentikasi aplikasi. Register tidak ditemukan di routes yang terdaftar; extract-text authenticated+throttle (baris 105), login throttle (98). Webhook aktif verifikasi raw body/HMAC/hash_equals dan menolak key/signature kosong (WebhookController.php:40-53), sebelum decode payload (56); handler cadangan handleXeross masih ada (83-119), tidak fail-closed untuk key kosong dan perlu hapus/tutup agar tidak dapat dipasang route. Route route:list berhasil; mutasi utama berada di auth:sanctum. Role.menu terpasang di kelompok travel/toko/master-data, tetapi tidak di seluruh route auth:sanctum.
+A3 SEBAGIAN | AuthController.php:35-42, 112-124; config/sanctum.php:49 — expiry 720 menit dan logout token aktif benar. Satu token per login tidak benar-benar dipastikan (penghapusan token lama dikomentari, baris 37-38); pemeriksaan ganti/reset password dan seluruh createToken di app belum tuntas. JSON response memuat access_token/expires_at sebagaimana kode saat ini.
+A4 REGRESI | BaseRepository.php:141-145 memakai identifier tanpa quoting dan regex mengizinkan titik; tidak anchor identifier per segmen. TransBankRepo.php:30 menginterpolasi $search_column tanpa validasi. BaseRepository.php:134 dan RoleUserRepository.php:21-30 juga menerima nama urutan/kolom sebagai argumen; perlu validasi allowlist saat asalnya request. Wildcard keyword %/_ belum di-escape sehingga pencarian dapat diperluas/berat.
+A5 SEBAGIAN | UserController.php:149, CoaController.php:69, TravelController.php:75 (klaim report_fix.txt:15); pencarian app menemukan banyak request->all untuk validasi/mass assignment belum dapat dituntaskan satu per satu. User.php:23 memiliki fillable (belum dibaca isinya); keamanan role/is_admin belum terverifikasi. Catatkan seluruh lokasi create/update/fill dari hit search dan validasi allowlist sebelum persist.
+A6 TERVERIFIKASI | XssSanitization.php:25-49 hanya strip_tags string (30-34), merge kembali (35-49), mengecualikan kredensial (26-28). Tidak terpasang pada route webhook; raw body tetap utuh. Tidak ditemukan pemrosesan file upload dalam rekursi input.
+A7 REGRESI | cors.php:22 — env string kosong menghasilkan array kosong, wildcard default tidak dipakai; .env.example:6-9 memberi contoh kosong menurut klaim perbaikan. Header global terbukti (Kernel.php:16-25), set melalui Symfony headers dan tidak overwrite (SecurityHeaders.php:24-27); HSTS HTTPS+production (20-22), tanpa CSP. Nilai rahasia .env.example belum dibaca/ditampilkan.
+A8 SEBAGIAN | public/uploads/.htaccess:1-9 menggunakan sintaks Apache 2.2/2.4 bersyarat dan tidak memakai php_flag/value. Risiko sisa: metadata upload publik tetap; pemeriksaan server-side MIME/nama/ownership invoice_id/bill_id tidak dilakukan menyeluruh. Lanjutan: simpan di disk privat dengan nama acak, validasi MIME+ukuran, ikat ke parent milik pengguna/tenant, unduh melalui controller berotorisasi.
+A9 SEBAGIAN | report_fix.txt:8,10; hosting PHP2Shell dan file lama public/uploads belum dapat diverifikasi hanya dari sisi aplikasi. Sisi aplikasi menolak eksekusi ekstensi skrip pada uploads; patch PHP runtime/SAPI dan pemeriksaan berkas lama adalah wewenang hosting/admin.
+
+3. REGRESI & RISIKO FUNGSIONAL
+- PHP 7.4 akan fatal pada pemanggilan str_contains di dua controller (bukti A1); uji halaman/API transaksi Xero dan hotel dengan kondisi true/false.
+- CORS_ALLOWED_ORIGINS kosong menolak seluruh CORS (A7); uji preflight dari frontend resmi dengan env kosong dan origin terisi.
+- Token lama tidak dicabut saat login; uji dua login dan logout satu token (AuthController.php:37-41, 123).
+- Penghapusan daftar route bisa memutus klien OCR/mutasi; uji semua klien dengan Bearer serta pastikan response login JSON dipertahankan (routes/api.php:98-105).
+
+4. INDIKATOR KOMPROMI (B1)
+Tidak ditemukan pada pencarian statis terarah dari hasil yang sempat diverifikasi; batasan: inventaris lengkap file mencurigakan, log, mtime, file tersembunyi, .user.ini/.htaccess seluruh direktori, dan isi public/uploads tidak selesai. Ini bukan bukti tidak ada kompromi. Webhook handler cadangan memuat HMAC tetapi key kosong tidak ditolak (WebhookController.php:93-101), keyakinan kuat sebagai kelemahan kode, bukan indikator kompromi.
+
+5. TEMUAN BARU (N-01...) URUT SEVERITY
+N-01 Route mutasi integrasi OAuth Xero publik — Tinggi (CVSS perkiraan 8.1) — CWE-306 / OWASP API5
+Lokasi routes/api.php:150-151 | Bukti: Route::post('xero-integrasi/getToken', [ConfigController::class, 'getToken']); tanpa auth middleware.
+Dampak: pihak tanpa autentikasi dapat memanggil operasi pengambilan/penyimpanan token integrasi; dampak final bergantung validasi controller.
+Perbaikan: lindungi endpoint administratif dengan auth:sanctum + role khusus; callback OAuth saja tetap publik dan state tervalidasi.
+Usaha: rendah.
+N-02 Callback/handler webhook alternatif non-fail-closed — Tinggi (CVSS perkiraan 7.5) — CWE-696 / OWASP API10
+Lokasi WebhookController.php:83-104 | Bukti: $webhookKey = env('WEB_HOOK_XERO'); lalu hash_hmac tanpa guard key kosong.
+Dampak: handler cadangan dapat menerima signature yang cocok dari key kosong bila kelak ter-route; implementasi ganda rawan salah konfigurasi.
+Perbaikan: hapus handler tak dipakai atau gunakan verifikasi bersama yang menolak key kosong sebelum perbandingan.
+Usaha: rendah.
+N-03 Mutasi endpoint paket di luar Sanctum — Tinggi (CVSS perkiraan 8.0) — CWE-306 / OWASP API5
+Lokasi routes/api.php:358-385 | Bukti: kelompok paket-umroh mendefinisikan POST store, PUT/POST update, DELETE destroy tanpa auth:sanctum di blok lokal itu.
+Dampak: perubahan/penghapusan data paket dan jamaah tanpa identitas, kecuali ada middleware global lain yang tidak tampak pada route.
+Perbaikan: pasang auth:sanctum dan role.menu/otorisasi per aksi; uji route:list seluruh mutasi.
+Usaha: rendah.
+N-04 SQL identifier terinterpolasi tanpa allowlist — Sedang (CVSS perkiraan 6.5) — CWE-89 / OWASP A03
+Lokasi app/Http/Repository/Transaction/TransBankRepo.php:29-31 | Bukti: whereRaw("LOWER($search_column) like ?", ...).
+Dampak: bila kolom berasal dari input, dapat memanipulasi SQL atau memicu error/DoS; parameter binding hanya melindungi keyword.
+Perbaikan: identifier kolom harus allowlist tetap, kutip identifier dengan grammar DB, dan binding untuk nilai.
+Usaha: rendah.
+N-05 CORS env kosong meniadakan origin default — Sedang (CVSS perkiraan 4.3) — CWE-16 / OWASP A05
+Lokasi config/cors.php:22 | Bukti: explode(',', env(...,'*')) lalu filter mengubah string kosong menjadi [].
+Dampak: frontend lintas-origin gagal saat contoh env kosong; risiko ketersediaan/konfigurasi, bukan bypass autentikasi.
+Perbaikan: trim dahulu, bila kosong gunakan wildcard yang disepakati atau daftar origin aman; perbarui .env.example.
+Usaha: rendah.
+N-06 `role.menu` melewati akses pada prefix kosong dan bergantung suffix prefix — Sedang (CVSS perkiraan 5.3) — CWE-863 / OWASP API5
+Lokasi CheckRoleMenuAccess.php:24-35, 39-49 | Bukti: komentar menyatakan route tanpa prefix dilewati; bila prefix ada, hanya suffix prefix dicocokkan dengan route_name.
+Dampak: kesalahan pemetaan route dapat membuat pengecekan menu tidak berlaku; temuan dibatasi route yang memang memasang middleware ini.
+Perbaikan: deny-by-default, gunakan route name eksplisit dan mapping izin server-side; audit seluruh route mutasi.
+Usaha: sedang.
+
+6. ROADMAP
+P0 (hari ini-3 hari): N-01, N-02, N-03; audit ulang route mutasi tanpa middleware dan hilangkan handler webhook alternatif.
+P1 (minggu ini): N-04, N-06; lakukan allowlist SQL dan verifikasi otorisasi endpoint finansial/role.
+P2 (bulan ini): N-05; perbaiki fallback CORS, audit ownership file dan pindahkan upload baru ke disk privat (A8).
+P3 (jangka panjang): A5 dan A9; inventaris mass assignment, audit trail transaksi, pemantauan file/log dan koordinasi patch hosting.
+
+7. YANG SUDAH BAIK
+Webhook aktif memverifikasi HMAC-SHA256 raw body, memakai hash_equals dan menolak signature/kunci kosong sebelum decode; deduplikasi resourceId dan dispatch async terlihat di WebhookController.php:40-80. Logout menghapus token aktif (AuthController.php:112-124). SecurityHeaders menulis melalui HeaderBag Symfony tanpa overwrite (SecurityHeaders.php:24-27).
+
+8. TIDAK TERVERIFIKASI & LANGKAH MANUAL OLEH ADMIN
+- Tidak seluruh indikator B1/B2 diperiksa: inventaris filesystem/stat mtime/log dan file legacy upload perlu pemeriksaan admin; tidak ada isi log atau nilai rahasia yang dicetak.
+- Versi/patch PHP & SAPI hosting: konfirmasi ke hosting; periksa log akses web server untuk POST multipart tidak wajar sejak 20 Okt 2026.
+- Jalankan composer audit; cek versi paket; telaah `.env` secara lokal tanpa menyalin nilai rahasia ke laporan.
+- Isi public/uploads lama, pencabutan token tanpa expiry di DB, rotasi APP_KEY/password DB/kredensial dan token Xero bila ada indikasi kompromi.
+- Manual: login, logout, expiry token; unduh/unggah file; webhook valid=200 dan signature salah=401; alur OAuth Xero/state; CORS dari frontend resmi.
+- Pemeriksaan SQL runtime menyeluruh, seluruh createToken/reset password, BOLA per endpoint, PDF/Excel/unduhan, log stack trace, callback OAuth, token Xero plaintext/enkripsi, SSRF/timeout/TLS, pagination dan rate limit belum selesai; klaim tersebut tidak dianggap terverifikasi tanpa bukti.

@@ -21,14 +21,22 @@ class XssSanitization
      */
     public function handle(Request $request, Closure $next)
     {
+        // Lapisan tambahan; bukan pengganti validasi dan escaping output.
         $input = $request->all();
+        foreach (['password', 'password_confirmation', 'current_password', 'token', 'signature'] as $field) {
+            unset($input[$field]);
+        }
         $user = Auth::guard('sanctum')->user();
-        array_walk_recursive($input, function (&$input) {
-            if (!is_null($input)) {
-                $input = strip_tags($input);
+        array_walk_recursive($input, function (&$value) {
+            if (is_string($value)) {
+                $value = strip_tags($value);
             }
         });
         $request->merge(['user_login'=>$user]);
+        if (!$user) {
+            $request->merge($input);
+            return $next($request);
+        }
         $role_users = RoleUsers::where('user_id', $user->id)->pluck('role_id');
         $roles_menu = RoleMenus::whereIn('role_id',$role_users)->pluck('menu_id');
         $view_menu = Menu::with('children')->whereIn('id',$roles_menu)

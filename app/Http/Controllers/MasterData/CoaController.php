@@ -66,7 +66,12 @@ class CoaController extends Controller
         }
 
         $request['created_by'] = $request->user_login->id;
-        $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
+        $payload = $validator->validated();
+        if ($request->id == NULL) {
+            $payload['code'] = self::generateRandom4Digit();
+        }
+        $payload['created_by'] = $request->user_login->id;
+        $saved = $this->repo->CreateOrUpdate($payload, $request->id);
         return $this->autoResponse($saved);
     }
 

@@ -95,18 +95,18 @@ Route::get('/user', function (Request $request) {
 Route::prefix('account')->group(function () {
 
 });
-Route::post('/login', [AuthController::class, 'login'])->name('login');
-Route::post('/register', [AuthController::class, 'register'])->name('register');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
 Route::middleware(['auth:sanctum', 'xss'])->post('/me', [AuthController::class, 'myaccount'])->name('me-auth');
 //Route::post('/logout', [AuthController::class, 'logout']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 //local contact-cron-job contact
 Route::get('branding-theme/travel/{id}', [BrandingThemeController::class, 'travelLogo'])->name('get-img-travel');
-Route::post('/extract-text', [ImageController::class, 'extractText']);
+Route::middleware('auth:sanctum')->post('/extract-text', [ImageController::class, 'extractText'])->middleware('throttle:30,1');
 
 
 
+Route::middleware('auth:sanctum')->group(function () {
 Route::get('get-va-jamaah', [InvoiceXeroLocalController::class, 'getVa'])->name('get-va');
 Route::get('get-jamaah-alhid/{idjamaah}', [JamaahAlhidController::class, 'getById'])->name('get-jamaah-alhid');//used ambil id jamaah dari alhid
 Route::post('save-jamaah-alhidglobal', [DataApiJamaahController::class, 'storeGlobal']);//used
@@ -121,12 +121,13 @@ Route::get('get_curr_local', [InvXeroController::class, 'getCurr'])->name('get_c
 
 Route::get('get_inv_external/{uuid_inv}', [InvoiceXeroLocalController::class, 'InvExternal'])->name('get_inv_external');
 Route::get('get_new_inv_number', [InvoiceXeroLocalController::class, 'GenerateNewInvNumber'])->name('get_new_inv_number');
+});
 
 //xero refresh token
 // 1. Route untuk inisiasi login (Jalankan ini saat xero_token.json masih kosong)
-Route::prefix("xero")->group(function () {
-    Route::get('connect', [XeroContactController::class, 'connect']);
-    Route::get('callback', [XeroContactController::class, 'callback']);
+Route::get('xero/connect', [XeroContactController::class, 'connect']);
+Route::get('xero/callback', [XeroContactController::class, 'callback']);
+Route::middleware('auth:sanctum')->prefix("xero")->group(function () {
     Route::get('get_user_login', [UserXeroController::class, 'getAll']);
     Route::get('contacts', [XeroContactController::class, 'getContacts'])->middleware('xero.limit');
     Route::get('get_contact_byid', [ContactController::class, 'getContactsById'])->name('get-contact-byuuid');
@@ -146,14 +147,15 @@ Route::prefix("xero")->group(function () {
 });
 
 Route::get('status-job/{jobId}', [InvoiceXeroLocalController::class, 'getSyncStatus'])->name('cek-sync-job-inv-xero');
-Route::prefix("xero-integrasi")->group(function () {
+Route::get('xero-integrasi/getCodeBeforeToken', [ConfigController::class, 'getAuthUrl']);
+Route::post('xero-integrasi/getToken', [ConfigController::class, 'getToken']);
+Route::get('xero-integrasi/xero/login', [ConfigController::class, 'redirect']);
+Route::middleware('auth:sanctum')->prefix("xero-integrasi")->group(function () {
     Route::get('/get-data', [ContactController::class, 'getContact']);
     Route::get('sync-job-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmrohSyncJob'])->name('sync-job-item-paket');//sync item dengan job
     Route::get('sync-inv-xero', [InvoiceXeroLocalController::class, 'getListInvoice'])->name('sync-job-inv-xero');//sync invoice final lewat job, SyncXeroInvoiceJob.php
     Route::get('/get-contact-local', [ContactController::class, 'getContactLocal']);//used sync contact
-    Route::get('getCodeBeforeToken', [ConfigController::class, 'getAuthUrl']);
-    Route::post('getToken', [ConfigController::class, 'getToken']);
-    Route::get('/xero/login', [ConfigController::class, 'redirect']);
+    // OAuth callback tetap publik dan wajib memvalidasi state.
     //Route::get('/xero/callback', [ConfigController::class, 'callback']);
     Route::post('/create-data', [ContactController::class, 'createContact']);
 
@@ -226,7 +228,7 @@ Route::prefix("xero-integrasi")->group(function () {
 
 });
 
-Route::prefix("admin-web")->group(function () {
+Route::middleware(['auth:sanctum'])->prefix("admin-web")->group(function () {
     Route::get('/get-invoice-local', [XeroSyncInvoicePaidController::class, 'getAllInvoiceLocal'])->name('list-invoice-select2');//untuk select2 approved
     Route::get('/get-item-byinvoice', [XeroSyncInvoicePaidController::class, 'getDetaPaketByInvoice'])->name('get-item-byinvoice');//multi
     Route::get('/get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-select2');
@@ -234,7 +236,7 @@ Route::prefix("admin-web")->group(function () {
     Route::get('/get-paket-filterby-invoice', [XeroSyncInvoicePaidController::class, 'getPaketByUuuidInvoice'])->name('get-paket-filterby-invoice');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
     Route::get('/getInvoicesAll', [InvoicesController::class, 'getInvoicesAll'])->name('list-invoice-web');
-    Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->name('xero-list-invoice');// LIST
+    Route::get('list-transaksi', [XeroTransaksiController::class, 'listTransaksi'])->middleware('auth:sanctum')->name('xero-list-invoice');// LIST
 
 
     //base xero data
@@ -575,6 +577,7 @@ Route::post('/mekari-webhook', [MekariWaTestController::class, 'sendTest']);//me
 
 
 
+Route::middleware('auth:sanctum')->group(function () {
 //payment
 //new
 Route::get('/getPaidPayment/{idPayment}', [PaymentController::class, 'getPaidPayment']);
@@ -632,8 +635,9 @@ Route::prefix("master-data")->group(function () {
             Route::post('/search-village', [LocationVillageController::class, 'SearchVillage'])->name('SearchVillage');
             Route::post('/getVillageById', [LocationVillageController::class, 'getVillageById'])->name('getVillageById');
         });
-        Route::get('/log-history/get-data', [LogHistoryController::class, 'getData'])->name('log-history.getdata');
+Route::get('/log-history/get-data', [LogHistoryController::class, 'getData'])->name('log-history.getdata');
     });
 
 
+});
 });

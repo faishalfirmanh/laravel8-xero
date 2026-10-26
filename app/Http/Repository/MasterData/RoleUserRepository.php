@@ -43,7 +43,11 @@ class RoleUserRepository extends BaseRepository
     // semua paginate / list yang ada searchnya. kalau tanpa relasi dan cuma 1 kolom
     public function searchData($where = array(), $per_page = 10, $offset = 1, $search_column = "", $keyword = "", $modelWith = [])
     {
-        $data = $this->model->with($modelWith)->where($where)->offset($offset)->limit($per_page)->whereRaw("LOWER($search_column) like '%" . $keyword . "%'")->paginate($per_page);
+        $search_column = (string) $search_column;
+        if (!preg_match('/^[A-Za-z0-9_.]+$/', $search_column)) {
+            return $this->model->whereRaw('1 = 0')->paginate($per_page);
+        }
+        $data = $this->model->with($modelWith)->where($where)->offset($offset)->limit($per_page)->whereRaw('LOWER(' . $search_column . ') LIKE ?', ['%' . mb_strtolower($keyword) . '%'])->paginate($per_page);
         return $data;
     }
 }

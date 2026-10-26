@@ -146,7 +146,7 @@ class UserController extends Controller
 
         $request->merge(['password' => Hash::make($request->password)]);
 
-        $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
+        $saved = $this->repo->CreateOrUpdate($validator->validated(), $request->id);
         return $this->autoResponse($saved);
     }
 

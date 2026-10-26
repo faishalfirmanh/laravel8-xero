@@ -1,0 +1,32 @@
+LAPORAN PERBAIKAN — laravel8-xero | Tanggal: 26 Oktober 2026
+
+1. RINGKASAN
+Selesai: 6. Sebagian: 2. Ditunda: 1.
+File diubah: .env.example; routes/api.php; routes/web.php; app/Http/Controllers/AuthController.php; app/Http/Controllers/MasterData/CoaController.php; app/Http/Controllers/MasterData/TravelController.php; app/Http/Controllers/UserController.php; app/Http/Kernel.php; app/Http/Middleware/XssSanitization.php; app/Http/Middleware/SecurityHeaders.php; app/Http/Repository/BaseRepository.php; app/Http/Repository/MasterData/RoleUserRepository.php; config/cors.php; config/sanctum.php; public/uploads/.htaccess.
+
+2. PER TEMUAN
+S-01 | SEBAGIAN | routes/api.php: upload dan proteksi route; public/uploads/.htaccess:1 | Endpoint upload diletakkan di grup autentikasi yang ada dan folder upload diberi penolakan eksekusi skrip. PHP2Shell runtime tidak dapat diperbaiki dari aplikasi. | Perlu tindakan hosting; file lama tidak dipindah. | php -l lulus; route:list lulus.
+S-02 | SELESAI | routes/api.php:98-106, 110-158, 229-239, 571-639; routes/web.php:145-146 | Register dihapus, login diberi throttle, endpoint Xero dan mutasi root/admin diberi Sanctum. Webhook dan callback OAuth tetap publik sesuai keputusan. | Berpotensi memutus klien eksternal yang memanggil route mutasi tanpa Bearer. | php -l lulus; route:list lulus.
+S-03 | SEBAGIAN | public/uploads/.htaccess:1 | Perlindungan eksekusi file lama ditambahkan. Refactor penuh dua alur upload ke disk privat dan route unduh belum dilakukan karena struktur metadata file lama hanya berupa nama/path publik dan belum ada model penyimpanan file yang aman untuk identifier. | URL upload lama tetap dipakai; perubahan penuh membutuhkan keputusan/skema metadata. | php -l lulus untuk file PHP terkait; route:list lulus.
+S-04 | SELESAI | app/Http/Controllers/AuthController.php:35-42, 148-164; config/sanctum.php:49; .env.example:6-9 | Login membuat satu token dengan expiry 720 menit; logout menghapus token aktif saja. | Token lama tanpa expiry tetap valid sampai dicabut manual. | php -l lulus.
+S-05 | SELESAI | app/Http/Middleware/XssSanitization.php:22-50 | Null-safe, hanya memproses string, dan mengecualikan field kredensial. Ditambahkan komentar bahwa middleware bukan pengganti validasi/output escaping. | Perilaku sanitasi data string tetap ada; file upload tidak diproses oleh walk recursive. | php -l lulus.
+S-06 | SELESAI | app/Http/Repository/BaseRepository.php:141-145; app/Http/Repository/MasterData/RoleUserRepository.php:46-50 | Keyword memakai binding dan identifier divalidasi regex defensif. | Kolom pencarian dengan nama tidak valid menghasilkan data kosong. | php -l lulus.
+S-07 | SELESAI | routes/api.php:98-106 | Register publik dihapus, extract-text wajib Sanctum dan throttle 30/menit. | Klien OCR harus mengirim Bearer. | php -l lulus; route:list lulus.
+S-08 | SELESAI | app/Http/Controllers/UserController.php:149; app/Http/Controllers/MasterData/CoaController.php:69; app/Http/Controllers/MasterData/TravelController.php:75 | Persistensi endpoint yang diaudit memakai data tervalidasi; field internal dibuat server-side. | Field tambahan yang sebelumnya ikut request tidak lagi dipersist. | php -l lulus.
+S-09 | SELESAI | config/cors.php:20-23; app/Http/Middleware/SecurityHeaders.php:1; app/Http/Kernel.php:24 | CORS berbasis env dengan default kompatibel, metode dibatasi, dan security headers global ditambahkan tanpa CSP. | Isi CORS tetap wildcard sampai env diisi pemilik. | php -l lulus; route:list lulus.
+
+3. DITUNDA & ALASAN
+- S-03: model/kolom kepemilikan dan metadata file privat tidak jelas; jangan mengarang ownership atau skema.
+- Audit Blade `{!!` terhadap data pengguna tidak menemukan kebutuhan perubahan yang jelas; tidak diubah.
+
+4. TINDAKAN MANUAL SETELAH DEPLOY
+- Backup file dan DB sebelum deploy.
+- Isi env server: CORS_ALLOWED_ORIGINS, SANCTUM_EXPIRATION=720, dan WEB_HOOK_XERO bila digunakan.
+- Setelah backup DB, cabut token lama tanpa expiry dari personal_access_tokens.
+- Jalankan config:clear, route:clear, cache:clear bila aplikasi memakai cache.
+- Uji login, logout, route upload/unduh, webhook valid (200) dan signature salah (401), serta OAuth Xero.
+- Audit public/uploads lama untuk file PHP atau file mencurigakan.
+- Minta hosting patch PHP2Shell, restart PHP-FPM/Apache, dan pasang WAF/batas multipart bila tersedia.
+
+5. YANG TIDAK DIUBAH & MASIH BERISIKO
+PHP runtime/PHP2Shell, file lama public/uploads, dan refactor metadata upload privat belum diubah. Token lama tanpa expiry juga masih berisiko sampai dicabut manual.

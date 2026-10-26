@@ -72,7 +72,9 @@ class TravelController extends Controller
             return $this->error($validator->errors(), 400);
         }
         $request['created_by'] = $request->user_login->id;
-        $saved = $this->repo->CreateOrUpdate($request->all(), $request->id);
+        $payload = $validator->validated();
+        $payload['created_by'] = $request->user_login->id;
+        $saved = $this->repo->CreateOrUpdate($payload, $request->id);
 
         $cek_konidis = $request->id != null ? 'update ' : 'create ';
         $this->service_global->saveLogHistory(

@@ -32,14 +32,13 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $expired_at = Carbon::now()->addHours(5);//Carbon::now()->addDay();
-        $tokenResult = $user->createToken('auth_token', ['*'], $expired_at);
+        $expired_at = Carbon::now()->addMinutes(720);
 
         // Hapus token lama (opsional, agar 1 device 1 token)
         // $user->tokens()->delete();
 
         // Buat Token Baru
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token', ['*'], $expired_at)->plainTextToken;
 
         $role_users = RoleUsers::where('user_id', $user->id)->pluck('role_id');
         $roles_menu = RoleMenus::whereIn('role_id', $role_users)->pluck('menu_id');
@@ -110,41 +109,6 @@ class AuthController extends Controller
         ]);
     }
 
-    public function register(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed', // 'confirmed' butuh field 'password_confirmation'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Validasi Gagal',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        // 2. Buat User Baru
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password), // Wajib di-Hash!
-        ]);
-
-        // 3. (Opsional) Langsung buat token agar user tidak perlu login ulang
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Registrasi Berhasil',
-            'data' => $user,
-            'access_token' => $token,
-            'token_type' => 'Bearer'
-        ], 201);
-    }
-
     public function logout(Request $request)
     {
         $user = $request->user();
@@ -156,11 +120,11 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user->tokens()->delete();
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Logout dari semua device berhasil'
+            'message' => 'Logout berhasil'
         ]);
     }
 
