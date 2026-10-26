@@ -551,9 +551,10 @@ class InvXeroController extends Controller
                     $validator->errors()->add("qty.$i", "$rowLabel: Qty wajib diisi dan lebih dari 0.");
                 }
 
-                if ($price === null || $price === '' || (float) $price <= 0) {
-                    $validator->errors()->add("unit_price.$i", "$rowLabel: Harga wajib diisi dan lebih dari 0.");
-                }
+                //boleh minus
+                // if ($price === null || $price === '' || (float) $price <= 0) {
+                //     $validator->errors()->add("unit_price.$i", "$rowLabel: Harga wajib diisi dan lebih dari 0.");
+                // }
 
                 if (empty($coa)) {
                     $validator->errors()->add("coa_id.$i", "$rowLabel: Account (COA) wajib dipilih.");
