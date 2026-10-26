@@ -357,6 +357,8 @@ Route::prefix("admin-web")->group(function () {
             Route::get('paket-umroh/options', [PaketUmrohController::class, 'options'])->name('paket-umroh.options');
             Route::get('paket-umroh', [PaketUmrohController::class, 'index'])->name('paket-umroh.index');
             Route::post('paket-umroh', [PaketUmrohController::class, 'store'])->name('paket-umroh.store');
+            Route::post('paket-umroh/{id}/itenari', [PaketUmrohController::class, 'updateItenari'])
+                ->name('update-file-itenary');
             Route::get('paket-umroh/{id}', [PaketUmrohController::class, 'show'])
                 ->where('id', '[0-9]+')->name('paket-umroh.show');
             Route::match(['put', 'post'], 'paket-umroh/{id}', [PaketUmrohController::class, 'update'])

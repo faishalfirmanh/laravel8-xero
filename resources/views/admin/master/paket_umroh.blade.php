@@ -549,6 +549,53 @@
         </div>
     </div>
 </div>
+
+
+{{-- ================= MODAL UPDATE ITINERARY ================= --}}
+<div class="modal fade" id="modalItenari" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title">Update Itinerary</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+
+            <form id="formItenari">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="small font-weight-bold">Nama Paket</label>
+                        <input type="text" class="form-control" id="it_nama_paket" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="small font-weight-bold">
+                            File Itinerary (PDF, maks 5 MB) <span class="text-danger">*</span>
+                        </label>
+                        <input type="file" class="form-control-file" id="it_file" accept="application/pdf" required>
+                        <small class="text-muted">File lama akan diganti (juga di Halal Go bila paket sudah terkirim).</small>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small font-weight-bold" id="it_preview_label"></span>
+                        <a id="it_link" href="#" target="_blank" rel="noopener" class="small" style="display:none;">
+                            Buka di tab baru
+                        </a>
+                    </div>
+                    <iframe id="it_preview" src="about:blank"
+                            style="display:none;width:100%;height:420px;border:1px solid #dee2e6;"></iframe>
+                    <div id="it_empty" class="alert alert-light border small mb-0">Belum ada file itinerary.</div>
+                </div>
+
+                <div class="modal-footer bg-white">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm font-weight-bold" id="btnSaveItenari">
+                        <i class="ti ti-upload mr-1"></i> Simpan Itinerary
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -562,6 +609,7 @@ const paketRoutes = {
     destroy        : "{{ route('paket-umroh.destroy', ['id' => '__ID__']) }}",
     options        : "{{ route('paket-umroh.options') }}",
     saveMasterHotel: "{{ route('saveMasterHotel') }}",
+    updateItenari  : "{{ route('update-file-itenary', ['id' => '__ID__']) }}", 
 };
 
 // ── Download tabel sebagai gambar HD ──
@@ -793,6 +841,13 @@ function renderRows(rows) {
                             data-filled="${p.filled_slot}"
                             title="Add Jamaah">
                         <i class="ti ti-users"></i>
+                    </button>
+                    <button type="button" class="btn btn-xs btn-secondary btn-update-itenari"
+                            data-id="${p.id}"
+                            data-name="${esc(p.nama_paket)}"
+                            data-itinerary="${esc(p.itinerary)}"
+                            title="Update Itinerary">
+                        <i class="ti ti-file-type-pdf"></i>
                     </button>
                     <button type="button" class="btn btn-xs btn-warning btn-edit-paket" data-id="${p.id}" title="Edit">
                         <i class="ti ti-pencil"></i>
@@ -1431,6 +1486,107 @@ $('#formPindah').on('submit', async function (e) {
         $btn.prop('disabled', false);
     }
 });
+
+// ── Update Itinerary ──
+let itenariPaketId   = null;
+let itenariCurrentUrl = '';
+let itenariBlobUrl   = null;
+
+function setItenariPreview(src, label) {
+    if (src) {
+        $('#it_preview').attr('src', src).show();
+        $('#it_empty').hide();
+    } else {
+        $('#it_preview').attr('src', 'about:blank').hide();
+        $('#it_empty').show();
+    }
+    $('#it_preview_label').text(label || '');
+}
+
+function releaseItenariBlob() {
+    if (itenariBlobUrl) {
+        URL.revokeObjectURL(itenariBlobUrl);
+        itenariBlobUrl = null;
+    }
+}
+
+$(document).on('click', '.btn-update-itenari', function () {
+    itenariPaketId    = $(this).data('id');
+    itenariCurrentUrl = String($(this).attr('data-itinerary') || '');
+
+    releaseItenariBlob();
+    $('#formItenari')[0].reset();
+    $('#it_nama_paket').val($(this).attr('data-name'));
+
+    if (itenariCurrentUrl) {
+        setItenariPreview(itenariCurrentUrl, 'File saat ini');
+        $('#it_link').attr('href', itenariCurrentUrl).show();
+    } else {
+        setItenariPreview(null);
+        $('#it_link').hide();
+    }
+
+    $('#modalItenari').modal('show');
+});
+
+// Pratinjau file baru sebelum disimpan
+$('#it_file').on('change', function () {
+    releaseItenariBlob();
+    const f = this.files[0];
+
+    if (!f) {
+        // batal pilih -> kembali ke file lama
+        setItenariPreview(itenariCurrentUrl || null, itenariCurrentUrl ? 'File saat ini' : '');
+        return;
+    }
+    if (f.type !== 'application/pdf') {
+        Swal.fire('Peringatan', 'File harus berformat PDF.', 'warning');
+        this.value = '';
+        return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+        Swal.fire('Peringatan', 'Ukuran file maksimal 5 MB.', 'warning');
+        this.value = '';
+        return;
+    }
+
+    itenariBlobUrl = URL.createObjectURL(f);
+    setItenariPreview(itenariBlobUrl, 'File baru (belum disimpan)');
+});
+
+$('#modalItenari').on('hidden.bs.modal', function () {
+    releaseItenariBlob();
+    setItenariPreview(null);
+});
+
+$('#formItenari').on('submit', async function (e) {
+    e.preventDefault();
+
+    const file = $('#it_file')[0].files[0];
+    if (!file) {
+        Swal.fire('Peringatan', 'Pilih file PDF itinerary terlebih dahulu.', 'warning');
+        return;
+    }
+
+    const data = new FormData();
+    data.append('itinerary', file);   // nama_paket disabled & tidak ikut dikirim
+
+    const $btn = $('#btnSaveItenari').prop('disabled', true);
+
+    try {
+        const url = paketUrl(paketRoutes.updateItenari, itenariPaketId);
+        const res = await ajaxRequest(url, 'POST', data, token());
+
+        $('#modalItenari').modal('hide');
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data.message, timer: 2000, showConfirmButton: false });
+        loadPaket(1);
+    } catch (err) {
+        cathError(err);
+    } finally {
+        $btn.prop('disabled', false);
+    }
+});
+
 $(async function () {
     await loadOptions();
     loadPaket(1);
