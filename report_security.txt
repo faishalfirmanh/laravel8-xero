@@ -1,0 +1,149 @@
+LAPORAN KEAMANAN — laravel8-xero (Laravel 8 / PHP runtime belum terverifikasi; Composer mengizinkan PHP 7.3–8.5)
+Tanggal: 26 Oktober 2026 | Mode: read-only static review | Scope: /working/annamiro/laravel8-xero
+
+Catatan cakupan: tinjauan statis berdasarkan source/config/routing. Tidak menjalankan aplikasi, exploit, perintah PHP/server, database, atau composer audit. Referensi CVE PHP2Shell dan versi perbaikan di bawah adalah konteks yang diberikan dalam permintaan; advisory php.net tidak diverifikasi dalam sesi ini. Path yang dikutip relatif terhadap root project.
+
+1. RINGKASAN EKSEKUTIF
+Risiko keseluruhan: KRITIS (risiko aplikasi terkonfirmasi tinggi; risiko runtime PHP2Shell bersyarat pada runtime/SAPI).
+- Banyak endpoint API termasuk operasi mutasi finansial/Xero tidak berada di grup auth:sanctum; contohnya routes/api.php:114-118, 127-145, 197-205, 571-590.
+- Middleware XssSanitization menjalankan strip_tags pada seluruh input sebelum controller, tidak mengamankan output dan juga melakukan dereference user di luar jalur auth; app/Http/Middleware/XssSanitization.php:24-40.
+- Login menciptakan dua token Sanctum dan token yang dipakai response tidak diberi expiry; app/Http/Controllers/AuthController.php:35-43.
+- File diunggah ke public webroot, dan upload bill menerima file ID tanpa bukti kepemilikan; routes/api.php:288, 313; app/Http/Controllers/Transaction/Expenses/BillXeroController.php:236-303.
+- SQL raw di repository menggabungkan kolom dan keyword tanpa binding pada BaseRepository/RoleUserRepository; app/Http/Repository/BaseRepository.php:141; app/Http/Repository/MasterData/RoleUserRepository.php:46.
+Jumlah temuan: Kritis 1, Tinggi 5, Sedang 3, Rendah 0.
+Tiga tindakan paling dulu:
+1) Batasi seluruh route operasi sensitif ke auth:sanctum dan otorisasi objek/role yang benar; isolasi endpoint mutasi yang terpublikasi.
+2) Verifikasi dan patch PHP web SAPI (PHP2Shell bila versi terdampak), terapkan WAF dan batas multipart/upload pada proxy.
+3) Hentikan eksposur upload dari webroot yang dapat dieksekusi, audit file upload yang sudah ada, dan gunakan nama/penyimpanan privat.
+
+2. ASSESSMENT PHP2Shell
+Versi/SAPI simpulan: composer.json:11 mensyaratkan rentang ^7.3|^7.4|^8.0–^8.5, tanpa config.platform; tidak mengunci runtime. Tidak ada Dockerfile/docker-compose atau konfigurasi web server/deploy yang ditemukan. public/.htaccess:1-21 hanya rewrite; tidak ada AddHandler/php_value/php_flag. Maka PHP web runtime dan SAPI TIDAK DAPAT DISIMPULKAN. Keyakinan atas ketidakpastian: tinggi; kemungkinan berjalan pada PHP 7.4 hanya asumsi berdasarkan judul proyek.
+Permukaan multipart/upload terkonfirmasi:
+- POST /api/extract-text, tanpa auth pada routes/api.php:106; validasi gambar max 2 MB di app/Http/Controllers/GlobalExternal/ImageController.php:13-21.
+- POST /api/admin-web/travel/transaksi/purchase/bills/uploadImage dan .../sales/invoice/uploadImage berada dalam auth:sanctum + role.menu menurut grup routes/api.php:241-242, 277-290, 297-315.
+- POST /api/admin-web/travel/paket-umroh/paket-umroh (create/update multipart) berada dalam grup auth:sanctum di routes/api.php:241, 356-364; validasi upload harus dicermati pada rules di controller.
+- Unggahan invoice/bill ditulis ke public/uploads pada app/Http/Controllers/Transaction/Sales/InvXeroController.php:1618-1643 dan app/Http/Controllers/Transaction/Expenses/BillXeroController.php:236-303.
+Indikator kompromi statis: hanya public/index.php terdaftar sebagai PHP di public/; pencarian signature eval/base64_decode/gzinflate/str_rot13/system/shell_exec/passthru/proc_open/popen di public/*.php tidak menemukan hit. Bukan bukti host bebas kompromi dan bukan pemeriksaan storage/upload karena dikecualikan dari scope pencarian.
+Rekomendasi:
+(a) Darurat: jika host memakai runtime terdampak, pasang backport source resmi PHP 7.4 (atau paket vendor tepercaya), WAF, validasi/batas multipart di reverse proxy; restart PHP-FPM/Apache, worker dan queue. Risiko sisa tinggi sebelum patch; usaha sedang/tinggi karena build dan uji runtime.
+(b) Jangka pendek: uji migrasi ke PHP 8.3/8.4; composer.lock menetapkan Laravel v8.83.29 (composer.lock:1680-1681), sehingga kompatibilitas framework/dependensi/legacy perlu uji menyeluruh. Risiko sedang; usaha tinggi. Hindari memilih PHP 8.2 yang mendekati EOL 31 Des 2026 sesuai konteks tugas.
+(c) Jangka menengah: upgrade Laravel 8 yang EOL secara bertahap ke versi didukung dan pindahkan runtime ke cabang PHP aktif. Risiko jangka panjang turun; usaha sangat tinggi.
+
+3. ANALISIS MIDDLEWARE
+3.1 XssSanitization
+Cara kerja: mengambil $request->all() lalu array_walk_recursive dan menerapkan strip_tags pada setiap nilai non-null (app/Http/Middleware/XssSanitization.php:24-30). Tidak menggunakan HTMLPurifier, regex, maupun htmlspecialchars. Ini memodifikasi input sebelum controller menyimpan/memproses, bukan escaping saat output. Array nested diproses; bukan header/file upload; cakupan query/body bergantung perilaku Request::all(). Scalar numerik/bool dapat terkonversi menjadi string oleh strip_tags. Tidak ada kebijakan rich text/allowlist HTML. `strip_tags` bukan sanitizer kontekstual; teks bisa tetap berbahaya saat dipakai dalam atribut/JS/URL, dan dapat merusak payload bisnis. Tidak melindungi SQLi, mass assignment, traversal, SSRF, atau command injection.
+Middleware menambahkan user/menu ke request dan memanggil `$user->id` tanpa pemeriksaan null (baris 25, 31-39); jika digunakan tanpa guard sebelumnya dapat memicu error. Middleware hanya terpasang pada sebagian route dalam routes/api.php:100 dan grup 241, 455, 481, 518; banyak route publik/di luar grup lolos. Saran: hilangkan sanitasi universal, validasi allowlist per field melalui FormRequest; simpan data asli yang valid dan escape di output dengan konteks (Blade `{{ }}` / encoding tepat); HTML kaya gunakan sanitizer khusus allowlist.
+
+3.2 Authenticate
+Guard default `web` menggunakan session dan provider Eloquent; guard `api` adalah token legacy dengan hash=false, sedangkan aplikasi memakai Sanctum untuk API (config/auth.php:16-48; app/Models/User.php:9,16). `Authenticate::redirectTo()` mengembalikan route login saat bukan JSON dan null untuk expectsJson (app/Http/Middleware/Authenticate.php:15-20); Handler mengembalikan 401 JSON untuk exception (app/Exceptions/Handler.php:29-40).
+Rute sensitif yang jelas lolos autentikasi: kelompok route Xero integrasi seluruhnya tanpa auth pada routes/api.php:127-227 (mencakup create/update/delete invoice, payment dan sinkronisasi); operasi bank/payment pada routes/api.php:580-595; operasi mutasi tambahan di routes/api.php:114-118; seluruh UI/admin routes web.php:36-147; serta public upload OCR routes/api.php:106. Peta route yang lebih luas: route grup ber-auth dimulai di routes/api.php:241, 455, 481 dan 518; route API di luar grup tersebut belum dilindungi kecuali rute individual yang memakai auth.
+Token: login membuat token #1 dengan expiry 5 jam lalu mengabaikan hasilnya; membuat token #2 tanpa expiry dan mengembalikan token #2 (AuthController.php:35-43, 102-109). Logout menghapus semua token pengguna, bukan hanya token aktif (baris 148-164). Sanitasi terkait bisa melaporkan expiry yang tidak berlaku untuk token aktual. Sanctum menyimpan hash token di tabel token secara default (butuh verifikasi dependency/schema/runtime); ini tidak mengatasi token tak terbatas. Login tidak terlihat diberi throttle spesifik; API global 60/minute pada app/Providers/RouteServiceProvider.php:48-50. Pesan login generik (AuthController.php:28-32), password memakai bcrypt (config/hashing.php:18,31-33), `$hidden` menyembunyikan password/remember_token (User.php:36-39). Register terbuka dan membuat token tanpa expiry (routes/api.php:98-99; AuthController.php:113-145). Model session secure bergantung env dan tidak eksplisit httponly/samesite perlu verifikasi config lengkap/server; config/session.php:171.
+Otorisasi: role.menu middleware hanya ada pada sebagian kelompok. Bukan pengganti Policy/Gate/ownership per objek; endpoint finansial tanpa auth lebih kritis. Penggunaan request ID perlu scope kepemilikan/tenant dan Policy; tidak ada bukti Policy/Gate di rute yang ditinjau. Saran: tutup seluruh route admin/mutasi, terapkan ability/Policy per objek dan role, throttle login/register, expiry pada token aktual, revoke token aktif saat logout serta semua token saat reset password.
+
+3.3 Arsitektur pengganti berlapis
+FormRequest/validator allowlist per endpoint; Policy/Gate dan filter tenant/owner pada query; escaping output berbasis konteks; API Resource + `$hidden`; throttle login/reset/register; CSP dan header keamanan di proxy/aplikasi; file privat di luar webroot dengan MIME/ukuran/decoder check. Jangan mengandalkan satu filter input untuk semua serangan.
+
+4. DAFTAR TEMUAN (urut severity)
+
+[S-01] Paparan PHP2Shell pada runtime belum diketahui — Kritis (CVSS perkiraan 9.8 jika runtime terdampak dan web SAPI terekspos) — CWE-1104 / OWASP A06
+Lokasi : composer.json:11; public/.htaccess:1-21
+Bukti  : Composer mengizinkan ^7.3 hingga ^8.5, tanpa runtime pin; SAPI tidak ditetapkan oleh file scope.
+Dampak : Jika host menggunakan versi rentan, request multipart dapat mencapai jalur runtime sebelum middleware Laravel. Status terpapar belum terkonfirmasi karena tidak ada bukti versi/SAPI aktual.
+Perbaikan: verifikasi binary web; pasang patch/backport resmi/vendor, restart seluruh proses PHP; tambah WAF dan batas body/upload pada proxy sebagai mitigasi.
+Usaha  : Tinggi
+
+[S-02] Operasi sensitif Xero dan finansial tanpa autentikasi — Tinggi (CVSS 9.1 perkiraan) — CWE-306 / OWASP API5:2023
+Lokasi : routes/api.php:114-118, 127-145, 149-205, 571-590
+Bukti  : Route mutasi `delete-invoice-byuuid`, `create-payment`, `updateDeletedPayment` didaftarkan tanpa middleware auth.
+Dampak : Pemanggil anonim berpotensi menjalankan operasi data/finansial dan mengakses data invoice/payment; otorisasi lanjutan controller belum terbukti memadai. Perlakukan sebagai BFLA sampai kontrol eksplisit dibuktikan.
+Perbaikan: pindahkan ke grup auth:sanctum; pasang Policy/ability khusus untuk aksi berisiko dan throttle; nonaktifkan endpoint testing/sync publik.
+Usaha  : Sedang
+
+[S-03] Upload ke webroot publik tanpa kontrol eksekusi/otorisasi kuat — Tinggi (CVSS 8.1 perkiraan) — CWE-434 / OWASP API8:2023
+Lokasi : routes/api.php:106, 288, 313; app/Http/Controllers/GlobalExternal/ImageController.php:13-21; app/Http/Controllers/Transaction/Expenses/BillXeroController.php:236-303; app/Http/Controllers/Transaction/Sales/InvXeroController.php:1618-1684
+Bukti  : file upload invoice disimpan di `public/uploads/...`; ekstensi PDF dipilih dari MIME atau ekstensi asli (InvXeroController.php:1677-1684).
+Dampak : File dapat diakses publik; jika server menjalankan skrip dalam direktori upload, risiko eksekusi kode meningkat. Upload bill mengaitkan bill_id tanpa validasi kepemilikan/otorisasi objek pada fungsi upload yang terlihat.
+Perbaikan: simpan di disk privat di luar webroot, nama acak server-side, validasi konten/MIME/ukuran dan ownership; sajikan melalui controller otorisasi; konfigurasi web server menolak eksekusi upload.
+Usaha  : Sedang
+
+[S-04] Login mengembalikan token Sanctum tanpa expiry — Tinggi (CVSS 7.5 perkiraan) — CWE-613 / OWASP API2:2023
+Lokasi : app/Http/Controllers/AuthController.php:35-43, 102-109, 137
+Bukti  : Token bermasa 5 jam dibuat pada baris 36, namun token baru tanpa expiry dibuat dan dipakai pada baris 42.
+Dampak : Token aktual dapat tetap valid sampai dicabut; batas 5 jam yang dikirim ke klien tidak sesuai dengan token. Register juga membuat token tanpa expiry.
+Perbaikan: buat satu token saja dengan expiry dan kembalikan objek/token itu; tetapkan expiry global Sanctum dan revoke token aktif saat logout.
+Usaha  : Rendah
+
+[S-05] Middleware XSS merusak input tetapi tidak meng-escape output; cakupan tidak menyeluruh — Tinggi (CVSS 7.1 perkiraan) — CWE-79 / OWASP A03:2021
+Lokasi : app/Http/Middleware/XssSanitization.php:24-41; app/Http/Kernel.php:42-47, 56-69; routes/api.php:100, 241-242, 455-456, 481-482, 518-519
+Bukti  : Nilai input recursive diproses `strip_tags` sebelum `$next`; hanya rute terpilih memakai `xss`.
+Dampak : Bypass XSS kontekstual tetap mungkin bila data tak di-escape saat render, sementara input valid dapat berubah/tipe menjadi string. Developer dapat mengira SQLi atau serangan lain sudah tertangani padahal tidak.
+Perbaikan: hapus sanitasi generik; gunakan validasi per field dan escaping kontekstual saat render; audit rich text dengan sanitizer allowlist.
+Usaha  : Sedang
+
+[S-06] SQL raw menyisipkan keyword dan nama kolom ke SQL — Tinggi (CVSS 8.1 jika input dapat dikendalikan; validasi kolom belum cukup dibuktikan) — CWE-89 / OWASP A03:2021
+Lokasi : app/Http/Repository/BaseRepository.php:139-142; app/Http/Repository/MasterData/RoleUserRepository.php:43-47
+Bukti  : `whereRaw("LOWER($search_column) like '%" . $keyword . "%'")` menyatukan variabel ke query.
+Dampak : Keyword dapat menyuntikkan sintaks SQL karena tidak dibind; nama kolom dinamis juga merupakan identifier dan memerlukan allowlist. Route pemanggil dan validasinya perlu diperiksa sebelum memastikan eksploitabilitas.
+Perbaikan: gunakan `whereRaw('LOWER(column) LIKE ?', ['%'.strtolower($keyword).'%'])`; kolom harus dipilih dari map statis, bukan request.
+Usaha  : Rendah
+
+[S-07] Endpoint register publik dapat membuat akun dan token — Sedang (CVSS 6.5 perkiraan; bergantung kebijakan pendaftaran) — CWE-306 / OWASP API2:2023
+Lokasi : routes/api.php:98-100; app/Http/Controllers/AuthController.php:113-145
+Bukti  : `/register` tidak diberi auth/throttle dan sukses mengeluarkan access token.
+Dampak : Pihak anonim dapat membuat akun; bila akun otomatis memperoleh role/akses lewat konfigurasi atau seed, potensi eskalasi perlu ditinjau. Peran/akses default belum terkonfirmasi.
+Perbaikan: tutup pendaftaran publik atau terapkan invite/email verification, throttle, role minimum eksplisit dan proses provisioning terkontrol.
+Usaha  : Rendah
+
+[S-08] Operasi mass assignment meneruskan seluruh request ke repository — Sedang (CVSS 6.5 perkiraan; dampak tergantung fillable/model) — CWE-915 / OWASP API3:2023
+Lokasi : app/Http/Controllers/UserController.php:131-150; app/Http/Controllers/MasterData/CoaController.php:43-69; app/Http/Controllers/MasterData/TravelController.php:38-75; app/Http/Repository/BaseRepository.php: (method CreateOrUpdate perlu audit lanjut)
+Bukti  : UserController memanggil `CreateOrUpdate($request->all(), $request->id)` sesudah validasi hanya name/email/password.
+Dampak : Data tambahan yang tidak tervalidasi dapat mencapai lapisan persistensi; eksploitasi mass assignment tergantung implementasi repository dan `$fillable`. Role dan relasi user berisiko tinggi untuk diperiksa.
+Perbaikan: persistensikan hanya `$validator->validated()`/`$request->only([...])`; buat field role/admin hanya melalui alur otorisasi terpisah.
+Usaha  : Sedang
+
+[S-09] CORS mengizinkan semua origin (meski credentials false) — Rendah (CVSS 4.3 perkiraan) — CWE-942 / OWASP A05:2021
+Lokasi : config/cors.php:18-32
+Bukti  : `allowed_origins` dan `allowed_methods` bernilai `*`; `supports_credentials` false.
+Dampak : Situs lintas origin dapat membaca response API yang tidak memerlukan credentials/token cookie; bearer-token tidak otomatis terkirim cross-origin oleh browser. Dampak bergantung endpoint publik dan kebijakan token.
+Perbaikan: batasi origin/method/header ke frontend resmi; pertahankan credentials false kecuali kebutuhan dan proteksi CSRF telah dipastikan.
+Usaha  : Rendah
+
+5. ROADMAP PERBAIKAN
+P0 (hari ini–3 hari)
+- S-01: minta admin memastikan versi/SAPI web; bila terdampak, pasang patch/backport segera, WAF dan batas multipart; restart PHP/worker.
+- S-02: blokir sementara endpoint mutasi publik atau wajibkan Sanctum + otorisasi yang teruji.
+- S-03: cegah eksekusi script pada upload dan audit isi upload dari sisi admin; pindahkan penyimpanan baru ke privat.
+P1 (minggu ini)
+- S-04: perbaiki lifecycle expiry/revoke token; throttle login/register; putuskan kebijakan register (S-07).
+- S-06: perbaiki raw query dan allowlist identifier; audit pemanggil repository.
+- S-05: hapus ekspektasi XSS filter sebagai kontrol keamanan, ganti escaping output.
+P2 (bulan ini)
+- S-08: audit seluruh `$request->all()`/CreateOrUpdate, FormRequest, ownership/tenant, API Resource dan Policy.
+- S-09: batasi CORS dan tambahkan CSP, nosniff, HSTS, Referrer-Policy melalui konfigurasi server/aplikasi.
+P3 (jangka panjang)
+- S-01: upgrade runtime ke PHP 8.3/8.4 setelah validasi kompatibilitas.
+- S-02, S-05, S-08: upgrade bertahap Laravel 8 EOL ke versi framework yang didukung.
+
+6. YANG SUDAH BAIK
+- Rute API mendapat throttle default 60 request/menit melalui app/Http/Kernel.php:42-46 dan app/Providers/RouteServiceProvider.php:48-50.
+- Password memakai bcrypt dan dibandingkan menggunakan Hash::check (config/hashing.php:18,31-33; AuthController.php:28,133).
+- Login menggunakan pesan generik untuk email/password salah (AuthController.php:28-32).
+- Model User menyembunyikan password dan remember_token (app/Models/User.php:36-39).
+- Upload OCR memiliki validasi image, MIME dan batas 2 MB (ImageController.php:15-18); upload invoice/bill memiliki validasi tipe/ukuran (InvXeroController.php:1620-1624; BillXeroController.php:239-243).
+- Signature Xero yang aktif perlu ditinjau terpisah; metode validasi signature terlihat pada `handleXeross` (WebhookController.php:83-105), sedangkan route aktif menunjuk `handleXero` (routes/api.php:571-572), jadi laporan ini tidak menganggap validasi tersebut aktif.
+- Tidak ditemukan file PHP public selain front controller atau signature backdoor statis yang dicari. Bukti terbatas pada `public/index.php` dan hasil pencarian statis.
+
+7. TIDAK TERVERIFIKASI & LANGKAH VERIFIKASI MANUAL (di server, oleh admin)
+- Runtime PHP/SAPI aktual, versi patch, binary web yang melayani request, konfigurasi multipart/proxy/WAF, aturan webroot upload, isi folder upload/storage, status kompromi host, permission file, dan apakah endpoint publik memang dibatasi upstream tidak dapat diverifikasi dari source.
+- Advisory resmi php.net untuk CVE-2026-109618/109619 serta status vendor backport tidak diakses dalam sesi ini; verifikasi nomor versi/perbaikan pada advisory/vendor resmi sebelum perubahan.
+- `composer audit` tidak dijalankan karena butuh jaringan; lakukan dari lingkungan terkontrol untuk audit dependency. Laravel 8 sudah EOL; versi lock Laravel v8.83.29 di composer.lock:1680-1681 perlu dievaluasi, tanpa klaim CVE spesifik.
+- Sanctum penyimpanan hash, schema expiry, konfigurasi session lengkap, middleware actual terkompilasi, aturan otorisasi controller, dan dampak mass assignment memerlukan pemeriksaan runtime/schema yang disetujui.
+Perintah admin (jalankan pada server; jangan hanya mengandalkan CLI jika berbeda dari web runtime):
+1. `php -v` — versi CLI; bandingkan dengan runtime web.
+2. `php -m` — inventaris extension yang aktif pada CLI.
+3. `php-fpm -v` atau `php-fpm8.x -v` — versi binary PHP-FPM terpasang.
+4. `apachectl -M | grep -i php` — deteksi modul PHP Apache/mod_php.
+5. `php -i | grep -i "Server API"` — Server API pada CLI; jalankan pemeriksaan setara melalui SAPI web yang sebenarnya.
+6. Pastikan binary/versi PHP yang dipakai web pool/vhost sama dengan binary yang diperiksa; cek konfigurasi service/pool/vhost tanpa mengirim phpinfo publik.
+7. Jalankan `composer audit` dari workstation/CI yang diizinkan jaringan untuk hasil advisory dependency.
+8. Periksa reverse proxy/WAF: batas total request dan multipart, jenis file yang diizinkan, log web/PHP-FPM/Apache, serta daftar file upload dan perubahan file webroot sejak baseline.
