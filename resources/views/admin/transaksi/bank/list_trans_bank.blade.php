@@ -1340,7 +1340,7 @@ $(document).ready(function() {
 
         let $lastRow = $('#itemTable tbody tr:last');
 
-        let cek_spend_for_coa = $("#is_spend").val() == 1 ? 'EXPENSE' : 'REVENUE';
+        let cek_spend_for_coa = $("#is_spend").val() == 1 ? ['EXPENSE','DIRECTCOSTS'] : ['REVENUE','OTHERINCOME'];
 
         // --- ITEM select2 ---
         $lastRow.find('.select2-item').select2({

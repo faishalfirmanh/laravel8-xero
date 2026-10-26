@@ -359,8 +359,10 @@ class HalalGoService
             'hrgperlengkapan' => (float) $paket->hrgperlengkapan,
             // TODO produksi: ganti dua URL dummy ini dengan $paket->imgpaketumroh / $paket->itinerary
             // (harus URL publik; http://127.0.0.1 tidak bisa diakses server Halal Go)
-            'imgpaketumroh' => 'https://drive.google.com/uc?export=download&id=1YPxvOLIIW9ebPx1OLqC-R3GGZA24F4Yt',//$paket->imgpaketumroh ?? '',
-            'itinerary' => 'https://pdfobject.com/pdf/sample.pdf',//$paket->itinerary ?? '',
+            //'https://drive.google.com/uc?export=download&id=1YPxvOLIIW9ebPx1OLqC-R3GGZA24F4Yt',//
+            //'https://pdfobject.com/pdf/sample.pdf',//
+            'imgpaketumroh' => $paket->imgpaketumroh ?? '',
+            'itinerary' => $paket->itinerary ?? '',
             'max_slot' => (int) $paket->max_slot,
             'available_slot' => (int) $paket->available_slot,
             'filled_slot' => (int) $paket->filled_slot,

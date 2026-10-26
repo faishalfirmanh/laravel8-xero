@@ -89,6 +89,70 @@ class PaketUmrohController extends Controller
         return $this->autoResponse($paket);
     }
 
+    // POST /api/paket-umroh/{id}/itenari   (name: update-file-itenary)
+    public function updateItenari(Request $request, $id)
+    {
+        $paket = PaketUmroh::find($id);
+        if (!$paket) {
+            return $this->error('Paket umroh tidak ditemukan', 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'itinerary' => 'required|file|mimes:pdf|max:5120',
+        ], [
+            'itinerary.required' => 'File itinerary (PDF) wajib dipilih',
+            'itinerary.uploaded' => 'File gagal diunggah, cek batas ukuran upload server',
+            'itinerary.mimes' => 'File itinerary harus berformat PDF',
+            'itinerary.max' => 'Ukuran file itinerary maksimal 5 MB',
+        ]);
+        if ($validator->fails()) {
+            return $this->error($validator->errors()->first(), 422);
+        }
+
+        $file = $request->file('itinerary');
+        $service = app(HalalGoService::class);
+
+        // 1) Halal Go lebih dulu: kalau gagal, data lokal belum disentuh
+        $halal = null;
+        if ($service->hasKodePaket($paket)) {
+            $halal = $service->uploadItinerary($paket->random_uuid_paket, $file->getRealPath());
+
+            if (!$halal['ok']) {
+                return $this->error($this->halalErrorMessage($halal) . ' (itinerary belum diubah)', 422);
+            }
+        }
+
+        // 2) Simpan lokal + update kolom itinerary
+        $this->newFiles = [];
+        $oldUrl = $paket->itinerary;
+
+        try {
+            $url = $this->storeItinerary($file);
+            $this->newFiles[] = $url;
+
+            $paket->update(['itinerary' => $url]);
+        } catch (\Throwable $e) {
+            $this->deleteFiles($this->newFiles);
+            Log::error('[PaketUmroh] updateItenari: ' . $e->getMessage(), [
+                'paket_id' => $paket->id,
+                'sudah_terkirim_ke_halal_go' => $halal !== null,
+            ]);
+
+            return $this->error(
+                ($halal ? 'Itinerary sudah terkirim ke Halal Go, tetapi gagal disimpan lokal: ' : '') . $e->getMessage(),
+                422
+            );
+        }
+
+        // 3) File lama dihapus setelah semuanya berhasil
+        $this->deleteFiles([$oldUrl]);
+
+        return $this->success(
+            ['paket' => $this->fresh($paket), 'halal_go' => $halal],
+            $halal ? 'Itinerary berhasil diperbarui dan dikirim ke Halal Go' : 'Itinerary berhasil diperbarui'
+        );
+    }
+
 
     public function store(Request $request)
     {

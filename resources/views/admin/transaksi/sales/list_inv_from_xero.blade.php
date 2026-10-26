@@ -4016,13 +4016,15 @@ function recalcSummary() {
         if (isSAR) {
             const amtIDR = total * kursRate;
             $(this).find('.amount-idr').val(
-                amtIDR > 0 ? Math.round(amtIDR).toLocaleString('id-ID') : ''
+                // amtIDR > 0 ? Math.round(amtIDR).toLocaleString('id-ID') : ''
+               Math.round(total).toLocaleString('id-ID') //support minus
             );
             totalSAR += subtotal;
             totalIDR += amtIDR;
         } else {
             $(this).find('.amount-idr').val(
-                total > 0 ? Math.round(total).toLocaleString('id-ID') : ''
+               // total > 0 ? Math.round(total).toLocaleString('id-ID') : ''
+              Math.round(total).toLocaleString('id-ID')
             );
             totalIDR += total;
         }
@@ -4374,10 +4376,12 @@ function setRowRequiredState($row, isRequired) {
                         hasError = true;
                         errorMessages.push(`Baris ${i + 1}: Qty wajib diisi.`);
                     }
-                    if (!price || Number(price) <= 0) {
-                        hasError = true;
-                        errorMessages.push(`Baris ${i + 1}: Harga wajib diisi.`);
-                    }
+
+                    //disable boleh minus
+                    // if (!price || Number(price) <= 0) {
+                    //     hasError = true;
+                    //     errorMessages.push(`Baris ${i + 1}: Harga wajib diisi.`);
+                    // }
                     if (!account) {
                         hasError = true;
                         errorMessages.push(`Baris ${i + 1}: Account (COA) wajib dipilih.`);

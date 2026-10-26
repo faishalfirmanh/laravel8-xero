@@ -26,6 +26,15 @@ class DBill extends Model
         'item_id_prod_serv'//relasi dengna id tabel:item_detail_invoices
     ];
 
+    protected $appends = [
+        'nama_paket'
+    ];
+
+    public function getNamaPaketAttribute()
+    {
+        return optional($this->getItemPaket)->nama_paket ?? 'no name';
+    }
+
     public function getParent()
     {
         return $this->belongsTo(PBill::class, 'bills_parent_id', 'id');
