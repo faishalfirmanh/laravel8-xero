@@ -77,14 +77,22 @@ class CoaController extends Controller
         $validator = Validator::make($request->all(), [
             'page' => 'required|integer',
             'keyword' => 'nullable|string',
-            'type' => 'nullable|string'
+            'type' => 'nullable'
         ]);
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
         //dd($request->menu);
-        $where = $request->type ? ['account_type' => $request->type] : [];
+        // $where = $request->type ? ['account_type' => $request->type] : [];
+        $types = $request->type;
+        if (is_string($types)) {
+            $types = explode(',', $types);
+        }
+        $types = array_values(array_filter(array_map('trim', (array) $types)));
+
+        $where = !empty($types) ? ['account_type' => $types] : [];
+
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, 10, $request->page, 'name', strtoupper($request->keyword));
         } else {

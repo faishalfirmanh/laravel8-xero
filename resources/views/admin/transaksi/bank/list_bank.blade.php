@@ -652,7 +652,7 @@ $(document).ready(function() {
                 dataType: 'json',
                 delay: 250,
                 data: function(params) {
-                    return { keyword: params.term || '', page: params.page || 1 };
+                    return { keyword: params.term || '', page: params.page || 1 , type: ['EXPENSE', 'DIRECTCOSTS']};
                 },
                 processResults: function(response, params) {
                     params.page = params.page || 1;

@@ -592,8 +592,9 @@
                                 </div>
                                 <div class="xero-field">
                                     <label>Description</label>
-                                    <input type="text" class="form-control"
-                                          id="desc_salles" name="desc_salles" placeholder="">
+                                    <textarea id="desc_salles" class="form-control desc_salles" name="desc_salles" rows="4" cols="50"></textarea>
+                                    {{-- <input type="text" class="form-control"
+                                          id="desc_salles" name="desc_salles" placeholder=""> --}}
                                 </div>
                             </div>
                         </div>

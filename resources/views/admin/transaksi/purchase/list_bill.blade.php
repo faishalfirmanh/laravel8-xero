@@ -1079,6 +1079,7 @@ window.dellBill = function(id) {
                     $('#due_date').val(data_res.due_date).trigger('change');
 
                     let details = data_res.get_detail;
+                    console.log('detail')
                     if (details && details.length > 0) {
                         details.forEach(function(item) { addNewRow(item); });
                     } else {
@@ -1275,6 +1276,7 @@ window.dellBill = function(id) {
 
         let id_detail_row = item ? item.id : 0;
         let desc = item ? (item.desc || '') : '';
+        let item_paket_name = item ? (item.name || '') : '';
         let qty = item ? item.qty : 1;
         let price = item ? parseFloat(item.unit_price) : '';
         let taxRate = item ? (item.tax_rate !== null ? item.tax_rate : 0) : 0;
@@ -1376,7 +1378,7 @@ window.dellBill = function(id) {
                 dataType: 'json',
                 delay: 250,
                 data: function(params) {
-                    return { keyword: params.term || '', page: params.page || 1, type :'EXPENSE' };
+                    return { keyword: params.term || '', page: params.page || 1, type: ['EXPENSE', 'DIRECTCOSTS']  };
                 },
                 processResults: function(response, params) {
                     params.page = params.page || 1;
@@ -1447,9 +1449,29 @@ window.dellBill = function(id) {
 
         if (item) {
             if (item.item_code) {
-                let itemLabel = item.desc || item.item_code; // fallback ke code kalau desc kosong
-                let itemOpt = new Option(itemLabel, item.item_code, true, true);
-                $lastRow.find('.select2-item').append(itemOpt).trigger('change');
+                // Label item = nama paket/item, BUKAN description (description bebas diedit user)
+                let itemLabel = item.nama_paket || item.item_name || item.name || '';
+
+                if (itemLabel) {
+                    let itemOpt = new Option(itemLabel, item.item_code, true, true);
+                    $lastRow.find('.select2-item').append(itemOpt).trigger('change');
+                } else {
+                    // Fallback: backend tidak mengirim nama → ambil dari endpoint paket berdasarkan code
+                    ajaxRequest('{{ route("list-paket-select2") }}', 'GET',
+                        { keyword: item.item_code, page: 1, limit: 5 },
+                        localStorage.getItem("token"))
+                    .then(function (response) {
+                        var list  = (response.data && response.data.results) || [];
+                        var found = list.filter(function (p) { return p.code == item.item_code; })[0];
+                        var label = found ? found.nama_paket : item.item_code;
+                        var opt   = new Option(label, item.item_code, true, true);
+                        $lastRow.find('.select2-item').append(opt).trigger('change');
+                    })
+                    .catch(function () {
+                        var opt = new Option(item.item_code, item.item_code, true, true);
+                        $lastRow.find('.select2-item').append(opt).trigger('change');
+                    });
+                }
             }
             if (item.account_id_coa) {
                 ajaxRequest(`{{ route('coaDetail') }}`, 'get', {id: item.account_id_coa}, localStorage.getItem("token"))
