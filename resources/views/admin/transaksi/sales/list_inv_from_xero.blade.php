@@ -4733,11 +4733,11 @@ function setRowRequiredState($row, isRequired) {
                 `${formatCurrency(remaining < 0 ? 0 : remaining, d.code_curr)}  ${cek_overpay}`
             );
 
-            if(overpay.nominal_overpayment > 0){
-                $("#over_pay_sisa").val(parseInt(overpay.nominal_overpayment))
-            }else{
-                $("#over_pay_sisa").val(0)
-            }
+          //  if(overpay.nominal_overpayment > 0){
+            //     $("#over_pay_sisa").val(parseInt(overpay.nominal_overpayment))
+            // }else{
+            //     $("#over_pay_sisa").val(0)
+            // }
 
             //console.log('overpay',overpay)
 
