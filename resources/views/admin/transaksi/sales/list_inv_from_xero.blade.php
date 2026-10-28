@@ -2079,8 +2079,8 @@ $(function () {
         url: "{{ route('uploadImage-sales-inv') }}",
         autoProcessQueue: false,
         uploadMultiple: true,
-        parallelUploads: 10,
-        maxFiles: 10,
+        parallelUploads: 25,
+        maxFiles: 25,
         acceptedFiles: "image/jpeg,image/png,image/jpg,image/webp,application/pdf",
         addRemoveLinks: false,   // tombol hapus bawaan dimatikan, diganti tombol dengan konfirmasi
         dictInvalidFileType: "Hanya JPG, PNG, WEBP, dan PDF yang diizinkan.",

@@ -249,6 +249,14 @@
                 <div class="bill-to-name">
                     {{ $invoice->contact_name }}
                 </div>
+                 @if ($invoice->va_number)
+               <div style="border: 2px solid #333; border-radius: 8px; padding: 15px; margin-top: 10px; display: inline-block;">
+                    <h4>No Virtual Account</h4>
+                    <h5 class="mb-0 font-weight-bold">
+                        {{ $invoice->va_number }}
+                    </h5>
+                </div>
+                @endif
             </td>
             <td width="30%">
                 <table>
@@ -436,7 +444,11 @@
 
         <div class="signature-box">
             Hormat kami,<br><br><br>
-            <strong>{{ $invoice->name_created_user }}</strong>
+            <strong>{{ $invoice->name_created_user }}</strong> <br>
+           <strong> {{ $invoice->jabatan_name }}</strong>
+           {{-- @php
+               dd($invoice->jabatan_name);
+           @endphp --}}
         </div>
 
         <div class="registered-office">

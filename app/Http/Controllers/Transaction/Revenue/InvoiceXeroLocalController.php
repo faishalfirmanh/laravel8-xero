@@ -206,6 +206,7 @@ class InvoiceXeroLocalController extends Controller
             'getTravel',
             'getFeeOverpay',
             'brandingTheme.travel',
+            //'getUserCreated'
         ])->where('invoice_uuid', $uuid)->first();
 
         if (!$invoice) {

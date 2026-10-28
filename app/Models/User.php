@@ -25,7 +25,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
-        'uuid_unique_id_xero'
+        'uuid_unique_id_xero',
+        'ket_role'
     ];
 
     /**

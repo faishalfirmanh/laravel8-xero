@@ -316,7 +316,14 @@
                 <div class="bill-to-name">
                     {{ $invoice->contact_name }}
                 </div>
-
+                @if ($invoice->va_number)
+                    <div style="border: 2px solid #333; border-radius: 8px; padding: 15px; margin-top: 10px; display: inline-block;">
+                        <h4>No Virtual Account</h4>
+                        <h5 class="mb-0 font-weight-bold">
+                            {{ $invoice->va_number }}
+                        </h5>
+                    </div>
+                @endif
             </td>
 
 
@@ -899,7 +906,7 @@
 
             <br>
 
-            Devisi keuangan
+           {{ $invoice->jabatan_name }}
 
         </div>
 

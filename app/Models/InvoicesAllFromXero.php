@@ -54,7 +54,8 @@ class InvoicesAllFromXero extends Model
 
     protected $appends = [
         'name_created_user',
-        'title'
+        'title',
+        'jabatan_name'
     ];
 
     public function brandingTheme()
@@ -71,9 +72,19 @@ class InvoicesAllFromXero extends Model
         return $this->getCreated->list_role ?? '';
     }
 
+    public function getJabatanNameAttribute()
+    {
+        return $this->getUserCreated->ket_role;
+    }
+
     public function getCreated()
     {
         return $this->hasOne(User::class, 'id', 'created_by');
+    }
+
+    public function getUserCreated()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
     }
 
     public function getTravel()

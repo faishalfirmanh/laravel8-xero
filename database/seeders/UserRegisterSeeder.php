@@ -12,7 +12,7 @@ class UserRegisterSeeder extends Seeder
      *
      * @return void
      */
-public function run()
+    public function run()
     {
         $path = base_path('user_register.json');
 
@@ -42,10 +42,11 @@ public function run()
                 continue;
             }
 
-            User::create([
-                'name'     => $value['name'],
-                'email'    => $value['email'],
+            User::updateOrCreate(['email' => $value['email']], [
+                'name' => $value['name'],
+                'email' => $value['email'],
                 'password' => Hash::make($value['password'] ?? 'password123'),
+                'ket_role' => $value['ket_role']
             ]);
 
             $this->command->info('Sukses seeder: ' . $value['email']);
@@ -53,7 +54,7 @@ public function run()
         }
 
         $this->command->info("Total user berhasil di-seed: {$a}");
-    }   
+    }
 
 
 }
