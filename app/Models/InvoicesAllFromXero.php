@@ -74,7 +74,7 @@ class InvoicesAllFromXero extends Model
 
     public function getJabatanNameAttribute()
     {
-        return $this->getUserCreated->ket_role;
+        return $this->getUserCreated->ket_role ?? '';
     }
 
     public function getCreated()
