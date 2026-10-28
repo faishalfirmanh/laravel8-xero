@@ -15,8 +15,8 @@ class VerifyHalalGoCallback
     public function handle(Request $request, Closure $next)
     {
         $expected = (string) config('services.halal.callback_token');
-        $given = (string) $request->bearerToken();
-
+        //$given = (string) $request->bearerToken();
+        $given = (string) $request->header('Token');
         if ($expected === '' || $given === '' || !hash_equals($expected, $given)) {
             return response()->json([
                 'status' => false,

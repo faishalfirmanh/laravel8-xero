@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\GoHalal;
 
 use App\Http\Controllers\Controller;
+use App\Models\DataJamaah;
 use App\Models\GoHalal\PaketUmroh;
 use App\Models\GoHalal\PaketUmrohJamaah;
+use App\Models\MasterData\DataJamaahXero;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -91,6 +93,10 @@ class HalalGoCallbackController extends Controller
                 'source' => 'halalgo',
             ];
 
+            $jamaah_for_go = DataJamaah::firstOrCreate(
+                ['no_ktp' => 111223, 'nama_jamaah' => 'jamaah_from_gohalalgo'],
+                ['no_ktp' => 111223, 'nama_jamaah' => 'jamaah_from_gohalalgo']
+            );
             if ($booking) {
                 $booking->update($attrs);
                 $created = false;
@@ -98,6 +104,7 @@ class HalalGoCallbackController extends Controller
                 PaketUmrohJamaah::create($attrs + [
                     'kode_booking' => $kodeBooking,
                     'created_by' => null,
+                    'id_jamaah_alhid' => $jamaah_for_go->id_jamaah
                 ]);
                 $created = true;
             }
