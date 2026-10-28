@@ -372,29 +372,65 @@
         </table>
     @endif
 
-    <table class="totals-table">
-        <tr>
-            <td width="20%"></td>
-            <td width="60%" class="label">Total Tagihan</td>
-            <td width="20%" class="value">{{ $fmt($subTotal) }}</td>
-        </tr>
-        <tr>
-            <td width="60%"></td>
-            <td width="20%" class="label">Total Pembayaran</td>
-            <td width="20%" class="value">{{ $fmt($amountPaid) }}</td>
-        </tr>
-        <tr>
-            <td></td>
-            <td class="label">Tagihan Belum dibayar</td>
-            <td class="value">{{ $fmt($amountDue) }}</td>
-        </tr>
-        @if ($invoice->getOverPay)
-            <tr class="line-top">
-                <td></td>
-                <td class="label">Lebih Bayar</td>
-                <td class="value">{{ $fmt($invoice->getOverPay->nominal_overpayment) }}</td>
+    <table class="totals-table" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <tbody>
+            <tr>
+                <td style="width: 45%;"></td>
+                <td class="label" style="width: 30%; padding: 8px 12px; text-align: right;">
+                    Total Tagihan
+                </td>
+                <td class="value" style="width: 25%; padding: 8px 12px; text-align: right; white-space: nowrap;">
+                    {{ $fmt($subTotal) }}
+                </td>
             </tr>
-        @endif
+
+            @if ($invoice->code_curr == 'SAR')
+                @php
+                    $tot_rp = $invoice->nominal_currency * $invoice->invoice_total;
+                @endphp
+                <tr>
+                    <td></td>
+                    <td class="label" style="padding: 8px 12px; text-align: right;">
+                        Tagihan Dalam Rupiah
+                    </td>
+                    <td class="value" style="padding: 8px 12px; text-align: right; white-space: nowrap;">
+                        Rp {{ $fmt($tot_rp) }}
+                    </td>
+                </tr>
+            @endif
+
+            <tr>
+                <td></td>
+                <td class="label" style="padding: 8px 12px; text-align: right;">
+                    Total Pembayaran
+                </td>
+                <td class="value" style="padding: 8px 12px; text-align: right; white-space: nowrap;">
+                    {{ $fmt($amountPaid) }}
+                </td>
+            </tr>
+
+            <tr style="border-top: 1px solid #ddd;">
+                <td></td>
+                <td class="label" style="padding: 10px 12px; text-align: right; font-weight: bold;">
+                    Tagihan Belum Dibayar
+                </td>
+                <td class="value" style="padding: 10px 12px; text-align: right; font-weight: bold; white-space: nowrap;">
+                    {{ $fmt($amountDue) }}
+                </td>
+            </tr>
+
+            @if ($invoice->getOverPay)
+                <tr style="border-top: 1px dashed #aaa;">
+                    <td></td>
+                    <td class="label" style="padding: 10px 12px; text-align: right;">
+                        Lebih Bayar
+                    </td>
+                    <td class="value" style="padding: 10px 12px; text-align: right; font-weight: bold; color: #198754; white-space: nowrap;">
+                        {{ $fmt($invoice->getOverPay->nominal_overpayment) }}
+                    </td>
+                </tr>
+            @endif
+        </tbody>
     </table>
 
     <div class="qr-block">
