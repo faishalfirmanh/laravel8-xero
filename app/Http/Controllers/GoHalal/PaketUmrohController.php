@@ -25,6 +25,11 @@ class PaketUmrohController extends Controller
     use ApiResponse;
 
     const TIPE = ['Umroh', 'Haji', 'Umroh Plus'];
+
+    const ITINERARY_MIMES = 'pdf,doc,docx,xls,xlsx';
+    const ITINERARY_MAX_KB = 1536;          // 1,5 MB
+    const IMAGE_INPUT_MAX_KB = 1024;        // input gambar maks 1 MB
+    const IMAGE_OUTPUT_MAX_BYTES = 300 * 1024;
     const UPLOAD_DIR = 'uploads/paket-umroh';
     // Ganti dengan nama kolom nama hotel di tabel 'hotels'
     const HOTEL_NAME_COLUMN = 'name';
@@ -153,16 +158,28 @@ class PaketUmrohController extends Controller
         );
     }
 
+    private function messages(): array
+    {
+        return [
+            'imgpaketumroh.max' => 'Ukuran gambar maksimal 1 MB',
+            'imgpaketumroh.image' => 'File gambar tidak valid',
+            'itinerary.mimes' => 'Itinerary harus berformat PDF, DOC, DOCX, XLS, atau XLSX',
+            'itinerary.max' => 'Ukuran file itinerary maksimal 1,5 MB',
+            'itinerary.uploaded' => 'File gagal diunggah, cek batas ukuran upload server',
+        ];
+    }
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), $this->rules($request));
+        $validator = Validator::make($request->all(), $this->rules($request), $this->messages());
         if ($validator->fails()) {
             return $this->error($validator->errors()->first(), 422);
         }
 
         $this->newFiles = [];
         $this->oldFiles = [];
+        $halal = null;
+        $kodeRemote = null;
 
         DB::beginTransaction();
         try {
@@ -182,23 +199,30 @@ class PaketUmrohController extends Controller
             $paket = PaketUmroh::create($data);
             $paket->hotels()->createMany($this->hotelRows($request));
 
+            // Kirim ke Halal Go SEBELUM commit: gagal => semua dibatalkan
+            if ($request->boolean('is_posting') && !$request->boolean('is_internal')) {
+                $halal = $this->sendToHalalGo($paket);
+                if (!$halal['ok']) {
+                    throw new \RuntimeException($this->halalErrorMessage($halal) . ' (data tidak disimpan)');
+                }
+                $kodeRemote = $halal['kode_paket'] ?? null;
+            }
+
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
             $this->deleteFiles($this->newFiles);
+
+            if ($kodeRemote) {
+                // Paket sudah ada di Halal Go tapi commit lokal gagal
+                Log::critical('[PaketUmroh] store: paket sudah di Halal Go tapi lokal dibatalkan', [
+                    'kode_paket' => $kodeRemote,
+                    'error' => $e->getMessage(),
+                ]);
+            }
             Log::error('[PaketUmroh] store: ' . $e->getMessage());
 
             return $this->error($e->getMessage(), 422);
-        }
-
-        // Kirim ke Halal Go hanya jika diposting dan bukan internal.
-        // Dilakukan setelah commit, sehingga kegagalan API tidak membatalkan data lokal.
-        $halal = null;
-        if ($request->boolean('is_posting') && !$request->boolean('is_internal')) {
-            $halal = $this->sendToHalalGo($paket);
-            if (!$halal['ok']) {
-                return $this->error($this->halalErrorMessage($halal), 422);
-            }
         }
 
         return $this->success(
@@ -307,13 +331,14 @@ class PaketUmrohController extends Controller
             return $this->error('Paket umroh tidak ditemukan', 404);
         }
 
-        $validator = Validator::make($request->all(), $this->rules($request));
+        $validator = Validator::make($request->all(), $this->rules($request), $this->messages());
         if ($validator->fails()) {
             return $this->error($validator->errors()->first(), 422);
         }
 
         $this->newFiles = [];
         $this->oldFiles = [];
+        $halal = null;
 
         DB::beginTransaction();
         try {
@@ -326,26 +351,24 @@ class PaketUmrohController extends Controller
             $paket->hotels()->delete();
             $paket->hotels()->createMany($this->hotelRows($request));
 
-            DB::commit();
+            if ($request->boolean('is_posting') && !$request->boolean('is_internal')) {
+                $halal = $this->syncToHalalGo($paket, $request->hasFile('itinerary'));
+                if (!$halal['ok']) {
+                    throw new \RuntimeException($this->halalErrorMessage($halal) . ' (perubahan tidak disimpan)');
+                }
+            }
 
-            // File lama dihapus setelah transaksi sukses
-            $this->deleteFiles($this->oldFiles);
+            DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
-            $this->deleteFiles($this->newFiles);
+            $this->deleteFiles($this->newFiles); // file baru dibuang, file lama tetap aman
             Log::error('[PaketUmroh] update: ' . $e->getMessage());
 
             return $this->error($e->getMessage(), 422);
         }
 
-        // Sinkron ke Halal Go setelah commit: kegagalan API tidak membatalkan data lokal
-        $halal = null;
-        if ($request->boolean('is_posting') && !$request->boolean('is_internal')) {
-            $halal = $this->syncToHalalGo($paket, $request->hasFile('itinerary'));
-            if (!$halal['ok']) {
-                return $this->error($this->halalErrorMessage($halal), 422);
-            }
-        }
+        // File lama dihapus hanya setelah commit sukses
+        $this->deleteFiles($this->oldFiles);
 
         return $this->success(
             ['paket' => $this->fresh($paket), 'halal_go' => $halal],
@@ -463,10 +486,10 @@ class PaketUmrohController extends Controller
             'fasilitas_tambahan' => 'nullable|string',
             // Jika file dikirim -> validasi file, jika URL -> validasi URL
             'imgpaketumroh' => $request->hasFile('imgpaketumroh')
-                ? 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240'   // input maks 10 MB, dikompres ke 300 KB
+                ? 'nullable|image|mimes:jpg,jpeg,png,webp|max:' . self::IMAGE_INPUT_MAX_KB
                 : 'nullable|url',
             'itinerary' => $request->hasFile('itinerary')
-                ? 'nullable|file|mimes:pdf|max:5120'
+                ? 'nullable|file|mimes:' . self::ITINERARY_MIMES . '|max:' . self::ITINERARY_MAX_KB
                 : 'nullable|url',
 
             'max_slot' => 'required|integer|min:1',
@@ -631,7 +654,7 @@ class PaketUmrohController extends Controller
         $dir = public_path(self::UPLOAD_DIR);
         $this->ensureDir($dir);
 
-        $maxBytes = 300 * 1024; // 300 KB
+        $maxBytes = self::IMAGE_OUTPUT_MAX_BYTES;//300 * 1024; // 300 KB
 
         $img = Image::make($file->getRealPath())->orientate();
 
@@ -676,10 +699,22 @@ class PaketUmrohController extends Controller
         $dir = public_path(self::UPLOAD_DIR . '/itinerary');
         $this->ensureDir($dir);
 
-        $name = Str::random(24) . '.pdf';
+        $name = Str::random(24) . '.' . $this->itineraryExt($file); // hitung SEBELUM move()
         $file->move($dir, $name);
 
         return url(self::UPLOAD_DIR . '/itinerary/' . $name);
+    }
+
+    private function itineraryExt(UploadedFile $file): string
+    {
+        $allowed = explode(',', self::ITINERARY_MIMES);
+
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, $allowed, true)) {
+            $ext = strtolower((string) $file->guessExtension());
+        }
+
+        return in_array($ext, $allowed, true) ? $ext : 'pdf';
     }
 
     private function ensureDir(string $dir): void

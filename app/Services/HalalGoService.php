@@ -235,7 +235,7 @@ class HalalGoService
         }
 
         $contents = file_get_contents($absolutePath);
-        $filename = $filename ?: 'itenary.pdf';
+        $filename = $filename = $filename ?: 'itinerary.' . (pathinfo($absolutePath, PATHINFO_EXTENSION) ?: 'pdf');//$filename ?: 'itenary.pdf';
 
         return $this->call(
             'upload-itenary',
