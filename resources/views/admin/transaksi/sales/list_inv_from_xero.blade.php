@@ -2496,7 +2496,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
     // ── APPLY CREDIT (OVERPAYMENT) ── daftar overpayment invoice yang sedang dibuka di paymentModal
     let listAllOverpayCurrent = [];
 
-    function populateOverpaySelect() {
+    function populateOverpaySelect(code_curr = 'IDR') {
         if ($('.select2-overpay-credit').hasClass('select2-hidden-accessible')) {
             $('.select2-overpay-credit').select2('destroy');
         }
@@ -2513,7 +2513,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 {
                     return {
                         id: item.id, // dikirim ke backend sebagai overpay_id
-                        text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
+                        text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment, code_curr)
                     };
                 }
             })
@@ -4658,10 +4658,16 @@ function setRowRequiredState($row, isRequired) {
 
             // ── APPLY CREDIT ──
             listAllOverpayCurrent = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
-            if (d.status != 'PAID') {
+            if(d.status != 'PAID') {
                 if (listAllOverpayCurrent.length > 0) {
-                    $('#paymentMethodWrap').show();
-                    populateOverpaySelect();
+                    listAllOverpayCurrent.map((element) => {
+                        console.log('code',element.get_inv.code_curr)
+                        if(element.get_inv.code_curr == d.code_curr){
+                            $('#paymentMethodWrap').show();
+                            populateOverpaySelect(element.get_inv.code_curr);
+                        }
+                    });
+                   
                 }
             } else {
                 $('#paymentMethodWrap').hide();

@@ -328,8 +328,9 @@
         <thead>
             <tr>
                 <th width="20%">Tanggal</th>
-                <th width="40%">Bank</th>
-                <th width="40%" class="text-right">Nominal</th>
+                <th width="20%">Bank</th>
+                <th width="30%">Keterangan</th>
+                <th width="30%" class="text-right">Nominal</th>
             </tr>
         </thead>
         <tbody>
@@ -341,6 +342,7 @@
                 <tr>
                     <td>{{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}</td>
                     <td>{!! $desc_over !!}{{ $item_pay->name_bank ?? '-' }}</td>
+                    <td>{{ $item_pay->reference_detail ?? '-' }}</td>
                     <td class="text-right amount-blue">{{ $fmt($cek_over) }}</td>
                 </tr>
             @endforeach

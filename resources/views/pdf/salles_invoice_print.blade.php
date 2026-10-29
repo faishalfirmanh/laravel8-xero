@@ -536,52 +536,37 @@
             <thead>
 
                 <tr>
-
                     <th width="20%">
                         Tanggal
                     </th>
-
                     <th width="40%">
                         Bank
                     </th>
-
+                    <th>Keterangan</th>
                     <th width="40%" class="text-right">
                         Nominal
                     </th>
-
                 </tr>
-
             </thead>
-
-
             <tbody>
-
                 @foreach($bankPayments as $item_pay)
-
                     <tr>
-
                         <td>
                             {{ $fmtDate($item_pay->date_transaction ?? null) ?? '-' }}
                         </td>
-
-
                         <td class="payment-bank">
                             {{ $item_pay->name_bank ?? '-' }}
                         </td>
-
-
+                        <td>
+                            {{ $item_pay->reference_detail ?? '-' }}
+                        </td>
                         <td class="text-right amount-blue">
                             {{ $fmt($item_pay->nominal_receive) }}
                         </td>
-
                     </tr>
-
                 @endforeach
-
             </tbody>
-
         </table>
-
     @endif
 
      @if($kembaliOverpay->count() > 0)
