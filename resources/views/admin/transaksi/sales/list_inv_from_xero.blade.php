@@ -820,6 +820,25 @@
         </button>
     </div>
 
+    <div class="px-3 pt-3">
+        <form id="formFilterInvoice" class="form-inline" novalidate>
+            <div class="form-group mr-3 mb-2">
+                <label for="filter_date_from" class="small font-weight-bold mr-2">Dari</label>
+                <input type="date" class="form-control form-control-sm" id="filter_date_from">
+            </div>
+            <div class="form-group mr-3 mb-2">
+                <label for="filter_date_to" class="small font-weight-bold mr-2">Sampai</label>
+                <input type="date" class="form-control form-control-sm" id="filter_date_to">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm mr-2 mb-2">
+                <i class="ti ti-filter mr-1"></i> Filter
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-2" id="btnResetFilter">
+                <i class="ti ti-refresh mr-1"></i> Reset
+            </button>
+        </form>
+    </div>
+
     <div id="loadingIndicator" class="text-center my-5" style="display:none;">
         <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
             <span class="sr-only">Loading...</span>
@@ -2079,8 +2098,8 @@ $(function () {
         url: "{{ route('uploadImage-sales-inv') }}",
         autoProcessQueue: false,
         uploadMultiple: true,
-        parallelUploads: 25,
-        maxFiles: 25,
+        parallelUploads: 100,
+        maxFiles: 100,
         acceptedFiles: "image/jpeg,image/png,image/jpg,image/webp,application/pdf",
         addRemoveLinks: false,   // tombol hapus bawaan dimatikan, diganti tombol dengan konfirmasi
         dictInvalidFileType: "Hanya JPG, PNG, WEBP, dan PDF yang diizinkan.",
@@ -2750,26 +2769,54 @@ let payFormMode = 'new'; // 'new' | 'edit'
     });
 
     let listAllOverpayCurrentAdd = [];
+    function getUsableOverpays(list, inv) {
+        return (list || []).filter(function (o) {
+            // sudah habis dipakai
+            if ((parseFloat(o.nominal_overpayment) || 0) <= 0) return false;
 
-    function populateOverpaySelectAdd() {
-        if ($('.select2-overpay-credit-add').hasClass('select2-hidden-accessible')) {
-            $('.select2-overpay-credit-add').select2('destroy');
-        }
-        $('#overpay_id_add').empty().append('<option value="">-- Pilih Overpayment --</option>');
+            // overpayment milik invoice ini sendiri -> jangan tampil
+            const isOwn =
+                (o.get_inv && String(o.get_inv.id) === String(inv.id)) ||
+                (o.invoice_id && String(o.invoice_id) === String(inv.id)) ||
+                (o.inv_number && o.inv_number === inv.invoice_number);
+            if (isOwn) return false;
 
-        $('.select2-overpay-credit-add').select2({
+            // currency harus sama
+            if (o.get_inv && o.get_inv.code_curr && o.get_inv.code_curr !== inv.code_curr) return false;
+
+            return true;
+        });
+    }
+
+    function resetApplyCreditAdd() {
+        listAllOverpayCurrentAdd = [];
+        $('#paymentMethodWrapAdd').hide();
+        $('#method_bank_add').prop('checked', true);
+        $('#paymentMethodWrapAdd label').removeClass('active').first().addClass('active');
+        $('#wrap_overpay_select_add').hide();
+        $('#wrap_bank_select_add').show();
+
+        const $el = $('#overpay_id_add');
+        if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+        $el.empty().append('<option value="">-- Pilih Overpayment --</option>');
+    }
+
+    function populateOverpaySelectAdd(code_curr = 'IDR') {
+        const $el = $('#overpay_id_add');
+        if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+        $el.empty().append('<option value="">-- Pilih Overpayment --</option>');
+
+        $el.select2({
             theme: 'bootstrap4',
+            width: '100%',
             dropdownParent: $('#modalCreateHotel'),
             placeholder: '-- Pilih Overpayment --',
             allowClear: true,
-            data: $.map(listAllOverpayCurrentAdd, function (item) {
-                if(item.nominal_overpayment > 0){
-                    return {
-                       id: item.id, // dikirim ke backend sebagai overpay_id
-                       text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment)
-                    };
-                }
-              
+            data: listAllOverpayCurrentAdd.map(function (item) {
+                return {
+                    id: item.id,
+                    text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment, code_curr)
+                };
             })
         });
     }
@@ -2814,8 +2861,8 @@ let payFormMode = 'new'; // 'new' | 'edit'
             url: "{{ route('uploadImage-sales-inv') }}",
             autoProcessQueue: false,
             uploadMultiple: true,
-            parallelUploads: 10,
-            maxFiles: 10,
+            parallelUploads: 100,
+            maxFiles: 100,
             // ── TERIMA GAMBAR + PDF ──
             acceptedFiles: "image/jpeg,image/png,image/jpg,image/webp,application/pdf",
             addRemoveLinks: true,
@@ -3017,13 +3064,70 @@ let payFormMode = 'new'; // 'new' | 'edit'
         }
        ];
 
-    table = initGlobalDataTableToken('#tableHotel', `{{ route('list-inv-xero-local') }}`, columnHotel, { "kolom_name": "contact_name" });
+    let tableFilter = { kolom_name: 'contact_name' };
+
+    table = initGlobalDataTableToken(
+        '#tableHotel',
+        `{{ route('list-inv-xero-local') }}`,
+        columnHotel,
+        tableFilter
+    );
+    //table = initGlobalDataTableToken('#tableHotel', `{{ route('list-inv-xero-local') }}`, columnHotel, { "kolom_name": "contact_name" });
 
     function formatDate(date) {
         const [y, m, d] = date.split('-');
         return `${d}/${m}/${y}`;
     }
 
+    $('#filter_date_from').on('change', function () {
+        const from = $(this).val();
+        const $to  = $('#filter_date_to');
+
+        $to.attr('min', from || '');
+        if (from && $to.val() && $to.val() < from) {
+            $to.val('');
+        }
+    });
+
+
+    $('#formFilterInvoice').on('submit', function (e) {
+        e.preventDefault();
+
+        const from = $('#filter_date_from').val();
+        const to   = $('#filter_date_to').val();
+
+        if (from && !to) {
+            Swal.fire('Peringatan', 'Tanggal akhir wajib diisi jika tanggal awal diisi.', 'warning');
+            return;
+        }
+        if (!from && to) {
+            Swal.fire('Peringatan', 'Tanggal awal wajib diisi jika tanggal akhir diisi.', 'warning');
+            return;
+        }
+        if (from && to && to < from) {   // format YYYY-MM-DD aman dibandingkan sebagai string
+            Swal.fire('Peringatan', 'Tanggal akhir tidak boleh lebih kecil dari tanggal awal.', 'warning');
+            return;
+        }
+
+        if (from && to) {
+            tableFilter.date_from = from;
+            tableFilter.date_to   = to;
+        } else {
+            delete tableFilter.date_from;
+            delete tableFilter.date_to;
+        }
+
+        table.ajax.reload();   // tanpa (null, false) supaya kembali ke halaman 1
+    });
+
+
+    $('#btnResetFilter').on('click', function () {
+        $('#filter_date_from, #filter_date_to').val('');
+        $('#filter_date_to').attr('min', '');
+        delete tableFilter.date_from;
+        delete tableFilter.date_to;
+        table.ajax.reload();
+    });
     
 function hapusInvoice(id) {
     Swal.fire({
@@ -3276,7 +3380,7 @@ function setRowSelect2Value($row, selector, id, text) {
 
     function loadInvoice(id) {
         showModalLoading(true);
-
+        resetApplyCreditAdd();
         ajaxRequest(
             `{{ route('detail-sales-inv') }}`,
             'GET',
@@ -3296,16 +3400,14 @@ function setRowSelect2Value($row, selector, id, text) {
             renderHistoryLog(d.get_history_invoice)
 
             // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
-            listAllOverpayCurrentAdd = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
-            if (listAllOverpayCurrentAdd.length > 0 && parseFloat(d.less_payment) > 0) {
+            const usableOverpay = getUsableOverpays(d.get_jamaah && d.get_jamaah.list_all_overpay, d);
+            const isUnpaid = d.status !== 'PAID' && (parseFloat(d.less_nominal) || 0) > 0;
+
+            if (usableOverpay.length > 0 && isUnpaid) {
+                listAllOverpayCurrentAdd = usableOverpay;
+                populateOverpaySelectAdd(d.code_curr);
                 $('#paymentMethodWrapAdd').show();
-                populateOverpaySelectAdd();
-            } else {
-                $('#paymentMethodWrapAdd').hide();
             }
-            $('#method_bank_add').prop('checked', true);
-            $('#wrap_overpay_select_add').hide();
-            $('#wrap_bank_select_add').show();
             // ── 1. Header fields ─────────────────────────────
             $('#invoice_number_display').val(d.invoice_number || '');
             $('#issue_date').val(d.issue_date || '');         // name="issue_date" id="issue_date"

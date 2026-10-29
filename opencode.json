@@ -1,0 +1,26 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "docs/ai/PROJECT.md",
+    "docs/ai/FEATURES.md",
+    "docs/ai/DECISIONS.md",
+    "docs/ai/TESTING.md"
+  ],
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "*": "ask",
+      "git *": "deny",
+      "php artisan migrate*": "deny",
+      "php artisan db:*": "deny",
+      "php artisan tinker*": "deny"
+    },
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+      "*.env.testing": "allow"
+    }
+  }
+}

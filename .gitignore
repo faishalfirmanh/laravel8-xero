@@ -16,3 +16,5 @@ user_register.json
 composer.lock
 CLAUDE.md
 /public/uploads
+.env.example
+/docs
