@@ -61,6 +61,12 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                 $invoices = $xero->getAllInvoices($this->tenantId, $page, $from);
 
                 foreach ($invoices as $inv) {
+
+                    if (empty($inv['HasAttachments'])) {
+                        continue;                         // 0 call
+                    }
+
+
                     $invoiceId = $inv['InvoiceID'];
                     $number = $inv['InvoiceNumber'] ?? 'NOINV';
                     $docType = $inv['Type'] ?? 'ACCREC';
@@ -68,7 +74,7 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
 
                     $prefix = $docType === 'ACCPAY' ? 'BILL' : 'INV';
                     $cleanNo = preg_replace('/[^A-Za-z0-9\-_]+/', '_', $number);
-                    $folder = $prefix . '-' . $cleanNo . '/';
+                    $folder = (strpos($cleanNo, $prefix . '-') === 0 ? $cleanNo : $prefix . '-' . $cleanNo) . '/';
 
                     if ($this->isDone($invoiceId)) {
                         continue;
@@ -95,6 +101,7 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                     }
 
                     if (empty($attachments)) {
+                        $this->saveInvoiceLog($invoiceId, $number, $invDate, $docType, 'done', 0, null);
                         continue;
                     }
 
@@ -113,12 +120,32 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                     ]);
 
                     foreach ($attachments as $att) {
-                        try {
-                            $ext = pathinfo($att['FileName'], PATHINFO_EXTENSION) ?: 'pdf';
-                            $fileName = $cleanNo . '_' . $att['AttachmentID'] . '.' . $ext;
+                        $ext = pathinfo($att['FileName'], PATHINFO_EXTENSION) ?: 'pdf';
+                        $fileName = $cleanNo . '_' . $att['AttachmentID'] . '.' . $ext;
+                        $rel = "xero_attachments/{$this->tenantId}/{$folder}{$fileName}";
 
-                            $content = $xero->downloadAttachment($this->tenantId, $invoiceId, $att['FileName']);
-                            $zip->addFromString($folder . $fileName, $content);
+                        // Sudah ada di disk -> 0 call API
+                        if (Storage::exists($rel) && Storage::size($rel) > 0) {
+                            $zip->addFile(Storage::path($rel), $folder . $fileName);
+                            $fileCount++;
+                            continue;
+                        }
+
+                        // Cek kuota per file (bukan per invoice)
+                        if ($this->quotaLow($xero)) {
+                            $paused = true;
+                            break 3; // keluar dari: loop lampiran, loop invoice, do-while
+                        }
+
+                        try {
+                            $content = $xero->downloadAttachment($this->tenantId, $invoiceId, $att['AttachmentID']);
+
+                            if ($content === null || $content === '') {
+                                throw new \RuntimeException('File kosong dari Xero');
+                            }
+
+                            Storage::put($rel, $content);
+                            $zip->addFile(Storage::path($rel), $folder . $fileName);
 
                             $fileCount++;
                             $totalFile++;
@@ -130,6 +157,7 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                                 'file' => $fileName,
                                 'size' => strlen($content),
                             ]);
+                            unset($content);
                         } catch (XeroRateLimitException $e) {
                             throw $e;
                         } catch (\Throwable $e) {
@@ -139,9 +167,10 @@ class ExportXeroInvoiceAttachmentsJob implements ShouldQueue
                                 'export_id' => $this->exportId,
                                 'doc_type' => $docType,
                                 'invoice_no' => $number,
+                                'file' => $fileName,
                                 'error' => $error,
                             ]);
-                            break;
+                            continue;
                         }
                     }
 
