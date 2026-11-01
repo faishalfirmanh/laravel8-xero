@@ -5400,6 +5400,32 @@ $('#mi_departure_date').on('change', miGenerateCode);
 // kalau user mengetik code sendiri, jangan ditimpa lagi
 $('#mi_code').on('input', function () { miCodeManuallyEdited = true; });
 
+// ── AUTO-FILL DESCRIPTION DARI NAMA ITEM (item master) ──
+let miDescPurchaseManual = false;   // true jika user mengetik #mi_desc sendiri
+let miDescSalesManual    = false;   // true jika user mengetik #mi_desc_salles sendiri
+
+function miSyncDescFromName() {
+    const name = ($('#mi_name').val() || '').trim();
+
+    if ($('#mi_chkPurchase').is(':checked') && !miDescPurchaseManual) {
+        $('#mi_desc').val(name);
+    }
+    if ($('#mi_chkSell').is(':checked') && !miDescSalesManual) {
+        $('#mi_desc_salles').val(name);
+    }
+}
+
+// Nama diketik / berubah -> isi desc sesuai checklist
+$('#mi_name').on('input keyup change', miSyncDescFromName);
+
+// Jika user edit manual, stop auto-fill (dikosongkan lagi = auto-fill aktif kembali)
+$('#mi_desc').on('input', function () {
+    miDescPurchaseManual = $(this).val().trim() !== '';
+});
+$('#mi_desc_salles').on('input', function () {
+    miDescSalesManual = $(this).val().trim() !== '';
+});
+
 // ── Nested modal fix (Bootstrap 4) ──
 $('#modalCreateItemMaster').on('show.bs.modal', function () {
     const $m = $(this);
@@ -5429,9 +5455,20 @@ $('#modalCreateItemMaster').on('hidden.bs.modal', function () {
 // ── Toggle field Purchase / Sell ──
 $('#mi_chkPurchase').on('change', function () {
     $('#mi_purchaseFields').toggleClass('show', this.checked);
+
+     if (this.checked) {
+        miSyncDescFromName();                          // nama sudah terisi -> langsung ikut
+    } else if (!miDescPurchaseManual) {
+        $('#mi_desc').val('');                         // bersihkan agar tidak ikut terkirim
+    }
 });
 $('#mi_chkSell').on('change', function () {
     $('#mi_sellFields').toggleClass('show', this.checked);
+    if (this.checked) {
+        miSyncDescFromName();
+    } else if (!miDescSalesManual) {
+        $('#mi_desc_salles').val('');
+    }
 });
 
 // ── Select2 account (pakai route COA yang sama dengan line item) ──
@@ -5476,6 +5513,9 @@ function resetItemMasterForm() {
         $el.empty().append('<option value="">-- Pilih Akun --</option>');
     });
     $('#mi_btnSave').prop('disabled', false).text('Save');
+
+    miDescPurchaseManual = false;    // <-- tambah
+    miDescSalesManual    = false;    // <-- tambah
 }
 
 // ── Pilih item yang baru dibuat ke baris line item ──

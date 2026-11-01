@@ -685,6 +685,32 @@ $('#departure_date').on('change', generateCode);
 
 $('#code').on('input', function () { codeManuallyEdited = true; });
 
+let descPurchaseManual = false;   // true jika user mengetik #desc sendiri
+let descSalesManual    = false;   // true jika user mengetik #desc_salles sendiri
+
+function syncDescFromName() {
+    if (!isNewItem()) return;                         // jangan timpa saat edit
+
+    const name = ($('#nameHotel').val() || '').trim();
+
+    if ($('#chkPurchase').is(':checked') && !descPurchaseManual) {
+        $('#desc').val(name);
+    }
+    if ($('#chkSell').is(':checked') && !descSalesManual) {
+        $('#desc_salles').val(name);
+    }
+}
+
+
+$('#nameHotel').on('input keyup change', syncDescFromName);
+
+$('#desc').on('input', function () {
+    descPurchaseManual = $(this).val().trim() !== '';
+});
+$('#desc_salles').on('input', function () {
+    descSalesManual = $(this).val().trim() !== '';
+});
+
     let columnHotel = [
         {
             data: null, className: "td-c",
@@ -828,12 +854,22 @@ $('#code').on('input', function () { codeManuallyEdited = true; });
     // =========================================================
     $('#chkPurchase').on('change', function () {
         $('#purchaseFields').toggleClass('show', this.checked);
-        if (!this.checked) $('#purchase_price').val('');
+        if (this.checked) {
+            syncDescFromName();                           // nama sudah terisi -> langsung ikut
+        } else {
+            $('#price_purchase').val('');
+            if (isNewItem() && !descPurchaseManual) $('#desc').val('');
+        }
     });
 
     $('#chkSell').on('change', function () {
         $('#sellFields').toggleClass('show', this.checked);
-        if (!this.checked) $('#account_number').val('');
+        if (this.checked) {
+            syncDescFromName();
+        } else {
+            $('#price_sales').val('');
+            if (isNewItem() && !descSalesManual) $('#desc_salles').val('');
+        }
     });
 
     // =========================================================
@@ -851,6 +887,8 @@ $('#code').on('input', function () { codeManuallyEdited = true; });
     function resetModal() {
         $('#formCreateHotel')[0].reset();
          codeManuallyEdited = false; 
+        descPurchaseManual = false;      // <-- tambah
+        descSalesManual    = false; 
         $('#idHotelInput').val(0);
         $('#modalItemTitle').text('New item');
         $('#chkPurchase, #chkSell').prop('checked', false);
