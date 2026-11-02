@@ -4764,7 +4764,8 @@ function setRowRequiredState($row, isRequired) {
                 if (listAllOverpayCurrent.length > 0) {
                     listAllOverpayCurrent.map((element) => {
                         console.log('code',element.get_inv.code_curr)
-                        if(element.get_inv.code_curr == d.code_curr){
+                        if(element.get_inv.code_curr == d.code_curr && Number(element.nominal_overpayment) > 0){
+                            console.log('aaaa',element.nominal_overpayment)
                             $('#paymentMethodWrap').show();
                             populateOverpaySelect(element.get_inv.code_curr);
                         }
@@ -4848,9 +4849,16 @@ function setRowRequiredState($row, isRequired) {
             // }
 
             //console.log('overpay',overpay)
-            console.log('detail',d)
+            console.log('detail',overpay)
             // ── FEE OVERPAY: INI YANG SEBELUMNYA BELUM ADA ──
-            renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
+            if(d.get_over_pay){
+                if(Number(d.get_over_pay.nominal_overpayment) > 0){
+                    console.log('nom',d.get_over_pay.nominal_overpayment)
+                     renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
+                }
+            }
+            console.log(Number(d.get_over_pay.nominal_overpayment))
+           
         })
         .catch(function (err) {
             console.log('err', err);
