@@ -49,7 +49,7 @@ Route::prefix('travel')->group(function () {
 
     Route::prefix('admin')->group(function () {
 
-        Route::get('/list-pembelian-hotel', [DashboardController::class, 'getWebListPembelianHotel'])->name('admin-list-pembelian-hotel');
+
         Route::get('/list-pengeluaran', [DashboardController::class, 'getWebListPengeluaran'])->name('admin-list-pengeluaran');
         Route::get('/list-invoice', [DashboardController::class, 'getWebListInvoice'])->name('admin-list-invoice');
         Route::get('/hotel-sales-list', [DashboardController::class, 'getHotelSalesList'])->name('admin-list-invoice-sales-hotel');
@@ -93,6 +93,7 @@ Route::prefix('travel')->group(function () {
             Route::get('/sales-invoice/preview/{id}', [InvoiceXeroLocalController::class, 'previewInvoice'])
                 ->name('salles_invoice_preview');
 
+            Route::get('sales-inv-hotel', [DashboardController::class, 'getWebListPembelianHotel'])->name('web-sales-inv-hotel');
             Route::get('purchase-orders', [DashboardController::class, 'getTransPurchaseOrder'])->name('web-purchase-or');
             Route::get('purchase-bills/{idBill?}', [DashboardController::class, 'getTransPurchaseBill'])->name('web-purchase-bill');//
         });

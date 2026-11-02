@@ -2340,7 +2340,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 </td>
                 <td>
                     <input type="text" class="form-control form-control-sm pay-ref"
-                        placeholder="Optional" value="${data.reference || ''}">
+                        placeholder="wajib diisi" value="${data.reference || ''}">
                 </td>
                 <td class="text-center">
                     <button type="button" class="btn-del-pay-row"
@@ -4848,7 +4848,7 @@ function setRowRequiredState($row, isRequired) {
             // }
 
             //console.log('overpay',overpay)
-
+            console.log('detail',d)
             // ── FEE OVERPAY: INI YANG SEBELUMNYA BELUM ADA ──
             renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
         })

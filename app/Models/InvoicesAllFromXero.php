@@ -6,6 +6,7 @@ use App\Models\MasterData\BrandingThemes;
 use App\Models\MasterData\DataJamaahXero;
 use App\Models\MasterData\ItemDetailInvoices;
 use App\Models\MasterData\TravelName;
+use App\Models\Revenue\Hotel\InvoicesHotel;
 use App\Models\Transaction\FeeOverpay;
 use App\Models\Transaction\Overpayment;
 use App\Models\Transaction\TransactionNominalBankAccount;
@@ -75,6 +76,11 @@ class InvoicesAllFromXero extends Model
     public function getJabatanNameAttribute()
     {
         return $this->getUserCreated->ket_role ?? '';
+    }
+
+    public function getInvHotel()
+    {
+        return $this->hasOne(InvoicesHotel::class, 'no_invoice_hotel', 'invoice_number');
     }
 
     public function getCreated()

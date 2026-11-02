@@ -46,6 +46,71 @@
             width: 100%;
         }
     }
+
+    /**fix view select2 **/
+    /* ===== Select2 single (agent, hotel, tipe room) ===== */
+.select2-container .select2-selection--single {
+    position: relative;
+    display: flex !important;
+    align-items: center;
+    height: calc(1.5em + 0.75rem + 4px) !important;
+    border: 2px solid #888 !important;
+    border-radius: .25rem;
+    background-color: #fff;
+}
+
+/* Teks terpilih: satu baris, ada ruang untuk × dan panah */
+.select2-container .select2-selection--single .select2-selection__rendered {
+    display: block !important;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 3.25rem 0 .75rem !important;
+    line-height: 1.5 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Placeholder */
+.select2-container .select2-selection--single .select2-selection__placeholder {
+    color: #6c757d;
+}
+
+/* Tombol clear (×): tidak float, diposisikan absolut di kanan */
+.select2-container .select2-selection--single .select2-selection__clear {
+    position: absolute !important;
+    top: 50%;
+    right: 2rem;
+    transform: translateY(-50%);
+    float: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1;
+    font-size: 1.25rem;
+    color: #999;
+    z-index: 2;
+}
+.select2-container .select2-selection--single .select2-selection__clear:hover {
+    color: #dc3545;
+}
+
+/* Panah dropdown */
+.select2-container .select2-selection--single .select2-selection__arrow {
+    position: absolute !important;
+    top: 0 !important;
+    right: .4rem;
+    height: 100% !important;
+    width: 1.5rem;
+}
+
+/* Saat fokus / terbuka */
+.select2-container--default.select2-container--open .select2-selection--single,
+.select2-container--default.select2-container--focus .select2-selection--single,
+.select2-container--bootstrap4.select2-container--open .select2-selection--single,
+.select2-container--bootstrap4.select2-container--focus .select2-selection--single {
+    border: 2px solid #007bff !important;
+    box-shadow: none !important;
+}
 </style>
 
 
@@ -75,7 +140,7 @@
                     <th>Check In</th>
                     <th>Check Out</th>
                     <th>Nama Hotel</th>
-                     <th>Status</th>
+                     {{-- <th>Status</th> --}}
                     <th width="15%" class="text-center">Action</th>
                 </tr>
             </thead>
@@ -133,6 +198,12 @@
                                 <div class="form-group col-md-6">
                                      <label for="date_transaction" class="font-weight-bold">Tanggal Transaksi <span class="text-danger">*</span></label>
                                      <input type="date" class="form-control" name="date_transaction" id="date_transaction" required>
+                                </div>
+                            </div>
+                             <div class="form-row">
+                                <div class="form-group col-md-12">
+                                     <label for="nominal_currency_rp" class="font-weight-bold">Nominal 1 sar dalam rupiah <span class="text-danger">*</span></label>
+                                     <input type="number" class="form-control" name="nominal_currency_rp" id="nominal_currency_rp" required>
                                 </div>
                             </div>
                         </div>
@@ -401,7 +472,9 @@
   </div>
 </div>
 
-<div class="card" style="margin-bottom: 10px;">
+ @include('admin.transaksi.hotel_payment_modal') 
+
+<div class="card d-none" style="margin-bottom: 10px;">
     <h2>Cek Total Penjualan Hotel (filter data)</h2>
     <form id="form_filter_hotels">
         <div class="form-group">
@@ -415,7 +488,7 @@
         <button type="submit" class="btn btn-primary">Submit</button>
     </form>
 </div>
-<div>
+<div class="d-none">
     <h5>SAR : <span id="total_sar_amount"> </h5>
     <h5>Rupiah : <span id="total_rupiah_amount"> </h5>
     <h5>Rupiah Sudah Dibayar : <span id="paid_rupiah_amount"> </h5>
@@ -528,23 +601,34 @@ $(document).ready(function() {
     $('#order_name').select2({
         theme: 'bootstrap4',
         dropdownParent: $('#modalCreateHotel'),
-        placeholder: 'Pilih Agent / Mitra',
+        placeholder: 'Pilih Contact',
         allowClear: true,
-        minimumInputLength: 2,
+        cache          : false, 
+        minimumInputLength: 3,
+        language: {
+            inputTooShort : () => 'Ketik minimal 3 huruf untuk mencari contact...',
+            searching     : () => 'Mencari...',
+            noResults     : () => 'Contact tidak ditemukan',
+            loadingMore   : () => 'Memuat lebih banyak...',
+        },
+
         ajax: {
-            url: `{{ route('search-contact-select2') }}`,
+            url: '{{ route("list-contact-select2") }}',
             dataType: 'json',
-            delay: 1000,
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-            data: function (params) { return { name: params.term, page: params.page || 1 }; },
-            processResults: function (response, params) {
+            delay: 450,
+            data: function(params) {
+                    return { page: params.page || 1, keyword: params.term || '', limit: 5 };
+            },
+            processResults: function(response, params) {
                 params.page = params.page || 1;
                 return {
-                    results: (response.data.Contacts || []).map(item => ({ id: item.ContactID, text: item.Name })),
-                    pagination: { more: (response.data.Contacts || []).length === 100 }
+                    results: $.map(response.data.data, function(item) {
+                        return { id: item.id, text: item.full_name, phone: item.phone_number || '-' };
+                    }),
+                    pagination: { more: response.data.next_page_url !== null }
                 };
             },
-            cache: true
+            cache: false
         }
     });
 
@@ -640,18 +724,18 @@ $(document).ready(function() {
         { data: 'check_out', name: 'check_out' },
         {
             data: 'hotel_name', name: 'hotel_name' }, // Sesuaikan jika nama hotel ada relasi
-        {
-            data: 'status', name: 'status',
-            render: function(data){
-                if(data == 1){
-                    return '<span class="badge badge-danger">Belum dibayar</span>'
-                }else if(data == 2){
-                    return '<span class="badge light badge-warning">Proses Pembayaran</span>'
-                }else{
-                    return '<span class="badge badge-primary">Lunas</span>'
-                }
-            }
-        },
+        // {
+        //     data: 'status', name: 'status',
+        //     render: function(data){
+        //         if(data == 1){
+        //             return '<span class="badge badge-danger">Belum dibayar</span>'
+        //         }else if(data == 2){
+        //             return '<span class="badge light badge-warning">Proses Pembayaran</span>'
+        //         }else{
+        //             return '<span class="badge badge-primary">Lunas</span>'
+        //         }
+        //     }
+        // },
         {
             data: "id", className: "text-center", orderable: false, searchable: false,
             render: function(data) {
@@ -718,13 +802,16 @@ $(document).ready(function() {
             })
     }
 
-    $("#tableHotel").on('click','.payment-hotel',function(){
-          let idnya = $(this).data('id');
-          $("#invoices_id_parent").val(idnya)
-           $('#formSubmitPayment')[0].reset();
-            loadListPayment(idnya)
-        $('#paymentModal').modal('show');
-    })
+    $('#tableHotel').on('click', '.payment-hotel', function () {
+        const row = $('#tableHotel').DataTable().row($(this).parents('tr')).data();
+        const inv = row.get_inv_xero;   // dari relasi getInvXero
+        console.log('rpw',row)
+        if (!inv) {
+            Swal.fire('Info', 'Invoice global untuk invoice hotel ini belum ada.', 'info');
+            return;
+        }
+        hpOpenPayment(inv.id, row.no_invoice_hotel);
+    });
 
     $("#tablePaymentList").on('click','.delete-pay',function(){
         let idRow = $(this).data('id');
@@ -753,6 +840,7 @@ $(document).ready(function() {
                     let res_data = response.data.data
                     console.log('res get edti',res_data)
                     $("#input_payment_date").val(res_data.date_transfer)
+                    $("#nominal_currency_rp").val(Number(res_data.nominal_currency_rp))
                     $("#input_payment_nominal").val(Number(res_data.payment_idr))
                     //res_data.payment_sar ?? $("#input_payment_ref").val(res_data.payment_sar)
                     $("#input_payment_ref").val(res_data.desc)
@@ -886,6 +974,8 @@ $(document).ready(function() {
                     if (!data) { Swal.fire('Error', 'Data tidak ditemukan', 'error'); return; }
 
                     // Isi Header
+                    $("#nominal_currency_rp").val(Number(data.nominal_currency_rp))
+                    $("#date_transaction").val(data.date_transaction)
                     $('#idHotelInput').val(data.id);
                     $('#check_in').val(data.check_in);
                     $('#check_out').val(data.check_out);
@@ -960,7 +1050,7 @@ $(document).ready(function() {
         let formData = new FormData(this);
         let idInput = $('#idHotelInput').val();
         if (idInput) formData.append('id', idInput);
-        console.log('saved form')
+        console.log('saved form',formData)
         $.ajax({
             url: `{{ route('save-revenue-hotel') }}`,
             type: "POST",

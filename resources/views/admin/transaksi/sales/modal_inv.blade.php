@@ -465,10 +465,22 @@
 
         {{-- Syarat --}}
         <div class="terms-box">
-            <ol>
-                @if (!empty($brand['terms']))
-                    @foreach ($brand['terms'] as $term)
-                        <li>{{ $term }}</li>
+           @php
+                $terms = collect($brand['terms'] ?? [])
+                    ->map(function ($t) { return trim((string) $t); })
+                    ->filter()      // buang baris kosong
+                    ->values();
+            @endphp
+
+                @if ($terms->isNotEmpty())
+                    {{-- teks dari database sudah membawa nomor sendiri, jadi tanpa <ol> --}}
+                    @foreach ($terms as $term)
+                        @php
+                            $isHeading  = preg_match('/^note\s*:?$/i', $term);
+                            $isNumbered = preg_match('/^\d+[\.\)]\s/', $term);
+                        @endphp
+                        <div class="term-line {{ $isNumbered ? 'term-numbered' : '' }}"
+                            @if ($isHeading) style="font-weight:bold;" @endif>{{ $term }}</div>
                     @endforeach
                 @else
                     <li>Harga dapat berubah mengikuti kurs USD/SAR, biaya akomodasi, tiket, serta kebijakan pemerintah Indonesia dan Arab Saudi.</li>

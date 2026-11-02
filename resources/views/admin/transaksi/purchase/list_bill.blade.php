@@ -1164,6 +1164,12 @@ window.dellBill = function(id) {
         $('#actionTypeValue').val(actionValue);
     });
 
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
     // --- 6. SAVE FUNCTIONALITY ---
     $('#formCreateHotel').on('submit', function(e) {
         e.preventDefault();
@@ -1178,6 +1184,11 @@ window.dellBill = function(id) {
         let id_bill = (idInput && idInput > 0) ? idInput : null;
         let action_selected = params.get('action_type');
 
+        const getVals = (selector) =>
+            $(selector).map(function () {
+                const v = $(this).val();
+                return v === null || v === undefined ? '' : v;
+            }).get();
     
         let selectedData = {
             item_code : $('select[name="item_code[]"]').map(function(){ return $(this).val(); }).get(),
@@ -1193,7 +1204,8 @@ window.dellBill = function(id) {
             nominal_currency: $('#nominal_currency').val(),
             action_save : action_selected,
             account_id: $('select[name="account_id[]"]').map(function(){ return $(this).val(); }).get(),
-            desc: $('input[name="description[]"]').map(function(){ return $(this).val(); }).get(),
+            // desc: $('input[name="description[]"]').map(function(){ return $(this).val(); }).get(),
+            desc: getVals('.desc-input'),
             qty: $('input[name="qty[]"]').map(function(){ return $(this).val(); }).get(),
             unit_price: $('input[name="unit_price[]"]').map(function(){ return $(this).val(); }).get(),
             tax_rate: $('input[name="tax_rate[]"]').map(function(){ return $(this).val(); }).get(),
@@ -1292,7 +1304,7 @@ window.dellBill = function(id) {
                     </select>
                     <input type="hidden" name="item_id_prod_serv[]" class="paket-id-input" value="${item && item.item_id_prod_serv ? item.item_id_prod_serv : ''}">
                 </td>
-                <td><input type="text" class="form-control desc-input" required name="description[]" value="${desc}" placeholder="Deskripsi item"></td>
+                <td><textarea class="form-control desc-input" required name="description[]" rows="4" cols="50" placeholder="Deskripsi item">${escapeHtml(desc)}</textarea></td>
                 <td><input type="number" class="form-control qty-input" required name="qty[]" min="1" style="width:70px;" value="${qty}"></td>
                 <td><input type="number" class="form-control price-input" required name="unit_price[]" min="1" step="0.01" value="${price}"></td>
                 <td>

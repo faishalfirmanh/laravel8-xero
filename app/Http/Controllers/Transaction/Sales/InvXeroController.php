@@ -553,18 +553,18 @@ class InvXeroController extends Controller
                 $price = $request->unit_price[$i] ?? null;
                 $rowLabel = 'Baris ke-' . ($i + 1);
 
-                if ($qty === null || $qty === '' || (float) $qty <= 0) {
-                    $validator->errors()->add("qty.$i", "$rowLabel: Qty wajib diisi dan lebih dari 0.");
-                }
+                // if ($qty === null || $qty === '' || (float) $qty <= 0) {
+                //     $validator->errors()->add("qty.$i", "$rowLabel: Qty wajib diisi dan lebih dari 0.");
+                // }
 
                 //boleh minus
                 // if ($price === null || $price === '' || (float) $price <= 0) {
                 //     $validator->errors()->add("unit_price.$i", "$rowLabel: Harga wajib diisi dan lebih dari 0.");
                 // }
 
-                if (empty($coa)) {
-                    $validator->errors()->add("coa_id.$i", "$rowLabel: Account (COA) wajib dipilih.");
-                }
+                // if (empty($coa)) {
+                //     $validator->errors()->add("coa_id.$i", "$rowLabel: Account (COA) wajib dipilih.");
+                // }
             }
 
         });

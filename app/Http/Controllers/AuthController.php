@@ -32,7 +32,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $expired_at = Carbon::now()->addHours(5);//Carbon::now()->addDay();
+        $expired_at = Carbon::now()->addHours(10);//Carbon::now()->addDay();
         $tokenResult = $user->createToken('auth_token', ['*'], $expired_at);
 
         // Hapus token lama (opsional, agar 1 device 1 token)
@@ -50,47 +50,47 @@ class AuthController extends Controller
         //     ->get();
 
         $view_menu = Menu::whereIn('id', $roles_menu)
-    ->where('is_active', 1)
-    ->orderBy('urutan', 'asc')
-    ->get();
+            ->where('is_active', 1)
+            ->orderBy('urutan', 'asc')
+            ->get();
 
-// === TRANSFORMASI MENJADI HIRARKI (PARENT + CHILDREN) ===
-    $parents = $view_menu->whereNull('parent_id')->sortBy('urutan');
+        // === TRANSFORMASI MENJADI HIRARKI (PARENT + CHILDREN) ===
+        $parents = $view_menu->whereNull('parent_id')->sortBy('urutan');
 
-    $groupedChildren = $view_menu->whereNotNull('parent_id')
-        ->groupBy('parent_id')
-        ->map(fn($group) => $group->sortBy('urutan'));
+        $groupedChildren = $view_menu->whereNotNull('parent_id')
+            ->groupBy('parent_id')
+            ->map(fn($group) => $group->sortBy('urutan'));
 
-    $menuTree = $parents->map(function ($parent) use ($groupedChildren) {
-        $children = $groupedChildren->get($parent->id, collect());
+        $menuTree = $parents->map(function ($parent) use ($groupedChildren) {
+            $children = $groupedChildren->get($parent->id, collect());
 
-        return [
-            'id'          => $parent->id,
-            'nama_menu'   => $parent->nama_menu,
-            'slug'        => $parent->slug,
-            'route_name'  => $parent->route_name,
-            'module'      => $parent->module,
-            'parent_id'   => $parent->parent_id,
-            'urutan'      => $parent->urutan,
-            'is_active'   => $parent->is_active,
-            'created_at'  => $parent->created_at,
-            'updated_at'  => $parent->updated_at,
-            'children'    => $children->map(function ($child) {
-                return [
-                    'id'          => $child->id,
-                    'nama_menu'   => $child->nama_menu,
-                    'slug'        => $child->slug,
-                    'route_name'  => $child->route_name,
-                    'module'      => $child->module,
-                    'parent_id'   => $child->parent_id,
-                    'urutan'      => $child->urutan,
-                    'is_active'   => $child->is_active,
-                    'created_at'  => $child->created_at,
-                    'updated_at'  => $child->updated_at,
-                ];
-            })->values()->toArray()
-        ];
-    })->values()->toArray();
+            return [
+                'id' => $parent->id,
+                'nama_menu' => $parent->nama_menu,
+                'slug' => $parent->slug,
+                'route_name' => $parent->route_name,
+                'module' => $parent->module,
+                'parent_id' => $parent->parent_id,
+                'urutan' => $parent->urutan,
+                'is_active' => $parent->is_active,
+                'created_at' => $parent->created_at,
+                'updated_at' => $parent->updated_at,
+                'children' => $children->map(function ($child) {
+                    return [
+                        'id' => $child->id,
+                        'nama_menu' => $child->nama_menu,
+                        'slug' => $child->slug,
+                        'route_name' => $child->route_name,
+                        'module' => $child->module,
+                        'parent_id' => $child->parent_id,
+                        'urutan' => $child->urutan,
+                        'is_active' => $child->is_active,
+                        'created_at' => $child->created_at,
+                        'updated_at' => $child->updated_at,
+                    ];
+                })->values()->toArray()
+            ];
+        })->values()->toArray();
 
 
         Session::put('user_menu', $menuTree);
