@@ -317,6 +317,8 @@ class XeroSyncInvoicePaidController extends Controller
                 'id',
                 'jenis_item',
                 'uuid_proudct_and_service',
+                'desc',
+                'desc_salles',
                 'nama_paket',
                 'total_hari',
                 'created_at',

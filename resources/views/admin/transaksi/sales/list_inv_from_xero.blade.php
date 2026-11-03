@@ -3043,7 +3043,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 let delete_inv = `<a style="margin-left:5px;" href="javascript:;" 
                                     data-id="${uuid_nya}" 
                                     onclick="hapusInvoice('${data}')"
-                                    class="text-danger show-invoice-modal" 
+                                    class="d-none text-danger show-invoice-modal" 
                                     title="hapus invoice">
                                     <i class="ti ti-trash"></i>
                                 </a>`
@@ -3877,6 +3877,7 @@ function initRowSelect2($row) {
                 return { page: params.page || 1, keyword: params.term || '', limit: 5 };
             },
             processResults: function(response) {
+                console.log('response param',response)
                 if (response.status != 'success') return { results: [], pagination: { more: false } };
                 return {
                     results: $.map(response.data.results, function(item) {
@@ -3887,7 +3888,8 @@ function initRowSelect2($row) {
                             id_coa : item.get_coa_salles_by_code,
                             track_id : item.uuid_tracking_category,
                             name_paket_track :item.tracking_category_paket,
-                            va_number :item.va_number
+                            va_number :item.va_number,
+                            penjelasan : item.desc_salles
                         };
                     }),
                 }
@@ -3899,7 +3901,9 @@ function initRowSelect2($row) {
         const d = e.params.data;
         const $row = $(this).closest('tr');
         // Auto-fill desc & price
-        $row.find('.desc-input').val(d.nama_paket || d.text || '');
+        console.log('ddselect',d)
+        // $row.find('.desc-input').val(d.nama_paket || d.text || '');
+        $row.find('.desc-input').val(d.penjelasan || d.text || '');
         $row.find('.price-input').val(Number(d.harga) || '');
         $row.find('.qty-input').val(1);
 
@@ -4857,7 +4861,7 @@ function setRowRequiredState($row, isRequired) {
                      renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
                 }
             }
-            console.log(Number(d.get_over_pay.nominal_overpayment))
+           // console.log(Number(d.get_over_pay.nominal_overpayment))
            
         })
         .catch(function (err) {
@@ -5165,7 +5169,7 @@ function renderFeeOverpaySection(_nom_curr=1,overpay, invoiceId, jamaahId, curre
         $('#feeOverpaySection, #feeOverpayHistoryWrap').hide();
         return;
     }
-
+    console.log('overpay',overpay)
     const sisa = parseFloat(overpay.nominal_overpayment / parseInt(_nom_curr)) || 0;
 
     $('#fee_overpay_id').val(overpay.id);
