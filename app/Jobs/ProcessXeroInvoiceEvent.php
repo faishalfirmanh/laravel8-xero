@@ -281,9 +281,10 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         // ── Line item dari Xero ──
         $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->all();
-        $itemCodes = collect($lineItems)->map(fn($l) => data_get($l, 'Item.Code'))->filter()->unique()->values()->all();
+        // $itemCodes = collect($lineItems)->map(fn($l) => data_get($l, 'Item.Code'))->filter()->unique()->values()->all();
         $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
-        $itemMap = ItemsPaketAllFromXero::whereIn('code', $itemCodes)->pluck('id', 'code')->toArray();
+        //$itemMap = ItemsPaketAllFromXero::whereIn('code', $itemCodes)->pluck('id', 'code')->toArray();
+        $itemMap = $this->resolveItemMaster($lineItems, $coaMap);
 
         $rows = [];
         $liveIds = [];
@@ -295,7 +296,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             }
 
             [$paketUuid, $divisiUuid] = $this->resolveTrackingFromLine($line);
-            $itemCode = data_get($line, 'Item.Code');
+            //$itemCode = data_get($line, 'Item.Code');
+            $itemUuid = data_get($line, 'Item.ItemID');
 
             $rows[] = [
                 'invoice_number' => $inv['InvoiceNumber'] ?? null,
@@ -307,7 +309,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'line_item_uuid' => $lineId,
                 'coa_id' => isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null,
                 'parent_inv_id' => $parentId,
-                'item_id' => $itemCode ? ($itemMap[$itemCode] ?? null) : null,
+                // 'item_id' => $itemCode ? ($itemMap[$itemCode] ?? null) : null,
+                'item_id' => $itemUuid ? ($itemMap[$itemUuid] ?? null) : null,
                 'uuid_detail_inv' => $lineId,
                 'paket_tracking_uuid' => $paketUuid,
                 'divisi_travel_tracking_uuid' => $divisiUuid,
@@ -447,6 +450,73 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         return (int) $saved->id;
     }
 
+    /**
+     * Pastikan setiap Item di line invoice punya baris di items_paket_all_from_xeros.
+     * Return: [uuid_proudct_and_service => id]
+     */
+    private function resolveItemMaster(array $lineItems, array $coaMap): array
+    {
+        $itemUuids = collect($lineItems)
+            ->map(fn($l) => data_get($l, 'Item.ItemID'))
+            ->filter()->unique()->values()->all();
+
+        if (!$itemUuids) {
+            return [];
+        }
+
+        // 1 query untuk semua item yang sudah ada
+        $itemMap = ItemsPaketAllFromXero::whereIn('uuid_proudct_and_service', $itemUuids)
+            ->pluck('id', 'uuid_proudct_and_service')
+            ->toArray();
+
+        foreach ($lineItems as $line) {
+            $itemUuid = data_get($line, 'Item.ItemID');
+            if (!$itemUuid || isset($itemMap[$itemUuid])) {
+                continue;
+            }
+
+            $code = data_get($line, 'Item.Code') ?: $itemUuid;
+            $name = data_get($line, 'Item.Name') ?: ($line['Description'] ?? $code);
+
+            // Opsional: item buatan web (uuid 'from_web') dengan code sama -> pakai baris itu
+            // supaya tidak dobel, lalu isi uuid-nya dengan ItemID Xero.
+            $local = ItemsPaketAllFromXero::where('code', $code)
+                ->where('uuid_proudct_and_service', 'from_web')
+                ->first();
+
+            if ($local) {
+                $local->update(['uuid_proudct_and_service' => $itemUuid]);
+                $itemMap[$itemUuid] = $local->id;
+                continue;
+            }
+
+            $accountCode = $line['AccountCode'] ?? null;
+
+            // firstOrCreate: aman kalau webhook yang sama masuk dua kali bersamaan
+            $item = ItemsPaketAllFromXero::firstOrCreate(
+                ['uuid_proudct_and_service' => $itemUuid],
+                [
+                    'code' => mb_substr((string) $code, 0, 255),
+                    'nama_paket' => mb_substr((string) $name, 0, 255),
+                    'sales_AccountCode' => $accountCode,
+                    'purchase_AccountCode' => null,
+                    'total_hari' => 0,
+                    'jenis_item' => 1,
+                    'price_purchase' => 0,
+                    'price_sales' => $line['UnitAmount'] ?? 0,
+                    'desc' => isset($line['Description']) ? mb_substr($line['Description'], 0, 255) : null,
+                    'account_id_salles' => $accountCode ? ($coaMap[$accountCode] ?? null) : null,
+                    'tax_rate_salles' => 0,     // NOT NULL tanpa default
+                    'tax_rate_purchase' => 0,   // NOT NULL tanpa default
+                    'is_item_product' => 0,
+                ]
+            );
+
+            $itemMap[$itemUuid] = $item->id;
+        }
+
+        return $itemMap;
+    }
     private function syncBill(array $inv, array $paymentDetails, ?string $updatedByName = null): void
     {
         $lineItems = $inv['LineItems'] ?? [];
