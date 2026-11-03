@@ -613,6 +613,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         $rows = [];
         $liveIds = [];
+        $itemCache = [];
 
         foreach ($lineItems as $line) {
             $uuidDetail = $line['LineItemID'] ?? null;
@@ -622,9 +623,13 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
             [$paketUuid, $divisiUuid] = $this->resolveTrackingFromLine($line);
 
+            $itemId = $this->resolveBillItemMaster($line, $itemCache);
+            $itemCode = trim((string) ($line['ItemCode'] ?? data_get($line, 'Item.Code') ?? '')) ?: null;
+
             $rows[] = [
                 'bills_parent_id' => $parentId,
-                'item_code' => $line['ItemCode'] ?? data_get($line, 'Item.Code'),
+                'item_code' => $itemCode, //$line['ItemCode'] ?? data_get($line, 'Item.Code'),
+                'item_id_prod_serv' => $itemId,
                 'desc' => $line['Description'] ?? null,
                 'qty' => $line['Quantity'] ?? 0,
                 'unit_price' => $line['UnitAmount'] ?? 0,
@@ -669,6 +674,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     'qty',
                     'unit_price',
                     'account_id_coa',
+                    'item_id_prod_serv',
                     'tax_rate',
                     'paket_tracking_uuid',
                     'divisi_travel_tracking_uuid',
@@ -825,6 +831,38 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         ])->id;
     }
 
+    /**
+     * Cari ItemsPaketAllFromXero berdasarkan code dari response Xero.
+     * Kalau belum ada, buat baru. Return id-nya (untuk d_bills.item_id_prod_serv).
+     */
+    private function resolveBillItemMaster(array $line, array &$cache): ?int
+    {
+        $code = trim((string) ($line['ItemCode'] ?? data_get($line, 'Item.Code') ?? ''));
+        if ($code === '') {
+            return null;
+        }
+
+        $key = mb_strtolower($code);
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+
+        $item = ItemsPaketAllFromXero::where('code', $code)->first();
+
+        if (!$item) {
+            $item = ItemsPaketAllFromXero::create([
+                'code' => $code,
+                'nama_paket' => data_get($line, 'Item.Name')
+                    ?: ($line['Description'] ?? $code),
+                'uuid_proudct_and_service' => data_get($line, 'Item.ItemID')
+                    ?: (string) \Illuminate\Support\Str::uuid(),
+                'tax_rate_salles' => 0,   // NOT NULL tanpa default
+                'tax_rate_purchase' => 0,   // NOT NULL tanpa default
+            ]);
+        }
+
+        return $cache[$key] = (int) $item->id;
+    }
     private function syncVaTrans(array $inv): void
     {
         $vaNumber = null;

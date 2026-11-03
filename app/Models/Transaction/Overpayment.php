@@ -32,4 +32,20 @@ class Overpayment extends Model
     {
         return $this->getInv->invoice_number;
     }
+
+    protected static function booted()
+    {
+        static::updating(function ($m) {
+            if ($m->isDirty('nominal_overpayment')) {
+                \Log::info('[overpay-debug]', [
+                    'id' => $m->id,
+                    'old' => $m->getOriginal('nominal_overpayment'),
+                    'new' => $m->nominal_overpayment,
+                    'trace' => collect(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15))
+                        ->map(fn($t) => ($t['class'] ?? '') . '::' . ($t['function'] ?? '') . ':' . ($t['line'] ?? ''))
+                        ->all(),
+                ]);
+            }
+        });
+    }
 }
