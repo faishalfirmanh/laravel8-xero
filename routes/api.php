@@ -117,6 +117,31 @@ Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyB
 Route::post('deleteInv', [InvXeroController::class, 'deletedInvoice'])->name('delete-trans');
 Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
 
+
+use App\Http\Controllers\Auth\TwoFactorAuthController;
+use App\Http\Controllers\Report\ExecutiveFinancePivotApiController;
+use App\Http\Middleware\TwoFactorApiMiddleware;
+
+// =========================================================================
+// EXECUTIVE MACHINE-READABLE FINANCE PIVOT & DATE RANGE API (WITH 2FA)
+// =========================================================================
+Route::prefix('v1/auth/2fa')->group(function () {
+    Route::post('/verify', [TwoFactorAuthController::class, 'verify2FA']);
+    Route::post('/generate-secret', [TwoFactorAuthController::class, 'generateSecret']);
+});
+
+Route::prefix('v1/finance')->middleware(TwoFactorApiMiddleware::class)->group(function () {
+    Route::post('/transaction/store', [ExecutiveFinancePivotApiController::class, 'storeTransaction']);
+    Route::get('/coas', [ExecutiveFinancePivotApiController::class, 'listCoas']);
+    Route::post('/range-report', [ExecutiveFinancePivotApiController::class, 'rangeReport']);
+    Route::post('/pivot', [ExecutiveFinancePivotApiController::class, 'pivot']);
+    Route::post('/summary', [ExecutiveFinancePivotApiController::class, 'summaryAll']);
+    Route::post('/package-profit-loss', [ExecutiveFinancePivotApiController::class, 'packageProfitLossMatrix']);
+    Route::get('/package-profit-loss', [ExecutiveFinancePivotApiController::class, 'packageProfitLossMatrix']);
+    Route::get('/summary', [ExecutiveFinancePivotApiController::class, 'summaryAll']);
+});
+
+
 Route::get('get_curr_local', [InvXeroController::class, 'getCurr'])->name('get_curr_local');
 
 Route::get('get_inv_external/{uuid_inv}', [InvoiceXeroLocalController::class, 'InvExternal'])->name('get_inv_external');
