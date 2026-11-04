@@ -1097,39 +1097,54 @@ class InvXeroController extends Controller
                     'invoice_id' => $saveP->id
                 ])
                 ->first();
+            $remaining = $this->repo_over->getRemainingBalance($saveP);
 
-            if ($totalPayInvoiceCurrency > $sumD) {
-
-                $totalOverpayment = round(
-                    $totalPayInvoiceCurrency - $sumD,
-                    4
-                ) * $saveP->nominal_currency;
-
+            if (bccomp($remaining, '0', 4) > 0) {
                 if ($existingOver) {
-
-                    $this->repo_over->CreateOrUpdate([
-                        'nominal_overpayment' => $totalOverpayment,
-                    ], $existingOver->id);
-
+                    $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $remaining], $existingOver->id);
                 } else {
-
                     $this->repo_over->CreateOrUpdate([
-                        'nominal_overpayment' => $totalOverpayment,
+                        'nominal_overpayment' => $remaining,
                         'invoice_id' => $saveP->id,
                         'trans_bank_id' => null,
                     ], null);
                 }
-
-            } elseif (
-                $existingOver
-                && (float) $existingOver->nominal_overpayment > 0
-            ) {
-
-                $this->repo_over->CreateOrUpdate([
-                    'nominal_overpayment' => 0,
-                ], $existingOver->id);
+            } elseif ($existingOver && (float) $existingOver->nominal_overpayment != 0) {
+                $this->repo_over->CreateOrUpdate(['nominal_overpayment' => 0], $existingOver->id);
             }
+            //--olde 4-11-2026
+            // if ($totalPayInvoiceCurrency > $sumD) {
 
+            //     $totalOverpayment = round(
+            //         $totalPayInvoiceCurrency - $sumD,
+            //         4
+            //     ) * $saveP->nominal_currency;
+
+            //     if ($existingOver) {
+
+            //         $this->repo_over->CreateOrUpdate([
+            //             'nominal_overpayment' => $totalOverpayment,
+            //         ], $existingOver->id);
+
+            //     } else {
+
+            //         $this->repo_over->CreateOrUpdate([
+            //             'nominal_overpayment' => $totalOverpayment,
+            //             'invoice_id' => $saveP->id,
+            //             'trans_bank_id' => null,
+            //         ], null);
+            //     }
+
+            // } elseif (
+            //     $existingOver
+            //     && (float) $existingOver->nominal_overpayment > 0
+            // ) {
+
+            //     $this->repo_over->CreateOrUpdate([
+            //         'nominal_overpayment' => 0,
+            //     ], $existingOver->id);
+            // }
+            //--olde 4-11-2026
             /*
             |--------------------------------------------------------------------------
             | 16. Log perubahan currency/rate
@@ -2022,7 +2037,8 @@ class InvXeroController extends Controller
 
                 // invoice_amount sudah kumulatif -> ini otomatis TOTAL overpayment saat ini,
                 // jadi ditulis ulang (bukan dijumlahkan lagi ke nominal_overpayment lama)
-                $totalOverpayment = $invP->invoice_amount - $invP->invoice_total;
+                //$totalOverpayment = $invP->invoice_amount - $invP->invoice_total;
+                $totalOverpayment = $this->repo_over->getRemainingBalance($invP);
 
                 if ($cek_over_sbelumnya) {
                     $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $totalOverpayment], $cek_over_sbelumnya->id);
@@ -2341,12 +2357,16 @@ class InvXeroController extends Controller
             ? $this->_num($this->repo_trans_bank->sumDataWhereDinamis(['overpay_id' => $cek_over->id], 'nominal_spend') ?? 0)
             : '0.0000';
 
+        $refunds = $cek_over ? $this->_num(DB::table('fee_overpays')->where('overpay_id', $cek_over->id)->sum('nominal')) : '0.0000';
+        $committed = bcadd($used, $refunds, 4);
+
+
         if (bccomp($excess, '0', 4) > 0) {
             // Kelebihan bayar berkurang tapi overpay sudah terpakai lebih besar dari itu
-            if (bccomp($excess, $used, 4) < 0) {
+            if (bccomp($excess, $committed, 4) < 0) {
                 throw new \Exception('Overpayment invoice ini sudah dipakai di invoice lain, tidak bisa dikurangi');
             }
-            $remaining = bcsub($excess, $used, 4);
+            $remaining = bcsub($excess, $committed, 4);
 
             if ($cek_over) {
                 $this->repo_over->CreateOrUpdate(['nominal_overpayment' => $remaining], $cek_over->id);
@@ -2360,7 +2380,7 @@ class InvXeroController extends Controller
                 ], null);
             }
         } elseif ($cek_over) {
-            if (bccomp($used, '0', 4) > 0) {
+            if (bccomp($committed, '0', 4) > 0) {
                 throw new \Exception('Overpayment invoice ini sudah dipakai di invoice lain, tidak bisa dihapus/dikurangi');
             }
             if (bccomp($this->_num($cek_over->nominal_overpayment), '0', 4) != 0) {
