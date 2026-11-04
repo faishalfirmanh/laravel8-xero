@@ -975,6 +975,7 @@ window.dellBill = function(id) {
         $('#idHotelInput').val(0);
         $("#ref_id").val('');
         $("#d_id_parent_bill").val(0);
+        resetBillModalState();          // <-- tambah
 
         lockCurrency(false);
         $('#cur_id').val('IDR').trigger('change');
@@ -1005,6 +1006,7 @@ window.dellBill = function(id) {
         let rowData = table.row($(this).parents('tr')).data(); 
 
         $('#idHotelInput').val(id);
+        resetBillModalState();   
         $('.modal-title').text('Edit Bill ' + (rowData.reference || ''));
 
         $('#modal_pay input[name="nominal_spend"]').val(0);
@@ -1139,7 +1141,7 @@ window.dellBill = function(id) {
                     } else {
                         tbody.append(`
                             <tr>
-                                <td colspan="4" class="text-center py-3 text-muted">
+                                <td colspan="5" class="text-center py-3 text-muted">
                                     <em>No payment history found.</em>
                                 </td>
                             </tr>
@@ -1579,6 +1581,32 @@ window.dellBill = function(id) {
             const action = $('<div>').text(`${convertStringDate(h.created_at)} | ${h.action}` || '-').html(); // escape biar aman dari HTML/script
             $list.append('<li class="list-group-item">' + action + '</li>');
         });
+    }
+
+
+    function resetBillModalState() {
+        // 1. History payment (5 kolom di header tabel)
+        $('#payment_history_bill tbody').html(
+            '<tr><td colspan="5" class="text-center py-3 text-muted">' +
+            '<em>No payment history found.</em></td></tr>'
+        );
+
+        // 2. Log history
+        $('#history_log_list').html(
+            '<li class="list-group-item text-muted">Belum ada riwayat.</li>'
+        );
+
+        // 3. Form payment: editPaymentId, nominal, bank, tombol "Update" -> "Record payment"
+        resetPaymentForm();
+        $('#label_payment').text('');
+
+        // 4. Dropzone: flag mencegah file bill lama ikut terhapus di server
+        if (myDropzone) {
+            isClearingDropzone = true;
+            myDropzone.removeAllFiles(true);
+            isClearingDropzone = false;
+        }
+        $('#dropzone-container').hide();
     }
 
     function loadTable(status_type) {
