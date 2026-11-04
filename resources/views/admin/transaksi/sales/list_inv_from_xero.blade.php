@@ -808,6 +808,91 @@
 #modalCreateItemMaster .btn-save-main:hover { background: #17a085; }
 #modalCreateItemMaster .btn-save-main:disabled { opacity: .6; }
 #modalCreateItemMaster .select2-container { width: 100% !important; }
+
+/* ── Dropdown item (select2-item) ── */
+.select2-dropdown.item-dropdown {
+    min-width: 320px;                 /* lebih lebar dari kolom Item */
+    max-width: calc(100vw - 24px);    /* jangan keluar layar di mobile */
+}
+.item-dropdown .select2-results__options { max-height: 320px; }
+
+.item-opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.item-opt-info { flex: 1; min-width: 0; }
+
+.item-opt-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+.item-opt-code {
+    display: inline-block;
+    max-width: 65%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;              /* kode tidak pecah baris */
+    border: 1px solid #bbb;
+    border-radius: 3px;
+    padding: 0 6px;
+    font-size: 10px;
+    line-height: 16px;
+    color: #555;
+    background: #fff;
+}
+.item-opt-price {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    color: #666;
+    white-space: nowrap;
+}
+.item-opt-name {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;            /* maksimal 2 baris */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.item-opt-desc {
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.btn-edit-item-option {
+    flex-shrink: 0;
+    padding: 2px 10px !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+    background: #fff;
+}
+
+.select2-results__option--highlighted .item-opt-name,
+.select2-results__option--highlighted .item-opt-desc,
+.select2-results__option--highlighted .item-opt-price { color: #fff; }
+.select2-results__option--highlighted .item-opt-code  { color: #fff; background: transparent; border-color: rgba(255,255,255,.7); }
+.select2-results__option--highlighted .btn-edit-item-option { color: #1ab394; border-color: #fff; }
+
+/* Mobile: tombol Edit lebih mudah disentuh */
+@media (max-width: 576px) {
+    .select2-dropdown.item-dropdown { min-width: 0; width: calc(100vw - 24px) !important; }
+    .select2-search--dropdown .select2-search__field { font-size: 16px !important; }
+    .btn-edit-item-option { padding: 6px 12px !important; font-size: 12px !important; }
+    .item-opt-name { font-size: 13px; }
+    .item-opt-desc { white-space: normal; -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; }
+}
+
+.swal2-container { z-index: 20000 !important; }
 </style>
 
 
@@ -3862,7 +3947,7 @@ function buildRow() {
 // ── Init semua Select2 pada satu baris ($row) ─────────────
 function initRowSelect2($row) {
     const modalEl = $('#modalCreateHotel');
-
+      const $itemSel = $row.find('.select2-item');
     // Item — AJAX list-paket-select2
     $row.find('.select2-item').select2({
         theme: 'bootstrap4',
@@ -3885,6 +3970,7 @@ function initRowSelect2($row) {
                             id        : item.id,
                             text      : item.nama_paket,
                             harga     : item.price_sales,
+                            code: item.code,     
                             id_coa : item.get_coa_salles_by_code,
                             track_id : item.uuid_tracking_category,
                             name_paket_track :item.tracking_category_paket,
@@ -3895,7 +3981,42 @@ function initRowSelect2($row) {
                 }
             },
             cache: true
-        }
+        },
+        templateResult: function (d) {
+            if (!d.id) return d.text;
+
+            const $el = $(`
+                    <div class="item-opt">
+                        <div class="item-opt-info">
+                            <div class="item-opt-top">
+                                ${d.code
+                                    ? `<span class="item-opt-code" title="${esc(d.code)}">${esc(d.code)}</span>`
+                                    : '<span></span>'}
+                                <span class="item-opt-price">${Number(d.harga || 0).toLocaleString('id-ID')}</span>
+                            </div>
+                            <div class="item-opt-name">${esc(d.text)}</div>
+                            <div class="item-opt-desc">${esc(d.penjelasan || '')}</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-edit-item-option">Edit</button>
+                    </div>`);
+
+            // Bind langsung ke tombol supaya event TIDAK sampai ke handler select option Select2
+            $el.find('.btn-edit-item-option')
+                .on('mousedown mouseup', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                })
+                .on('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $itemSel.select2('close');
+                    openEditItemMaster(d.id, $row);
+                });
+
+            return $el;
+        },
+        // teks yang tampil setelah dipilih tetap nama saja
+        templateSelection: function (d) { return d.text; }
     }).on('select2:select', function (e) {
         // Auto-fill desc dari field nama_paket response
         const d = e.params.data;
@@ -4025,7 +4146,78 @@ function initRowSelect2($row) {
         }
     });
 }
+let miEditingId = null;   // null = mode tambah, ada isi = mode edit
+let miEditRow   = null;   // baris line item yang memicu edit
 
+function miSetSelect2($el, id, text) {
+    if (!id) return;
+    $el.find('option[value!=""]').remove();
+    $el.append(new Option(text || ('#' + id), id, true, true)).trigger('change');
+}
+
+function openEditItemMaster(id, $row) {
+    ajaxRequest("{{ route('item-detail-xero') }}", 'GET', { id: id }, localStorage.getItem("token"))
+        .then(res => {
+            const d = res.data?.data || res.data || {};
+            if (!d || !d.id) {
+                Swal.fire('Gagal', 'Data item tidak ditemukan.', 'error');
+                return;
+            }
+
+            miEditingId = d.id;
+            miEditRow   = $row;
+            miCodeManuallyEdited = true;                 // jangan auto-generate code
+            miDescPurchaseManual = !!(d.desc);           // jangan timpa desc yang sudah ada
+            miDescSalesManual    = !!(d.desc_salles);
+
+            $('#modalCreateItemMaster .modal-title').text('Edit item');
+
+            $('#modalCreateItemMaster').one('shown.bs.modal.editItem', function () {
+                const hasPurchase = !!d.account_id_purchase
+                                || parseFloat(d.price_purchase) > 0
+                                || !!d.desc;
+                const hasSell     = !!d.account_id_salles
+                                || parseFloat(d.price_sales) > 0
+                                || !!d.desc_salles;
+
+                $('#mi_code').val(d.code || '');
+                $('#mi_name').val(d.nama_paket || '');
+                $('#mi_departure_date').val(d.departure_date || '');
+                $('input[name="mi_is_item_product"][value="' + (d.is_item_product ? 1 : 0) + '"]').prop('checked', true);
+
+                // ── Purchase ──
+                $('#mi_chkPurchase').prop('checked', hasPurchase).trigger('change');
+                if (hasPurchase) {
+                    $('#mi_desc').val(d.desc || '');
+                    $('#mi_price_purchase').val(parseFloat(d.price_purchase) || '');
+                    if (d.account_id_purchase) {
+                        miSetSelect2($('#mi_account_purchase'), d.account_id_purchase,
+                            d.get_coa_purchase?.name || d.get_coa_purchase?.code);
+                    }
+                }
+
+                // ── Sell ──
+                $('#mi_chkSell').prop('checked', hasSell).trigger('change');
+                if (hasSell) {
+                    $('#mi_desc_salles').val(d.desc_salles || '');
+                    $('#mi_price_sales').val(parseFloat(d.price_sales) || '');
+                    $('#mi_va_number').val(d.va_number || '');
+                    if (d.account_id_salles) {
+                        miSetSelect2($('#mi_account_sales'), d.account_id_salles,
+                            d.get_coa_salles?.name || d.get_coa_salles?.code);
+                    }
+                }
+            });
+
+            $('#modalCreateItemMaster').modal('show');
+        })
+        .catch(err => cathError(err));
+}
+
+// Escape HTML agar aman dipakai di templateResult
+function esc(s) {
+    return $('<div>').text(s ?? '').html();
+}
 // ── Init Contact Select2 di form atas ─────────────────────
 
 function initContactAlhidSelect2() {
@@ -5516,6 +5708,9 @@ function initItemMasterSelect2() {
 }
 
 function resetItemMasterForm() {
+    miEditingId = null;
+    miEditRow   = null;
+    $('#modalCreateItemMaster .modal-title').text('New item');
     $('#formCreateItemMaster')[0].reset();
      miCodeManuallyEdited = false;  
     $('#mi_purchaseFields, #mi_sellFields').removeClass('show');
@@ -5573,12 +5768,14 @@ function selectNewItemOnRow(itemId, payload, salesAccountText) {
 // ── Submit ──
 $('#formCreateItemMaster').on('submit', function (e) {
     e.preventDefault();
+    const editingId = miEditingId;      // simpan dulu, karena reset form akan mengosongkannya
+    const editRow   = miEditRow;
     if (!$('#mi_code').val()) miGenerateCode();
     const isPurchase = $('#mi_chkPurchase').is(':checked');
     const isSell     = $('#mi_chkSell').is(':checked');
 
     const selectedData = {
-        id               : null,
+        id               : editingId,
         nama_paket       : $('#mi_name').val(),
         code             : $('#mi_code').val(),
         desc             : $('#mi_desc').val(),
@@ -5619,10 +5816,11 @@ $('#formCreateItemMaster').on('submit', function (e) {
                     showConfirmButton: false
                 }).then(() => { /* noop */ });
 
-                if (itemId) {
+                if (editingId && editRow) {
+                    // mode edit: cukup perbarui teks item di baris (qty/harga baris tidak ditimpa)
+                    miSetSelect2(editRow.find('.select2-item'), itemId, selectedData.nama_paket);
+                } else if (itemId) {
                     selectNewItemOnRow(itemId, selectedData, salesAccountText);
-                } else {
-                    console.warn('save-item-product tidak mengembalikan id, item tidak bisa auto-select', response);
                 }
             } else {
                 cathError(response);

@@ -339,8 +339,9 @@ Route::prefix("admin-web")->group(function () {
                     Route::get('getImage', [InvXeroController::class, 'getImageDetail'])->name('get-image-sales-inv');
                     Route::post('removeImage', [InvXeroController::class, 'removeImage'])->name('remove-image-sales-inv');
 
-                    //apply secara langsung overpayment
+                    //apply secara langsung overpayment dana di kembalikan
                     Route::post('storeFeeOverpay', [FeeOverpayController::class, 'storeFeeOverpay'])->name('save-fee-overpay');
+                    //menampilkan riwayat pengembalian overpay dibawah form Fee Overpay
                     Route::get('getFeeOverByInv', [FeeOverpayController::class, 'getOverpayByInvId'])->name('get-fee-overpay');
                     Route::post('delete-fee-overpay', [FeeOverpayController::class, 'deleteFeeOverpay'])->name('delete-fee-overpay');
 
