@@ -15,6 +15,7 @@ use App\Http\Controllers\Toko\MasterData\WarehouseController;
 use App\Http\Controllers\Transaction\Bank\BankSpendReceiveController;
 use App\Http\Controllers\Transaction\Expenses\BillXeroController;
 use App\Http\Controllers\Transaction\Expenses\FeeOverpayController;
+use App\Http\Controllers\Transaction\Expenses\OverpayController;
 use App\Http\Controllers\Xero\BankSyncTransController;
 use App\Http\Controllers\Xero\CoaXeroController;
 use App\Http\Controllers\Xero\ConfigController;
@@ -362,6 +363,11 @@ Route::prefix("admin-web")->group(function () {
                     Route::post('/updateRowPayment', [RPaymentHotelApiController::class, 'updated_row'])->name('updated-by-row-payment-hotel');
 
                 });
+            });
+            Route::prefix('overpay')->group(function () {
+                Route::get('get', [OverpayController::class, 'getAllPaginate'])->name('list-overpay');
+                Route::get('detailOverpayFee', [OverpayController::class, 'detailOverpayFee'])->name('detail-list-overpay-kembalian');//detail overpayment pengembalian
+                Route::post('update_nominal', [OverpayController::class, 'updateNOminal'])->name('save-update-overpay');//update tabel overpayment saja
             });
 
         });

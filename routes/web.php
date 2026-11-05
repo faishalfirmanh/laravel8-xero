@@ -87,6 +87,7 @@ Route::prefix('travel')->group(function () {
             Route::get('bank-trans/{idBank}', [DashboardController::class, 'getTransDetailBank'])->name('web-bank-trans-detail');
             Route::get('bank-trans/{idBank}/{id_trans_bank}', [DashboardController::class, 'getDetailTransBank'])->name('web-bank-trans-detail-detail-trans');
             Route::get('sales-invoice/{idInvoice?}', [DashboardController::class, 'getTransInvoice'])->name('web-sales-inv');
+            Route::get('overpay', [DashboardController::class, 'getOverpayWeb'])->name('web-overpay');
             //
             Route::get('/sales-invoice/print/{id}', [InvoiceXeroLocalController::class, 'printInvoice'])->name('salles_invoice_print');
             // routes/web.php

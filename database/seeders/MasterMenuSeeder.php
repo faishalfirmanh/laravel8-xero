@@ -149,7 +149,8 @@ class MasterMenuSeeder extends Seeder
                     // 'purchase-orders',
                     // 'purchase-suppliers',
                     'bank-trans',
-                    'inv-hotel'
+                    'inv-hotel',
+                    'overpay'
                 ];
                 $slug_trans = [
                     'travel/admin/transaksi/sales-invoice',
@@ -161,6 +162,7 @@ class MasterMenuSeeder extends Seeder
                     // 'travel/admin/transaksi/purchase-suppliers',
                     'travel/admin/transaksi/bank-trans',
                     'travel/admin/transaksi/sales-inv-hotel',
+                    'travel/admin/transaksi/overpay',
                 ];
 
                 $tp = 0;

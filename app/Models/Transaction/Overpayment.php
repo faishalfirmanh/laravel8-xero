@@ -3,6 +3,8 @@
 namespace App\Models\Transaction;
 
 use App\Models\InvoicesAllFromXero;
+use App\Models\MasterData\BankXero;
+use App\Models\MasterData\DataJamaahXero;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -23,8 +25,36 @@ class Overpayment extends Model
     ];
 
     protected $appends = [
-        'inv_number'
+        'inv_number',
+        'name_contact',
+        'bank_name'
     ];
+
+
+    public function getBankNameAttribute()
+    {
+        return optional($this->getBank)->name ?? 'no name';
+    }
+
+    public function getNameContactAttribute()
+    {
+        return $this->getJamaah->full_name ?? '-';
+    }
+
+    public function getJamaah()
+    {
+        return $this->hasOne(DataJamaahXero::class, 'id', 'jamaah_contact_id');
+    }
+
+    public function historyPengembalian()
+    {
+        return $this->hasMany(FeeOverpay::class, 'overpay_id', 'id');
+    }
+
+    public function getBank()
+    {
+        return $this->hasOne(BankXero::class, 'id', 'bank_id');
+    }
 
     public function getInv()
     {
@@ -33,7 +63,7 @@ class Overpayment extends Model
 
     public function getInvNumberAttribute()
     {
-        return $this->getInv->invoice_number;
+        return $this->getInv->invoice_number ?? '-';
     }
 
     protected static function booted()

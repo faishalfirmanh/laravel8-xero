@@ -138,6 +138,11 @@ class DashboardController extends Controller
         return view('admin.transaksi.sales.list_inv_from_xero', compact('travel', 'bank', 'idInvoice', 'cur', 'branding'));
     }
 
+    public function getOverpayWeb()
+    {
+        return view('admin.transaksi.overpay');
+    }
+
     public function warehouse()
     {
 
