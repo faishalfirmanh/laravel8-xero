@@ -129,10 +129,11 @@
                     <th>From</th>
                     <th>Status</th>
                     <th>Reference</th>
+                    <th>Mata Uang</th>
                     <th>Date</th>
                     <th>Saved By</th>
-                    <th>Total</th>
-                    <th>Paid</th>
+                    <th>Total Tagihan (Rp)</th>
+                    <th>Paid (Rp)</th>
                     <th>Due</th>
                        
                     <th width="15%">Action</th>
@@ -516,6 +517,11 @@ $(document).ready(function() {
             }
         },
         { data: 'reference', name: 'reference' },
+        { data: 'currency', render: function(data,type,row){
+            let cek_nam = data == 'SAR' ? `${data} | ${formatCurrency(row.nominal_currency)}` : data;
+            return cek_nam;
+          } 
+        },
         { data: 'date_req', name: 'date_req' },
         { 
           data: 'created_by_name', 
@@ -532,17 +538,17 @@ $(document).ready(function() {
             } 
         },
         { 
-            data: 'nominal_paid', 
-            name: 'nominal_paid', 
+            data: 'nominal_paid_base', 
+            name: 'nominal_paid_base', 
             render: function(data,type,row){
                 return formatCurrency(data)
             } 
         },
         { 
-            data: 'nominal_due', 
-            name: 'nominal_due' ,
+            data: 'nominal_due_base', 
+            name: 'nominal_due_base' ,
             render: function(data,type,row){
-                return `${formatCurrency(data)}-<b>${row.currency}</b>`
+                return `${formatCurrency(data)}`
             }
         },
         {
@@ -1545,28 +1551,56 @@ window.dellBill = function(id) {
         if (!item) { calculateAmount(); }
     };
 
+    
     window.calculateGrandTotal = function() {
         let total_grand = 0;
+
         $('#itemTable tbody tr').each(function() {
             let amountStr = $(this).find('input[name="amount[]"]').val();
             let amount_row = parseFloat(amountStr) || 0;
             total_grand += amount_row;
         });
 
+        let currency = $("#cur_id").val();
+        let nominal_currency = Number($("#nominal_currency").val()) || 0;
+        let tot_rpp = nominal_currency * total_grand;
+
         let $tfoot = $('#itemTable tfoot');
+
+        // Jika tfoot belum ada, buat terlebih dahulu
         if ($tfoot.length === 0) {
-            $('#itemTable').append(`
-                <tfoot>
-                    <tr class="table-info">
-                        <td colspan="9" class="text-right font-weight-bold">Total Amount</td>
-                        <td class="text-right font-weight-bold" id="grandTotal" style="font-size: 1.1em;">0.00</td>
-                        <td></td>
-                    </tr>
-                </tfoot>
-            `);
+            $('#itemTable').append('<tfoot></tfoot>');
+            $tfoot = $('#itemTable tfoot');
         }
-        $('#grandTotal').text(formatCurrency(total_grand));
+
+        // Baris Total Amount
+        let html = `
+            <tr class="table-info">
+                <td colspan="9" class="text-right font-weight-bold">Total Amount</td>
+                <td class="text-right font-weight-bold" id="grandTotal" style="font-size: 1.1em;">
+                    ${formatCurrency(total_grand)}
+                </td>
+                <td></td>
+            </tr>
+        `;
+
+        // Baris Total Amount Rupiah khusus SAR
+        if (currency === 'SAR') {
+            html += `
+                <tr id="rowTotalRupiah">
+                    <td colspan="9" class="text-right font-weight-bold">Total Amount Rupiah</td>
+                    <td class="text-right font-weight-bold" id="totalAmountRupiah" style="font-size: 1.1em;">
+                        ${formatCurrency(tot_rpp)}
+                    </td>
+                    <td></td>
+                </tr>
+            `;
+        }
+
+        // Perbarui isi tfoot setiap kali fungsi dipanggil
+        $tfoot.html(html);
     };
+
 
     function renderHistoryLog(historyArr) {
         const $list = $('#history_log_list');
