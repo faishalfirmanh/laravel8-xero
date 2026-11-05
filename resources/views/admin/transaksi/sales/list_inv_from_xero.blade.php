@@ -1478,7 +1478,8 @@
                                     </div>
                                     <div class="xero-field">
                                         <label>Description</label>
-                                        <input type="text" class="form-control" id="mi_desc_salles">
+                                         <textarea id="mi_desc_salles" class="form-control mi_desc_salles" name="mi_desc_salles" rows="4" cols="50"></textarea>
+                                        {{-- <input type="text" class="form-control" id="mi_desc_salles"> --}}
                                     </div>
                                 </div>
                             </div>
@@ -5045,12 +5046,15 @@ function setRowRequiredState($row, isRequired) {
             // }
 
             //console.log('overpay',overpay)
-            console.log('detail',overpay)
+          
             // ── FEE OVERPAY: INI YANG SEBELUMNYA BELUM ADA ──
             if(d.get_over_pay){
                 if(Number(d.get_over_pay.nominal_overpayment) > 0){
                     console.log('nom',d.get_over_pay.nominal_overpayment)
                      renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
+                }else if (d.get_fee_overpay){
+                    console.log(('history pengenbalian'));
+                    renderFeeOverpaySection(d.nominal_currency, overpay, invoiceId, d.id_jamaah_alhid, d.code_curr);
                 }
             }
            // console.log(Number(d.get_over_pay.nominal_overpayment))
@@ -5317,6 +5321,7 @@ function loadFeeOverpayHistory(invoiceId) {
 
     ajaxRequest(feeOverpayRoutes.list, 'GET', { invoice_id: invoiceId }, localStorage.getItem('token'))
         .then(res => {
+            console.log('history pengembalian',res)
             const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
 
             feeOverpayCache = {};
@@ -5755,6 +5760,7 @@ function selectNewItemOnRow(itemId, payload, salesAccountText) {
                 text      : payload.nama_paket,
                 nama_paket: payload.nama_paket,
                 harga     : payload.price_sales,
+                penjelasan : payload.desc_salles,
                 id_coa    : payload.account_id_salles
                                 ? { id: payload.account_id_salles, name: salesAccountText }
                                 : null,
@@ -5818,7 +5824,7 @@ $('#formCreateItemMaster').on('submit', function (e) {
 
                 if (editingId && editRow) {
                     // mode edit: cukup perbarui teks item di baris (qty/harga baris tidak ditimpa)
-                    miSetSelect2(editRow.find('.select2-item'), itemId, selectedData.nama_paket);
+                    miSetSelect2(editRow.find('.select2-item'), itemId, selectedData.desc_salles);
                 } else if (itemId) {
                     selectNewItemOnRow(itemId, selectedData, salesAccountText);
                 }
