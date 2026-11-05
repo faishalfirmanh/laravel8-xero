@@ -7,8 +7,11 @@ use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\ConfigRefreshXero;
-
+use Illuminate\Support\Facades\Log;
 use Validator;
+use App\Jobs\SyncXeroTrackingCategoryJob;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class TrackingController extends Controller
 {
@@ -22,6 +25,37 @@ class TrackingController extends Controller
         $this->repo = $repo;
     }
 
+    public function syncTrackingCategory(Request $request)
+    {
+        $dryRun = (int) $request->input('dry_run', 0) === 1;
+        $jobId = (string) Str::uuid();
+
+        Cache::put(SyncXeroTrackingCategoryJob::cacheKey($jobId), [
+            'status' => 'queued',
+            'job_id' => $jobId,
+            'dry_run' => $dryRun,
+        ], now()->addHours(2));
+
+        SyncXeroTrackingCategoryJob::dispatch($jobId, $dryRun);
+
+        return response()->json([
+            'status' => 'queued',
+            'job_id' => $jobId,
+            'dry_run' => $dryRun,
+            'message' => 'Sync tracking category dimulai. Cek status pakai job_id.',
+        ]);
+    }
+
+    public function syncTrackingCategoryStatus($jobId)
+    {
+        $status = Cache::get(SyncXeroTrackingCategoryJob::cacheKey($jobId));
+
+        if (!$status) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        return response()->json($status);
+    }
     public function getAgent()
     {
 

@@ -19,6 +19,85 @@ class TrackingRepo extends BaseRepository
         return $no;
     }
 
+    /**
+     * Merge option tracking dari Xero ke lines_category tanpa replace data lama.
+     * Return null jika parent tidak ada di DB (baris static, tidak dibuat otomatis).
+     */
+    public function mergeLinesFromXero($parentName, array $xeroOptions, $dryRun = false)
+    {
+        return DB::transaction(function () use ($parentName, $xeroOptions, $dryRun) {
+            $row = $this->model->newQuery()
+                ->whereRaw('LOWER(TRIM(name_parent_category)) = ?', [mb_strtolower(trim($parentName))])
+                ->lockForUpdate()
+                ->first();
+
+            if (!$row) {
+                return null;
+            }
+
+            $lines = is_array($row->lines_category) ? $row->lines_category : [];
+
+            // uuid (lowercase) => nama yang sudah ada di DB
+            $existing = [];
+            foreach ($lines as $line) {
+                if (!empty($line['item_uuid_category'])) {
+                    $existing[strtolower($line['item_uuid_category'])] = isset($line['item_name_category'])
+                        ? $line['item_name_category']
+                        : '';
+                }
+            }
+
+            $added = [];
+            $nameDiff = [];
+
+            foreach ($xeroOptions as $opt) {
+                $rawUuid = isset($opt['TrackingOptionID']) ? trim($opt['TrackingOptionID']) : '';
+                $name = isset($opt['Name']) ? trim($opt['Name']) : '';
+                $key = strtolower($rawUuid);
+
+                if ($rawUuid === '' || $name === '') {
+                    continue;
+                }
+
+                // Sudah ada -> jangan diubah, hanya dilaporkan kalau namanya beda
+                if (array_key_exists($key, $existing)) {
+                    if ($existing[$key] !== $name) {
+                        $nameDiff[] = [
+                            'uuid' => $rawUuid,
+                            'db' => $existing[$key],
+                            'xero' => $name,
+                        ];
+                    }
+                    continue;
+                }
+
+                $newLine = [
+                    'id_parent' => $row->id,
+                    'item_name_category' => $name,
+                    'item_uuid_category' => $rawUuid,
+                ];
+
+                $lines[] = $newLine;
+                $existing[$key] = $name;
+                $added[] = $newLine;
+            }
+
+            if (!$dryRun && !empty($added)) {
+                $row->lines_category = array_values($lines);
+                $row->save();
+            }
+
+            return [
+                'id_parent' => $row->id,
+                'parent' => $row->name_parent_category,
+                'total_xero' => count($xeroOptions),
+                'added_count' => count($added),
+                'added' => $added,
+                'name_different' => $nameDiff, // tidak ditimpa, hanya info
+            ];
+        });
+    }
+
     public function getUUIDKategory($parent, array $uuidKategory = [])
     {
         if (empty($uuidKategory)) {
