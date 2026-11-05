@@ -51,24 +51,43 @@ class SyncXeroTrackingCategoryJob implements ShouldQueue
         );
     }
 
+    protected function logTo($level, $message, array $context = [])
+    {
+        Log::log($level, '[TrackingSync] ' . $message, array_merge([
+            'job_id' => $this->jobId,
+            'attempt' => $this->attempts(),
+            'dry_run' => $this->dryRun,
+        ], $context));
+    }
+
     public function handle(TrackingRepo $repo)
     {
-        $this->setStatus('running');
+        $startedAt = microtime(true);
 
-        // Token diambil di sini (bukan dikirim lewat constructor) supaya
-        // tidak tersimpan di tabel jobs dan tidak expired saat antre.
+        $this->setStatus('running');
+        $this->logTo('info', 'START job dimulai');
+
+        // 1. Token
         $tokenData = $this->getValidToken();
         if (!$tokenData) {
+            $this->logTo('error', 'Token Xero kosong/invalid, job dihentikan (perlu login ulang Xero)');
             $this->setStatus('failed', ['message' => 'Token kosong/invalid.']);
-            return; // tidak di-retry, perlu login ulang ke Xero
+            return;
         }
+        $this->logTo('info', 'Token Xero OK');
 
+        // 2. Tenant
         $accessToken = $tokenData['access_token'];
         $tenantId = $this->getTenantId($accessToken);
         if (!$tenantId) {
+            $this->logTo('error', 'Tenant Xero tidak ditemukan, job dihentikan');
             $this->setStatus('failed', ['message' => 'Tenant Xero tidak ditemukan.']);
             return;
         }
+        $this->logTo('info', 'Tenant Xero OK', ['tenant_id' => $tenantId]);
+
+        // 3. Request ke Xero
+        $this->logTo('info', 'Request GET /TrackingCategories ke Xero (includeArchived=true)');
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $accessToken,
@@ -78,22 +97,31 @@ class SyncXeroTrackingCategoryJob implements ShouldQueue
                     'includeArchived' => 'true',
                 ]);
 
-        // Rate limit -> kembalikan ke antrean sesuai Retry-After
+        $this->logTo('info', 'Response Xero diterima', ['http_status' => $response->status()]);
+
         if ($response->status() === 429) {
             $wait = (int) $response->header('Retry-After');
+            $wait = $wait > 0 ? $wait : 60;
+            $this->logTo('warning', 'Kena rate limit Xero (429), dikembalikan ke antrean', ['retry_after_detik' => $wait]);
             $this->setStatus('queued', ['message' => 'Kena rate limit Xero, dicoba ulang.']);
-            $this->release($wait > 0 ? $wait : 60);
+            $this->release($wait);
             return;
         }
 
         if (!$response->successful()) {
-            // lempar exception -> otomatis retry sesuai $tries/$backoff
+            $this->logTo('error', 'Xero mengembalikan error, akan di-retry bila masih ada sisa percobaan', [
+                'http_status' => $response->status(),
+                'body' => substr($response->body(), 0, 500),
+            ]);
             throw new \RuntimeException(
                 'Xero TrackingCategories HTTP ' . $response->status() . ': ' . $response->body()
             );
         }
 
+        // 4. Merge per kategori
         $categories = $response->json('TrackingCategories') ?: [];
+
+        $this->logTo('info', 'Jumlah kategori dari Xero: ' . count($categories));
 
         $result = [];
         $notFound = [];
@@ -102,25 +130,59 @@ class SyncXeroTrackingCategoryJob implements ShouldQueue
             $name = isset($category['Name']) ? $category['Name'] : '';
             $options = isset($category['Options']) ? $category['Options'] : [];
 
+            $this->logTo('info', 'Proses kategori "' . $name . '"', [
+                'status_xero' => isset($category['Status']) ? $category['Status'] : null,
+                'total_option' => count($options),
+            ]);
+
             $merged = $repo->mergeLinesFromXero($name, $options, $this->dryRun);
 
             if ($merged === null) {
                 $notFound[] = $name;
+                $this->logTo('warning', 'Kategori "' . $name . '" tidak ada di tabel tracking_categories, dilewati');
                 continue;
             }
 
             $result[] = $merged;
+
+            $this->logTo('info', 'Merge selesai untuk "' . $name . '"', [
+                'id_parent' => $merged['id_parent'],
+                'total_xero' => $merged['total_xero'],
+                'ditambahkan' => $merged['added_count'],
+                'nama_berbeda' => count($merged['name_different']),
+                'disimpan_ke_db' => !$this->dryRun && $merged['added_count'] > 0,
+            ]);
+
+            if ($merged['added_count'] > 0) {
+                $this->logTo('info', 'Option baru "' . $name . '" (maks 30 ditampilkan)', [
+                    'option_baru' => array_slice(array_column($merged['added'], 'item_name_category'), 0, 30),
+                ]);
+            }
+
+            if (!empty($merged['name_different'])) {
+                $this->logTo('warning', 'Nama option di Xero berbeda dengan DB (tidak ditimpa, maks 30 ditampilkan)', [
+                    'detail' => array_slice($merged['name_different'], 0, 30),
+                ]);
+            }
         }
 
         $this->setStatus('done', [
             'result' => $result,
             'parent_not_in_db' => $notFound,
         ]);
+
+        $this->logTo('info', 'SELESAI', [
+            'durasi_detik' => round(microtime(true) - $startedAt, 2),
+            'parent_not_in_db' => $notFound,
+        ]);
     }
 
     public function failed(Throwable $e)
     {
-        Log::error('SyncXeroTrackingCategoryJob gagal', ['error' => $e->getMessage()]);
+        $this->logTo('error', 'GAGAL final setelah semua percobaan', [
+            'error' => $e->getMessage(),
+            'file' => $e->getFile() . ':' . $e->getLine(),
+        ]);
         $this->setStatus('failed', ['message' => $e->getMessage()]);
     }
 }
