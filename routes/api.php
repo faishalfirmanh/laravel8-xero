@@ -158,7 +158,7 @@ Route::prefix("xero")->group(function () {
     Route::get('get_contact_byid', [ContactController::class, 'getContactsById'])->name('get-contact-byuuid');
     Route::get('contacts_search', [ContactController::class, 'getContactsSearch'])->name('search-contact-select2');//untuk select2
     Route::post('sync-invoice-paid', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival'])->name('sync-invoice-paid');//pindah invoice, detail dan item xero ke local db
-    Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');
+    Route::get('sync-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmroh'])->name('sync-item-paket');//used sync itempaket
     Route::get('get-invoice-xero', [XeroSyncInvoicePaidController::class, 'getInvoicePaidArrival2']);
     Route::get('sync-bill', [XeroBillController::class, 'getBills'])->name('sync-bill-xero');//sync bill final
     Route::get('get-detail-bill/{billUuidfetchBillDetail}', [XeroBillController::class, 'fetchBillDetail'])->name('get-detail-bill');
@@ -174,7 +174,8 @@ Route::prefix("xero")->group(function () {
 Route::get('status-job/{jobId}', [InvoiceXeroLocalController::class, 'getSyncStatus'])->name('cek-sync-job-inv-xero');
 Route::prefix("xero-integrasi")->group(function () {
     Route::get('/get-data', [ContactController::class, 'getContact']);
-    Route::get('get-data-tracking', [TrackingController::class, 'syncTrackingCategory']);
+    Route::get('get-data-tracking', [TrackingController::class, 'syncTrackingCategory']);//sync tracking
+    Route::get('job/tracking-category/sync/{jobId}', [TrackingController::class, 'syncTrackingCategoryStatus']);//cek status sync tracking job
     Route::get('sync-job-item-paket', [XeroSyncInvoicePaidController::class, 'getPaketHajiUmrohSyncJob'])->name('sync-job-item-paket');//sync item dengan job
     Route::get('sync-inv-xero', [InvoiceXeroLocalController::class, 'getListInvoice'])->name('sync-job-inv-xero');//sync invoice final lewat job, SyncXeroInvoiceJob.php
     Route::get('/get-contact-local', [ContactController::class, 'getContactLocal']);//used sync contact

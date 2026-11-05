@@ -5,6 +5,7 @@ use App\Http\Repository\Transaction\FeeOverpayRepo;
 use App\Http\Repository\Transaction\VaRepo;
 use App\Jobs\SyncXeroInvoiceJob;
 use App\Jobs\SyncXeroInvoiceJobV2;
+use App\Jobs\SyncXeroInvoiceResumeJob;
 use App\Models\InvoicesAllFromXero;
 use App\Models\SyncJobStatus;
 use App\Models\Transaction\FeeOverpay;
@@ -111,6 +112,7 @@ class InvoiceXeroLocalController extends Controller
             'is_sync' => 'required|in:0,1',
             'is_all' => 'required|in:0,1',
             'month_filter' => 'required_if:is_all,0|nullable|date_format:m-Y', // contoh 02-2026
+            'start_month' => 'nullable|date_format:m-Y',
         ]);
 
 
@@ -119,10 +121,12 @@ class InvoiceXeroLocalController extends Controller
         }
 
         $monthFilter = ((int) $request->is_all === 0) ? $request->month_filter : null;
+        $startMonth = ((int) $request->is_all === 1) ? $request->start_month : null;
 
         if ($request->is_sync == 1) {
             $jobId = (string) Str::uuid();
-            SyncXeroInvoiceJob::dispatch($tokenData, $jobId, $monthFilter);
+            //SyncXeroInvoiceJob::dispatch($tokenData, $jobId, $monthFilter);
+            SyncXeroInvoiceResumeJob::dispatch($tokenData, $jobId, $monthFilter, $startMonth);//baru dengan lanjutan, tanpa replace sebelumnya
 
             return response()->json([
                 'status' => 'queued',
