@@ -74,6 +74,7 @@ use App\Http\Controllers\Transaction\Sales\InvXeroController;
 use App\Http\Controllers\Transaction\Expenses\ExpensesPackageApiController;
 use App\Http\Controllers\Report\LogHistoryController;
 
+use App\Http\Middleware\PublicKey;
 use App\Models\DataJamaah;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -142,6 +143,9 @@ Route::prefix('v1/finance')->middleware(TwoFactorApiMiddleware::class)->group(fu
     Route::get('/summary', [ExecutiveFinancePivotApiController::class, 'summaryAll']);
 });
 
+Route::prefix('public')->middleware(PublicKey::class)->group(function () {
+    Route::get('getV3', [ProfitLossController::class, 'getProfitAndLostV2Combine'])->name('profit-and-loss-v3');
+});
 
 Route::get('get_curr_local', [InvXeroController::class, 'getCurr'])->name('get_curr_local');
 
