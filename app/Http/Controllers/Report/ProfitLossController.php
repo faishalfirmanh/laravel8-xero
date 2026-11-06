@@ -48,6 +48,212 @@ class ProfitLossController extends Controller
 
     }
 
+    public function profitAndLossDetailDataCombine(Request $request, $account, $date_start, $date_end)
+    {//detail support, tracking dan nama paket item
+        // ── 1. Validasi tanggal (end dibuat exclusive, sama seperti getProfitAndLostV2) ──
+        try {
+            $start = Carbon::parse($date_start)->startOfDay();
+            $endExclusive = Carbon::parse($date_end)->addDay()->startOfDay();
+        } catch (\Exception $e) {
+            return $this->error('Format tanggal tidak valid', 422);
+        }
+
+        if ($start->gte($endExclusive)) {
+            return $this->error('date_start tidak boleh lebih besar dari date_end', 422);
+        }
+
+        // ── 2. Validasi & normalisasi filter parent ──────────────────────
+        $validator = Validator::make($request->all(), [
+            'nama_paket' => 'nullable',      // id item paket: scalar / array
+            'nama_paket.*' => 'nullable|max:255',
+            'tracking_divisi' => 'nullable',      // uuid tracking Divisi
+            'tracking_divisi.*' => 'nullable|string|max:255',
+            'tracking_paket_name' => 'nullable',      // uuid tracking Nama Paket
+            'tracking_paket_name.*' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+
+        $paketIds = $this->normalizeList($request->input('nama_paket'));
+        $filterDivisi = $this->normalizeList($request->input('tracking_divisi'));
+        $filterTrackPaket = $this->normalizeList($request->input('tracking_paket_name'));
+
+        $coa = DB::table('coas')->where('id', $account)->first();
+        if (!$coa) {
+            return $this->error('Akun COA tidak ditemukan', 404);
+        }
+
+        // Info item paket (code dipakai untuk matching d_bills.item_code)
+        $paketRows = collect();
+        $paketCodes = [];
+        if (!empty($paketIds)) {
+            $paketRows = DB::table('items_paket_all_from_xeros')
+                ->whereIn('id', $paketIds)
+                ->get(['id', 'code', 'nama_paket']);
+
+            $paketCodes = $paketRows->pluck('code')->filter()->unique()->values()->all();
+        }
+
+        // Filter yang SAMA dengan laporan: item OR tracking; divisi AND paket tracking
+        $detailFilter = $this->buildDetailFilterUnion($paketIds, $paketCodes, $filterDivisi, $filterTrackPaket);
+
+        // Satu baris per kontak supaya join jamaah tidak menggandakan transaksi
+        $jamaahSub = DB::table('data_jamaah_xeros')
+            ->select('uuid_contact', DB::raw('MIN(full_name) as full_name'))
+            ->whereNotNull('uuid_contact')
+            ->where('uuid_contact', '<>', '')
+            ->groupBy('uuid_contact');
+
+        // ── 3. Query ─────────────────────────────────────────────────────
+        $query = DB::table('transaction_all_coas as t');
+
+        // Filter dipasang paling awal: hanya uuid_detail yang lolos filter yang diproses.
+        // Fee overpay otomatis tidak ikut karena uuid_detail-nya tidak ada di tabel detail.
+        if ($detailFilter !== null) {
+            $query->joinSub($detailFilter, 'f', 'f.uuid_detail', '=', 't.uuid_detail');
+        }
+
+        $query
+            // Invoice (ACCREC)
+            ->leftJoin('item_detail_invoices as di', 'di.uuid_detail_inv', '=', 't.uuid_detail')
+            ->leftJoin('invoices_all_from_xeros as inv', 'inv.id', '=', 'di.parent_inv_id')
+            // Bill (ACCPAY)
+            ->leftJoin('d_bills as db', 'db.uuid_detail', '=', 't.uuid_detail')
+            ->leftJoin('p_bills as pb', 'pb.id', '=', 'db.bills_parent_id')
+            ->leftJoin('data_jamaah_xeros as jb', 'jb.id', '=', 'pb.uuid_from')
+            // Bank (receive & spend)
+            ->leftJoin('transaction_bank_trans_d_s as dtbi', 'dtbi.uuid_detail_trans_bank', '=', 't.uuid_detail')
+            ->leftJoin('transaction_bank_trans_p_s as ptbi', 'ptbi.id', '=', 'dtbi.trans_bank_parent_id')
+            // Fee overpay
+            ->leftJoin('fee_overpays as fo', 'fo.uuid_details_feeoverpay', '=', 't.uuid_detail')
+            ->leftJoin('invoices_all_from_xeros as fi', 'fi.id', '=', 'fo.invoice_id')
+            ->leftJoinSub($jamaahSub, 'jamaah_bank', 'jamaah_bank.uuid_contact', '=', 'ptbi.uuid_to')
+            ->leftJoinSub($jamaahSub, 'jamaah_invoice', 'jamaah_invoice.uuid_contact', '=', 'inv.uuid_contact')
+            ->leftJoinSub($jamaahSub, 'jamaah_fee', 'jamaah_fee.uuid_contact', '=', 'fi.uuid_contact')
+            ->where('t.uuid_coa', $account)
+            ->where('t.date_transaction', '>=', $start->toDateTimeString())
+            ->where('t.date_transaction', '<', $endExclusive->toDateTimeString());
+
+        $transactions = $query
+            ->selectRaw("
+            t.id,
+            t.date_transaction,
+            t.base_nominal as nominal,
+            t.is_speend,
+            t.uuid_detail,
+            inv.invoice_number,
+            inv.reference as invoice_reference,
+            pb.reference as bill_reference,
+            ptbi.reference as bank_reference,
+            di.desc as invoice_desc,
+            db.desc as bill_desc,
+            dtbi.desc as bank_desc,
+            fi.invoice_number as fee_invoice_number,
+            fo.reference as fee_reference,
+            fo.bank_tujuan_jamaah_rek as fee_rek,
+            CASE
+                WHEN di.id IS NOT NULL THEN jamaah_invoice.full_name
+                WHEN db.id IS NOT NULL THEN jb.full_name
+                WHEN dtbi.id IS NOT NULL THEN jamaah_bank.full_name
+                WHEN fo.id IS NOT NULL THEN jamaah_fee.full_name
+                ELSE NULL
+            END as jamaah_name,
+            CASE
+                WHEN di.id IS NOT NULL THEN 'invoice'
+                WHEN db.id IS NOT NULL THEN 'bill'
+                WHEN dtbi.id IS NOT NULL THEN 'bank'
+                WHEN fo.id IS NOT NULL THEN 'fee'
+                ELSE NULL
+            END as source
+        ")
+            ->orderBy('t.date_transaction')
+            ->orderBy('t.id')
+            ->get()
+            ->unique('id')
+            ->values();
+
+        // ── 4. Tanda +/- (sama dengan getProfitAndLostV2) ────────────────
+        $isRevenue = in_array(
+            strtoupper((string) $coa->account_type),
+            ['REVENUE', 'SALES', 'OTHERINCOME'],
+            true
+        );
+
+        $total = 0.0;
+
+        $items = $transactions->map(function ($t) use ($isRevenue, &$total) {
+            $nominal = (float) $t->nominal;
+
+            $signed = $isRevenue
+                ? ((int) $t->is_speend === 0 ? $nominal : -$nominal)
+                : ((int) $t->is_speend === 1 ? $nominal : -$nominal);
+
+            $total += $signed;
+
+            switch ($t->source) {
+                case 'invoice':
+                    $reference = $t->invoice_number ?? $t->invoice_reference;
+                    $desc = $t->invoice_desc;
+                    break;
+
+                case 'bill':
+                    $reference = $t->bill_reference;
+                    $desc = $t->bill_desc;
+                    break;
+
+                case 'bank':
+                    $reference = $t->bank_reference;
+                    $desc = $t->bank_desc;
+                    break;
+
+                case 'fee':
+                    $reference = $t->fee_invoice_number ?? $t->fee_reference;
+                    $desc = 'Fee overpay' . ($t->fee_rek ? ' ke ' . $t->fee_rek : '');
+                    break;
+
+                default:
+                    $reference = null;
+                    $desc = null;
+            }
+
+            $parts = array_filter([$t->jamaah_name, $desc], function ($v) {
+                return $v !== null && trim($v) !== '';
+            });
+
+            return [
+                'date' => $t->date_transaction,
+                'nominal' => $signed,
+                'reference' => $reference,
+                'description' => count($parts) ? implode(' - ', $parts) : null,
+                'source' => $t->source,
+            ];
+        })->values();
+
+        return $this->autoResponse([
+            'coa' => ['id' => $coa->id, 'name' => $coa->name, 'account_type' => $coa->account_type],
+            'period' => ['date_start' => $date_start, 'date_end' => $date_end],
+
+            // Filter aktif (opsional dipakai di view detail untuk menampilkan badge)
+            'filters' => [
+                'nama_paket' => $paketRows->map(fn($p) => [
+                    'id' => $p->id,
+                    'nama_paket' => $p->nama_paket,
+                ])->values(),
+                'tracking_divisi' => !empty($filterDivisi)
+                    ? $this->tracing->getUUIDKategory('Divisi', $filterDivisi)
+                    : [],
+                'tracking_paket_name' => !empty($filterTrackPaket)
+                    ? $this->tracing->getUUIDKategory('Nama Paket', $filterTrackPaket)
+                    : [],
+            ],
+
+            'transactions' => $items,
+            'total' => $total,
+        ]);
+    }
+
     public function profitAndLossDetailData(Request $request, $account, $date_start, $date_end)
     {
         // ── 1. Validasi tanggal ──────────────────────────────────────────
@@ -505,14 +711,106 @@ class ProfitLossController extends Controller
     //     ]);
     // }
 
+    /**
+     * Normalisasi input scalar / array -> array string bersih & unik.
+     */
+    private function normalizeList($raw): array
+    {
+        return collect(is_array($raw) ? $raw : [$raw])
+            ->filter(fn($v) => is_scalar($v))
+            ->map(fn($v) => trim((string) $v))
+            ->filter(fn($v) => $v !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
 
-    public function getProfitAndLostV2(Request $request)
+    /**
+     * Subquery daftar uuid_detail yang lolos filter item paket dan/atau tracking.
+     * Semua kondisi (item + divisi + paket tracking) diterapkan pada BARIS DETAIL
+     * YANG SAMA (AND). Antar sumber (invoice / bill / bank) digabung UNION.
+     * Return null jika tidak ada filter sama sekali.
+     *
+     * Bisa dipakai ulang di endpoint detail supaya angkanya selalu konsisten.
+     */
+    private function buildDetailFilterUnion(array $paketIds, array $paketCodes, array $divisi, array $trackPaket)
+    {
+        $hasItem = !empty($paketIds);
+        $hasTracking = !empty($divisi) || !empty($trackPaket);
+
+        if (!$hasItem && !$hasTracking) {
+            return null;
+        }
+
+        $tracking = function ($q) use ($divisi, $trackPaket) {
+            if (!empty($divisi)) {
+                $q->whereIn('divisi_travel_tracking_uuid', $divisi);
+            }
+            if (!empty($trackPaket)) {
+                $q->whereIn('paket_tracking_uuid', $trackPaket);
+            }
+            return $q;
+        };
+
+        $sources = [];
+
+        // ── Kelompok ITEM ────────────────────────────────────────
+        if ($hasItem) {
+            // Invoice: d.item_id
+            $sources[] = DB::table('item_detail_invoices')
+                ->select('uuid_detail_inv as uuid_detail')
+                ->whereIn('item_id', $paketIds);
+
+            // Bill: d.item_id_prod_serv
+            $sources[] = DB::table('d_bills')
+                ->select('uuid_detail')
+                ->whereIn('item_id_prod_serv', $paketIds);
+
+            // Bill: d.item_code = code paket (dipecah, tanpa OR di join)
+            if (!empty($paketCodes)) {
+                $sources[] = DB::table('d_bills')
+                    ->select('uuid_detail')
+                    ->whereIn('item_code', $paketCodes);
+            }
+
+            // Bank: d.item_code berisi id paket
+            $sources[] = DB::table('transaction_bank_trans_d_s')
+                ->select('uuid_detail_trans_bank as uuid_detail')
+                ->whereIn('item_code', $paketIds);
+        }
+
+        // ── Kelompok TRACKING ────────────────────────────────────
+        if ($hasTracking) {
+            $sources[] = $tracking(
+                DB::table('item_detail_invoices')->select('uuid_detail_inv as uuid_detail')
+            );
+            $sources[] = $tracking(
+                DB::table('d_bills')->select('uuid_detail')
+            );
+            $sources[] = $tracking(
+                DB::table('transaction_bank_trans_d_s')->select('uuid_detail_trans_bank as uuid_detail')
+            );
+        }
+
+        $union = array_shift($sources);
+        foreach ($sources as $s) {
+            $union->union($s);
+        }
+
+        return $union;
+    }
+
+    public function getProfitAndLostV2Combine(Request $request)//bisa tracking BISA item
     {
         $validator = Validator::make($request->all(), [
             'date_start' => 'required|date',
             'date_end' => 'required|date|after_or_equal:date_start',
-            'nama_paket' => 'nullable',          // boleh string atau array
-            'nama_paket.*' => 'nullable|string|max:255',
+            'nama_paket' => 'nullable',          // id item paket: scalar atau array
+            'nama_paket.*' => 'nullable|max:255',
+            'tracking_divisi' => 'nullable',          // uuid tracking kategori Divisi
+            'tracking_divisi.*' => 'nullable|string|max:255',
+            'tracking_paket_name' => 'nullable',          // uuid tracking kategori Nama Paket
+            'tracking_paket_name.*' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -522,126 +820,257 @@ class ProfitLossController extends Controller
         $dateStart = Carbon::parse($request->date_start)->startOfDay();
         $dateEndExclusive = Carbon::parse($request->date_end)->addDay()->startOfDay();
 
-        // Normalisasi nama_paket: string / array -> array kata kunci bersih
+        // Normalisasi semua filter -> array bersih
         $rawPaket = $request->input('nama_paket');
-        $keywords = collect(is_array($rawPaket) ? $rawPaket : [$rawPaket])
+        $paketIds = $this->normalizeList($rawPaket);
+        $filterDivisi = $this->normalizeList($request->input('tracking_divisi'));
+        $filterTrackPaket = $this->normalizeList($request->input('tracking_paket_name'));
+
+        $hasFilterPaket = !empty($paketIds);
+        $hasFilterDivisi = !empty($filterDivisi);
+        $hasFilterTrackPaket = !empty($filterTrackPaket);
+
+        // Info item paket (code dipakai untuk matching d_bills.item_code)
+        $paketRows = collect();
+        $paketCodes = [];
+        if ($hasFilterPaket) {
+            $paketRows = DB::table('items_paket_all_from_xeros')
+                ->whereIn('id', $paketIds)
+                ->get(['id', 'code', 'nama_paket']);
+
+            $paketCodes = $paketRows->pluck('code')->filter()->unique()->values()->all();
+        }
+
+        /*
+         * Base query: transaksi pada rentang tanggal, hanya akun P&L.
+         */
+        $baseQuery = DB::table('transaction_all_coas as t')
+            ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+            ->where('t.date_transaction', '>=', $dateStart->toDateTimeString())
+            ->where('t.date_transaction', '<', $dateEndExclusive->toDateTimeString())
+            ->whereIn('c.account_type', ['REVENUE', 'DIRECTCOSTS', 'OTHERINCOME', 'EXPENSE']);
+
+        /*
+         * Filter item + tracking (kombinasi AND pada baris detail yang sama).
+         * Jika ada filter apa pun, fee overpay otomatis tidak ikut karena
+         * uuid_detail-nya tidak ada di tabel detail (sama seperti getHome).
+         */
+        $detailFilter = $this->buildDetailFilterUnion($paketIds, $paketCodes, $filterDivisi, $filterTrackPaket);
+
+        if ($detailFilter !== null) {
+            $baseQuery->joinSub($detailFilter, 'f', 'f.uuid_detail', '=', 't.uuid_detail');
+        }
+
+        /*
+         * Satu query agregasi untuk semua section.
+         * Pendapatan  : is_speend = 0 -> +, selain itu -
+         * Biaya       : is_speend = 1 -> +, selain itu -
+         */
+        $rows = $baseQuery
+            ->selectRaw("
+            c.id           as coa_id,
+            c.name         as coa_name,
+            c.account_type as account_type,
+            SUM(
+                CASE
+                    WHEN c.account_type IN ('REVENUE', 'OTHERINCOME')
+                        THEN CASE WHEN t.is_speend = 0 THEN t.base_nominal ELSE -t.base_nominal END
+                    ELSE CASE WHEN t.is_speend = 1 THEN t.base_nominal ELSE -t.base_nominal END
+                END
+            ) as total
+        ")
+            ->groupBy('c.id', 'c.name', 'c.account_type')
+            ->orderBy('c.name')
+            ->get()
+            ->groupBy('account_type');
+
+        $buildSection = function (string $accountType) use ($rows) {
+            $items = $rows->get($accountType, collect())
+                ->map(fn($row) => [
+                    'coa_id' => $row->coa_id,
+                    'name' => $row->coa_name,
+                    'total' => (float) $row->total,
+                ])
+                ->values();
+
+            return [
+                'items' => $items,
+                'total' => (float) $items->sum('total'),
+            ];
+        };
+
+        $tradingIncome = $buildSection('REVENUE');
+        $costOfSales = $buildSection('DIRECTCOSTS');
+        $otherIncome = $buildSection('OTHERINCOME');
+        $operatingExpenses = $buildSection('EXPENSE');
+
+        $grossProfit = $tradingIncome['total'] - $costOfSales['total'];
+        $netProfit = $grossProfit + $otherIncome['total'] - $operatingExpenses['total'];
+
+        // Label tracking (hanya query jika filternya dipakai)
+        $divisiLabels = $hasFilterDivisi
+            ? $this->tracing->getUUIDKategory('Divisi', $filterDivisi)
+            : [];
+
+        $paketTrackLabels = $hasFilterTrackPaket
+            ? $this->tracing->getUUIDKategory('Nama Paket', $filterTrackPaket)
+            : [];
+
+        $data = [
+            'period' => [
+                'date_start' => $dateStart->toDateString(),
+                'date_end' => $dateEndExclusive->copy()->subDay()->toDateString(),
+            ],
+
+            'active_filters' => [
+                // Filter item (id paket), bentuk sama seperti input
+                'nama_paket' => $hasFilterPaket
+                    ? (is_array($rawPaket) ? $paketIds : $paketIds[0])
+                    : null,
+                'item_paket' => $paketRows->map(fn($p) => [
+                    'id' => $p->id,
+                    'nama_paket' => $p->nama_paket,
+                ])->values(),
+
+                // Filter tracking kategori
+                'tracking_divisi' => $hasFilterDivisi ? $filterDivisi : null,
+                'tracking_paket_name' => $hasFilterTrackPaket ? $filterTrackPaket : null,
+                'divisi_name' => $divisiLabels,
+                'paket_name' => $paketTrackLabels,
+            ],
+
+            'trading_income' => $tradingIncome,
+            'cost_of_sales' => $costOfSales,
+            'gross_profit' => $grossProfit,
+            'other_income' => $otherIncome,
+            'operating_expenses' => $operatingExpenses,
+            'net_profit' => $netProfit,
+        ];
+
+        return $this->autoResponse($data);
+    }
+
+    public function getProfitAndLostV2(Request $request)//filter by Item
+    {
+        $validator = Validator::make($request->all(), [
+            'date_start' => 'required|date',
+            'date_end' => 'required|date|after_or_equal:date_start',
+            'nama_paket' => 'nullable',               // berisi id paket: boleh scalar atau array
+            'nama_paket.*' => 'nullable|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 422);
+        }
+
+        $dateStart = Carbon::parse($request->date_start)->startOfDay();
+        $dateEndExclusive = Carbon::parse($request->date_end)->addDay()->startOfDay();
+
+        // Normalisasi nama_paket (id paket): scalar / array -> array id bersih
+        $rawPaket = $request->input('nama_paket');
+        $paketIds = collect(is_array($rawPaket) ? $rawPaket : [$rawPaket])
             ->map(fn($v) => trim((string) $v))
             ->filter(fn($v) => $v !== '')
             ->unique()
             ->values()
             ->all();
 
-        $hasFilterPaket = count($keywords) > 0;
-
-        // Terapkan OR LIKE untuk semua kata kunci pada ip.nama_paket
-        $applyKeywords = function ($query) use ($keywords) {
-            $query->where(function ($w) use ($keywords) {
-                foreach ($keywords as $kw) {
-                    $w->orWhere('ip.nama_paket', 'like', '%' . $kw . '%');
-                }
-            });
-        };
+        $hasFilterPaket = count($paketIds) > 0;
+        $paketRows = collect();
 
         /*
-         * Base query: SEMUA transaksi pada rentang tanggal.
+         * Base query: transaksi pada rentang tanggal, hanya akun P&L.
          */
         $baseQuery = DB::table('transaction_all_coas as t')
             ->join('coas as c', 'c.id', '=', 't.uuid_coa')
-            ->where('t.date_transaction', '>=', $dateStart)
-            ->where('t.date_transaction', '<', $dateEndExclusive)
-            ->select(
-                't.id as trx_row_id',
-                't.uuid_detail',
-                't.date_transaction',
-                't.is_speend',
-                't.base_nominal',
-                't.nominal_currency',
-                't.code_curr',
-                'c.id as coa_id',
-                'c.name as coa_name',
-                'c.account_type'
-            );
+            ->where('t.date_transaction', '>=', $dateStart->toDateTimeString())
+            ->where('t.date_transaction', '<', $dateEndExclusive->toDateTimeString())
+            ->whereIn('c.account_type', ['REVENUE', 'DIRECTCOSTS', 'OTHERINCOME', 'EXPENSE']);
 
         /*
-         * Hanya jika nama_paket diisi: cari di detail yang punya item/code paket.
-         * Invoice : d.item_id               = ip.id
-         * Bill    : d.item_code             = ip.code  ATAU d.item_id_prod_serv = ip.id
-         * Bank    : d.item_code             = ip.id
+         * Filter paket (berdasarkan id), tanpa LIKE dan tanpa join ke tabel paket.
+         * Invoice : d.item_id           IN (ids)
+         * Bill    : d.item_id_prod_serv IN (ids)  ATAU  d.item_code IN (code paket)
+         * Bank    : d.item_code         IN (ids)
+         *
+         * Semua digabung jadi satu daftar uuid_detail (UNION), lalu di-join ke transaksi.
+         * Ini menggantikan 3x EXISTS yang digabung OR (penyebab utama lambat).
          */
         if ($hasFilterPaket) {
-            $baseQuery->where(function ($q) use ($applyKeywords) {
+            $paketRows = DB::table('items_paket_all_from_xeros')
+                ->whereIn('id', $paketIds)
+                ->get(['id', 'code', 'nama_paket']);
 
-                // Invoice (ACCREC)
-                $q->whereExists(function ($sub) use ($applyKeywords) {
-                    $sub->select(DB::raw(1))
-                        ->from('item_detail_invoices as d')
-                        ->join('items_paket_all_from_xeros as ip', 'ip.id', '=', 'd.item_id')
-                        ->whereColumn('d.uuid_detail_inv', 't.uuid_detail');
-                    $applyKeywords($sub);
-                });
+            $paketCodes = $paketRows->pluck('code')->filter()->unique()->values()->all();
 
-                // Bill (ACCPAY)
-                $q->orWhereExists(function ($sub) use ($applyKeywords) {
-                    $sub->select(DB::raw(1))
-                        ->from('d_bills as d')
-                        ->join('items_paket_all_from_xeros as ip', function ($join) {
-                            $join->on('ip.code', '=', 'd.item_code')
-                                ->orOn('ip.id', '=', 'd.item_id_prod_serv');
-                        })
-                        ->whereColumn('d.uuid_detail', 't.uuid_detail');
-                    $applyKeywords($sub);
-                });
+            $detailUnion = DB::table('item_detail_invoices')
+                ->select('uuid_detail_inv as uuid_detail')
+                ->whereIn('item_id', $paketIds)
+                ->union(
+                    DB::table('d_bills')
+                        ->select('uuid_detail')
+                        ->whereIn('item_id_prod_serv', $paketIds)
+                )
+                ->union(
+                    DB::table('transaction_bank_trans_d_s')
+                        ->select('uuid_detail_trans_bank as uuid_detail')
+                        ->whereIn('item_code', $paketIds)
+                );
 
-                // Bank
-                $q->orWhereExists(function ($sub) use ($applyKeywords) {
-                    $sub->select(DB::raw(1))
-                        ->from('transaction_bank_trans_d_s as d')
-                        ->join('items_paket_all_from_xeros as ip', 'ip.id', '=', 'd.item_code')
-                        ->whereColumn('d.uuid_detail_trans_bank', 't.uuid_detail');
-                    $applyKeywords($sub);
-                });
-            });
+            if (!empty($paketCodes)) {
+                $detailUnion->union(
+                    DB::table('d_bills')
+                        ->select('uuid_detail')
+                        ->whereIn('item_code', $paketCodes)
+                );
+            }
+
+            // UNION (bukan UNION ALL) sehingga uuid_detail unik dan baris transaksi tidak ganda
+            $baseQuery->joinSub($detailUnion, 'f', 'f.uuid_detail', '=', 't.uuid_detail');
         }
 
-        $getSection = function (array $accountTypes, bool $isExpense) use ($baseQuery) {
-            $normalSpend = $isExpense ? 1 : 0;
+        /*
+         * Satu query agregasi untuk semua section (sebelumnya 4 query + derived table).
+         * Pendapatan  : is_speend = 0 -> +, selain itu -
+         * Biaya       : is_speend = 1 -> +, selain itu -
+         */
+        $rows = $baseQuery
+            ->selectRaw("
+            c.id           as coa_id,
+            c.name         as coa_name,
+            c.account_type as account_type,
+            SUM(
+                CASE
+                    WHEN c.account_type IN ('REVENUE', 'OTHERINCOME')
+                        THEN CASE WHEN t.is_speend = 0 THEN t.base_nominal ELSE -t.base_nominal END
+                    ELSE CASE WHEN t.is_speend = 1 THEN t.base_nominal ELSE -t.base_nominal END
+                END
+            ) as total
+        ")
+            ->groupBy('c.id', 'c.name', 'c.account_type')
+            ->orderBy('c.name')
+            ->get()
+            ->groupBy('account_type');
 
-            $amountExpression = "
-            CASE
-                WHEN unified.is_speend = ?
-                THEN unified.base_nominal
-                ELSE -unified.base_nominal
-            END
-        ";
-
-            $rows = DB::query()
-                ->fromSub(clone $baseQuery, 'unified')
-                ->whereIn('unified.account_type', $accountTypes)
-                ->selectRaw("
-                unified.coa_id as id,
-                unified.coa_name as name,
-                SUM($amountExpression) as total
-            ", [$normalSpend])
-                ->groupBy('unified.coa_id', 'unified.coa_name')
-                ->orderBy('unified.coa_name')
-                ->get();
-
-            $total = $rows->sum(fn($row) => (float) $row->total);
+        $buildSection = function (string $accountType) use ($rows) {
+            $items = $rows->get($accountType, collect())
+                ->map(fn($row) => [
+                    'coa_id' => $row->coa_id,
+                    'name' => $row->coa_name,
+                    'total' => (float) $row->total,
+                ])
+                ->values();
 
             return [
-                'items' => $rows->map(fn($row) => [
-                    'coa_id' => $row->id,
-                    'name' => $row->name,
-                    'total' => (float) $row->total,
-                ])->values(),
-                'total' => (float) $total,
+                'items' => $items,
+                'total' => (float) $items->sum('total'),
             ];
         };
 
-        $tradingIncome = $getSection(['REVENUE'], false);
-        $costOfSales = $getSection(['DIRECTCOSTS'], true);
-        $otherIncome = $getSection(['OTHERINCOME'], false);
-        $operatingExpenses = $getSection(['EXPENSE'], true);
+        $tradingIncome = $buildSection('REVENUE');
+        $costOfSales = $buildSection('DIRECTCOSTS');
+        $otherIncome = $buildSection('OTHERINCOME');
+        $operatingExpenses = $buildSection('EXPENSE');
 
         $grossProfit = $tradingIncome['total'] - $costOfSales['total'];
         $netProfit = $grossProfit + $otherIncome['total'] - $operatingExpenses['total'];
@@ -653,10 +1082,15 @@ class ProfitLossController extends Controller
             ],
 
             'active_filters' => [
-                // bentuk sama seperti input: string jika 1 kata kunci dikirim sebagai string, array jika multiple
+                // id paket, bentuk sama seperti input (string jika dikirim scalar, array jika multiple)
                 'nama_paket' => $hasFilterPaket
-                    ? (is_array($rawPaket) ? $keywords : $keywords[0])
+                    ? (is_array($rawPaket) ? $paketIds : $paketIds[0])
                     : null,
+                // info paket untuk ditampilkan di view
+                'paket' => $paketRows->map(fn($p) => [
+                    'id' => $p->id,
+                    'nama_paket' => $p->nama_paket,
+                ])->values(),
             ],
 
             'trading_income' => $tradingIncome,

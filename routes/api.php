@@ -383,12 +383,14 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('getByIdCoa', [CoaController::class, 'getListTransByCoaId'])->name('rep-detail-coa');
             });
             Route::prefix('profit-and-loss')->group(function () {
+                Route::get('getV3', [ProfitLossController::class, 'getProfitAndLostV2Combine'])->name('profit-and-loss-v3');//comvine item & tracking
                 Route::get('getV2', [ProfitLossController::class, 'getProfitAndLostV2'])->name('profit-and-loss-v2');
                 Route::get('index', [ProfitLossController::class, 'getHome'])->name('profit-and-loss');//yang invoice statusnya tidak draft(yg tampil authorized dan paid)
                 Route::get('detail-profit-and-loss/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailData'])
                     ->name('api-profit-loss-detail');
                 Route::get('detail-profit-and-lossv2/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailDataV2'])
                     ->name('api-profit-loss-detailv2');
+                Route::get('detailprofitloss/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailDataCombine'])->name('detail-combine');
             });
         });
 

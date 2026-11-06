@@ -1160,6 +1160,7 @@ class BillXeroController extends Controller
                     if ($cek_create_trans) {
                         // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
                         $cek_create_trans->is_speend = true;
+                        $cek_create_trans->date_transaction = $request->date_req;
                         $cek_create_trans->nominal = $save_d->amount; //$save_d->total_base;// $save_d->amount;
                         $cek_create_trans->code_curr = $request->currency;
                         $cek_create_trans->nominal_currency = $cek_nominal_currency;

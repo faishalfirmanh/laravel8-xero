@@ -3,7 +3,9 @@
 @section('content')
 
 <style>
-/* ── Filter bar ── */
+/* ══════════════════════════════════════════════════════════
+   FILTER BAR
+   ══════════════════════════════════════════════════════════ */
 .xero-filter-bar {
     background: #fff;
     border: 1px solid #e0e0e0;
@@ -33,16 +35,14 @@
     outline: none;
 }
 
-/* ── Filter row: flex wrap supaya tidak overlapping di layar sempit ── */
+/* Baris filter: wrap supaya tidak overlapping, label sejajar di atas */
 .filter-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 12px 16px;
 }
-.filter-row > div {
-    flex: 0 0 auto;
-}
+.filter-row > div { flex: 0 0 auto; }
 
 /* ── Date range group ── */
 .date-range-group {
@@ -76,131 +76,7 @@
 }
 .date-range-group .btn-dropdown:hover { background: #ebebeb; }
 
-/* ── Select2 multiple — fix agar tidak melar ke bawah ── */
-/* Wrapper select2 untuk tracking filter */
-.tracking-select-wrap {
-    width: 200px;
-    min-width: 160px;
-    max-width: 260px;
-}
-
-/* Batasi tinggi container select2 multiple */
-.tracking-select-wrap .select2-container--bootstrap4
-    .select2-selection--multiple {
-    min-height: 34px !important;
-    max-height: 34px !important;
-    overflow: hidden !important;
-    display: flex !important;
-    align-items: center !important;
-    padding: 0 4px !important;
-    border: 1px solid #ccc !important;
-    border-radius: 4px !important;
-    background: #fff !important;
-    cursor: pointer !important;
-    flex-wrap: nowrap !important;  /* tag satu baris */
-}
-
-/* Scroll horizontal tag jika banyak */
-.tracking-select-wrap .select2-container--bootstrap4
-    .select2-selection--multiple
-    .select2-selection__rendered {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-    gap: 2px !important;
-    max-width: 100% !important;
-    align-items: center !important;
-}
-
-/* Tag (badge) kompak */
-.tracking-select-wrap .select2-container--bootstrap4
-    .select2-selection--multiple
-    .select2-selection__choice {
-    font-size: 10px !important;
-    padding: 1px 18px 1px 6px !important;
-    margin: 0 !important;
-    height: 20px !important;
-    line-height: 18px !important;
-    border-radius: 3px !important;
-    background: #e8f0fe !important;
-    border: 1px solid #c2d0f8 !important;
-    color: #1a56db !important;
-    white-space: nowrap !important;
-    max-width: 90px !important;        /* potong teks panjang */
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    flex-shrink: 0 !important;
-    position: relative !important;
-}
-
-/* Tombol X di dalam tag */
-.tracking-select-wrap .select2-container--bootstrap4
-    .select2-selection--multiple
-    .select2-selection__choice__remove {
-    position: absolute !important;
-    right: 3px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: 11px !important;
-    color: #1a56db !important;
-    line-height: 1 !important;
-    padding: 0 !important;
-}
-
-/* Jika tag > 2, sembunyikan sisanya & tampilkan counter */
-/* (ditangani JS lewat class .s2-overflow-hidden) */
-.tracking-select-wrap .select2-selection__choice.s2-hidden {
-    display: none !important;
-}
-.s2-overflow-badge {
-    font-size: 10px;
-    background: #0070c4;
-    color: #fff;
-    border-radius: 10px;
-    padding: 1px 7px;
-    margin-left: 2px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    line-height: 20px;
-    height: 20px;
-    display: inline-flex;
-    align-items: center;
-}
-
-/* Sembunyikan input search bawaan agar tidak geser layout */
-.tracking-select-wrap .select2-container--bootstrap4
-    .select2-selection--multiple
-    .select2-search--inline {
-    flex: 1 1 40px; min-width: 40px; max-width: 80px;
-}
-
-.select2-search__field  { height: 22px; font-size: 11px; min-width: 40px; }
-
-
-
-/* Dropdown normal */
-.tracking-select-wrap .select2-dropdown {
-    font-size: 12px;
-    min-width: 240px !important;
-    z-index: 9999 !important;
-}
-
-/* Override select2 width agar ikut .tracking-select-wrap */
-.tracking-select-wrap .select2-container {
-    width: 100% !important;
-}
-
-/* ── Currency select ── */
-.currency-select-wrap {
-    width: 200px;
-}
-.currency-select-wrap .form-control {
-    width: 100%;
-    height: 34px;
-    font-size: 12px;
-}
-
+/* ── Baris bawah filter (More + Update) ── */
 .filter-row-2 {
     display: flex;
     align-items: center;
@@ -236,6 +112,7 @@
     align-items: center;
     gap: 5px;
 }
+.btn-xero-more:hover { background: #f5f5f5; }
 
 .btn-xero-update {
     background: #0070c4;
@@ -249,7 +126,145 @@
 }
 .btn-xero-update:hover { background: #005fa3; }
 
-/* ── Report card ── */
+/* ══════════════════════════════════════════════════════════
+   SELECT2 MULTIPLE (Nama Paket item, Nama Paket tracking, Divisi)
+   Di-scope ke .xero-filter-bar supaya tidak bergantung nama wrapper.
+   ══════════════════════════════════════════════════════════ */
+
+/* Lebar kolom filter (nama class lama ikut diakomodasi) */
+.s2-field,
+.tracking-select-wrap,
+.paket-select-wrap {
+    width: 260px;
+    min-width: 200px;
+    max-width: 100%;
+}
+.s2-field--lg { width: 320px; }
+
+.xero-filter-bar .select2-container { width: 100% !important; }
+
+/* Box utama: tinggi mengikuti isi */
+.xero-filter-bar .select2-selection--multiple {
+    position: relative;
+    display: block !important;
+    min-height: 34px;
+    height: auto !important;
+    max-height: none !important;
+    padding: 3px 28px 3px 6px !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    background: #fff !important;
+    cursor: text;
+    overflow: visible !important;
+}
+.xero-filter-bar .select2-container--focus .select2-selection--multiple,
+.xero-filter-bar .select2-container--open  .select2-selection--multiple {
+    border-color: #0070c4 !important;
+    box-shadow: 0 0 0 2px rgba(0, 112, 196, .12) !important;
+}
+
+/* Daftar tag: flex wrap, scroll jika terlalu banyak */
+.xero-filter-bar .select2-selection--multiple .select2-selection__rendered {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    max-height: 96px;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none;
+}
+
+/* Satu tag */
+.xero-filter-bar .select2-selection__choice {
+    display: inline-flex !important;
+    align-items: flex-start;
+    float: none !important;
+    position: static !important;
+    height: auto !important;
+    max-width: 100%;
+    margin: 0 !important;
+    padding: 3px 8px !important;
+    background: #e8f0fe !important;
+    border: 1px solid #c2d0f8 !important;
+    border-radius: 4px !important;
+    color: #1a56db !important;
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: normal !important;   /* nama panjang boleh turun baris */
+    word-break: break-word;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+.xero-filter-bar .select2-selection__choice__display { padding: 0 !important; }
+
+/* Tombol × di dalam tag */
+.xero-filter-bar .select2-selection__choice__remove {
+    position: static !important;
+    float: none !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 6px 0 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    color: #1a56db !important;
+    font-size: 15px;
+    line-height: 1.1;
+    cursor: pointer;
+}
+.xero-filter-bar .select2-selection__choice__remove:hover { color: #c0392b !important; }
+
+/* Input pencarian di sebelah tag */
+.xero-filter-bar .select2-search--inline {
+    flex: 1 1 90px;
+    float: none !important;
+    margin: 0 !important;
+}
+.xero-filter-bar .select2-search--inline .select2-search__field {
+    width: 100% !important;
+    min-width: 90px;
+    height: 24px;
+    margin: 0 !important;
+    padding: 0 4px;
+    border: 0 !important;
+    background: transparent;
+    font-size: 12px;
+}
+
+/* Tombol clear semua: pojok kanan atas */
+.xero-filter-bar .select2-selection__clear {
+    position: absolute !important;
+    top: 6px;
+    right: 8px;
+    float: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #999;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1;
+}
+.xero-filter-bar .select2-selection__clear:hover { color: #c0392b; }
+
+/* Dropdown (dirender di <body>, jadi style-nya global) */
+.select2-container--open { z-index: 9999; }
+.select2-dropdown { max-width: calc(100vw - 16px); }
+.select2-results__option {
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: normal;
+    word-break: break-word;
+}
+.select2-container--bootstrap4 .select2-results__options { max-height: 260px; }
+
+/* ══════════════════════════════════════════════════════════
+   REPORT CARD
+   ══════════════════════════════════════════════════════════ */
 .xero-report-card {
     background: #fff;
     border: 1px solid #e0e0e0;
@@ -272,8 +287,13 @@
     color: #666;
     margin: 2px 0 0;
 }
+#filterTrack {
+    font-size: 12px;
+    color: #333;
+    margin: 8px 0 0;
+}
 
-/* ── Periode header row ── */
+/* ── Header kolom periode ── */
 .period-header-row {
     display: flex;
     justify-content: flex-end;
@@ -288,7 +308,7 @@
     text-align: right;
 }
 
-/* ── Report table ── */
+/* ── Tabel laporan ── */
 .report-table {
     width: 100%;
     border-collapse: collapse;
@@ -345,6 +365,7 @@
     border-top: 2px solid #0070c4;
     border-bottom: 2px solid #0070c4;
 }
+.report-table tr.net-profit td.amt { text-align: right; }
 
 .compact-toggle {
     display: flex;
@@ -370,115 +391,54 @@
     font-size: 13px;
 }
 
-.paket-select-wrap {
-    width: 320px;
-    min-width: 200px;
-}
-.paket-select-wrap .select2-container {
-    width: 100% !important;
-}
+/* ══════════════════════════════════════════════════════════
+   MOBILE
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    .xero-filter-bar { padding: 14px 12px 10px; }
 
-/*css nama paket selec2*/
-/* ── Nama Paket (select2 multiple) ── */
-.paket-select-wrap {
-    width: 320px;
-    min-width: 200px;
-    max-width: 100%;
-}
-.paket-select-wrap .select2-container { width: 100% !important; }
+    /* Semua field turun ke bawah, lebar penuh */
+    .filter-row { flex-direction: column; align-items: stretch; gap: 12px; }
+    .filter-row > div { flex: 1 1 100%; width: 100%; }
 
-/* Box utama: tinggi mengikuti isi */
-.paket-select-wrap .select2-selection--multiple {
-    position: relative;
-    display: block !important;
-    min-height: 34px;
-    height: auto !important;
-    padding: 2px 26px 2px 4px !important;
-    border: 1px solid #ccc !important;
-    border-radius: 4px !important;
-    background: #fff !important;
-    cursor: text;
-}
+    .date-range-group { width: 100%; }
+    .date-range-group input { flex: 1 1 0; width: auto; min-width: 0; }
 
-/* Daftar tag: flex wrap, bukan list vertikal */
-.paket-select-wrap .select2-selection--multiple .select2-selection__rendered {
-    display: flex !important;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    width: 100%;
-    margin: 0 !important;
-    padding: 0 !important;
-    list-style: none;
-}
+    .s2-field,
+    .s2-field--lg,
+    .tracking-select-wrap,
+    .paket-select-wrap { width: 100%; min-width: 0; }
 
-/* Satu tag */
-.paket-select-wrap .select2-selection__choice {
-    display: inline-flex !important;
-    align-items: flex-start;
-    float: none !important;
-    max-width: 100%;
-    margin: 0 !important;
-    padding: 2px 6px !important;
-    background: #e8f0fe !important;
-    border: 1px solid #c2d0f8 !important;
-    border-radius: 3px !important;
-    color: #1a56db !important;
-    font-size: 12px;
-    line-height: 1.35;
-    white-space: normal;       /* nama paket panjang boleh wrap */
-    word-break: break-word;
-}
+    /* Area sentuh lebih besar */
+    .xero-filter-bar .select2-selection--multiple {
+        min-height: 42px;
+        padding: 5px 32px 5px 8px !important;
+    }
+    .xero-filter-bar .select2-selection__choice {
+        padding: 4px 10px !important;
+        font-size: 13px;
+    }
+    .xero-filter-bar .select2-selection__choice__remove {
+        margin-right: 8px !important;
+        padding: 0 4px !important;
+        font-size: 18px;
+    }
+    .xero-filter-bar .select2-selection__clear { top: 9px; font-size: 20px; }
 
-/* Tombol × di dalam tag: reset tampilan <button> bawaan */
-.paket-select-wrap .select2-selection__choice__remove {
-    position: static !important;
-    float: none !important;
-    width: auto !important;
-    height: auto !important;
-    margin: 0 6px 0 0 !important;
-    padding: 0 !important;
-    background: none !important;
-    border: 0 !important;
-    color: #1a56db !important;
-    font-size: 14px;
-    line-height: 1.1;
-    cursor: pointer;
-}
-.paket-select-wrap .select2-selection__choice__remove:hover { color: #c0392b !important; }
-.paket-select-wrap .select2-selection__choice__display { padding: 0 !important; }
+    /* font 16px mencegah iOS zoom otomatis saat input difokuskan */
+    .xero-filter-bar .select2-search--inline .select2-search__field,
+    .select2-search--dropdown .select2-search__field {
+        height: 30px;
+        font-size: 16px;
+    }
+    .select2-results__option { padding: 11px 12px; font-size: 14px; }
 
-/* Input pencarian di sebelah tag */
-.paket-select-wrap .select2-search--inline {
-    flex: 1 1 80px;
-    float: none !important;
-    margin: 0 !important;
+    /* Kartu laporan lebih lega di layar kecil */
+    .xero-report-card { padding: 16px 12px; }
+    .report-table td.amt,
+    .period-header-row .col-amt { width: 120px; }
+    .report-table tr.detail-row td { padding-left: 16px; }
 }
-.paket-select-wrap .select2-search--inline .select2-search__field {
-    width: 100% !important;
-    min-width: 80px;
-    height: 24px;
-    margin: 0 !important;
-    padding: 0 4px;
-    border: 0 !important;
-    font-size: 12px;
-}
-
-/* Tombol clear semua: pojok kanan atas, bukan baris sendiri */
-.paket-select-wrap .select2-selection__clear {
-    position: absolute !important;
-    top: 5px;
-    right: 8px;
-    float: none !important;
-    margin: 0 !important;
-    color: #999;
-    cursor: pointer;
-    z-index: 1;
-}
-
-/* Dropdown (ada di <body>, jadi tidak bisa di-scope ke wrapper) */
-.select2-results__option { white-space: normal; word-break: break-word; font-size: 12px; }
-.select2-container--open { z-index: 9999; }
 </style>
 
 {{-- ── FILTER BAR ── --}}
@@ -503,44 +463,33 @@
                 </div>
             </div>
 
+            {{-- Nama Paket (item) --}}
             <div>
-                <span class="filter-label">Nama Paket</span>
+                <span class="filter-label">Nama Paket <span class="text-info font-weight-bold">(item)</span></span>
                 <div class="paket-select-wrap">
-                   <select id="nama_paket" name="nama_paket[]" class="form-control" multiple></select>
+                    <select id="nama_paket" name="nama_paket[]" class="form-control" multiple></select>
                 </div>
             </div>
 
-            {{-- Divisi --}}
-            {{-- <div>
-                <span class="filter-label">Divisi</span>
-                <div class="tracking-select-wrap">
-                    <select class="select2-divisi" name="tracking_divisi[]"
-                            id="tracking_divisi" multiple="multiple" style="width:100%;">
-                    </select>
-                </div>
-            </div> --}}
-
-            {{-- Nama Paket --}}
-            {{-- <div>
-                <span class="filter-label">Nama Paket</span>
+            {{-- Divisi (tracking) --}}
+            <div>
+                <span class="filter-label">Nama Paket <span class="text-success font-weight-bold">(tracking)</span></span>
                 <div class="tracking-select-wrap">
                     <select class="select2-paket" name="tracking_paket_name[]"
-                            id="tracking_paket_name" multiple="multiple" style="width:100%;">
-                    </select>
+                            id="tracking_paket_name" multiple="multiple" style="width:100%;"></select>
                 </div>
-            </div> --}}
+            </div>
 
-            {{-- Currency --}}
-            {{-- <div>
-                <span class="filter-label">Currency</span>
-                <div class="currency-select-wrap">
-                    <select class="form-control" name="currency" id="currency">
-                        <option value="IDR" selected>🇮🇩 Indonesian Rupiah</option> --}}
-                        {{-- <option value="SAR">🇸🇦 Saudi Riyal</option>
-                        <option value="USD">🇺🇸 US Dollar</option> --}}
-                    {{-- </select>
+            <div>
+                <span class="filter-label">Divisi <span class="text-success font-weight-bold">(tracking)</span></span>
+                <div class="tracking-select-wrap">
+                    <select class="select2-divisi" name="tracking_divisi[]"
+                            id="tracking_divisi" multiple="multiple" style="width:100%;"></select>
                 </div>
-            </div> --}}
+            </div>
+
+            {{-- Nama Paket (tracking) --}}
+           
 
         </div>{{-- /.filter-row --}}
 
@@ -633,10 +582,63 @@ $(function () {
         maximumFractionDigits: 2
     });
 
+    function formatAmt(val) {
+        val = parseFloat(val) || 0;
+        if (val < 0) return '(' + fmt.format(Math.abs(val)) + ')';
+        return fmt.format(val);
+    }
+
+    function amtClass(val) {
+        return (parseFloat(val) || 0) < 0 ? 'amt negative' : 'amt positive';
+    }
+
+    function escHtml(str) {
+        return $('<div>').text(str || '').html();
+    }
+
+    // =========================================================
+    // FILTER HELPERS
+    // =========================================================
+    function getFilters() {
+        return {
+            nama_paket         : $('#nama_paket').val()           || [],
+            tracking_divisi    : $('#tracking_divisi').val()      || [],
+            tracking_paket_name: $('#tracking_paket_name').val()  || []
+        };
+    }
+
+    // Kirim sebagai key berindeks supaya tidak digabung koma
+    function appendArrayParams(params, key, values) {
+        $.each(values || [], function (i, val) {
+            params[key + '[' + i + ']'] = val;
+        });
+    }
+
+    var plRouteTemplate = "{{ route('view-report-profit-loss-detail', ['account' => '__ACCOUNT__', 'date_start' => '__DATE_START__','date_end' => '__DATE_END__']) }}";
+
+    function buildDetailUrl(accountId, dateStart, dateEnd, filters) {
+        var url = plRouteTemplate
+            .replace('__ACCOUNT__', accountId)
+            .replace('__DATE_START__', dateStart)
+            .replace('__DATE_END__', dateEnd);
+
+        var qs = [];
+        $.each(['nama_paket', 'tracking_divisi', 'tracking_paket_name'], function (i, key) {
+            $.each((filters && filters[key]) || [], function (j, val) {
+                qs.push(key + '[]=' + encodeURIComponent(val));
+            });
+        });
+        if (!qs.length) return url;
+
+        return url + (url.indexOf('?') === -1 ? '?' : '&') + qs.join('&');
+    }
+
+    // =========================================================
+    // SELECT2 — Nama Paket (item), id = items_paket_all_from_xeros.id
+    // =========================================================
     function initNamaPaketSelect2() {
         var $el = $('#nama_paket');
 
-        // Hindari init ganda kalau fungsi ini dipanggil ulang
         if ($el.hasClass('select2-hidden-accessible')) {
             $el.select2('destroy');
         }
@@ -648,7 +650,7 @@ $(function () {
             placeholder: 'Semua paket',
             allowClear: true,
             multiple: true,
-            closeOnSelect: false,          // dropdown tetap terbuka saat memilih beberapa
+            closeOnSelect: false,
             width: '100%',
             dropdownParent: $('body'),
             language: {
@@ -675,13 +677,10 @@ $(function () {
                     }
 
                     var items = (response.data && response.data.results) || [];
-
                     return {
                         results: $.map(items, function (item) {
-                            // id dan text sama: nilai ini dikirim sebagai filter nama_paket
-                            return { id: item.nama_paket, text: item.nama_paket };
+                            return { id: item.id, text: item.nama_paket };
                         }),
-                        // infinite scroll: lanjut selama halaman penuh
                         pagination: { more: items.length >= limit }
                     };
                 },
@@ -690,39 +689,8 @@ $(function () {
         });
     }
 
-  var plRouteTemplate = "{{ route('view-report-profit-loss-detail', ['account' => '__ACCOUNT__', 'date_start' => '__DATE_START__','date_end' => '__DATE_END__']) }}";
-   
-    function buildDetailUrl(accountId, dateStart, dateEnd, namaPaket) {
-        var url = plRouteTemplate
-            .replace('__ACCOUNT__', accountId)
-            .replace('__DATE_START__', dateStart)
-            .replace('__DATE_END__', dateEnd);
-
-        var qs = $.map(namaPaket || [], function (p) {
-            return 'nama_paket[]=' + encodeURIComponent(p);
-        });
-        if (!qs.length) return url;
-
-        return url + (url.indexOf('?') === -1 ? '?' : '&') + qs.join('&');
-    }
-
-    
-    function formatAmt(val) {
-        val = parseFloat(val) || 0;
-        if (val < 0) return '(' + fmt.format(Math.abs(val)) + ')';
-        return fmt.format(val);
-    }
-
-    function amtClass(val) {
-        return (parseFloat(val) || 0) < 0 ? 'amt negative' : 'amt positive';
-    }
-
-    function escHtml(str) {
-        return $('<div>').text(str || '').html();
-    }
-
     // =========================================================
-    // DATE PRESETS  (PHP 7.4 safe — semua pakai var / function)
+    // DATE PRESETS
     // =========================================================
     var presets = {
         this_month   : function () { return [moment().startOf('month'),                           moment().endOf('month')]; },
@@ -744,13 +712,15 @@ $(function () {
 
     $('#btnDatePreset').on('click', function (e) {
         e.stopPropagation();
-        var $menu  = $('#datePresetMenu');
-        var offset = $(this).offset();
-        var visible = $menu.is(':visible');
-        $menu.css({
-            top  : offset.top + $(this).outerHeight() + 4,
-            left : offset.left - 140
-        }).toggle(!visible);
+        var $menu = $('#datePresetMenu');
+        if ($menu.is(':visible')) { $menu.hide(); return; }
+
+        var r = this.getBoundingClientRect();           // koordinat viewport (cocok untuk fixed)
+        $menu.css({ top: r.bottom + 4, left: 0 }).show();
+
+        var w    = $menu.outerWidth();
+        var left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+        $menu.css('left', left);
     });
 
     $(document).on('click', '.preset-item', function (e) {
@@ -787,16 +757,14 @@ $(function () {
     $('#date_from, #date_to').on('change', updatePeriodLabel);
 
     // =========================================================
-    // SELECT2 MULTIPLE — tracking filter
-    // Dibungkus .tracking-select-wrap supaya CSS override tepat sasaran.
-    // Dropdown ke <body> supaya tidak terpotong overflow parent.
+    // SELECT2 MULTIPLE — tracking filter (Divisi & Nama Paket tracking)
     // =========================================================
     function initTrackingSelect($el, parentCategory) {
         $el.select2({
             theme          : 'bootstrap4',
             placeholder    : 'None',
             allowClear     : true,
-            width          : '100%',   /* ikut lebar .tracking-select-wrap */
+            width          : '100%',
             dropdownParent : $('body'),
             ajax: {
                 url      : '{{ route("tracking-by-parent") }}',
@@ -820,18 +788,15 @@ $(function () {
             }
         });
 
-        // ── Overflow handler: tampilkan "+N" badge jika tag > 2 ────────
-        // Dijalankan setiap kali selection berubah
+        // Overflow handler: tampilkan "+N" badge jika tag > MAX_VISIBLE
         $el.on('change', function () {
-            // Tunda agar DOM select2 sudah dirender
             setTimeout(function () { trimOverflowTags($el); }, 0);
         });
     }
 
     /**
-     * Batasi tampilan tag di select2 multiple:
-     * tampilkan max MAX_VISIBLE tag, sisanya sembunyikan & tambah "+N" badge.
-     * Ini murni visual — value tetap dikirim semua saat submit.
+     * Batasi tampilan tag di select2 multiple (murni visual,
+     * value tetap dikirim semua saat submit).
      */
     var MAX_VISIBLE = 2;
 
@@ -839,31 +804,25 @@ $(function () {
         var $container = $el.next('.select2-container');
         if (!$container.length) return;
 
-        // Hapus badge lama
         $container.find('.s2-overflow-badge').remove();
-
-        // Kembalikan semua tag yang sempat disembunyikan
-        $container.find('.select2-selection__choice.s2-hidden')
-            .removeClass('s2-hidden');
+        $container.find('.select2-selection__choice.s2-hidden').removeClass('s2-hidden');
 
         var $choices = $container.find('.select2-selection__choice');
         var total    = $choices.length;
 
-        if (total <= MAX_VISIBLE) return; // tidak perlu trim
+        if (total <= MAX_VISIBLE) return;
 
-        // Sembunyikan tag kelebihan
         $choices.each(function (i) {
             if (i >= MAX_VISIBLE) $(this).addClass('s2-hidden');
         });
 
-        // Tambah badge "+N"
         var overflow = total - MAX_VISIBLE;
         var $badge   = $('<span class="s2-overflow-badge">+' + overflow + '</span>');
         $container.find('.select2-selection__rendered').append($badge);
     }
 
-    // initTrackingSelect($('#tracking_divisi'),     'divisi');
-    // initTrackingSelect($('#tracking_paket_name'), 'nama paket');
+   initTrackingSelect($('#tracking_paket_name'), 'nama paket', 'Semua paket');
+   initTrackingSelect($('#tracking_divisi'),     'divisi',     'Semua divisi');
 
     // =========================================================
     // PRELOAD nilai tersimpan (edit mode / old())
@@ -885,14 +844,10 @@ $(function () {
         }).catch(function (err) { cathError(err); });
     }
 
-    // Contoh penggunaan:
-    // preloadTrackingOption($('#tracking_divisi'),     'uuid-divisi-xxx', 'divisi');
-    // preloadTrackingOption($('#tracking_paket_name'), 'uuid-paket-xxx',  'nama paket');
-
     // =========================================================
     // ADAPTER — ubah response API → format sections
     // =========================================================
-   function adaptApiResponse(data) {
+    function adaptApiResponse(data) {
         function toSection(name, sectionData) {
             if (!sectionData) return null;
             return {
@@ -933,36 +888,47 @@ $(function () {
             net_profit_label : (parseFloat(data.net_profit) || 0) >= 0 ? 'Net Profit' : 'Net Loss'
         };
     }
+
     // =========================================================
     // LOAD REPORT — AJAX
     // =========================================================
-    var _lastData = null;
-    var _lastParams = null
+    var _lastData   = null;
+    var _lastParams = null;   // parameter + label dari laporan yang SEDANG tampil
+
+    function badgeGroup(label, names, badgeClass) {
+        if (!names || !names.length) return '';
+        var html = '<span class="mr-3"><strong>' + label + ':</strong> ';
+        $.each(names, function (i, n) {
+            html += '<span class="badge ' + badgeClass + ' mr-1 mb-1">' + escHtml(n) + '</span>';
+        });
+        return html + '</span>';
+    }
 
     function loadReport() {
-         var namaPaket = $('#nama_paket').val() || [];
+        var filters = getFilters();
 
         var params = {
             date_start: $('#date_from').val(),
             date_end  : $('#date_to').val()
         };
+        appendArrayParams(params, 'nama_paket',          filters.nama_paket);
+        appendArrayParams(params, 'tracking_divisi',     filters.tracking_divisi);
+        appendArrayParams(params, 'tracking_paket_name', filters.tracking_paket_name);
 
-        // Kirim sebagai key berindeks supaya tidak digabung koma
-        $.each(namaPaket, function (i, val) {
-            params['nama_paket[' + i + ']'] = val;
-        });
-
-        _lastParams = {
+        // Disimpan ke _lastParams hanya jika request sukses,
+        // supaya link detail & export selalu cocok dengan laporan yang tampil.
+        var requestParams = {
             date_start: params.date_start,
             date_end  : params.date_end,
-            paket     : namaPaket
+            filters   : filters,
+            labels    : { item: [], divisi: [], paket: [] }
         };
 
         $('#reportLoading').show();
         $('#reportContent').hide();
 
         ajaxRequest(
-            '{{ route("profit-and-loss-v2") }}',
+            '{{ route("profit-and-loss-v3") }}',
             'GET',
             params,
             localStorage.getItem('token')
@@ -973,107 +939,28 @@ $(function () {
             }
 
             var data = response.data.data;
-
-            // Info filter aktif di bawah judul
             var af   = data.active_filters || {};
-            var html = '';
-            var pk   = af.nama_paket ? [].concat(af.nama_paket) : [];
-            if (pk.length) {
-                html += '<span class="mr-2"><strong>Nama Paket:</strong></span>';
-                $.each(pk, function (i, n) {
-                    html += '<span class="badge badge-info mr-1 mb-1">' + escHtml(n) + '</span>';
-                });
-            }
-            $('#filterTrack').html(html);
 
-            _lastData = adaptApiResponse(data);
+            requestParams.labels.item = $.map(af.item_paket || [], function (p) {
+                return p.nama_paket;
+            });
+            requestParams.labels.divisi = $.map(af.divisi_name || [], function (o) {
+                return o.item_name_category;
+            });
+            requestParams.labels.paket = $.map(af.paket_name || [], function (o) {
+                return o.item_name_category;
+            });
+
+            var L = requestParams.labels;
+            $('#filterTrack').html(
+                badgeGroup('Nama Paket (item)',     L.item,   'badge-info') +
+                badgeGroup('Divisi',                L.divisi, 'badge-success') +
+                badgeGroup('Nama Paket (tracking)', L.paket,  'badge-warning')
+            );
+
+            _lastParams = requestParams;
+            _lastData   = adaptApiResponse(data);
             renderReport(_lastData);
-        })
-        .catch(function (err) {
-            cathError(err);
-        })
-        .finally(function () {
-            $('#reportLoading').hide();
-            $('#reportContent').show();
-        });
-    }
-    function loadReportoLD() {
-        // Kumpulkan semua UUID tracking yang dipilih (bisa multiple)
-
-        var divisiVals = $('#tracking_divisi').val()      || [];
-        var paketVals  = $('#tracking_paket_name').val()  || [];
-
-        var params = {
-            date_start           : $('#date_from').val(),
-            date_end             : $('#date_to').val(),
-            currency             : $('#currency').val(),
-            // tracking_divisi      : divisiVals,
-            // tracking_paket_name  : paketVals
-        };
-
-
-        $.each(divisiVals, function(i, val) {
-            params['tracking_divisi[' + i + ']'] = val;
-        });
-        
-        $.each(paketVals, function(i, val) {
-            params['tracking_paket_name[' + i + ']'] = val;
-        });
-        _lastParams = {
-            date_start : $('#date_from').val(),
-            date_end   : $('#date_to').val(),
-            currency   : $('#currency').val(),
-            divisi     : $.map($('#tracking_divisi').select2('data'),     function (o) { return o.text; }),
-            paket      : $.map($('#tracking_paket_name').select2('data'), function (o) { return o.text; })
-        };
-
-
-        $('#reportLoading').show();
-        $('#reportContent').hide();
-
-        ajaxRequest(
-            '{{ route("profit-and-loss") }}',
-            'GET',
-            params,
-            localStorage.getItem('token')
-        )
-        .then(function (response) {//filterTrack
-            var activeFilters = response.data.data.active_filters;
-            var filterTrack = $('#filterTrack');
-            filterTrack.empty();
-            var html = '';
-
-            if (activeFilters.divisi_name && activeFilters.divisi_name.length > 0) {
-                html += '<span class="mr-2"><strong>Paket:</strong></span>';
-                $.each(activeFilters.divisi_name, function(index, item) {
-                    if (item.item_name_category) {
-                        html += '<span class="badge badge-info mr-1 mb-1">'
-                            + item.item_name_category
-                            + '</span>';
-                    }
-                });
-            }
-
-            if (activeFilters.paket_name && activeFilters.paket_name.length > 0) {
-                html += '<span class="mr-2 ml-2"><strong>Divisi:</strong></span>';
-                $.each(activeFilters.paket_name, function(index, item) {
-                    if (item.item_name_category) {
-                        html += '<span class="badge badge-success mr-1 mb-1">'
-                            + item.item_name_category
-                            + '</span>';
-                    }
-                });
-            }
-            filterTrack.html(html);
-
-
-            if (!response.status || !response.data) {
-                throw new Error(response.message || 'Gagal memuat data');
-            }
-            var adapted = adaptApiResponse(response.data.data);
-            console.log('filter',adapted)
-            _lastData   = adapted;
-            renderReport(adapted);
         })
         .catch(function (err) {
             cathError(err);
@@ -1087,17 +974,17 @@ $(function () {
     // =========================================================
     // RENDER REPORT
     // =========================================================
-
-    
-    
     function renderReport(data) {
         var $body   = $('#reportBody');
         var compact = $('#compactView').is(':checked');
         $body.empty();
 
-        var dateStart = $('#date_from').val();
-        var dateEnd   = $('#date_to').val();
-        var namaPaket = $('#nama_paket').val() || [];
+        // Pakai parameter laporan yang tampil (bukan isi form saat ini)
+        var p = _lastParams || {
+            date_start: $('#date_from').val(),
+            date_end  : $('#date_to').val(),
+            filters   : getFilters()
+        };
 
         $.each(data.blocks || [], function (idx, block) {
 
@@ -1120,68 +1007,7 @@ $(function () {
 
             if (!compact) {
                 $.each(block.items || [], function (i, item) {
-                    var detailUrl = buildDetailUrl(item.coa_id, dateStart, dateEnd, namaPaket);
-                    $body.append(
-                        '<tr class="detail-row">' +
-                        '<td>' + escHtml(item.name) + '</td>' +
-                        '<td class="' + amtClass(item.amount) + '">' +
-                            '<a href="' + detailUrl + '" target="_blank">' + formatAmt(item.amount) + '</a>' +
-                        '</td>' +
-                        '</tr>'
-                    );
-                });
-            }
-
-            $body.append(
-                '<tr class="section-total">' +
-                '<td>Total ' + escHtml(block.name) + '</td>' +
-                '<td class="amt total">' + formatAmt(block.total) + '</td>' +
-                '</tr>'
-            );
-        });
-
-        var npLabel = data.net_profit_label || 'Net Profit';
-        $body.append(
-            '<tr class="net-profit">' +
-            '<td>' + escHtml(npLabel) + '</td>' +
-            '<td class="amt">' + formatAmt(data.net_profit || 0) + '</td>' +
-            '</tr>'
-        );
-    }
-   
-    function renderReportoLD(data) {
-        var $body   = $('#reportBody');
-        var compact = $('#compactView').is(':checked');
-        $body.empty();
-
-        var dateStart  = $('#date_from').val();
-        var dateEnd    = $('#date_to').val();
-        var divisiVals = ($('#tracking_divisi').val() || []).join(',');
-        var paketVals  = ($('#tracking_paket_name').val() || []).join(',');
-
-        $.each(data.blocks || [], function (idx, block) {
-
-            if (block.type === 'total') {
-                $body.append(
-                    '<tr class="grand-total">' +
-                    '<td>' + escHtml(block.label) + '</td>' +
-                    '<td class="amt total ' + amtClass(block.amount) + '">' + formatAmt(block.amount) + '</td>' +
-                    '</tr>'
-                );
-                return; // lanjut ke block berikutnya, bukan section
-            }
-
-            $body.append(
-                '<tr class="section-header">' +
-                '<td>' + escHtml(block.name) + '</td>' +
-                '<td class="amt total"></td>' +
-                '</tr>'
-            );
-
-            if (!compact) {
-                $.each(block.items || [], function (i, item) {
-                    var detailUrl = buildDetailUrl(item.coa_id, dateStart, dateEnd, paketVals, divisiVals);
-
+                    var detailUrl = buildDetailUrl(item.coa_id, p.date_start, p.date_end, p.filters);
                     $body.append(
                         '<tr class="detail-row">' +
                         '<td>' + escHtml(item.name) + '</td>' +
@@ -1230,17 +1056,9 @@ $(function () {
         });
     });
 
-    // $('#btnMore').on('click', function () {
-    //     Swal.fire({
-    //         title: 'More options', icon: 'info',
-    //         text : 'Export PDF, Excel, dll. (implementasi sesuai kebutuhan).',
-    //         confirmButtonText: 'OK'
-    //     });
-    // });
-
     // =========================================================
-// EXPORT EXCEL (client-side, dari data laporan yang tampil)
-// =========================================================
+    // EXPORT EXCEL (client-side, dari data laporan yang tampil)
+    // =========================================================
     var COMPANY_NAME = @json(config('app.company_name', 'PT An Namiroh Travelindo'));
 
     // Cegah formula injection di Excel (sel diawali = + - @)
@@ -1258,8 +1076,8 @@ $(function () {
         var from = moment(_lastParams.date_start);
         var to   = moment(_lastParams.date_end);
         var periodText = (from.isSame(from.clone().startOf('month'), 'day') &&
-                        to.isSame(to.clone().endOf('month'), 'day') &&
-                        from.isSame(to, 'month'))
+                          to.isSame(to.clone().endOf('month'), 'day') &&
+                          from.isSame(to, 'month'))
             ? 'For the month ended ' + to.format('D MMMM YYYY')
             : from.format('D MMM YYYY') + ' – ' + to.format('D MMM YYYY');
 
@@ -1267,16 +1085,23 @@ $(function () {
             ? to.format('MMM YYYY')
             : from.format('MMM') + ' – ' + to.format('MMM YYYY');
 
+        var L = _lastParams.labels;
         var aoa = [];
         var numRows = [];   // index baris yang kolom B-nya angka
 
         aoa.push(['Profit and Loss']);
         aoa.push([safeText(COMPANY_NAME)]);
         aoa.push([periodText]);
-        // if (_lastParams.divisi.length) aoa.push(['Divisi: ' + safeText(_lastParams.divisi.join(', '))]);
-        // if (_lastParams.paket.length)  aoa.push(['Nama Paket: ' + safeText(_lastParams.paket.join(', '))]);
-        // aoa.push(['Currency: ' + _lastParams.currency]);
-        if (_lastParams.paket.length) aoa.push(['Nama Paket: ' + safeText(_lastParams.paket.join(', '))]);
+
+        function pushFilterLine(label, names) {
+            if (names && names.length) {
+                aoa.push([label + ': ' + safeText(names.join(', '))]);
+            }
+        }
+        pushFilterLine('Nama Paket (item)',     L.item);
+        pushFilterLine('Divisi',                L.divisi);
+        pushFilterLine('Nama Paket (tracking)', L.paket);
+
         aoa.push([]);
         aoa.push(['', colHeader]);
 
@@ -1316,8 +1141,9 @@ $(function () {
         var wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
 
-        var namaFile = _lastParams.paket.length
-            ? '_' + _lastParams.paket.join('_').replace(/[^A-Za-z0-9\-_]+/g, '_').substring(0, 60)
+        var nameParts = [].concat(L.item, L.divisi, L.paket);
+        var namaFile = nameParts.length
+            ? '_' + nameParts.join('_').replace(/[^A-Za-z0-9\-_]+/g, '_').substring(0, 60)
             : '';
         var fileName = 'Profit_and_Loss' + namaFile + '_' + _lastParams.date_start + '_' + _lastParams.date_end + '.xlsx';
         XLSX.writeFile(wb, fileName);
@@ -1331,7 +1157,7 @@ $(function () {
             Swal.fire('Gagal', 'Export Excel gagal: ' + e.message, 'error');
         }
     });
-    
+
     // =========================================================
     // INIT
     // =========================================================
