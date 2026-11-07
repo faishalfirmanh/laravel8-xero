@@ -195,6 +195,10 @@
                                     <label>Reference <span class="text-danger">*</span></label>
                                     <input type="text" id="ref_id" required class="form-control" name="reference">
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline-warning mb-3" id="btn-add-item-contact"
+                                        style="border-color:#fd7e14; color:#fd7e14;">
+                                    <i class="ti ti-user-plus" style="font-size:12px;"></i> Add Contact
+                                </button>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
@@ -382,6 +386,49 @@
             </div>
             <div class="modal-body text-center p-0">
                 <img id="previewImageModalSrc" src="" alt="Preview Gambar" style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{{-- ── MODAL ADD CONTACT (dari halaman bills) ── --}}
+<div class="modal fade" id="modalCreateJamaah" tabindex="-1" role="dialog" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalJamaahTitle">Tambah Contact</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="id_jamaah" value="">
+
+                <div class="form-group mb-3">
+                    <label for="full_name">Nama Lengkap <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="full_name" placeholder="Nama lengkap">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="phone_number">No. Telepon <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="phone_number" placeholder="Contoh: 081234567890">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="nik">NIK <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="nik" maxlength="16" placeholder="16 digit NIK">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="detail_address">Alamat</label>
+                    <textarea class="form-control" id="detail_address" rows="3" placeholder="Alamat lengkap (opsional)"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                <button type="button" id="btn_save_jamaah" class="btn btn-primary">Simpan</button>
             </div>
         </div>
     </div>
@@ -1683,6 +1730,82 @@ window.dellBill = function(id) {
        let selectedType = $(this).val();
        loadTable(selectedType);
     });
+
+
+    function setContactSelect2Value(id, text) {
+        const $el = $('#contact_id');
+        $el.find('option[value!=""]').remove();
+        $el.append(new Option(text, id, true, true)).trigger('change');
+    }
+
+    $('#btn-add-item-contact').on('click', function () {
+        $('#modalCreateJamaah').modal('show');
+    });
+
+
+$('#modalCreateJamaah').on('show.bs.modal', function () {
+    const z = 1070;                      // di atas modalCreateHotel (1050)
+    $(this).css('z-index', z);
+    setTimeout(function () {
+        $('.modal-backdrop').last().css('z-index', z - 1);
+    }, 0);
+});
+
+$('#modalCreateJamaah').on('shown.bs.modal', function () {
+    $(document).off('focusin.bs.modal'); // kalau tidak, input tidak bisa diketik
+    $('#full_name').trigger('focus');
+});
+
+$('#modalCreateJamaah').on('hidden.bs.modal', function () {
+    $('#id_jamaah, #full_name, #phone_number, #nik, #detail_address').val('');
+    $('#btn_save_jamaah').prop('disabled', false).text('Simpan');
+    // kembalikan scroll modal bill yang hilang setelah modal kedua ditutup
+    if ($('#modalCreateHotel').hasClass('show')) {
+        $('body').addClass('modal-open');
+    }
+});
+
+    // ── Simpan contact ──
+    $('#btn_save_jamaah').on('click', function () {
+        const payload = {
+            id             : $('#id_jamaah').val() || null,
+            full_name      : $('#full_name').val().trim(),
+            phone_number   : $('#phone_number').val().trim(),
+            nik            : $('#nik').val().trim(),
+            detail_address : $('#detail_address').val().trim(),
+        };
+
+        if (!payload.full_name || !payload.phone_number) {
+            Swal.fire('Peringatan', 'Nama lengkap dan No. Telepon wajib diisi', 'warning');
+            return;
+        }
+
+        const $btn = $(this).prop('disabled', true).text('Menyimpan...');
+
+        ajaxRequest(`{{ route('save-jamaah') }}`, 'POST', payload, localStorage.getItem('token'))
+            .then(response => {
+                if (response.status == 200) {
+                    const saved = response.data?.data || response.data || {};
+
+                    $('#modalCreateJamaah').modal('hide');
+                    Swal.fire({ title: 'Berhasil', text: 'Data contact tersimpan', icon: 'success', timer: 1500, showConfirmButton: false });
+
+                    if (saved.id) {
+                        // auto-select contact baru di field "From (Supplier / Contact)"
+                        setContactSelect2Value(saved.id, saved.full_name || payload.full_name);
+                    } else {
+                        console.warn('save-jamaah tidak mengembalikan id, contact tidak bisa auto-select', response);
+                    }
+                } else {
+                    Swal.fire('Gagal', response?.data?.data?.message || 'Gagal menyimpan data contact', 'error');
+                }
+            })
+            .catch(err => cathError(err))
+            .finally(() => {
+                $btn.prop('disabled', false).text('Simpan');
+            });
+    });
+
 
 });
 </script>
