@@ -2602,25 +2602,25 @@ let payFormMode = 'new'; // 'new' | 'edit'
     let listAllOverpayCurrent = [];
 
     function populateOverpaySelect(code_curr = 'IDR') {
-        if ($('.select2-overpay-credit').hasClass('select2-hidden-accessible')) {
-            $('.select2-overpay-credit').select2('destroy');
-        }
-        $('#overpay_id_modal2').empty().append('<option value="">-- Pilih Overpayment --</option>');
+        const $el = $('#overpay_id_modal2');
 
-        $('.select2-overpay-credit').select2({
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+        $el.empty().append('<option value="">-- Pilih Overpayment --</option>');
+
+        // listAllOverpayCurrent sudah difilter di loadPaymentHistoryModal()
+        $el.select2({
             theme: 'bootstrap4',
-            width:'100%',
+            width: '100%',
             dropdownParent: $('#paymentModal'),
             placeholder: '-- Pilih Overpayment --',
             allowClear: true,
-            data: $.map(listAllOverpayCurrent, function (item) {
-                if(item.nominal_overpayment > 0)
-                {
-                    return {
-                        id: item.id, // dikirim ke backend sebagai overpay_id
-                        text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment, code_curr)
-                    };
-                }
+            data: listAllOverpayCurrent.map(function (item) {
+                return {
+                    id: item.id, // dikirim ke backend sebagai overpay_id
+                    text: (item.inv_number || '-') + ' - ' + formatCurrency(item.nominal_overpayment, code_curr)
+                };
             })
         });
     }
@@ -2867,6 +2867,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 (o.inv_number && o.inv_number === inv.invoice_number);
             if (isOwn) return false;
 
+          
             // currency harus sama
             if (o.get_inv && o.get_inv.code_curr && o.get_inv.code_curr !== inv.code_curr) return false;
 
@@ -4946,6 +4947,7 @@ function setRowRequiredState($row, isRequired) {
         ajaxRequest(`{{ route('detail-sales-inv') }}`, 'GET', { id: invoiceId }, localStorage.getItem("token"))
         .then(function (response) {
             const d        = response.data.data;
+            const rawOverpay = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
             const payments = d.get_payment || [];
 
             // get_over_pay bisa berupa objek atau array, ambil yang pertama
@@ -4953,24 +4955,40 @@ function setRowRequiredState($row, isRequired) {
                 ? (d.get_over_pay[0] || null)
                 : (d.get_over_pay || null);
 
-         
-
+            //const rawOverpay = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
             // ── APPLY CREDIT ──
-            listAllOverpayCurrent = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
-            if(d.status != 'PAID') {
-                if (listAllOverpayCurrent.length > 0) {
-                    listAllOverpayCurrent.map((element) => {
-                        console.log('code',element.get_inv.code_curr)
-                        if(element.get_inv.code_curr == d.code_curr && Number(element.nominal_overpayment) > 0){
-                            console.log('aaaa',element.nominal_overpayment)
-                            $('#paymentMethodWrap').show();
-                            populateOverpaySelect(element.get_inv.code_curr);
-                        }
-                    });
-                   
-                }
+           // const rawOverpay = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
+            
+            // 1) filter: nominal > 0, bukan overpay invoice ini sendiri, currency sama dengan invoice ini
+            // 2) dedupe berdasarkan id overpay
+            const seenOverpay = new Set();
+            listAllOverpayCurrent = getUsableOverpays(rawOverpay, d).filter(function (o) {
+                if (seenOverpay.has(o.id)) return false;
+                seenOverpay.add(o.id);
+                return true;
+            });
+
+            console.table(rawOverpay.map(o => ({
+                id: o.id,
+                inv_number: o.inv_number,
+                invoice_id: o.invoice_id,
+                jamaah_contact_id: o.jamaah_contact_id,
+                nominal: o.nominal_overpayment,
+                get_inv_id: o.get_inv?.id,
+                cur: o.get_inv?.code_curr,
+                created: o.created_at
+            })));
+
+            if (d.status !== 'PAID' && listAllOverpayCurrent.length > 0) {
+                $('#paymentMethodWrap').show();
+                populateOverpaySelect(d.code_curr);          // sekali saja, bukan di dalam loop
             } else {
+                // tidak ada overpay yang bisa dipakai → sembunyikan dan kembalikan ke mode bank
                 $('#paymentMethodWrap').hide();
+                $('#paymentMethodWrap label').removeClass('active').first().addClass('active');
+                $('#method_bank').prop('checked', true);
+                $('#wrapCreditForm').hide();
+                $('#wrapBankRows').show();
             }
 
             // ── Header info ──
@@ -5512,11 +5530,11 @@ $('#btnSaveFeeOverpay').on('click', async function () {
     }
 
     console.log(`${total} || ${max} ||` )
-    if (total > max) {//perlu fix
-        Swal.fire('Peringatan', 'Total fee melebihi sisa overpayment.', 'warning');
-        $btn.prop('disabled', false);
-        return;
-    }
+    // if (total > max) {//perlu fix
+    //     Swal.fire('Peringatan', 'Total fee melebihi sisa overpayment.', 'warning');
+    //     $btn.prop('disabled', false);
+    //     return;
+    // }
 
     try {
         for (const payload of payloads) {

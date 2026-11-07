@@ -118,9 +118,15 @@ class CoaController extends Controller
             return $this->error($validator->errors(), 404);
         }
         //dd($request->menu);
+        $searchColumns = [
+            'code',
+            'name',   // accessor inv_number
+            'desc',     // accessor name_contact
+            // accessor bank_name
+        ];
         $where = self::chekWhere($request->type);
         if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, $request->kolom_name, strtoupper($request->keyword));
+            $data = $this->repo->searchMultiColumnV2($where, $request->limit, $request->page, strtoupper($request->keyword), $searchColumns);
         } else {
             $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, $request->kolom_name, 'ASC');//getDataPaginate("name",10,$request->keyword);
         }

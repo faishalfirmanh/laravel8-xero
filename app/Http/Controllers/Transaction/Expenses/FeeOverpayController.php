@@ -248,6 +248,20 @@ class FeeOverpayController extends Controller
         }
     }
 
+    /**
+     * BaseRepository::CreateOrUpdate menelan exception dan mengembalikan string
+     * ("error saved" / "no data id X"). Tanpa pengecekan ini transaksi tetap ter-commit
+     * dengan data setengah jadi, jadi hasilnya wajib berupa object model.
+     */
+    private function assertSaved($result, string $label)
+    {
+        if (!is_object($result)) {
+            throw new \Exception('Gagal menyimpan ' . $label . (is_string($result) ? ': ' . $result : ''));
+        }
+
+        return $result;
+    }
+
     public function storeFeeOverpay(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -264,16 +278,14 @@ class FeeOverpayController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors()->first(), 422);
         }
+
         $invoiceId = (int) $request->invoice_id;
+        $newOverpayId = (int) $request->overpay_id;
+        $newBankId = (int) $request->bank_id_origin;
+
         DB::beginTransaction();
-        $inv = $this->repo_invoice->whereData(['id' => $invoiceId])->first();
         try {
-            $nominal = round((float) $request->nominal, 4) * $inv->nominal_currency;
-
-            $newOverpayId = (int) $request->overpay_id;
-            $newBankId = (int) $request->bank_id_origin;
-
-            // ---- 0. Data fee lama (mode update) ----
+            // ---- 0. Kunci dulu, baru baca. Urutan: fee -> invoice -> overpayment ----
             $oldFee = null;
             if ($request->filled('id')) {
                 $oldFee = DB::table('fee_overpays')
@@ -289,25 +301,44 @@ class FeeOverpayController extends Controller
                 }
             }
 
-            $oldNominal = $oldFee ? round((float) $oldFee->nominal, 4) : 0.0;
+            DB::table('invoices_all_from_xeros')->where('id', $invoiceId)->lockForUpdate()->first();
+
             $oldOverpayId = $oldFee ? (int) $oldFee->overpay_id : null;
             $oldBankId = $oldFee ? (int) $oldFee->bank_id_origin : null;
 
-            // ---- 1. Lock overpayment tujuan & cek saldo tersedia ----
-            $overpay = DB::table('overpayments')
-                ->where('id', $newOverpayId)
-                ->lockForUpdate()
-                ->first();
+            $lockIds = array_values(array_unique(array_filter([$newOverpayId, $oldOverpayId])));
+            sort($lockIds);
+            foreach ($lockIds as $lockId) {
+                DB::table('overpayments')->where('id', $lockId)->lockForUpdate()->first();
+            }
 
+            $inv = $this->repo_invoice->whereData(['id' => $invoiceId])->first();
+            if (!$inv) {
+                throw new \Exception('Invoice tidak ditemukan');
+            }
+
+            $overpay = DB::table('overpayments')->where('id', $newOverpayId)->first();
             if (!$overpay || (int) $overpay->invoice_id !== $invoiceId) {
                 throw new \Exception('Overpayment tidak ditemukan untuk invoice ini');
             }
+            if (
+                $oldFee && $oldOverpayId !== $newOverpayId
+                && !DB::table('overpayments')->where('id', $oldOverpayId)->exists()
+            ) {
+                throw new \Exception('Overpayment lama tidak ditemukan');
+            }
 
-            // Jika overpay tidak berubah, fee lama dianggap sudah kembali ke saldo
-            $sameOverpay = $oldFee && $oldOverpayId === $newOverpayId;
-            $availableOverpay = round((float) $overpay->nominal_overpayment + ($sameOverpay ? $oldNominal : 0), 4);
+            // Angka yang diketik user = mata uang invoice ($nominalAsli). Untuk invoice IDR keduanya sama.
+            // $nominal = nilai Rupiah (kurs invoice). fee_overpays.nominal dan total_base_* memakai Rupiah;
+            // nominal_spend di bank dan nominal di COA memakai angka asli, sama seperti alur pembayaran.
+            $nominalAsli = round((float) $request->nominal, 4);
+            $nominal = round($nominalAsli * $this->repo_overpay->invoiceRate($inv), 4);
 
-            if ($nominal > $availableOverpay) {
+            // ---- 1. Cek sisa overpay dari SUMBERnya, bukan dari nominal_overpayment tersimpan ----
+            // Fee yang sedang diedit dikecualikan supaya tidak terhitung dua kali.
+            $available = $this->repo_overpay->balanceFor($newOverpayId, $oldFee ? (int) $oldFee->id : null);
+
+            if (round($nominal - $available, 4) > 0) {
                 throw new \Exception('Nominal fee overpay lebih dari sisa overpayment');
             }
 
@@ -317,41 +348,11 @@ class FeeOverpayController extends Controller
                 throw new \Exception('COA diskon penjualan (4800) tidak ditemukan');
             }
 
-
-            if (!$inv) {
-                throw new \Exception('Invoice tidak ditemukan');
-            }
-
             $coaId = $coaFee->id;
             $uuid = $oldFee ? $oldFee->uuid_details_feeoverpay : $this->globa_service->generateRandomCode();
-            $baseNominal = round($nominal * (float) $inv->nominal_currency, 4);
 
-            // ---- 3. Saldo overpayment ----
-            // Overpay berubah: kembalikan saldo overpay lama
-            if ($oldFee && !$sameOverpay) {
-                $oldOverpay = DB::table('overpayments')
-                    ->where('id', $oldOverpayId)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$oldOverpay) {
-                    throw new \Exception('Overpayment lama tidak ditemukan');
-                }
-
-                DB::table('overpayments')->where('id', $oldOverpayId)->update([
-                    'nominal_overpayment' => round((float) $oldOverpay->nominal_overpayment + $oldNominal, 4),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            // Saldo overpay tujuan: sisa setelah fee ini
-            DB::table('overpayments')->where('id', $newOverpayId)->update([
-                'nominal_overpayment' => round($availableOverpay - $nominal, 4),
-                'updated_at' => now(),
-            ]);
-
-            // ---- 4. fee_overpays ----
-            $saveFee = $this->repo->CreateOrUpdate([
+            // ---- 3. fee_overpays ----
+            $saveFee = $this->assertSaved($this->repo->CreateOrUpdate([
                 'date_transaction' => $request->date_transaction,
                 'invoice_id' => $invoiceId,
                 'bank_id_origin' => $newBankId,
@@ -362,82 +363,70 @@ class FeeOverpayController extends Controller
                 'overpay_id' => $newOverpayId,
                 'jamaah_id' => $request->jamaah_id,
                 'uuid_details_feeoverpay' => $uuid,
-            ], $oldFee ? $oldFee->id : null);
+            ], $oldFee ? $oldFee->id : null), 'fee overpay');
 
-            // ---- 5. summary_nominal_banks ----
-            // nominal_out bertambah, final_nominal berkurang
-            $adjustBankOut = function (int $bankId, float $amount) {
-                $summary = DB::table('summary_nominal_banks')
-                    ->where('bank_id', $bankId)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$summary) {
-                    throw new \Exception('Saldo bank tidak tersedia');
-                }
-
-                DB::table('summary_nominal_banks')->where('id', $summary->id)->update([
-                    'nominal_out' => round((float) $summary->nominal_out + $amount, 4),
-                    'final_nominal' => round((float) $summary->final_nominal - $amount, 4),
-                    'updated_at' => now(),
-                ]);
-            };
-
-            if ($oldFee && $oldBankId !== $newBankId) {
-                $adjustBankOut($oldBankId, -$oldNominal);   // kembalikan bank lama
-                $adjustBankOut($newBankId, $nominal);       // potong bank baru
-            } else {
-                $adjustBankOut($newBankId, round($nominal - $oldNominal, 4)); // selisih
-            }
-
-            // ---- 6. transaction_all_coas ----
+            // ---- 4. transaction_all_coas ----
             $existingCoa = ($oldFee && !empty($uuid))
                 ? DB::table('transaction_all_coas')->where('uuid_detail', $uuid)->first()
                 : null;
 
-            $this->repo_trans_coa->CreateOrUpdate([
+            $this->assertSaved($this->repo_trans_coa->CreateOrUpdate([
                 'date_transaction' => $request->date_transaction,
                 'uuid_coa' => $coaId,
                 'reference' => $inv->reference,
                 'is_speend' => 1,
-                'nominal' => $nominal,
+                'nominal' => $nominalAsli,
                 'created_by' => Auth::id(),
                 'uuid_detail' => $uuid,
                 'code_curr' => $inv->code_curr,
                 'nominal_currency' => $inv->nominal_currency,
-                'base_nominal' => $baseNominal,
-            ], $existingCoa ? $existingCoa->id : null);
+                'base_nominal' => $nominal,
+            ], $existingCoa ? $existingCoa->id : null), 'jurnal COA');
 
-            // ---- 7. transaction_nominal_bank_accounts ----
+            // ---- 5. transaction_nominal_bank_accounts ----
             $existingBank = $oldFee
                 ? DB::table('transaction_nominal_bank_accounts')
                     ->where('id_fee_overpay', $saveFee->id)
                     ->first()
                 : null;
 
-            $this->repo_trans_bank->CreateOrUpdate([
+            $this->assertSaved($this->repo_trans_bank->CreateOrUpdate([
                 'payment_uuid' => $uuid,
                 'uuid_bank' => $newBankId,
                 'account_transaction' => $coaId,
                 'nominal_receive' => 0,
-                'nominal_spend' => $nominal,
+                'nominal_spend' => $nominalAsli,
                 'nominal_transfer' => 0,
                 'created_by' => Auth::id(),
                 'date_transaction' => $request->date_transaction,
                 'reference_detail' => $inv->reference,
                 'id_parent_invoice' => $invoiceId,
                 // 'id_parent_bank'   => ... (lihat catatan FK sebelumnya)
-                // 'overpay_id'       => $newOverpayId,
+                // 'overpay_id'       => $newOverpayId,  // jangan diisi: committedFor() memakai id_fee_overpay IS NULL
                 'id_fee_overpay' => $saveFee->id,
                 'nominal_currency' => $inv->nominal_currency,
-                'total_base_spend' => $baseNominal,
+                'total_base_spend' => $nominal,
                 'total_base_receive' => 0,
-            ], $existingBank ? $existingBank->id : null);
+            ], $existingBank ? $existingBank->id : null), 'transaksi bank');
+
+            // ---- 6. summary_nominal_banks: dihitung ulang dari transaksi (mata uang bank itu sendiri) ----
+            $bankIds = array_values(array_unique(array_filter([$newBankId, $oldBankId])));
+            sort($bankIds); // urutan tetap supaya tidak deadlock
+            foreach ($bankIds as $bankId) {
+                $this->repo_summary_bank->recalcFromLedger((int) $bankId);
+            }
+
+            // ---- 7. overpayments.nominal_overpayment: dihitung ulang dari sumber ----
+            // Dipanggil SETELAH fee tersimpan, di transaksi yang sama.
+            $this->repo_overpay->syncBalance($newOverpayId);
+            if ($oldFee && $oldOverpayId !== $newOverpayId) {
+                $this->repo_overpay->syncBalance($oldOverpayId);
+            }
 
             DB::commit();
             return $this->autoResponse($saveFee);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return $this->error($e->getMessage(), 400);
         }
@@ -455,42 +444,22 @@ class FeeOverpayController extends Controller
 
         DB::beginTransaction();
         try {
+            // Urutan kunci sama dengan storeFeeOverpay: fee -> invoice -> overpayment
             $fee = DB::table('fee_overpays')->where('id', $request->id)->lockForUpdate()->first();
-            $nominal = round((float) $fee->nominal, 4);
+            if (!$fee) {
+                throw new \Exception('Data fee overpay tidak ditemukan');
+            }
 
-            // 1. Kembalikan saldo overpayment
-            $overpay = DB::table('overpayments')
-                ->where('id', $fee->overpay_id)
-                ->lockForUpdate()
-                ->first();
+            if (!empty($fee->invoice_id)) {
+                DB::table('invoices_all_from_xeros')->where('id', $fee->invoice_id)->lockForUpdate()->first();
+            }
 
+            $overpay = DB::table('overpayments')->where('id', $fee->overpay_id)->lockForUpdate()->first();
             if (!$overpay) {
                 throw new \Exception('Overpayment tidak ditemukan');
             }
 
-            DB::table('overpayments')->where('id', $overpay->id)->update([
-                'nominal_overpayment' => round((float) $overpay->nominal_overpayment + $nominal, 4),
-                'updated_at' => now(),
-            ]);
-
-            // 2. Kembalikan saldo bank
-            $summary = DB::table('summary_nominal_banks')
-                ->where('bank_id', $fee->bank_id_origin)
-                ->lockForUpdate()
-                ->first();
-
-            if (!$summary) {
-                throw new \Exception('Saldo bank tidak tersedia');
-            }
-
-            DB::table('summary_nominal_banks')->where('id', $summary->id)->update([
-                'nominal_out' => round((float) $summary->nominal_out - $nominal, 4),
-                'nominal_in' => round((float) $summary->nominal_in + $nominal, 4),
-                'final_nominal' => round((float) $summary->final_nominal + $nominal, 4),
-                'updated_at' => now(),
-            ]);
-
-            // 3. Hapus data turunan
+            // 1. Hapus data turunan, lalu fee-nya
             DB::table('transaction_nominal_bank_accounts')
                 ->where('id_fee_overpay', $fee->id)
                 ->delete();
@@ -503,10 +472,16 @@ class FeeOverpayController extends Controller
 
             DB::table('fee_overpays')->where('id', $fee->id)->delete();
 
+            // 2. Ringkasan bank dihitung ulang dari transaksi yang tersisa
+            $this->repo_summary_bank->recalcFromLedger((int) $fee->bank_id_origin);
+
+            // 3. Saldo overpayment dihitung ulang dari sumber (fee sudah terhapus)
+            $this->repo_overpay->syncBalance((int) $fee->overpay_id);
+
             DB::commit();
             return $this->success(null, 'Fee overpay berhasil dihapus');
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return $this->error($e->getMessage(), 400);
         }

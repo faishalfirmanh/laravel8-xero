@@ -82,7 +82,7 @@
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Daftar Overpay</h5>
-        <div class="form-group mb-0 d-flex align-items-center flex-wrap">
+        {{-- <div class="form-group mb-0 d-flex align-items-center flex-wrap">
             <label class="mb-0 mr-2 small font-weight-bold">Dari</label>
             <input type="date" id="filter_date_start"
                 class="form-control form-control-sm mr-2"
@@ -99,7 +99,7 @@
                 <option value="1">AWAITING PAYMENT</option>
                 <option value="2">PAID</option>
             </select>
-        </div>
+        </div> --}}
     </div>
 
     <div id="loadingIndicator" class="text-center my-4" style="display:none;">

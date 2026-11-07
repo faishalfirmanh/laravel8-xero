@@ -19,6 +19,7 @@ class FeeOverpay extends Model
       -nominal_spend, date_transaction, id_parent_invoice, id_fee_overpay
     3. transaction_all_coas -> code 4800 (DISKON PENJUALAN (KOMPENSASI) - item pengembalian biaya 
     4. overpayments (update nominal_overpayment )
+    5. summary_nominal_banks update in,out dan final_nominal
     */
     protected $fillable = [
         'date_transaction',

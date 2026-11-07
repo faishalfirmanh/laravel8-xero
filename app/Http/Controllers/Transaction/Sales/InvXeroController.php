@@ -139,7 +139,7 @@ class InvXeroController extends Controller
             return $this->error($validator->errors(), 404);
         }
 
-        $searchColumns = ['invoice_number', 'contact_name', 'reference'];
+        $searchColumns = ['invoice_number', 'contact_name', 'reference', 'created_by_name'];
         $where = [];
 
         if ($request->filled('keyword') || $request->filled('date_from') || $request->filled('date_to')) {
@@ -1785,7 +1785,8 @@ class InvXeroController extends Controller
             'getPayment',
             'getHistoryInvoice',
             'getOverPay',
-            'getJamaah.listAllOverpay'
+            'getJamaah.listAllOverpay',
+            'getFeeOverpay',//history pengembalian
             // 'getDetailById.trackingCategoryPaket'
         ], ['id' => $request->id])->first();
         return $this->autoResponse($data);
@@ -1947,6 +1948,32 @@ class InvXeroController extends Controller
             'nominal_out' => $oldIn->nominal_out - $spend,
             'final_nominal' => $oldIn->final_nominal - ($receive - $spend),
         ]);
+    }
+
+    // Summary bank dalam mata uang dokumen (nominal_receive / nominal_spend), bukan base IDR.
+// Untuk kembali ke IDR: ganti pemanggilan ke _recalcBankSummary.
+    private function _recalcBankSummaryCurrency(int $bankId): void
+    {
+        $nominalIn = (float) ($this->repo_trans_bank->sumDataWhereDinamis(
+            ['uuid_bank' => $bankId],
+            'nominal_receive'
+        ) ?? 0);
+
+        $nominalOut = (float) ($this->repo_trans_bank->sumDataWhereDinamis(
+            ['uuid_bank' => $bankId],
+            'nominal_spend'
+        ) ?? 0);
+
+        $summary = $this->repo_bank_summary
+            ->whereData(['bank_id' => $bankId])
+            ->first();
+
+        $this->repo_bank_summary->CreateOrUpdate([
+            'bank_id' => $bankId,
+            'nominal_in' => round($nominalIn, 4),
+            'nominal_out' => round($nominalOut, 4),
+            'final_nominal' => round($nominalIn - $nominalOut, 4),
+        ], $summary ? $summary->id : null);
     }
     private function _recalcBankSummary(int $bankId): void
     {
@@ -2208,6 +2235,17 @@ class InvXeroController extends Controller
                 'overpay_id' => $overpayIdToUse,
             ], $cekPaymentOver));
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), $request->id);
+
+
+            if ((int) $nominal_paid_final > (int) $cekData->invoice_total && $overpayIdToUse == null) {
+                $this->repo_over->CreateOrUpdate([
+                    'nominal_overpayment' => (int) $nominal_paid_final - $cekData->invoice_total,
+                    'invoice_id' => $request->parent_inv_id,
+                    'trans_bank_id' => $saveP->id,
+                    'jamaah_contact_id' => $invP->contact_id,
+                    'bank_id' => $request->uuid_bank
+                ], null);
+            }
 
             // Pakai overpay sesuai nominal baru (row overpay tidak pernah dihapus)
             if ($overpayIdToUse) {

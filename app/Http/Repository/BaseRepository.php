@@ -4,6 +4,8 @@ namespace App\Http\Repository;
 use DB;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use InvalidArgumentException;
 class BaseRepository
 {
 
@@ -241,5 +243,93 @@ class BaseRepository
     public function getLastIdTable(string $column_id)
     {
         return $this->model->max($column_id);
+    }
+
+    public function searchMultiColumnV2(
+        array $where = [],
+        int $perPage = 10,
+        int $page = 1,
+        string $keyword = '',
+        array $columns = [],
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        array $modelWith = [],
+        string $dateColumn = 'issue_date',
+        string $orderBy = 'id',
+        string $orderDir = 'DESC'
+    ) {
+        $table = $this->model->getTable();
+        $query = $this->model->with($modelWith)->where($where);
+
+        $keyword = trim($keyword);
+        if ($keyword !== '' && !empty($columns)) {
+            $like = '%' . $this->escapeLike(mb_strtolower($keyword)) . '%';
+
+            $query->where(function (Builder $q) use ($columns, $like, $table) {
+                foreach ($columns as $col) {
+                    $parts = explode('.', $col);
+                    $column = array_pop($parts);          // segmen terakhir = nama kolom
+
+                    // dukung penulisan "nama_tabel.kolom" untuk tabel model ini sendiri
+                    if (count($parts) === 1 && $parts[0] === $table) {
+                        $parts = [];
+                    }
+
+                    $this->assertIdentifier($column);
+                    foreach ($parts as $p) {
+                        $this->assertIdentifier($p);
+                    }
+
+                    if (empty($parts)) {
+                        // kolom di tabel utama
+                        $q->orWhereRaw($this->likeSql($q, $table, $column), [$like]);
+                    } else {
+                        // kolom di relasi
+                        $q->orWhereHas(implode('.', $parts), function (Builder $sub) use ($column, $like) {
+                            $sub->whereRaw(
+                                $this->likeSql($sub, $sub->getModel()->getTable(), $column),
+                                [$like]
+                            );
+                        });
+                    }
+                }
+            });
+        }
+
+        if (!empty($dateFrom) || !empty($dateTo)) {
+            $this->assertIdentifier($dateColumn);
+        }
+        if (!empty($dateFrom)) {
+            $query->whereDate($table . '.' . $dateColumn, '>=', $dateFrom);
+        }
+        if (!empty($dateTo)) {
+            $query->whereDate($table . '.' . $dateColumn, '<=', $dateTo);
+        }
+
+        $this->assertIdentifier($orderBy);
+        $orderDir = strtoupper($orderDir) === 'ASC' ? 'ASC' : 'DESC';
+
+        return $query->orderBy($table . '.' . $orderBy, $orderDir)
+            ->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    private function likeSql(Builder $builder, string $table, string $column): string
+    {
+        // `tabel`.`kolom`, di-CAST ke CHAR agar kolom angka/text/decimal aman dipakai LIKE
+        $wrapped = $builder->getQuery()->getGrammar()->wrap($table . '.' . $column);
+
+        return "LOWER(CAST({$wrapped} AS CHAR)) LIKE ?";
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    private function assertIdentifier(string $name): void
+    {
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name)) {
+            throw new InvalidArgumentException("Nama kolom/relasi tidak valid: {$name}");
+        }
     }
 }

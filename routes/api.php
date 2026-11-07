@@ -346,7 +346,8 @@ Route::prefix("admin-web")->group(function () {
                     Route::get('getImage', [InvXeroController::class, 'getImageDetail'])->name('get-image-sales-inv');
                     Route::post('removeImage', [InvXeroController::class, 'removeImage'])->name('remove-image-sales-inv');
 
-                    //apply secara langsung overpayment dana di kembalikan
+                    //apply secara langsung overpayment dana di kembalikan//DIBAWAH pembayaran harus sesuai currency (SAR/IDR) ssat pilih bank
+                    //kusus di tabel summary_nominal_banks
                     Route::post('storeFeeOverpay', [FeeOverpayController::class, 'storeFeeOverpay'])->name('save-fee-overpay');
                     //menampilkan riwayat pengembalian overpay dibawah form Fee Overpay
                     Route::get('getFeeOverByInv', [FeeOverpayController::class, 'getOverpayByInvId'])->name('get-fee-overpay');

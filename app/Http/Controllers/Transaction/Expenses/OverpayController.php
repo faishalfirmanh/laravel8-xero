@@ -76,12 +76,27 @@ class OverpayController extends Controller
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
-        $searchColumns = ['nominal_overpayment'];
+        $searchColumns = [
+            'nominal_overpayment',
+            'getInv.invoice_number',   // accessor inv_number
+            'getJamaah.full_name',     // accessor name_contact
+            'getBank.name',            // accessor bank_name
+        ];
+        $with = ['getInv', 'getJamaah', 'getBank'];
         $where = [];
         if ($request->keyword != null) {
-            $data = $this->repo_overpay->searchData($where, $request->limit, $request->page, 'nominal_overpayment', strtoupper($request->keyword));
+            $data = $this->repo_overpay->searchMultiColumn(
+                $where,
+                $request->limit,
+                $request->page,
+                $request->keyword,
+                $searchColumns,
+                null,
+                null,
+                $with
+            );
         } else {
-            $data = $this->repo_overpay->getAllDataWithDefault($where, $request->limit, $request->page, 'nominal_overpayment', 'ASC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo_overpay->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
         }
         return $this->autoResponse($data);
     }
