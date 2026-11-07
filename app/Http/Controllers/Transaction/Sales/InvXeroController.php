@@ -1952,7 +1952,7 @@ class InvXeroController extends Controller
 
     // Summary bank dalam mata uang dokumen (nominal_receive / nominal_spend), bukan base IDR.
 // Untuk kembali ke IDR: ganti pemanggilan ke _recalcBankSummary.
-    private function _recalcBankSummaryCurrency(int $bankId): void
+    private function _recalcBankSummaryCurrency(int $bankId): void //nominal ori
     {
         $nominalIn = (float) ($this->repo_trans_bank->sumDataWhereDinamis(
             ['uuid_bank' => $bankId],
@@ -2049,7 +2049,7 @@ class InvXeroController extends Controller
                 'nominal_currency' => $invP->nominal_currency
             ]);
             $saveP = $this->repo_trans_bank->CreateOrUpdate($request->all(), null);
-            $this->_recalcBankSummary((int) $request->uuid_bank);
+            $this->_recalcBankSummary((int) $request->uuid_bank);//_recalcBankSummaryCurrency
 
             if ($invP->invoice_amount >= $invP->invoice_total) {
                 $this->repo->CreateOrUpdate(['status' => 'PAID'], $request->parent_inv_id);
