@@ -42,4 +42,43 @@ class TransBankRepo extends BaseRepository
         return $query->orderBy($sort_column, $sort_order)->paginate($per_page);
     }
 
+    // TransBankRepo
+    public function sumPaidBaseByInvoice(int $invoiceId): float
+    {
+        $total = 0;
+
+        foreach ($this->whereData(['id_parent_invoice' => $invoiceId])->get() as $p) {
+
+            // pembayaran biasa (uang masuk bank)
+            if ((float) $p->total_base_receive > 0) {
+                $total += (float) $p->total_base_receive;
+                continue;
+            }
+
+            // pembayaran via apply credit: overpay_id terisi, nilainya ada di sisi spend.
+            // baris refund (id_fee_overpay terisi) sengaja tidak dihitung.
+            if (!empty($p->overpay_id) && empty($p->id_fee_overpay)) {
+                $total += (float) $p->total_base_spend;
+                continue;
+            }
+
+            // data lama sebelum ada kolom base
+            if (!empty($p->nominal_currency) && !empty($p->nominal_receive)) {
+                $total += (float) $p->nominal_receive * (float) $p->nominal_currency;
+            }
+        }
+
+        return $total;
+    }
+
+    public function invoiceIdsPaidWithOverpay(): array
+    {
+        return $this->model
+            ->whereNotNull('overpay_id')
+            ->whereNull('id_fee_overpay')
+            ->whereNotNull('id_parent_invoice')
+            ->distinct()
+            ->pluck('id_parent_invoice')
+            ->toArray();
+    }
 }

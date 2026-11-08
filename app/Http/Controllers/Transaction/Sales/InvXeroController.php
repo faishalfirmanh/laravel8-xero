@@ -337,7 +337,8 @@ class InvXeroController extends Controller
             |--------------------------------------------------------------
             */
             $currency = strtoupper(trim($src->code_curr));
-            $nominalCurrency = $this->getRateToIdr($currency);
+
+            $nominalCurrency = $src->nominal_currency;//$this->getRateToIdr($currency);
 
             $status = 'DRAFT';// $request->action_save == 0 ? 'DRAFT' : 'AUTHORISED';
 
@@ -998,38 +999,37 @@ class InvXeroController extends Controller
             | Kemudian baru dibandingkan dengan invoice.
             |
             */
+            $totalPaidBase = $this->repo_trans_bank->sumPaidBaseByInvoice($saveP->id);
+            // $payments = $this->repo_trans_bank
+            //     ->whereData([
+            //         'id_parent_invoice' => $saveP->id
+            //     ])
+            //     ->get();
 
-            $payments = $this->repo_trans_bank
-                ->whereData([
-                    'id_parent_invoice' => $saveP->id
-                ])
-                ->get();
+            // $totalPaidBase = 0;
 
-            $totalPaidBase = 0;
+            // foreach ($payments as $payment) {
 
-            foreach ($payments as $payment) {
+            //     if (!empty($payment->total_base_receive)) {
 
-                if (!empty($payment->total_base_receive)) {
+            //         $totalPaidBase +=
+            //             (float) $payment->total_base_receive;
 
-                    $totalPaidBase +=
-                        (float) $payment->total_base_receive;
+            //         continue;
+            //     }
 
-                    continue;
-                }
+            //     /*
+            //     | Backward compatibility untuk data lama.
+            //     */
 
-                /*
-                | Backward compatibility untuk data lama.
-                */
-
-                if (
-                    !empty($payment->nominal_currency)
-                    && !empty($payment->nominal_receive)
-                ) {
-                    $totalPaidBase +=
-                        (float) $payment->nominal_receive
-                        * (float) $payment->nominal_currency;
-                }
-            }
+            //     if (!empty($payment->nominal_currency) && !empty($payment->nominal_receive)) {
+            //         // $totalPaidBase +=
+            //         //     (float) $payment->nominal_receive
+            //         //     * (float) $payment->nominal_currency; //saat ada pembayaran yang menggunakan
+            //         //overpya, ->menaikkan tagihan invoice, pembayaran overpay tidak terhitung
+            //         $totalPaidBase = $this->repo_trans_bank->sumPaidBaseByInvoice($saveP->id);
+            //     }
+            // }
 
             /*
             |--------------------------------------------------------------------------
