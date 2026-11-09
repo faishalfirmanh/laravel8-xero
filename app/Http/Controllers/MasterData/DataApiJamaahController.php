@@ -128,7 +128,7 @@ class DataApiJamaahController extends Controller//from xero when create transact
                 // Default untuk kolom NOT NULL saat membuat data baru.
                 $data = array_merge([
                     'agen' => 0,
-                    'tempat_lahir' => 'Create by web',
+                    'tempat_lahir' => 'Create by web an',
                     'estimasi_berangkat' => date('Y-m-d'),
                     'imigrasi' => 0,
                     'leader' => 0,

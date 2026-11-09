@@ -8,6 +8,58 @@
 
 
 
+(function (global) {
+  const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli',
+    'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+  // Return { date: Date, hasTime: boolean } atau null jika kosong/tidak valid
+  function parseDateInput(value) {
+    if (value instanceof Date) {
+      return isNaN(value.getTime()) ? null : { date: value, hasTime: true };
+    }
+    if (value === null || value === undefined) return null;
+
+    const str = String(value).trim();
+    if (!str) return null;
+
+    // "YYYY-MM-DD" (tanpa jam) → parse sebagai tanggal LOKAL, bukan UTC,
+    // supaya tanggal tidak bergeser karena timezone
+    const m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      return { date: new Date(+m[1], +m[2] - 1, +m[3]), hasTime: false };
+    }
+
+    // "YYYY-MM-DD HH:mm:ss" (format MySQL) → ganti spasi dengan "T" agar aman di Safari
+    const normalized = /^\d{4}-\d{2}-\d{2} \d/.test(str) ? str.replace(' ', 'T') : str;
+
+    const d = new Date(normalized);
+    return isNaN(d.getTime()) ? null : { date: d, hasTime: true };
+  }
+
+  function formatIdDate(date, withTime) {
+    const base = `${DAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+    if (!withTime) return base;
+
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${base} ${hours}.${minutes}`;
+  }
+
+  // Otomatis: ada jam → tampil jam, hanya tanggal → tanpa jam
+  global.convertStringDateNew = function (dateStr) {
+    const p = parseDateInput(dateStr);
+    return p ? formatIdDate(p.date, p.hasTime) : '-';
+  };
+
+  // Selalu tanpa jam, walau inputnya datetime
+  global.convertStringDateOnly = function (dateStr) {
+    const p = parseDateInput(dateStr);
+    return p ? formatIdDate(p.date, false) : '-';
+  };
+})(window);
+
+
 function convertStringDate(dateStr) {
 
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];

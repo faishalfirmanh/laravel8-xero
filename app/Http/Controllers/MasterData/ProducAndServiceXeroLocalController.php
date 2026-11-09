@@ -220,19 +220,43 @@ class ProducAndServiceXeroLocalController extends Controller
             'keyword' => 'nullable|string',
             'kolom_name' => 'required|string',
             'limit' => 'required|integer',
-            'type' => 'nullable|string|in:EXPENSE,REVENUE,ALL'
+            'type' => 'nullable|string|in:EXPENSE,REVENUE,ALL',
+            'date_start' => 'nullable|date',
+            'date_end' => 'nullable|date|required_with:date_start|after_or_equal:date_start',
         ]);
 
 
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
+
+        $hasKeyword = filled($request->keyword);
+        $hasDate = filled($request->date_start) && filled($request->date_end);
         //dd($request->menu);
+        $searchColumns = [
+            'code',
+            'desc',
+            'nama_paket',   // accessor inv_number
+            'desc_salles',     // accessor name_contact
+            // accessor bank_name
+        ];
         $where = []; //$request->type == 'ALL' || $request->type == null ? [] : ['account_type' => $request->type];
-        if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, 'nama_paket', strtoupper($request->keyword));
+        if ($hasKeyword || $hasDate) {
+            $data = $this->repo->searchMultiColumnV2(
+                $where,
+                $request->limit,
+                $request->page,
+                strtoupper($request->keyword ?? ''),
+                $searchColumns,
+                $request->date_start,
+                $request->date_end,
+                [],                  // modelWith
+                'departure_date',    // dateColumn
+                'id',                // orderBy
+                'DESC'               // orderDir
+            );
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');
         }
 
         return $this->autoResponse($data);

@@ -405,6 +405,22 @@
             <input type="text" class="xero-search" id="searchTable" placeholder="Search items...">
         </div>
     </div> --}}
+    <div class="xero-table-toolbar">
+        <form id="formFilterItem" class="d-flex align-items-center flex-wrap" style="gap:8px;" novalidate>
+            <label class="mb-0 small font-weight-bold" for="filter_date_start">Keberangkatan dari</label>
+            <input type="date" id="filter_date_start" class="form-control form-control-sm" style="width:150px;">
+
+            <label class="mb-0 small font-weight-bold" for="filter_date_end">sampai</label>
+            <input type="date" id="filter_date_end" class="form-control form-control-sm" style="width:150px;">
+
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="ti ti-filter mr-1"></i> Filter
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnResetFilter">
+                <i class="ti ti-refresh mr-1"></i> Reset
+            </button>
+        </form>
+    </div>
 
     <div id="loadingIndicator" class="text-center py-4" style="display:none;">
         <div class="spinner-border text-primary" role="status" style="width:1.8rem;height:1.8rem;">
@@ -423,6 +439,7 @@
                     <th width="14%">Code</th>
                     <th width="12%" class="th-r">Price Sales</th>
                     <th width="12%" class="th-r">Price Purchase</th>
+                    <th width="10%" class="th-r">Tgl Keberangkatan</th>
                     <th width="8%">Action</th>
                 </tr>
             </thead>
@@ -746,6 +763,12 @@ $('#desc_salles').on('input', function () {
                 : '<span style="color:#bbb;">–</span>'
         },
         {
+            data: 'departure_date', name: 'departure_date', className: 'td-r',
+            render: d => d
+                ? convertStringDateOnly(d)
+                : '<span style="color:#bbb;">–</span>'
+        },
+        {
             data: "id", orderable: false, searchable: false, className: "td-c",
             render: (data, type, row) =>
                 `<a href="javascript:;" data-id="${data}" class="action-edit edit-hotel">
@@ -754,12 +777,52 @@ $('#desc_salles').on('input', function () {
         }
     ];
 
+    let tableFilter = { kolom_name: 'id' };
+
+
     table = initGlobalDataTableToken(
         '#tableHotel',
         `{{ route('item-list') }}`,
         columnHotel,
-        { "kolom_name": "id" }
+        tableFilter
     );
+
+    $('#filter_date_start').on('change', function () {
+        const from = $(this).val();
+        const $to  = $('#filter_date_end');
+        $to.attr('min', from || '');
+        if (from && $to.val() && $to.val() < from) $to.val('');
+    });
+
+
+    $('#formFilterItem').on('submit', function (e) {
+        e.preventDefault();
+
+        const from = $('#filter_date_start').val();
+        const to   = $('#filter_date_end').val();
+
+        if (from && !to) { Swal.fire('Peringatan', 'Tanggal akhir wajib diisi jika tanggal awal diisi.', 'warning'); return; }
+        if (!from && to) { Swal.fire('Peringatan', 'Tanggal awal wajib diisi jika tanggal akhir diisi.', 'warning'); return; }
+        if (from && to && to < from) { Swal.fire('Peringatan', 'Tanggal akhir tidak boleh lebih kecil dari tanggal awal.', 'warning'); return; }
+
+        if (from && to) {
+            tableFilter.date_start = from;
+            tableFilter.date_end   = to;
+        } else {
+            delete tableFilter.date_start;
+            delete tableFilter.date_end;
+        }
+        table.ajax.reload();          // kembali ke halaman 1
+    });
+
+$('#btnResetFilter').on('click', function () {
+    $('#filter_date_start, #filter_date_end').val('');
+    $('#filter_date_end').attr('min', '');
+    delete tableFilter.date_start;
+    delete tableFilter.date_end;
+    table.ajax.reload();
+});
+
 
     // =========================================================
     // FILTER TABS
