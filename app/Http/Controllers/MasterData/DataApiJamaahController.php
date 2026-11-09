@@ -40,7 +40,7 @@ class DataApiJamaahController extends Controller//from xero when create transact
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'full_name', strtoupper($request->keyword));
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'id', 'DESC');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'updated_at', 'DESC');//getDataPaginate("name",10,$request->keyword);
         }
         return $this->autoResponse($data);
     }
