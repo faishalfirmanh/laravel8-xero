@@ -82,7 +82,7 @@ class RHotelApiController extends Controller
         if ($request->keyword != null) {
             $data = $this->repo->searchData($where, $request->limit, $request->page, 'nama_pemesan', strtoupper($request->keyword), 'getInvXero');
         } else {
-            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'nama_pemesan', 'ASC', 'getInvXero');//getDataPaginate("name",10,$request->keyword);
+            $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'updated_at', 'DESC', 'getInvXero');//getDataPaginate("name",10,$request->keyword);
         }
         return $this->autoResponse($data);
     }
@@ -233,13 +233,24 @@ class RHotelApiController extends Controller
 
     public function savedRhotel(Request $request)
     {
+        // 0. Normalisasi mata uang (default SAR). Jika IDR, kurs dipaksa 1 (jangan percaya input client)
+        $typeCurrency = strtoupper(trim((string) $request->input('type_currency', 'SAR')));
+        if ($typeCurrency === '') {
+            $typeCurrency = 'SAR';
+        }
+        $request->merge(['type_currency' => $typeCurrency]);
+        if ($typeCurrency === 'IDR') {
+            $request->merge(['nominal_currency_rp' => 1]);
+        }
+        $isIdr = ($typeCurrency === 'IDR');
+
         // 1. Validasi Input (Termasuk Array)
         $validator = Validator::make($request->all(), [
             'order_name' => 'required', // Di HTML namenya order_name, bkn uuid_user_order
             'hotel_id' => 'required|exists:hotels,id',
             'check_in' => 'required|date',
             'check_out' => 'required|date',
-            //'contact_id_x' => 'nullabel|exists:data_jamaah_xeros,id',
+            'type_currency' => 'required|in:SAR,IDR',
             'nominal_currency_rp' => 'required|numeric|min:1',
             'id' => 'nullable',
             // Validasi Array Detail
@@ -266,71 +277,52 @@ class RHotelApiController extends Controller
         DB::beginTransaction(); // Mulai transaksi manual di controller agar atomicity terjaga
         try {
             // --- A. PERSIAPAN DATA MASTER ---
-            // Hitung total days jika belum ada (opsional, krn di view disabled)
             $checkIn = Carbon::parse($request->check_in);
             $checkOut = Carbon::parse($request->check_out);
             $diffDays = $checkIn->diffInDays($checkOut);
             $totalDays = $diffDays > 0 ? $diffDays : 1;
 
+            // Kurs: SAR -> dari input, IDR -> selalu 1
+            $rate = $isIdr ? 1 : (float) $request->nominal_currency_rp;
+
             // Hitung Total Payment dari detail yang dikirim
+            // SAR: grandTotal dalam SAR | IDR: grandTotal dalam Rupiah
             $grandTotal = 0;
-            // if ($request->has('qty') && $request->has('price_hotel')) {
-            //     foreach ($request->qty as $key => $q) {
-            //         $price = $request->price_hotel[$key] ?? 0;
-            //         $grandTotal += ($q * $price * $diffDays);
-            //     }
-            // }
             foreach ($request->qty as $key => $q) {
-                $grandTotal += ($q * ($request->price_hotel[$key] ?? 0) * $totalDays); // pakai $totalDays
+                $grandTotal += ($q * ($request->price_hotel[$key] ?? 0) * $totalDays);
             }
 
             $config_curency = ConfigCurrency::first();
-            $final_rupiah_amount = $grandTotal * $request->nominal_currency_rp;//$config_curency->nominal_rupiah_1_riyal;
-            // $request->request->add(['nama_pemesan'=> json_encode($request->list_product_id)]);
+            $final_rupiah_amount = $grandTotal * $rate; // IDR: sama dengan $grandTotal
+
             $request['nama_pemesan'] = $get_contact->full_name;
-            $request['total_days'] = $totalDays;//$diffDays > 0 ? $diffDays : 1;
-            $request['total_payment'] = $grandTotal;//sar
-            $request['total_payment_rupiah'] = $final_rupiah_amount;
+            $request['total_days'] = $totalDays;
+            $request['total_payment'] = $grandTotal;                 // SAR (atau Rupiah jika type_currency IDR)
+            $request['total_payment_rupiah'] = $final_rupiah_amount; // selalu Rupiah
             $request['uuid_user_order'] = $request->order_name;
             $request['less_payment_sar'] = $grandTotal;
             $request['less_payment_idr'] = $final_rupiah_amount;
             $request['contact_id_x'] = $request->order_name;
             $request['created_by'] = $request->user_login->id;
             $request['status'] = 1;
+            $request['type_currency'] = $typeCurrency;
+            $request['nominal_currency_rp'] = $rate;
             if (empty($request->id)) {
                 $request['no_invoice_hotel'] = $this->service_global->generateInvoiceHotel();
             }
-
-
-
-            //disabled
-            $masterData = [
-                // 'uuid_user_order' => $request->order_name, // Mapping dari input view
-                // 'hotel_id' => $request->hotel_id,
-                // 'nama_pemesan' => $full_name, // Sesuaikan logic bisnis Anda
-                // 'check_in' => $request->check_in,
-                // 'check_out' => $request->check_out,
-                // 'total_days' => $diffDays > 0 ? $diffDays : 1,
-                // 'total_payment' => $grandTotal,
-                // 'total_payment_rupiah'=>$final_rupiah_amount,
-                // 'date_transaction'=>$request->date_transaction,
-                // 'status' => 1,
-                // 'created_by'   => auth()->id(), // Jangan lupa ini jika perlu
-            ];
-
 
             $cek_phone = $get_contact->phone_number ?? '00';
             $param_update_jamaah = ['uuid_contact' => $request->order_name];
             $param_create_jmaah = ['full_name' => $get_contact->full_name, 'phone_number' => $cek_phone, 'is_mitra_trevel' => true];
             $this->repo_jamaah->firstOrCreata($param_update_jamaah, $param_create_jmaah);
 
-            // Generate No Invoice hanya jika create baru
+            // No invoice hanya dibuat saat create baru, saat update jangan ditimpa
             $payload = $request->all();
             if (!empty($request->id)) {
                 unset($payload['no_invoice_hotel']);
             }
 
-            $savedMaster = $this->repo->CreateOrUpdate($request->all(), $request->id);
+            $savedMaster = $this->repo->CreateOrUpdate($payload, $request->id);
 
             // Cek error dari return string repository Anda
             if (is_string($savedMaster) && (strpos($savedMaster, 'error') !== false || strpos($savedMaster, 'no data') !== false)) {
@@ -340,8 +332,16 @@ class RHotelApiController extends Controller
             // --- C. SIMPAN DETAIL ---
             // Hapus detail lama jika ini proses update (agar bersih)
             if (!empty($request->id)) {
-                // Asumsi repo_detail punya model DetailInvoicesHotel
                 $this->repo_detail->model->where('invoice_id', $savedMaster->id)->delete();
+            }
+
+            // Keterangan per baris detail
+            if ($isIdr) {
+                $descDetail = 'Harga input IDR, kurs 1 = Rp 1 (type currency IDR)';
+            } else {
+                $descDetail = 'kurs 1 SAR ke Rupiah ' .
+                    $config_curency->nominal_rupiah_1_riyal
+                    . " update terakhir " . $config_curency->updated_at;
             }
 
             // Looping Array untuk Simpan Detail Baru
@@ -351,15 +351,11 @@ class RHotelApiController extends Controller
                     'invoice_id' => $savedMaster->id,
                     'type_room' => $typeRoom,
                     'qty' => $request->qty[$index],
-                    'price_each_item' => $request->price_hotel[$index],
+                    'price_each_item' => $request->price_hotel[$index],   // SAR, atau Rupiah jika IDR
                     'total_amount' => $request->qty[$index] * $request->price_hotel[$index],
-                    'desc' => 'kurs 1 SAR ke Rupiah ' .
-                        $config_curency->nominal_rupiah_1_riyal
-                        . " update terakhir " . $config_curency->updated_at
+                    'desc' => $descDetail,
                 ];
 
-                // Simpan per baris menggunakan model create biasa
-                // (Tidak pakai repo->CreateOrUpdate krn itu utk single logic transaction)
                 $this->repo_detail->model->create($detailData);
             }
 
@@ -374,8 +370,6 @@ class RHotelApiController extends Controller
                 (float) $grandTotal
             );
 
-
-
             DB::commit();
             return $this->autoResponse($savedMaster, 'Data berhasil disimpan', 200);
 
@@ -388,6 +382,11 @@ class RHotelApiController extends Controller
     private function syncGlobalInvoice(Request $request, $hotelInv, $contact, string $roomString, float $grandTotal)
     {
         $user = $request->user_login;
+
+        // Mata uang invoice (default SAR). IDR => kurs 1
+        $typeCurrency = strtoupper((string) ($request->input('type_currency') ?: ($hotelInv->type_currency ?: 'SAR')));
+        $isIdr = ($typeCurrency === 'IDR');
+        $codeCurr = $isIdr ? 'IDR' : 'SAR';
 
         // 1. Item master hotel001: ambil, kalau tidak ada buat
         $coaa = $this->repo_coa->whereData(['code' => '4112'])->first();
@@ -424,14 +423,25 @@ class RHotelApiController extends Controller
             ->whereData(['invoice_number' => $hotelInv->no_invoice_hotel])
             ->first();
 
+        // Pengaman: jangan ganti SAR <-> IDR kalau sudah ada pembayaran (nominal bayar tersimpan dalam mata uang lama)
+        if (
+            $global
+            && !empty($global->code_curr)
+            && strtoupper($global->code_curr) !== $codeCurr
+            && (float) $global->invoice_amount > 0
+        ) {
+            throw new \RuntimeException('Mata uang invoice tidak bisa diubah karena sudah ada pembayaran. Hapus pembayaran terlebih dahulu.');
+        }
+
         // branding
         $branding = BrandingThemes::find(BrandingThemes::defaultId()) ?: BrandingThemes::first();
         if (!$branding) {
             throw new \RuntimeException('Branding theme default tidak ditemukan.');
         }
         $issueDate = $request->date_transaction ?: Carbon::now()->toDateString();
-        $rate = (float) $request->nominal_currency_rp;//kurs tidak di kunci saat edit
-        //$global ? (float) $global->nominal_currency : (float) $request->nominal_currency_rp; // kurs dikunci saat edit, sama seperti storeParent
+
+        // Kurs: SAR -> dari input (tidak dikunci saat edit) | IDR -> selalu 1
+        $rate = $isIdr ? 1.0 : (float) $request->nominal_currency_rp;
 
         $parent = [
             'contact_id' => $contact->id,
@@ -440,7 +450,7 @@ class RHotelApiController extends Controller
             'issue_date' => $issueDate,
             'due_date' => $request->check_in,
             'reference' => strtolower(trim($hotelInv->no_invoice_hotel)),
-            'code_curr' => 'SAR',
+            'code_curr' => $codeCurr,
             'nominal_currency' => $rate,
             'branding_theme_id' => $branding->id,
             'travel_id' => $branding->travel_id,
@@ -454,7 +464,7 @@ class RHotelApiController extends Controller
             $parent['less_nominal'] = max(0, $grandTotal - $paid);
             $parent['status'] = ($paid > 0 && $paid >= $grandTotal) ? 'PAID' : 'AUTHORISED';
         } else {
-            $parent['invoice_number'] = $hotelInv->no_invoice_hotel;//$this->service_global->generateNewInvoiceNumber();
+            $parent['invoice_number'] = $hotelInv->no_invoice_hotel;
             $parent['invoice_uuid'] = $this->service_global->generateUniqueRandomStringInvoice();
             $parent['invoice_amount'] = 0;
             $parent['less_nominal'] = $grandTotal;
@@ -466,7 +476,6 @@ class RHotelApiController extends Controller
         if (!is_object($globalInv)) {
             throw new \RuntimeException('Gagal simpan invoice global: ' . (is_string($globalInv) ? $globalInv : 'repo tidak mengembalikan model'));
         }
-
 
 
         // 4. Detail: 1 baris, qty 1, desc = string room
@@ -504,9 +513,9 @@ class RHotelApiController extends Controller
             'nominal' => $grandTotal,
             'created_by' => $user->id,
             'uuid_detail' => $saveD->uuid_detail_inv,
-            'code_curr' => 'SAR',
+            'code_curr' => $codeCurr,
             'nominal_currency' => $rate,
-            'base_nominal' => round($grandTotal * $rate, 2),
+            'base_nominal' => round($grandTotal * $rate, 2), // IDR: sama dengan nominal
         ], $trans ? $trans->id : null);
 
         return $globalInv;

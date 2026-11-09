@@ -16,6 +16,7 @@ class InvoicesHotel extends Model
 {
     use HasFactory;
 
+    //tabel bayangan invoice real di simpan di tabel invoices_all_from_xeros
     protected $appends = [
         'hotel_name',
         'name_created_user',
@@ -43,7 +44,8 @@ class InvoicesHotel extends Model
             'less_payment_sar',
             'contact_id_x',//data jamaah xero
             'contact_id_alhid',//data jamaah alhid
-            'nominal_currency_rp'
+            'nominal_currency_rp',
+            'type_currency'
         ];
 
     public function getStatusNamePaymentAttribute()

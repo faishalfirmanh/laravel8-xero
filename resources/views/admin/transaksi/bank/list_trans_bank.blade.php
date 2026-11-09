@@ -590,7 +590,7 @@ $(document).ready(function() {
                    // console.log('aaa',data)
                     return data.get_p_bank.name_contact_trans_bank;
                 }else if(data.get_inv){
-                     return '-';//ata.get_inv.contact_name;
+                     return data.get_inv.contact_name;
                 }else{
                     return  '-'
                 }

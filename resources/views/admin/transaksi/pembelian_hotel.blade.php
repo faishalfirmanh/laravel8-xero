@@ -140,6 +140,7 @@
                     <th>Check In</th>
                     <th>Check Out</th>
                     <th>Nama Hotel</th>
+                    <th>Total Tagihan</th>
                      {{-- <th>Status</th> --}}
                     <th width="15%" class="text-center">Action</th>
                 </tr>
@@ -150,7 +151,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalCreateHotel" tabindex="-1" role="dialog" aria-labelledby="modalCreateHotelLabel" aria-hidden="true">
+<div class="modal fade" id="modalCreateHotel"  data-backdrop="static" tabindex="-1" role="dialog" aria-labelledby="modalCreateHotelLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl" role="document"> <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalCreateHotelLabel">Add New Invoices Hotel</h5>
@@ -165,6 +166,22 @@
 
                     <div class="card bg-light mb-3">
                         <div class="card-body py-3">
+
+                            {{-- PILIH MATA UANG (default SAR) --}}
+                            <div class="form-row">
+                                <div class="form-group col-md-12">
+                                    <label class="font-weight-bold d-block">Mata Uang Harga Hotel <span class="text-danger">*</span></label>
+                                    <div class="custom-control custom-radio custom-control-inline">
+                                        <input type="radio" id="cur_sar" name="type_currency" value="SAR" class="custom-control-input" checked>
+                                        <label class="custom-control-label" for="cur_sar">SAR (Riyal)</label>
+                                    </div>
+                                    <div class="custom-control custom-radio custom-control-inline">
+                                        <input type="radio" id="cur_idr" name="type_currency" value="IDR" class="custom-control-input">
+                                        <label class="custom-control-label" for="cur_idr">IDR (Rupiah)</label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="form-row">
                                 <div class="form-group col-md-6">
                                     <label for="order_name" class="font-weight-bold">Nama Agent / Pemesan <span class="text-danger">*</span></label>
@@ -200,7 +217,9 @@
                                      <input type="date" class="form-control" name="date_transaction" id="date_transaction" required>
                                 </div>
                             </div>
-                             <div class="form-row">
+
+                            {{-- Kurs hanya tampil saat SAR. Saat IDR disembunyikan & otomatis bernilai 1 --}}
+                            <div class="form-row" id="wrap_kurs">
                                 <div class="form-group col-md-12">
                                      <label for="nominal_currency_rp" class="font-weight-bold">Nominal 1 sar dalam rupiah <span class="text-danger">*</span></label>
                                      <input type="number" class="form-control" name="nominal_currency_rp" id="nominal_currency_rp" required>
@@ -209,9 +228,11 @@
                         </div>
                     </div>
 
-                    <div class="alert alert-warning d-flex align-items-center py-2" role="alert">
-                        <i class="ti ti-info-circle mr-2"></i>
-                        <small><strong>Info Kurs:</strong> Harga 1 Real saat ini diestimasi <b id="text_currency"></b></small>
+                    <div id="info_kurs">
+                        <div class="alert alert-warning d-flex align-items-center py-2" role="alert">
+                            <i class="ti ti-info-circle mr-2"></i>
+                            <small><strong>Info Kurs:</strong> Harga 1 Real saat ini diestimasi <b id="text_currency"></b></small>
+                        </div>
                     </div>
 
                     <hr>
@@ -236,10 +257,10 @@
                                 <input type="number" class="form-control" name="qty[]" min="1" value="1" required>
                             </div>
                             <div class="form-group col-md-4">
-                                <label class="small font-weight-bold">Harga Satuan (SAR) <span class="text-danger">*</span></label>
+                                <label class="small font-weight-bold">Harga Satuan (<span class="cur-text">SAR</span>) <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <div class="input-group-prepend">
-                                        <span class="input-group-text font-weight-bold text-xs">SAR</span>
+                                        <span class="input-group-text font-weight-bold text-xs cur-text">SAR</span>
                                     </div>
                                     <input type="number" class="form-control" name="price_hotel[]" placeholder="0" required>
                                 </div>
@@ -333,8 +354,8 @@
 
         <div class="text-right">
           <h6>Total Payment:</h6>
-          <h5 class="font-weight-bold">SAR <span id="total_payment"></span></h5>
-          <h5 class="font-weight-bold">Rp <span id="total_payment_rp"></span></h5>
+          <h5 class="font-weight-bold"><span id="cur_total_label">SAR</span> <span id="total_payment"></span></h5>
+          <h5 class="font-weight-bold" id="total_payment_rp_wrap">Rp <span id="total_payment_rp"></span></h5>
         </div>
 
       </div>
@@ -546,6 +567,10 @@ $(document).ready(function() {
 
     })
 
+    $('#modalCreateHotel').on('hide.bs.modal', function (e) {
+        if ($('.select2-container--open').length) e.preventDefault();
+    });
+
     function hitungTotalHari() {
         const checkIn  = $('#check_in').val();
         const checkOut = $('#check_out').val();
@@ -575,10 +600,43 @@ $(document).ready(function() {
         })
         .catch((err) => console.log('error currency', err));
 
+    // --- MATA UANG (SAR / IDR) ---
+    let lastSarRate = ''; // simpan kurs SAR terakhir supaya tidak hilang saat pindah ke IDR lalu balik lagi
+
+    function getCurrency() {
+        return $('input[name="type_currency"]:checked').val() || 'SAR';
+    }
+
+    // IDR: kurs disembunyikan & dipaksa 1 | SAR: kurs tampil & wajib diisi
+    function applyCurrencyMode(type) {
+        const isIdr = (type === 'IDR');
+        const $rate = $('#nominal_currency_rp');
+
+        if (isIdr) {
+            const cur = $rate.val();
+            if (cur && Number($rate.val()) !== 1) {
+                lastSarRate = cur;
+            }
+            $rate.val(1);
+        } else if (Number($rate.val()) === 1) {
+            // nilai 1 berasal dari mode IDR, kembalikan kurs SAR sebelumnya (atau kosongkan)
+            $rate.val(lastSarRate);
+        }
+
+        $('#wrap_kurs, #info_kurs').toggle(!isIdr);
+        $('#modalCreateHotel .cur-text').text(isIdr ? 'IDR' : 'SAR');
+    }
+
+    $(document).on('change', 'input[name="type_currency"]', function() {
+        applyCurrencyMode($(this).val());
+    });
+
+    const $modalParent = $('#modalCreateHotel .modal-content');
+
     // --- 3. SELECT2 STATIC (Hotel & Agent) ---
     $('#hotels').select2({
         theme: 'bootstrap4',
-        dropdownParent: $('#modalCreateHotel'),
+        dropdownParent: $modalParent,
         placeholder: "Pilih Hotel",
         allowClear: true,
         ajax: {
@@ -600,7 +658,7 @@ $(document).ready(function() {
 
     $('#order_name').select2({
         theme: 'bootstrap4',
-        dropdownParent: $('#modalCreateHotel'),
+        dropdownParent: $modalParent,//$('#modalCreateHotel'),
         placeholder: 'Pilih Contact',
         allowClear: true,
         cache          : false, 
@@ -638,7 +696,7 @@ $(document).ready(function() {
     function initRoomSelect2(element) {
         $(element).select2({
             theme: 'bootstrap4',
-            dropdownParent: $('#modalCreateHotel'),
+            dropdownParent:$modalParent,
             placeholder: "Pilih Tipe",
             allowClear: true
         });
@@ -648,6 +706,8 @@ $(document).ready(function() {
     window.appendRoomRow = function(typeVal = '', qtyVal = 1, priceVal = '', isFirstRow = false) {
         // Helper selected
         const isSel = (val) => (String(typeVal) === String(val) ? 'selected' : '');
+        // Label mata uang mengikuti pilihan radio saat ini
+        const curLabel = getCurrency();
 
         // Tombol hapus disabled jika baris pertama
         const btnDelete = isFirstRow
@@ -673,7 +733,7 @@ $(document).ready(function() {
                 <div class="form-group col-md-4">
                     <div class="input-group">
                         <div class="input-group-prepend">
-                            <span class="input-group-text font-weight-bold text-xs">SAR</span>
+                            <span class="input-group-text font-weight-bold text-xs cur-text">${curLabel}</span>
                         </div>
                         <input type="number" class="form-control" name="price_hotel[]" value="${priceVal}" placeholder="Harga" required>
                     </div>
@@ -703,9 +763,11 @@ $(document).ready(function() {
 
     // Reset Form saat Modal Tutup
     $('#modalCreateHotel').on('hidden.bs.modal', function () {
-        $(this).find('form')[0].reset();
+        $(this).find('form')[0].reset();   // radio otomatis kembali ke SAR (checked default)
+        lastSarRate = '';
         $('#idHotelInput').val('');
         $('#order_name, #hotels').val(null).trigger('change');
+        applyCurrencyMode('SAR');
 
         // Reset container kamar, sisakan 1 default
         $('#room-container').empty();
@@ -736,13 +798,20 @@ $(document).ready(function() {
         //         }
         //     }
         // },
+         {  data: 'total_payment',
+            className: "text-center",
+            render(data,type,row){
+                return formatCurrency(data,row.type_currency)
+            } 
+        },
         {
             data: "id", className: "text-center", orderable: false, searchable: false,
-            render: function(data) {
+            render: function(data,type,row) {
                 let btnEdit = `<a href="javascript:;" data-id="${data}" class="text-primary edit-hotel mr-2"><i class="ti ti-pencil"></i></a>`;
                 let btnHapus = `<a href="javascript:;" data-id="${data}" class="text-danger deleted-hotel"><i class="ti ti-trash"></i></a>`;
                 let btn_detail = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-success view-hotel"><i class="ti ti-eye"></i></a>`;
-                let btn_detail_pay = `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-info payment-hotel"><i class="ti ti-cash"></i></a>`;
+                let btn_detail_pay = row.get_inv_xero ? `<a href="javascript:;" style="margin-left:5px;" data-id="${data}" class="text-info payment-hotel"><i class="ti ti-cash"></i></a>` : '';
+               
                 return btnEdit + btnHapus + btn_detail + btn_detail_pay;
             }
         }
@@ -763,12 +832,23 @@ $(document).ready(function() {
                 if(date_get.length > 0){
                     let rows_item = '';
                     let payment_conculsion= date_get[0].get_invoice;
-                    $("#summary_total").text(formatCurrency(Number(payment_conculsion.total_payment),"SAR"))
-                    $("#summary_paid").text(formatCurrency(Number(payment_conculsion.final_payment_sar),"SAR"))
-                    $("#summary_remaining").text(formatCurrency(Number(payment_conculsion.less_payment_sar),"SAR"))
-                   // console.log('ss',payment_conculsion)
-                   $("#sum_paid_rp").text(formatCurrency(Number(payment_conculsion.final_payment_idr),"IDR"))
-                   $("#sum_pem_rp").text(formatCurrency(Number(payment_conculsion.less_payment_idr),"IDR"))
+
+                    // IDR: tampilkan semua angka dalam Rupiah (kolom *_idr), baris Rp kedua disembunyikan
+                    // SAR: tampilan lama (SAR + Rp)
+                    const isIdrInv = String(payment_conculsion.type_currency || 'SAR').toUpperCase() === 'IDR';
+                    if (isIdrInv) {
+                        $("#summary_total").text(formatCurrency(Number(payment_conculsion.total_payment_rupiah),"IDR"))
+                        $("#summary_paid").text(formatCurrency(Number(payment_conculsion.final_payment_idr),"IDR"))
+                        $("#summary_remaining").text(formatCurrency(Number(payment_conculsion.less_payment_idr),"IDR"))
+                    } else {
+                        $("#summary_total").text(formatCurrency(Number(payment_conculsion.total_payment),"SAR"))
+                        $("#summary_paid").text(formatCurrency(Number(payment_conculsion.final_payment_sar),"SAR"))
+                        $("#summary_remaining").text(formatCurrency(Number(payment_conculsion.less_payment_sar),"SAR"))
+                        $("#sum_paid_rp").text(formatCurrency(Number(payment_conculsion.final_payment_idr),"IDR"))
+                        $("#sum_pem_rp").text(formatCurrency(Number(payment_conculsion.less_payment_idr),"IDR"))
+                    }
+                    $("#sum_paid_rp, #sum_pem_rp").toggle(!isIdrInv);
+
                     let i = 1;
                     date_get.forEach((item)=>{
                     let get_edit = `<a href="javascript:;" style="margin-left:5px;" data-id="${item.id}" class="text-success get-edit-pay"><i class="ti ti-pencil"></i></a>`;
@@ -805,7 +885,6 @@ $(document).ready(function() {
     $('#tableHotel').on('click', '.payment-hotel', function () {
         const row = $('#tableHotel').DataTable().row($(this).parents('tr')).data();
         const inv = row.get_inv_xero;   // dari relasi getInvXero
-        console.log('rpw',row)
         if (!inv) {
             Swal.fire('Info', 'Invoice global untuk invoice hotel ini belum ada.', 'info');
             return;
@@ -920,13 +999,23 @@ $(document).ready(function() {
             .then(response => {
                 if (response.status == 200) {
                     let data = response.data.data;
+
+                    if (!data) { Swal.fire('Error', 'Data tidak ditemukan', 'error'); return; }
+
+                    // IDR: total & harga tampil dalam Rp, baris "Rp" kedua disembunyikan
+                    // SAR: tampilan lama
+                    const isIdrView = String(data.type_currency || 'SAR').toUpperCase() === 'IDR';
+                    const curPrefix = isIdrView ? 'Rp' : 'Sar';
+
                     document.getElementById('hotel_name').innerText = data.hotel_name;
                     document.getElementById('no_invoice').innerText = data.no_invoice_hotel;
                     document.getElementById('nama_pemesan').innerText = data.nama_pemesan;
                     document.getElementById('check_in_inv').innerText = formatDate(data.check_in);
                     document.getElementById('check_out_inv').innerText = formatDate(data.check_out);
+                    document.getElementById('cur_total_label').innerText = isIdrView ? 'Rp' : 'SAR';
                     document.getElementById('total_payment').innerText = formatNumber(data.total_payment);
                     document.getElementById('total_payment_rp').innerText = formatNumber(data.total_payment_rupiah);
+                    $('#total_payment_rp_wrap').toggle(!isIdrView);
                     if(data.date_transaction){
                         document.getElementById('date_trans_inv').innerText = convertStringDate(data.date_transaction);
                     }
@@ -938,17 +1027,15 @@ $(document).ready(function() {
                             <tr>
                                 <td>${item.type_room_desc}</td>
                                 <td class="text-center">${item.qty}</td>
-                                <td class="text-right">Sar ${formatNumber(item.price_each_item)}</td>
+                                <td class="text-right">${curPrefix} ${formatNumber(item.price_each_item)}</td>
                                 <td class="text-right">${data.total_days}</td>
-                                <td class="text-right">Sar ${formatNumber(item.total_amount)}</td>
+                                <td class="text-right">${curPrefix} ${formatNumber(item.total_amount)}</td>
                             </tr>
                         `;
                     });
 
                     document.getElementById('detail_rows').innerHTML = rows;
                     $('#invoiceModal').modal('show');
-
-                    if (!data) { Swal.fire('Error', 'Data tidak ditemukan', 'error'); return; }
                 }
             })
             .catch((err) => {
@@ -964,6 +1051,8 @@ $(document).ready(function() {
         $('#formCreateHotel')[0].reset();
         $('#room-container').empty();
         $('#idHotelInput').val('');
+        lastSarRate = '';
+        applyCurrencyMode('SAR');
         $('.modal-title').text('Edit Invoice Hotel (Loading...)');
 
         ajaxRequest(`{{ route('byid-revanue-hotel') }}`, 'GET', { id: id }, localStorage.getItem("token"))
@@ -973,8 +1062,15 @@ $(document).ready(function() {
 
                     if (!data) { Swal.fire('Error', 'Data tidak ditemukan', 'error'); return; }
 
+                    // Mata uang: data lama (type_currency kosong) dianggap SAR
+                    const tc = String(data.type_currency || 'SAR').toUpperCase() === 'IDR' ? 'IDR' : 'SAR';
+                    $('input[name="type_currency"][value="' + tc + '"]').prop('checked', true);
+                    applyCurrencyMode(tc);
+                    if (tc === 'SAR') {
+                        $("#nominal_currency_rp").val(Number(data.nominal_currency_rp));
+                    }
+
                     // Isi Header
-                    $("#nominal_currency_rp").val(Number(data.nominal_currency_rp))
                     $("#date_transaction").val(data.date_transaction)
                     $('#idHotelInput').val(data.id);
                     $('#check_in').val(data.check_in);
@@ -1046,6 +1142,11 @@ $(document).ready(function() {
         var btn = $('#btnSave');
         var originalText = btn.html();
         btn.html('<i class="fa fa-spin fa-spinner"></i> Menyimpan...').prop('disabled', true);
+
+        // Pastikan IDR selalu kirim kurs = 1 (controller juga memaksa 1)
+        if (getCurrency() === 'IDR') {
+            $('#nominal_currency_rp').val(1);
+        }
 
         let formData = new FormData(this);
         let idInput = $('#idHotelInput').val();
