@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\GlobalService;
 use DB;
 use Illuminate\Http\Request;
+use Str;
 use Validator;
 use App\Models\DataJamaah;
 use App\Traits\ApiResponse;
@@ -120,21 +121,25 @@ class DataApiJamaahController extends Controller//from xero when create transact
                 $jamaah->no_telp = $data['phone_number'];
                 $jamaah->save();
             } else {
+                $cek_jamaah_alhid = DataJamaah::where('no_ktp', $data['nik'])->first();
+                if ($cek_jamaah_alhid) {
+                    return $this->error('Data sudah ada atas nama ' . $cek_jamaah_alhid->nama_jamaah, 500);
+                }
                 // Default untuk kolom NOT NULL saat membuat data baru.
                 $data = array_merge([
                     'agen' => 0,
                     'tempat_lahir' => 'Create by web',
                     'estimasi_berangkat' => date('Y-m-d'),
                     'imigrasi' => 0,
-                    'leader' => 1,
+                    'leader' => 0,
                     'nama_jamaah' => $data['full_name'],
                     'no_ktp' => $data['nik'],
                     'id_status' => 2,
                     'nama_tambahan' => '',
-                    'alamat_jamaah' => $data['detail_address'],
+                    'alamat_jamaah' => $data['detail_address'] ?? 'from web an.alhidayah',
                     'nama_di_vaksin' => '',
                     'jenis_vaksin' => '[Belum Vaksin]',
-                    'no_tlp' => $data['phone_number'],
+                    'no_tlp' => $data['phone_number'] ?? Str::random(8),
                     'is_updated_to_xero' => 0,
                     'is_updated' => 0,
                     'status_generate' => 0,
