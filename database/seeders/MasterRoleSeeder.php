@@ -14,19 +14,19 @@ class MasterRoleSeeder extends Seeder
     public function run()
     {
 
-      $list_role = ['dokument','cs','admin','keuangan','it','accounting'];
+        $list_role = ['dokument', 'cs', 'admin', 'keuangan', 'it', 'accounting', 'keuangan-tiket', 'keuangan-hotel'];
 
-      foreach ($list_role as $key => $value) {
+        foreach ($list_role as $key => $value) {
             MasterRoleUser::updateOrCreate([
                 'nama_role' => $value
             ], [
                 'is_active' => 1,
                 'created_by' => 1,
-                'guard_name'=>'api',
-                'busines_line_id'=>2
+                'guard_name' => 'api',
+                'busines_line_id' => 2
             ]);
-            $this->command->info('berhasil insert data. '.$value);
-      }
+            $this->command->info('berhasil insert data. ' . $value);
+        }
 
 
     }

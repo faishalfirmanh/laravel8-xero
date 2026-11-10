@@ -210,6 +210,8 @@ class InvoiceXeroLocalController extends Controller
             'getTravel',
             'getFeeOverpay',
             'brandingTheme.travel',
+            'getInvHotel',
+            'getInvHotel.details'
             //'getUserCreated'
         ])->where('invoice_uuid', $uuid)->first();
 
@@ -486,7 +488,9 @@ class InvoiceXeroLocalController extends Controller
             'getDetailById.getItems',
             'getOverPay',
             'getTravel',
-            'getFeeOverpay'
+            'getFeeOverpay',
+            'getInvHotel',
+            'getInvHotel.details'
         ])
             ->where('invoice_uuid', $id)
             ->first();

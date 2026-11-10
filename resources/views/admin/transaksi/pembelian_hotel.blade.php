@@ -188,12 +188,18 @@
                                     <select class="form-control select2" name="order_name" id="order_name" style="width: 100%;" required>
                                         <option value="" disabled selected>Pilih Agent</option>
                                     </select>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btn_add_contact">
+                                        <i class="ti ti-plus mr-1"></i> Tambah Contact
+                                    </button>
                                 </div>
                                 <div class="form-group col-md-6">
                                     <label for="hotel_id" class="font-weight-bold">Nama Hotel <span class="text-danger">*</span></label>
                                     <select class="form-control select2" name="hotel_id" id="hotels" style="width: 100%;" required>
                                         <option value="" disabled selected>Pilih Hotel</option>
                                     </select>
+                                    <button type="button" class="btn btn-outline-success btn-sm mt-2" id="btn_add_master_hotel">
+                                        <i class="ti ti-plus mr-1"></i> Tambah Hotel Baru
+                                    </button>
                                 </div>
                             </div>
 
@@ -493,6 +499,110 @@
   </div>
 </div>
 
+{{-- ================= MODAL TAMBAH CONTACT (dibuka dari modalCreateHotel) ================= --}}
+{{-- Letakkan DI LUAR #modalCreateHotel dan DI LUAR form #formCreateHotel --}}
+<div class="modal fade" id="modalCreateJamaah" tabindex="-1" role="dialog" aria-hidden="true"
+     data-backdrop="static" data-keyboard="false">
+<div class="modal-dialog modal-dialog-centered" role="document">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="modalJamaahTitle">Tambah Contact</h5>
+<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+<span aria-hidden="true">&times;</span>
+</button>
+</div>
+<div class="modal-body">
+<input type="hidden" id="id_jamaah" value="">
+
+<div class="form-group mb-3">
+<label for="full_name">Nama Lengkap <span class="text-danger">*</span></label>
+<input type="text" class="form-control" id="full_name" placeholder="Nama lengkap jamaah">
+</div>
+
+<div class="form-group mb-3">
+<label for="phone_number">No. Telepon <span class="text-danger">*</span></label>
+<input type="text" class="form-control" id="phone_number" placeholder="Contoh: 081234567890">
+</div>
+
+<div class="form-group mb-3">
+<label for="nik">NIK <span class="text-danger">*</span></label>
+<input type="text" class="form-control" id="nik" maxlength="16" placeholder="16 digit NIK">
+</div>
+
+<div class="form-group mb-3">
+<label for="detail_address">Alamat</label>
+<textarea class="form-control" id="detail_address" rows="3" placeholder="Alamat lengkap (opsional)"></textarea>
+</div>
+</div>
+<div class="modal-footer">
+<button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+<button type="button" id="btn_save_jamaah" class="btn btn-primary" onclick="simpanJamaah()">Simpan</button>
+</div>
+</div>
+</div>
+</div>
+
+{{-- ================= MODAL TAMBAH MASTER HOTEL (dibuka dari modalCreateHotel) ================= --}}
+<div class="modal fade" id="modalMasterHotel" tabindex="-1" role="dialog" data-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+<div class="modal-content">
+<div class="modal-header bg-success text-white">
+<h5 class="modal-title">Tambah Master Hotel</h5>
+<button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+</div>
+
+<form id="formMasterHotel">
+<div class="modal-body">
+<div class="form-row">
+<div class="form-group col-md-8">
+<label class="small font-weight-bold">Nama Hotel <span class="text-danger">*</span></label>
+<input type="text" class="form-control" id="mh_name" required maxlength="191">
+</div>
+<div class="form-group col-md-4">
+<label class="small font-weight-bold">Lokasi <span class="text-danger">*</span></label>
+<select class="form-control" id="mh_type_location_hotel" required>
+<option value="">-- Pilih --</option>
+<option value="1">Makkah</option>
+<option value="2">Madinah</option>
+</select>
+</div>
+</div>
+
+<div class="form-group">
+<label class="small font-weight-bold">Alamat</label>
+<textarea class="form-control" id="mh_address" rows="2"></textarea>
+</div>
+
+<div class="form-row">
+<div class="form-group col-md-6">
+<label class="small font-weight-bold">Jarak (m)</label>
+<input type="number" class="form-control" id="mh_distance" min="0" step="1">
+</div>
+<div class="form-group col-md-6">
+<label class="small font-weight-bold">Bintang (1-5)</label>
+<select class="form-control" id="mh_star">
+<option value="">-</option>
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+<option value="5">5</option>
+</select>
+</div>
+</div>
+</div>
+
+<div class="modal-footer bg-white">
+<button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Batal</button>
+<button type="submit" class="btn btn-success btn-sm font-weight-bold" id="btnSaveMasterHotel">
+<i class="ti ti-check mr-1"></i> Simpan Hotel
+</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+
  @include('admin.transaksi.hotel_payment_modal') 
 
 <div class="card d-none" style="margin-bottom: 10px;">
@@ -519,8 +629,18 @@
 @endsection
 
 @push('scripts')
+@php
+    // !!! GANTI 'save-master-hotel' dengan nama route simpan master hotel
+    // (di halaman paket Anda: paketRoutes.saveMasterHotel).
+    // Pakai Route::has supaya halaman tidak error 500 kalau nama route belum cocok.
+    $urlSaveMasterHotel = \Illuminate\Support\Facades\Route::has('save-master-hotel')
+        ? route('saveMasterHotel_v2')
+        : '';
+@endphp
 <script>
-     function printInvoice() {
+    const URL_SAVE_MASTER_HOTEL = 'saveMasterHotel_v2';//@json($urlSaveMasterHotel);
+
+    function printInvoice() {
       let id_nya = $("#id_invoice_view_detail").val();
         if(!id_nya) {
             alert("ID Invoice tidak ditemukan");
@@ -530,6 +650,61 @@
         url = url.replace(':id', id_nya);
         window.open(url, '_blank');
     }
+
+    // ===== Helper global: set nilai Select2 (ajax) dari data yang baru disimpan =====
+    function setSelect2Value(selector, id, text) {
+        const $el = $(selector);
+        // hapus option lama dengan value sama supaya tidak dobel
+        $el.find('option').filter(function () {
+            return String(this.value) === String(id);
+        }).remove();
+        $el.append(new Option(text, id, true, true)).trigger('change');
+    }
+
+    // ===== Simpan contact baru (dipanggil onclick dari #modalCreateJamaah) =====
+    function simpanJamaah(){
+        let payload = {
+            id: $('#id_jamaah').val() || null,
+            full_name: $('#full_name').val().trim(),
+            phone_number: $('#phone_number').val().trim(),
+            nik: $('#nik').val().trim(),
+            detail_address: $('#detail_address').val().trim(),
+        };
+
+        if(!payload.full_name || !payload.phone_number){
+            Swal.fire('Peringatan', 'Nama lengkap dan No. Telepon wajib diisi', 'warning');
+            return;
+        }
+
+        $('#btn_save_jamaah').prop('disabled', true).text('Menyimpan...');
+
+        ajaxRequest(`{{ route('save-jamaah') }}`, 'POST', payload, localStorage.getItem('token'))
+            .then(response => {
+                if(response.status == 200){
+                    // ⚠️ sesuaikan dengan struktur response backend
+                    const saved = response.data?.data || response.data || {};
+                    console.log('savedj', response.data);
+                    $('#modalCreateJamaah').modal('hide');
+                    Swal.fire({ title: 'Berhasil', text: 'Data contact tersimpan', icon: 'success', timer: 1500, showConfirmButton: false });
+
+                    if (saved.id) {
+                        // isi otomatis select "Nama Agent / Pemesan" di form invoice hotel
+                        setSelect2Value('#order_name', saved.id, saved.full_name || payload.full_name);
+                    } else {
+                        console.warn('save-jamaah tidak mengembalikan id, contact tidak bisa auto-select', response);
+                    }
+                } else {
+                    Swal.fire('Gagal', response?.data?.data?.message || 'Gagal menyimpan data contact', 'error');
+                }
+            })
+            .catch((err) => {
+                cathError(err);
+            })
+            .finally(() => {
+                $('#btn_save_jamaah').prop('disabled', false).text('Simpan');
+            });
+    }
+
 $(document).ready(function() {
     var table;
 
@@ -582,11 +757,11 @@ $(document).ready(function() {
         const startDate = new Date(checkIn);
         const endDate   = new Date(checkOut);
 
-        if (endDate < startDate) {
-            alert('Tanggal Check Out harus setelah Check In');
-            $('#check_out').val('');
-            return;
-        }
+        // if (endDate < startDate) {
+        //     alert('Tanggal Check Out harus setelah Check In');
+        //     $('#check_out').val('');
+        //     return;
+        // }
         const diffTime = endDate.getTime() - startDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         $('#total_days').val(diffDays);
@@ -640,7 +815,7 @@ $(document).ready(function() {
         placeholder: "Pilih Hotel",
         allowClear: true,
         ajax: {
-            url: `{{ route('search_hotel_select2') }}`,
+            url: `{{ route('search_hotel_select2_v2') }}`,
             dataType: 'json',
             delay: 700,
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
@@ -687,6 +862,83 @@ $(document).ready(function() {
                 };
             },
             cache: false
+        }
+    });
+
+    $('#modalCreateJamaah, #modalMasterHotel').on('show.bs.modal', function () {
+        $(this).css('z-index', 1055);
+        setTimeout(function () {
+            $('.modal-backdrop').last().css('z-index', 1052);
+        }, 0);
+    });
+
+    $('#modalCreateJamaah, #modalMasterHotel').on('hidden.bs.modal', function () {
+        $(this).css('z-index', '');
+        // Bootstrap 4 menghapus class modal-open saat satu modal ditutup,
+        // padahal modalCreateHotel masih terbuka -> kembalikan supaya scroll tetap benar.
+        if ($('.modal.show').length) {
+            $('body').addClass('modal-open');
+        }
+    });
+
+    // Tombol Tambah Contact
+    $('#btn_add_contact').on('click', function () {
+        $('#modalJamaahTitle').text('Tambah Contact');
+        $('#modalCreateJamaah').modal('show');
+    });
+
+    $('#modalCreateJamaah').on('shown.bs.modal', function () {
+        $('#full_name').trigger('focus');
+    }).on('hidden.bs.modal', function () {
+        $('#id_jamaah, #full_name, #phone_number, #nik, #detail_address').val('');
+    });
+
+    // Tombol Tambah Hotel Baru
+    $('#btn_add_master_hotel').on('click', function () {
+        $('#modalMasterHotel').modal('show');
+    });
+
+    $('#modalMasterHotel').on('shown.bs.modal', function () {
+        $('#mh_name').trigger('focus');
+    }).on('hidden.bs.modal', function () {
+        $('#formMasterHotel')[0].reset();
+    });
+
+    // Simpan master hotel -> otomatis terpilih di select #hotels
+    $('#formMasterHotel').on('submit', async function (e) {
+        e.preventDefault();
+
+        // if (!URL_SAVE_MASTER_HOTEL) {
+        //     Swal.fire('Konfigurasi belum lengkap', 'Route simpan master hotel belum diatur di view ini (lihat variabel $urlSaveMasterHotel).', 'error');
+        //     return;
+        // }
+
+        const payload = {
+            name: $('#mh_name').val().trim(),
+            type_location_hotel: $('#mh_type_location_hotel').val(),
+            address: $('#mh_address').val().trim() || null,
+            distance: $('#mh_distance').val() || null,
+            star: $('#mh_star').val() || null,
+        };
+
+        const $btn = $('#btnSaveMasterHotel').prop('disabled', true);
+
+        try {
+            const res = await ajaxRequest(`{{ route('saveMasterHotel_v2') }}`, 'POST', payload, localStorage.getItem('token'));
+            const saved = res.data.data;
+
+            $('#modalMasterHotel').modal('hide');
+            Swal.fire({ icon: 'success', title: 'Berhasil', text: res.data.message, timer: 1200, showConfirmButton: false });
+
+            if (saved && saved.id) {
+                setSelect2Value('#hotels', saved.id, saved.name || payload.name);
+            } else {
+                console.warn('save master hotel tidak mengembalikan id, hotel tidak bisa auto-select', res);
+            }
+        } catch (err) {
+            cathError(err);
+        } finally {
+            $btn.prop('disabled', false);
         }
     });
 
@@ -1053,7 +1305,7 @@ $(document).ready(function() {
         $('#idHotelInput').val('');
         lastSarRate = '';
         applyCurrencyMode('SAR');
-        $('.modal-title').text('Edit Invoice Hotel (Loading...)');
+        $('#modalCreateHotelLabel').text('Edit Invoice Hotel (Loading...)');
 
         ajaxRequest(`{{ route('byid-revanue-hotel') }}`, 'GET', { id: id }, localStorage.getItem("token"))
             .then(response => {
@@ -1098,7 +1350,7 @@ $(document).ready(function() {
                         appendRoomRow('', 1, '', true);
                     }
 
-                    $('.modal-title').text('Edit Invoice: ' + data.no_invoice_hotel);
+                    $('#modalCreateHotelLabel').text('Edit Invoice: ' + data.no_invoice_hotel);
                     $('#modalCreateHotel').modal('show');
                 }
             })
@@ -1132,7 +1384,7 @@ $(document).ready(function() {
 
     // Trigger Tambah Baru
     $("#button_add_hotel").on("click", function() {
-        $('.modal-title').text('Add New Invoices Hotel');
+        $('#modalCreateHotelLabel').text('Add New Invoices Hotel');
         // Reset handled by modal hidden event
     });
 
@@ -1151,7 +1403,6 @@ $(document).ready(function() {
         let formData = new FormData(this);
         let idInput = $('#idHotelInput').val();
         if (idInput) formData.append('id', idInput);
-        console.log('saved form',formData)
         $.ajax({
             url: `{{ route('save-revenue-hotel') }}`,
             type: "POST",
@@ -1162,17 +1413,24 @@ $(document).ready(function() {
                 'Accept': 'application/json'
              },
             success: function(response) {
+                console.log('sukses',response)
                 $("#modalCreateHotel").modal('hide');
                 if (response.status) {
                     Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data disimpan' });
                     table.ajax.reload();
                 } else {
-                    Swal.fire('Gagal!', response.meta.message || 'Error', 'error');
+                     cathError(response.message)
+                   // Swal.fire('Gagal!', response.meta.message || 'Error', 'error');
                 }
             },
             error: function(xhr) {
-                let msg = (xhr.responseJSON && xhr.responseJSON.meta) ? xhr.responseJSON.meta.message : 'Error';
-                Swal.fire('Gagal!', msg, 'error');
+                  console.log('gagal',xhr.responseJSON.message)
+                  let data_err = JSON.parse(xhr.responseJSON.message);
+                let message = Object.values(data_err).flat()[0];
+
+                //cathError(xhr.responseJSON.message)
+                // let msg = (xhr.responseJSON && xhr.responseJSON.meta) ? xhr.responseJSON.meta.message : 'Error';
+                 Swal.fire('Gagal!', message, 'error');
             },
             complete: function() {
                 btn.html(originalText).prop('disabled', false);

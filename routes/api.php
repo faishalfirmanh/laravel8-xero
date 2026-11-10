@@ -357,6 +357,11 @@ Route::prefix("admin-web")->group(function () {
                 });
                 Route::prefix('inv-hotel')->group(function () {
 
+                    Route::get('get', [HotelApiController::class, 'getAllPaginate'])->name('get-allhotel');
+                    Route::get('search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2_v2');
+                    Route::post('save', [HotelApiController::class, 'store'])->name('saveMasterHotel_v2');
+
+
                     Route::get('/get', [RHotelApiController::class, 'getAllPaginate'])->name('list-revanue-hotel');
                     Route::get('/getTotalAmount', [RHotelApiController::class, 'getTotalAmount'])->name('total-amount-revanue-hotel');
                     Route::post('/store', [RHotelApiController::class, 'savedRhotel'])->name('save-revenue-hotel');
@@ -477,6 +482,12 @@ Route::prefix("admin-web")->group(function () {
             Route::get('detail', [CoaController::class, 'detail'])->name('find-coa');
             Route::post('delete', [CoaController::class, 'delete'])->name('delete-coa');
         });
+
+        // Route::prefix('hotels')->group(function () {
+        //     Route::get('get', [HotelApiController::class, 'getAllPaginate'])->name('get-allhotel');
+        //     Route::get('search_hotel', [HotelApiController::class, 'SearchHotel'])->name('search_hotel_select2_v2');
+        //     Route::post('save', [HotelApiController::class, 'store'])->name('saveMasterHotel_v2');
+        // });
 
 
         Route::prefix('tracking-category')->group(function () {

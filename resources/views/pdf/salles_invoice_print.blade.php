@@ -201,6 +201,61 @@
         .payment-bank {
             color: #1a1a1a;
         }
+
+        .data-table th.text-center {
+            text-align: center;
+        }
+
+        .data-table .total-row td {
+            font-weight: bold;
+            border-top: 1px solid #999;
+            border-bottom: none;
+        }
+
+        .hotel-info {
+    margin-top: 25px;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-left: 3px solid #3d76f1;
+    background: #fafafa;
+}
+
+.hotel-info .hotel-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+}
+
+.hotel-stay {
+    width: auto;
+}
+
+.hotel-stay td {
+    padding: 1px 0;
+    font-size: 11px;
+    border: none;
+}
+
+.hotel-stay .stay-label {
+    color: #555;
+    padding-right: 4px;
+}
+
+.hotel-stay .stay-sep {
+    width: 8px;
+    color: #555;
+}
+
+.hotel-stay .stay-value {
+    font-weight: bold;
+    padding-right: 24px;
+}
+
+/* tabel hotel jangan dobel jarak atas, karena sudah ada .hotel-info */
+.hotel-info + .data-table {
+    margin-top: 10px;
+}
     </style>
 </head>
 
@@ -417,37 +472,82 @@
          DETAIL INVOICE
     ========================================================== --}}
 
-    <table class="data-table">
+  {{-- =========================================================
+     DETAIL INVOICE
+========================================================== --}}
 
-        <thead>
+@php
+    $hotel = $invoice->getInvHotel;
+@endphp
 
+@if ($hotel)
+
+    <div class="hotel-info">
+        <div class="hotel-name">{{ $hotel->hotel_name }}</div>
+        <table class="hotel-stay">
             <tr>
+                <td class="stay-label">Check In</td>
+                <td class="stay-sep">:</td>
+                <td class="stay-value">{{ $fmtDate($hotel->check_in ?? null) ?? '-' }}</td>
 
-                <th width="46%">
-                    Penjelasan
-                </th>
+                <td class="stay-label">Check Out</td>
+                <td class="stay-sep">:</td>
+                <td class="stay-value">{{ $fmtDate($hotel->check_out ?? null) ?? '-' }}</td>
 
-                <th width="14%" class="text-right">
-                    Qty
-                </th>
-
-                <th width="20%" class="text-right">
-                    Harga Satuan
-                </th>
-
-                <th width="20%" class="text-right">
-                    Total
-                </th>
-
+                <td class="stay-label">Total Malam</td>
+                <td class="stay-sep">:</td>
+                <td class="stay-value">{{ $hotel->total_days ?? '-' }} malam</td>
             </tr>
+        </table>
+    </div>
 
+    {{-- ====== Tabel khusus invoice hotel ====== --}}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th width="5%" class="text-center">No</th>
+                <th>Keterangan / Tipe Kamar</th>
+                <th width="8%" class="text-center">Qty</th>
+                <th width="10%" class="text-center">Total Malam</th>
+                <th width="18%" class="text-right">Harga</th>
+                <th width="18%" class="text-right">Total</th>
+            </tr>
         </thead>
 
+        <tbody>
+            @foreach (($hotel->details ?? collect()) as $index => $item)
+                <tr>
+                    <td class="text-center">{{ $index + 1 }}</td>
+                    <td>{{ $item->type_room_desc }}</td>
+                    <td class="text-center">{{ $item->qty }}</td>
+                    <td class="text-center">{{ $hotel->total_days }}</td>
+                    <td class="text-right">{{ number_format($item->price_each_item) }}</td>
+                    <td class="text-right amount-blue">{{ number_format($item->total_amount) }}</td>
+                </tr>
+            @endforeach
+
+            <tr class="total-row">
+                <td colspan="5" class="text-right">TOTAL SAR</td>
+                <td class="text-right amount-blue">SAR {{ number_format($hotel->total_payment) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+@else
+
+    {{-- ====== Tabel invoice biasa (tetap seperti semula) ====== --}}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th width="46%">Penjelasan</th>
+                <th width="14%" class="text-right">Qty</th>
+                <th width="20%" class="text-right">Harga Satuan</th>
+                <th width="20%" class="text-right">Total</th>
+            </tr>
+        </thead>
 
         <tbody>
-
-            @foreach($detailItems as $item)
-
+            @foreach ($detailItems as $item)
                 @php
                     $cek_bold = $item->qty < 1
                         ? 'font-weight: bold; font-size:16px;'
@@ -455,69 +555,42 @@
                 @endphp
 
                 <tr>
-
-                    <td
-                        class="invoice-desc"
-                        style="{{ $cek_bold }}"
-                    >
+                    <td class="invoice-desc" style="{{ $cek_bold }}">
                         {!! nl2br(e($item->desc)) !!}
                     </td>
 
-
                     <td class="text-right">
-
                         @if ($item->qty > 0)
                             {{ $item->qty }}
                         @endif
-
                     </td>
 
-
                     <td class="text-right">
-
                         @if ($item->qty > 0)
                             {{ $fmt($item->unit_price ?? null) }}
                         @endif
-
                     </td>
 
-
                     <td class="text-right amount-blue">
-
                         @if ($item->qty > 0)
                             {{ $fmt($item->total_amount_each_row ?? null) }}
                         @endif
-
                     </td>
-
                 </tr>
-
             @endforeach
 
-
             {{-- TOTAL TAGIHAN --}}
-
             <tr>
-
                 <td colspan="2"></td>
-
-                <td class="text-right">
-                    <strong>
-                        Total Tagihan
-                    </strong>
-                </td>
-
+                <td class="text-right"><strong>Total Tagihan</strong></td>
                 <td class="text-right amount-blue">
-                    <strong>
-                        {{ $fmt($subTotal) }}
-                    </strong>
+                    <strong>{{ $fmt($subTotal) }}</strong>
                 </td>
-
             </tr>
-
         </tbody>
-
     </table>
+
+@endif
 
 
     {{-- =========================================================

@@ -249,7 +249,7 @@ class RHotelApiController extends Controller
             'order_name' => 'required', // Di HTML namenya order_name, bkn uuid_user_order
             'hotel_id' => 'required|exists:hotels,id',
             'check_in' => 'required|date',
-            'check_out' => 'required|date',
+            'check_out' => 'required|date|after_or_equal:check_in',
             'type_currency' => 'required|in:SAR,IDR',
             'nominal_currency_rp' => 'required|numeric|min:1',
             'id' => 'nullable',
