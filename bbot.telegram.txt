@@ -1,0 +1,173 @@
+================================================================================
+DOKUMENTASI LENGKAP PERENCANAAN SISTEM: CHATBOT TELEGRAM AN-NAMIROH & ALHIDAYAH
+ARSITEKTUR ALIRAN DATA, WORKFLOW STEALTH HUMAN TAKEOVER & FORUM TOPICS CS (5 CS)
+================================================================================
+Tanggal Penyusunan : 09 November 2026
+Sumber Instruksi    : Email Masuk #256 (Moch Yasin - moch.yasin.alhidayah.id@gmail.com)
+Subjek Email        : Buat modul baru untuk chatbot telegram
+Lampiran            : IMG-20261109-WA0028.jpg (Diagram Alur Sistem Chatbot & CS)
+Target Unggah       : http://an.alhidayah.id/bbot.telegram.txt
+Dokumen Penyusun    : Cline AI Assistant - An-Namiroh / Alhidayah / AVC Group Holding
+================================================================================
+
+1. LATAR BELAKANG & ANALISIS DOKUMEN ASLI (EMAIL #256)
+--------------------------------------------------------------------------------
+Pada tanggal 9 November 2026 pukul 15:23 WIB, diterima instruksi melalui email
+dari Moch Yasin dengan lampiran gambar diagram alur "Make doc changes (batch)".
+Diagram tersebut memuat legenda:
+- Kotak Hijau  : Langkah bot internal
+- Kotak Ungu   : Memakai API sistem 1 atau 2 (f.alhidayah.id & an.alhidayah.id)
+- Kotak Oranye : CS Manusia (Customer Service)
+- Garis Putus2 : Tahap 4 (Koneksi API an untuk Paket & Seat)
+
+2. KOREKSI STRATEGIS USER & PENGEMBANGAN WORKFLOW BARU
+--------------------------------------------------------------------------------
+Berdasarkan arahan langsung dari pimpinan:
+A. PENGHAPUSAN MENU "HUBUNGI CS":
+   Tidak boleh ada tombol atau pilihan "Hubungi CS" di menu bot yang dilihat oleh
+   jamaah/customer.
+B. INTERVENSI CS SENYAP (STEALTH HUMAN TAKEOVER):
+   CS harus masuk ke dalam percakapan tanpa disadari oleh customer. Customer tetap
+   merasa sedang berinteraksi secara mulus dengan satu identitas: Bot/Asisten
+   Digital Resmi An-Namiroh.
+C. PENGELOLAAN 5 ORANG CS:
+   Sistem harus mampu menangani 5 staf CS aktif secara bersamaan tanpa tabrakan,
+   tanpa saling mendahului, dan tanpa memerlukan aplikasi eksternal baru.
+
+3. ARSITEKTUR ALIRAN DATA (DATA FLOW ARCHITECTURE)
+--------------------------------------------------------------------------------
+A. ENTRY POINT & MENU UTAMA JAMAAH:
+   1. Jamaah menekan link/badge Telegram (misal: t.me/AnNamirohBot?start=badge).
+   2. Bot menyapa secara ramah dan menampilkan 2 MENU UTAMA SAJA:
+      - [ 📜 Layanan Pengurusan Surat Jamaah ]
+      - [ 🕋 Info Paket Umroh & Sisa Seat ]
+      Serta instruksi bahwa jamaah dapat langsung mengetik pertanyaan secara bebas.
+
+B. ALIRAN DATA MODUL SURAT (API f.alhidayah.id):
+   1. Siklus 2 - Permintaan NIK:
+      - Bot meminta 16 digit NIK jamaah.
+      - Bot memanggil API: POST https://f.alhidayah.id/api/v1/bot/jamaah/lookup
+        Header: X-2FA-Code: wwwfacebookcom1A
+        Payload: {"nik": "..."}
+   2. Siklus 3 - Percabangan Hasil NIK:
+      - KONDISI 1 (NIK DITEMUKAN):
+        Data ditarik dari manifes database. Bot menampilkan verifikasi identitas
+        dengan sensor data pribadi (Masking PII):
+        Nama: MUH*****D YAS** | NIK: 351508******0001 | Paspor: B123****
+        Jamaah memilih konfirmasi: [ ✅ Ya, Sesuai ] atau [ ✏️ Ubah Data ].
+      - KONDISI 2 (NIK BELUM DITEMUKAN):
+        Bot memandu pengisian data mandiri (tanya satu per satu secara interaktif):
+        Nama Lengkap, Nomor HP/WA, Kota/Kabupaten, Jenis Surat yang Dibutuhkan.
+        Data ini ditandai status: "pending_review_cs".
+   3. Siklus 4 & Pembuatan Berkas PDF:
+      - Jika data sudah valid, sistem memanggil API generate dokumen PDF:
+        POST https://f.alhidayah.id/api/v1/bot/surat/generate
+      - Dokumen PDF dikirimkan langsung ke chat Telegram jamaah (sendDocument).
+   4. Siklus 5 - Surat Lain & Penutupan Sesi:
+      - Menanyakan apakah ada keperluan surat lain.
+      - Jika tidak, sesi ditutup dan meminta penilaian kepuasan (Rating 1 - 5).
+
+C. ALIRAN DATA MODUL PAKET & SISA SEAT (API an.alhidayah.id - TAHAP 4):
+   1. Bot memanggil API katalog paket live:
+      GET http://an.alhidayah.id/api/v1/packages/active
+   2. Menampilkan ringkasan paket, tanggal keberangkatan, hotel, dan sisa seat.
+   3. Menyediakan tombol filter berdasarkan bulan keberangkatan.
+
+4. WORKFLOW "STEALTH HUMAN TAKEOVER" (INTERVENSI SENYAP CS)
+--------------------------------------------------------------------------------
+A. 3 PEMICU OTOMATIS CS MASUK DI BALIK LAYAR (SILENT TRIGGERS):
+   1. Confusion Trigger:
+      Jika jamaah mengetik teks bebas di luar konteks dan bot tidak yakin (confidence
+      score rendah atau 2x gagal memahami), bot mengirim respon penahan santun:
+      "Baik Kak, kami bantu cek detail informasinya sebentar ya..."
+      Lalu alert senyap otomatis dikirimkan ke ruang kerja CS.
+   2. Data Anomali / NIK Tidak Ditemukan:
+      Jamaah butuh surat tetapi data belum ada di database sistem.
+   3. Sentiment & Keyword Trigger:
+      Deteksi kata kritis: komplain, kecewa, refund, salah nama, pembatalan, pimpinan.
+
+B. PERAN GHOST OPERATOR:
+   CS mengetik dari sistem internal. Bot bertindak sebagai jembatan (proxy).
+   Pesan terkirim ke jamaah tetap berasal dari bot akun resmi dengan gaya bahasa
+   yang selaras, sopan, dan formal.
+
+5. SOLUSI PENGELOLAAN 5 CS: FITUR BAWAAN TELEGRAM FORUM / TOPICS
+--------------------------------------------------------------------------------
+Untuk menangani 5 staf CS tanpa aplikasi khusus dan tanpa biaya lisensi:
+Sistem menggunakan fitur resmi bawaan aplikasi Telegram: "GROUP TOPICS (FORUM)".
+
+A. STRUKTUR FORUM GRUP CS:
+   - Dibuat 1 Grup Telegram Internal: "CS Monitoring Desk An-Namiroh".
+   - Fitur "Topics" diaktifkan di pengaturan grup.
+   - Anggota grup: 5 Staf CS + Akun Telegram Bot.
+
+B. MEKANISME KERJA TOPIC PER JAMAAH:
+   1. Setiap kali ada jamaah yang memicu intervensi senyap, bot secara otomatis
+      membuat 1 Topik/Utas baru di grup CS dengan format judul:
+      📁 [JAMAAH] Bpk. Ahmad Fauzi (#SES-8821)
+   2. Di dalam topik tersebut, bot memposting kartu informasi:
+      - Profil Singkat Jamaah (ID Telegram, Nama, NIK jika ada)
+      - Ringkasan Permasalahan / 5 Chat Terakhir
+      - Tombol Interaktif: [ ✋ Ambil Alih Tiket ]
+      - Countdown Timer SLA 10 Menit.
+
+C. SISTEM PENGUNCIAN TIKET (CLAIM LOCKING) - MENCEGAH BENTROK 5 CS:
+   1. Saat salah satu CS (misal CS Ani) mengklik [ ✋ Ambil Alih Tiket ]:
+      - Status topik berubah menjadi: "🔒 Sedang Dihandle oleh @CS_Ani".
+      - Sistem mengunci topik tersebut khusus untuk CS Ani.
+      - Jika CS Budi atau lainnya mengetik di topik itu, bot tidak akan meneruskannya
+        ke jamaah (muncul notifikasi internal: "Tiket ini sedang dipegang oleh @CS_Ani").
+   2. CS Ani cukup mengetik balasan di topik tersebut seperti chat biasa.
+   3. Bot menangkap teks CS Ani, lalu mengirimkannya ke chat pribadi jamaah
+      ATAS NAMA BOT.
+   4. Ketika jamaah membalas, balasan jamaah otomatis muncul di topik tersebut.
+
+D. SLA WATCHDOG 10 MENIT:
+   - Jika dalam 10 menit setelah topik dibuat belum ada satu pun dari 5 CS yang
+     mengklik "Ambil Alih":
+     1. Bot memunculkan alert darurat mention @all staf CS.
+     2. Bot mengirim pesan pemeliharaan ramah ke jamaah agar tidak merasa diabaikan.
+     3. Log insiden dicatat untuk evaluasi performa CS bulanan.
+
+E. PENGEMBALIAN KONTROL KE BOT (HANDBACK):
+   - Setelah kebutuhan jamaah selesai, CS Ani menekan tombol [ ✅ Selesai / Tutup Sesi ]
+     atau mengetik perintah /close.
+   - Status tiket berubah menjadi CLOSED, topik ditutup/diarsip oleh bot.
+   - Obrolan jamaah dikembalikan secara otomatis ke alur Bot Normal.
+
+6. SPESIFIKASI SKEMA TABEL DATABASE PENDUKUNG
+--------------------------------------------------------------------------------
+1. Tabel telegram_bot_sessions:
+   - id (BIGINT PK)
+   - telegram_user_id (BIGINT INDEX)
+   - chat_id (BIGINT)
+   - current_state (VARCHAR: MENU_ROOT, WAITING_NIK, FORM_WIZARD, HUMAN_TAKEOVER)
+   - active_ticket_id (BIGINT NULL)
+   - last_activity_at (DATETIME)
+
+2. Tabel telegram_cs_tickets:
+   - id (BIGINT PK)
+   - ticket_code (VARCHAR 30: CS-20261109-XXXX)
+   - telegram_user_id (BIGINT)
+   - forum_topic_id (BIGINT) -- ID Thread Topic di Grup Telegram CS
+   - assigned_cs_user_id (BIGINT NULL) -- CS yang mengklaim tiket
+   - status (ENUM: PENDING_CLAIM, IN_PROGRESS, CLOSED, ESCALATED)
+   - trigger_reason (VARCHAR: CONFUSION, NIK_NOT_FOUND, KEYWORD, MANUAL)
+   - sla_deadline (DATETIME)
+   - claimed_at (DATETIME NULL)
+   - closed_at (DATETIME NULL)
+   - satisfaction_rating (TINYINT NULL)
+
+3. Tabel telegram_message_logs:
+   - id (BIGINT PK)
+   - ticket_id (BIGINT)
+   - sender_type (ENUM: JAMAAH, BOT, CS_HUMAN)
+   - sender_id (BIGINT)
+   - message_text (TEXT)
+   - created_at (DATETIME)
+
+================================================================================
+STATUS AKHIR:
+Dokumen perencanaan ini telah disetujui untuk diunggah ke server produksi
+an.alhidayah.id sebagai cetak biru resmi pengembangan modul Chatbot Telegram.
+================================================================================
