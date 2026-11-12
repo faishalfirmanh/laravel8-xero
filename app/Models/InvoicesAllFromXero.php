@@ -50,7 +50,8 @@ class InvoicesAllFromXero extends Model
         'travel_id',
         'va_number',
         'created_by_name',
-        'branding_theme_id'
+        'branding_theme_id',
+        'xero_hash'
     ];
 
     protected $appends = [

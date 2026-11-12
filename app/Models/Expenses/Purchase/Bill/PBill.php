@@ -38,7 +38,8 @@ class PBill extends Model
         'nominal_due_base',//total nominal conversi ke rupiah sisa nominal yang belum dibayarkan (sisatagihan)
         'id_jamaah_alhid',//untuk relasi dengan bill pada jamaah alhid (beda server)
         'travel_id',
-        'created_by_name'
+        'created_by_name',
+        'xero_hash'
     ];
     //status 0 /draft tidak tercatat pada
 

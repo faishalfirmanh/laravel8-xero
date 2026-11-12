@@ -24,9 +24,16 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+
 class ProcessXeroInvoiceEvent implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    /**
+     * Naikkan angka ini kalau logika sync berubah dan semua invoice perlu
+     * di-sync ulang sekali (fingerprint lama otomatis dianggap beda).
+     */
+    private const FINGERPRINT_VERSION = 1;
 
     public int $tries = 3;
     public array $backoff = [10, 60, 300];
@@ -34,6 +41,13 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
     protected array $event;
     private ?array $trackingMap = null;
+
+    /**
+     * true kalau ada bagian yang terlewat saat sync (bank/COA/tracking belum ada,
+     * payment gagal di-fetch). Fingerprint tidak disimpan supaya event berikutnya
+     * mencoba lagi.
+     */
+    private bool $syncIncomplete = false;
 
     public function __construct(array $event)
     {
@@ -56,6 +70,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         Cache::put($key, microtime(true), 120);
     }
+
     public function handle(XeroService $xero): void
     {
         Log::info('[XeroWebhook] job mulai', ['resourceId' => $this->event['resourceId'] ?? null]);
@@ -86,16 +101,35 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             return;
         }
 
+        $isBill = ($obj['Type'] ?? null) === 'ACCPAY';
+
+        // Xero (New Invoicing) auto-save invoice DRAFT: invoice yang hanya DIBUKA pun
+        // tercatat "Edited / INV-xxx updated" di history dan memicu webhook UPDATE.
+        // UpdatedDateUTC ikut berubah, jadi tidak bisa dipakai sebagai pembanding.
+        // Yang dibandingkan adalah isi data yang kita simpan (fingerprint).
+        $fingerprint = $this->fingerprint($obj);
+
+        if ($this->storedFingerprint($obj, $isBill) === $fingerprint) {
+            Log::info('[XeroWebhook] tidak ada perubahan data, dilewati ' . ($obj['InvoiceNumber'] ?? $invoiceId));
+            return;
+        }
+
+        $this->syncIncomplete = false;
+
         // Panggilan HTTP dilakukan dulu, di luar transaksi DB
         $paymentDetails = $this->fetchPaymentDetails($xero, $tenantId, $obj);
-        $isBill = ($obj['Type'] ?? null) === 'ACCPAY';
         $updatedByName = $this->resolveUpdatedByName($xero, $tenantId, $invoiceId);
 
-        DB::transaction(function () use ($obj, $paymentDetails, $updatedByName, $isBill) {
+        DB::transaction(function () use ($obj, $paymentDetails, $updatedByName, $isBill, $fingerprint) {
             if ($isBill) {
-                $this->syncBill($obj, $paymentDetails, $updatedByName);
+                $this->syncBill($obj, $paymentDetails, $updatedByName, $fingerprint);
             } else {
-                $this->syncSalesInvoice($obj, $paymentDetails, $updatedByName);
+                $this->syncSalesInvoice($obj, $paymentDetails, $updatedByName, $fingerprint);
+            }
+
+            // Ada bagian yang terlewat: jangan simpan fingerprint, biar event berikutnya mencoba lagi.
+            if ($this->syncIncomplete) {
+                $this->forgetFingerprint($obj, $isBill);
             }
         }, 3);
 
@@ -105,6 +139,103 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
     public function failed(\Throwable $e): void
     {
         Log::error('[XeroWebhook] gagal proses event: ' . $e->getMessage());
+    }
+
+    // ================================================================
+    // FINGERPRINT (deteksi "tidak ada perubahan")
+    // ================================================================
+
+    /**
+     * Hash dari semua field Xero yang benar-benar kita simpan ke database.
+     * Sengaja TIDAK memasukkan UpdatedDateUTC, HasAttachments, SentToContact, dsb.
+     */
+    private function fingerprint(array $inv): string
+    {
+        $lines = [];
+
+        foreach ($inv['LineItems'] ?? [] as $l) {
+            $tracking = [];
+            foreach ($l['Tracking'] ?? [] as $t) {
+                $tracking[] = [
+                    $this->normTrackName($t['Name'] ?? ''),
+                    (string) ($t['Option'] ?? ''),
+                ];
+            }
+
+            $lines[] = [
+                $l['LineItemID'] ?? null,
+                $l['Description'] ?? null,
+                $l['Quantity'] ?? null,
+                $l['UnitAmount'] ?? null,
+                $l['LineAmount'] ?? null,
+                $l['TaxAmount'] ?? null,
+                $l['AccountCode'] ?? null,
+                data_get($l, 'Item.ItemID'),
+                data_get($l, 'Item.Code') ?? ($l['ItemCode'] ?? null),
+                $tracking,
+            ];
+        }
+
+        $payments = [];
+        foreach ($inv['Payments'] ?? [] as $p) {
+            $payments[(string) ($p['PaymentID'] ?? '')] = [
+                $p['Amount'] ?? null,
+                $p['Date'] ?? null,
+            ];
+        }
+        ksort($payments);
+
+        $payload = [
+            self::FINGERPRINT_VERSION,
+            $inv['InvoiceID'] ?? null,
+            $inv['InvoiceNumber'] ?? null,
+            $inv['Type'] ?? null,
+            $inv['Status'] ?? null,
+            $inv['Reference'] ?? null,
+            $inv['DateString'] ?? ($inv['Date'] ?? null),
+            $inv['DueDateString'] ?? ($inv['DueDate'] ?? null),
+            data_get($inv, 'Contact.ContactID'),
+            data_get($inv, 'Contact.Name'),
+            $inv['CurrencyCode'] ?? null,
+            $inv['CurrencyRate'] ?? null,
+            $inv['LineAmountTypes'] ?? null,
+            $inv['SubTotal'] ?? null,
+            $inv['TotalTax'] ?? null,
+            $inv['Total'] ?? null,
+            $inv['AmountPaid'] ?? null,
+            $inv['AmountDue'] ?? null,
+            $lines,
+            $payments,
+        ];
+
+        return sha1((string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
+    }
+
+    private function storedFingerprint(array $inv, bool $isBill): ?string
+    {
+        $value = $isBill
+            ? PBill::where('bills_uuid_xero', $inv['InvoiceID'])->value('xero_hash')
+            : InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])->value('xero_hash');
+
+        return $value ? (string) $value : null;
+    }
+
+    /**
+     * Kosongkan fingerprint tanpa menyentuh updated_at (toBase() menghindari
+     * auto-timestamp Eloquent).
+     */
+    private function forgetFingerprint(array $inv, bool $isBill): void
+    {
+        if ($isBill) {
+            PBill::where('bills_uuid_xero', $inv['InvoiceID'])
+                ->toBase()
+                ->update(['xero_hash' => null]);
+            return;
+        }
+
+        InvoicesAllFromXero::where('invoice_uuid', $inv['InvoiceID'])
+            ->toBase()
+            ->update(['xero_hash' => null]);
     }
 
     // ================================================================
@@ -185,8 +316,13 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $ts = strtotime($raw);
         return $ts === false ? 0 : $ts * 1000;
     }
-    private function syncSalesInvoice(array $inv, array $paymentDetails, ?string $updatedByName = null): void
-    {
+
+    private function syncSalesInvoice(
+        array $inv,
+        array $paymentDetails,
+        ?string $updatedByName = null,
+        ?string $fingerprint = null
+    ): void {
         $lineItems = $inv['LineItems'] ?? [];
         $firstLine = $lineItems[0] ?? [];
         $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
@@ -232,7 +368,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     'nominal_currency' => $nominalCurr,
                     'created_at' => now(),
                     'updated_at' => now(),
-                    'created_by_name' => $userName
+                    'created_by_name' => $userName,
+                    'xero_hash' => $fingerprint,
                 ]
             ],
             ['invoice_uuid'],
@@ -253,7 +390,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'code_curr',
                 'nominal_currency',
                 'updated_at',
-                'created_by_name'
+                'created_by_name',
+                'xero_hash',
             ]
         );
 
@@ -281,9 +419,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         // ── Line item dari Xero ──
         $accountCodes = collect($lineItems)->pluck('AccountCode')->filter()->unique()->values()->all();
-        // $itemCodes = collect($lineItems)->map(fn($l) => data_get($l, 'Item.Code'))->filter()->unique()->values()->all();
         $coaMap = Coa::whereIn('code', $accountCodes)->pluck('id', 'code')->toArray();
-        //$itemMap = ItemsPaketAllFromXero::whereIn('code', $itemCodes)->pluck('id', 'code')->toArray();
         $itemMap = $this->resolveItemMaster($lineItems, $coaMap);
 
         $rows = [];
@@ -296,8 +432,13 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             }
 
             [$paketUuid, $divisiUuid] = $this->resolveTrackingFromLine($line);
-            //$itemCode = data_get($line, 'Item.Code');
             $itemUuid = data_get($line, 'Item.ItemID');
+
+            $accountCode = $line['AccountCode'] ?? null;
+            if ($accountCode !== null && $accountCode !== '' && !isset($coaMap[$accountCode])) {
+                // COA belum ada di master lokal: jurnal baris ini terlewat
+                $this->syncIncomplete = true;
+            }
 
             $rows[] = [
                 'invoice_number' => $inv['InvoiceNumber'] ?? null,
@@ -309,7 +450,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'line_item_uuid' => $lineId,
                 'coa_id' => isset($line['AccountCode']) ? ($coaMap[$line['AccountCode']] ?? null) : null,
                 'parent_inv_id' => $parentId,
-                // 'item_id' => $itemCode ? ($itemMap[$itemCode] ?? null) : null,
                 'item_id' => $itemUuid ? ($itemMap[$itemUuid] ?? null) : null,
                 'uuid_detail_inv' => $lineId,
                 'paket_tracking_uuid' => $paketUuid,
@@ -369,6 +509,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 ]
             );
         }
+
         // ── Jurnal (transaction_all_coas) ──
         $postable = in_array($inv['Status'] ?? null, ['AUTHORISED', 'PAID'], true);
 
@@ -397,7 +538,6 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 );
             }
         }
-
 
         $this->savePayments($paymentDetails, $parentId, false, $currencyCode, (float) ($inv['CurrencyRate'] ?? 1));
     }
@@ -438,14 +578,16 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
         $street = collect($addresses)->firstWhere('AddressType', 'STREET');
         $address = $street['AddressLine1'] ?? ($addresses[0]['AddressLine1'] ?? null);
 
-        $saved = DataJamaahXero::firstOrCreate([
-            'uuid_contact'
-        ], [
-            'uuid_contact' => $contactId,
-            'full_name' => $contact['Name'] ?? null,
-            'phone_number' => $phone,
-            'detail_address' => $address,
-        ]);
+        // Argumen pertama harus array asosiatif [kolom => nilai].
+        // Sebelumnya ['uuid_contact'] (tanpa key) sehingga query mencari kolom "0".
+        $saved = DataJamaahXero::firstOrCreate(
+            ['uuid_contact' => $contactId],
+            [
+                'full_name' => $contact['Name'] ?? null,
+                'phone_number' => $phone,
+                'detail_address' => $address,
+            ]
+        );
 
         return (int) $saved->id;
     }
@@ -517,26 +659,27 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         return $itemMap;
     }
-    private function syncBill(array $inv, array $paymentDetails, ?string $updatedByName = null): void
-    {
+
+    private function syncBill(
+        array $inv,
+        array $paymentDetails,
+        ?string $updatedByName = null,
+        ?string $fingerprint = null
+    ): void {
         $lineItems = $inv['LineItems'] ?? [];
         $issueDate = $this->parseXeroDate($inv['DateString'] ?? $inv['Date'] ?? null);
         $dueDate = $this->parseXeroDate($inv['DueDateString'] ?? $inv['DueDate'] ?? null);
         $contactId = data_get($inv, 'Contact.ContactID');
         $currencyCode = $inv['CurrencyCode'] ?? 'IDR';
 
-        //$fromId = DataJamaahXero::where('uuid_contact', $contactId)->value('id') ?? $this->createDataJamaah(data_get($inv, 'Contact'));
         $fromId = DataJamaahXero::where('uuid_contact', $contactId)->value('id')
             ?? $this->createDataJamaah($inv['Contact'] ?? null)
             ?? 1;
-        if (
-            !PBill::where('bills_uuid_xero', $inv['InvoiceID'])->exists()
-            && !empty($inv['InvoiceNumber'])
-        ) {
-            PBill::where('reference', $inv['InvoiceNumber'])
-                ->update(['bills_uuid_xero' => $inv['InvoiceID']]);
-        }
 
+        // Samakan bill lokal dengan InvoiceID Xero lewat reference.
+        // Hanya satu baris yang belum punya uuid Xero (blok lama yang meng-update
+        // SEMUA bill dengan reference sama sudah dihapus: reference di bill Xero
+        // tidak dijamin unik, bisa menimpa uuid bill lain).
         $invNo = trim((string) ($inv['InvoiceNumber'] ?? ''));
 
         if (
@@ -579,6 +722,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                     'nominal_currency' => $fx,
                     'nominal_paid_base' => round((float) ($inv['AmountPaid'] ?? 0) * $fx, 2),
                     'nominal_due_base' => round((float) ($inv['AmountDue'] ?? 0) * $fx, 2),
+                    'xero_hash' => $fingerprint,
                 ]
             ],
             ['bills_uuid_xero'],
@@ -599,7 +743,8 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'created_by_name',
                 'total_base',
                 'nominal_paid_base',
-                'nominal_due_base'
+                'nominal_due_base',
+                'xero_hash',
             ]
         );
 
@@ -626,9 +771,15 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
             $itemId = $this->resolveBillItemMaster($line, $itemCache);
             $itemCode = trim((string) ($line['ItemCode'] ?? data_get($line, 'Item.Code') ?? '')) ?: null;
 
+            $accountCode = $line['AccountCode'] ?? null;
+            if ($accountCode !== null && $accountCode !== '' && !isset($coaMap[$accountCode])) {
+                // COA belum ada di master lokal: jurnal baris ini terlewat
+                $this->syncIncomplete = true;
+            }
+
             $rows[] = [
                 'bills_parent_id' => $parentId,
-                'item_code' => $itemCode, //$line['ItemCode'] ?? data_get($line, 'Item.Code'),
+                'item_code' => $itemCode,
                 'item_id_prod_serv' => $itemId,
                 'desc' => $line['Description'] ?? null,
                 'qty' => $line['Quantity'] ?? 0,
@@ -641,7 +792,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'uuid_detail' => $uuidDetail,
                 'created_at' => now(),
                 'updated_at' => now(),
-                'total_base' => (int) round((float) ($line['LineAmount'] ?? 0) * $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0)), 0),
+                'total_base' => (int) round((float) ($line['LineAmount'] ?? 0) * $fx, 0),
             ];
             $liveIds[] = $uuidDetail;
         }
@@ -692,7 +843,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 TransactionAllCoa::whereIn('uuid_detail', $liveIds)->delete();
             }
         } else {
-            $nominalCurr = $this->fxToIdr($currencyCode, (float) ($inv['CurrencyRate'] ?? 0));
+            $nominalCurr = $fx;
             foreach ($rows as $r) {
                 if (empty($r['account_id_coa'])) {
                     continue;
@@ -735,6 +886,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 $p = $xero->getPayment($tenantId, $pid);
             } catch (\Throwable $e) {
                 Log::warning("[XeroWebhook] gagal fetch payment {$pid}: " . $e->getMessage());
+                $this->syncIncomplete = true;
                 continue;
             }
 
@@ -761,12 +913,14 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
             if (!$accountCode) {
                 Log::warning("[XeroWebhook] payment {$paymentId}: AccountCode kosong, dilewati.");
+                $this->syncIncomplete = true;
                 continue;
             }
 
             $bank = BankXero::where('code', $accountCode)->first();
             if (!$bank) {
                 Log::warning("[XeroWebhook] payment {$paymentId}: kode bank '{$accountCode}' tidak ditemukan.");
+                $this->syncIncomplete = true;
                 continue;
             }
 
@@ -863,6 +1017,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
 
         return $cache[$key] = (int) $item->id;
     }
+
     private function syncVaTrans(array $inv): void
     {
         $vaNumber = null;
@@ -988,6 +1143,7 @@ class ProcessXeroInvoiceEvent implements ShouldQueue
                 'parent' => $parentName,
                 'option' => $optionName,
             ]);
+            $this->syncIncomplete = true;
         }
 
         return $uuid;
