@@ -4,13 +4,18 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
+use App\Http\Repository\MasterData\Finance\InvoiceAllXeroRepo;
+use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
+use App\Http\Repository\Transaction\TransBankRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\Expenses\Purchase\Bill\DBill;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 use App\Http\Repository\MasterData\CoaRepo;
 
 
+use Illuminate\Pagination\LengthAwarePaginator;
 use Validator;
 use App\Traits\ApiResponse;
 
@@ -20,16 +25,23 @@ class CoaController extends Controller
 {
 
     use ApiResponse;
-    protected $repo, $repo_trans_all, $repo_d_bill;
+    protected $repo, $repo_trans_all, $repo_d_bill, $repo_trans_bank, $repo_invoice, $repo_detail_invoice;
+    private $ticketCoaCodes = ['4100', '4112'];
 
     public function __construct(
         CoaRepo $repo,
         TransCoaRepo $transCoaRepo,
-        PODBillRepository $repo_d_bill
+        PODBillRepository $repo_d_bill,
+        TransBankRepo $repo_trans_bank,
+        InvoiceAllXeroRepo $repo_invoice,
+        InvoiceDXeroLocalRepo $repo_detail_invoice
     ) {
         $this->repo = $repo;
         $this->repo_trans_all = $transCoaRepo;
         $this->repo_d_bill = $repo_d_bill;
+        $this->repo_trans_bank = $repo_trans_bank;
+        $this->repo_invoice = $repo_invoice;
+        $this->repo_detail_invoice = $repo_detail_invoice;
     }
 
     function generateRandom4Digit()
@@ -229,6 +241,229 @@ class CoaController extends Controller
     }
 
 
+
+
+
+    /** Halaman blade: hanya kirim opsi COA. Data diambil lewat AJAX. */
+    public function viewCoaTrans()
+    {
+        return view('admin.report.payment_coa', [
+            'coaOptions' => $this->repo->getByCodes($this->ticketCoaCodes),
+            'today' => Carbon::today()->toDateString(),
+        ]);
+    }
+
+    /**
+     * 1. closing ->langsung lunas keterangan : closing - lunas
+     * 2. jika filter due dan start sama : 1 hari
+     * 3. belum lunas ambil dari : transaction_nominal_bank_accounts
+     * 4. invoice yang due_date-nya sudah lewat dan belum lunas tidak tampil
+     * 5 closing & pembayaran : tetap pakai transaction_nominal_bank_accounts, harus lunas pake invoice
+     * Param: page, limit, kolom_name, keyword (opsional: cari no invoice / nama kontak),
+     *        coa_code (4100|4112, default 4100), date_from, date_to (default hari ini),
+     *        status (bayar|dp|pelunasan|closing, default bayar)
+     */
+    public function getCoaTrans(Request $request, $coaCode = null)
+    {
+        $validator = Validator::make($request->all(), [
+            'page' => 'required|integer',
+            'limit' => 'required|integer',
+            'kolom_name' => 'required|string',
+            'keyword' => 'nullable|string',
+            'coa_code' => 'nullable|in:' . implode(',', $this->ticketCoaCodes),
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'status' => 'nullable|in:closing,pelunasan,segera',
+            'include_overdue' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $coa = $this->resolveTicketCoa($request, $coaCode);
+        if (!$coa) {
+            return $this->error('COA tidak ditemukan', 404);
+        }
+
+        list($dateFrom, $dateTo) = $this->ticketDateRange($request);
+        $status = $request->input('status', 'closing');
+
+        if ($status === 'segera') {
+            $data = collect($this->repo_invoice->getDueUnpaidByCoa(
+                (int) $coa->id,
+                $dateFrom,
+                $dateTo,
+                $request->boolean('include_overdue')
+            ))->map(function ($r) {
+                $r->mixed = (int) $r->other_lines > 0;
+                $r->wa_number = $this->normalizeWaNumber($r->phone_number);
+                unset($r->phone_number);
+                return $r;
+            });
+        } else {
+            $data = $this->buildPaymentRows((int) $coa->id, $dateFrom, $dateTo);
+            $data = $status === 'pelunasan'
+                ? $data->where('kind', 'pelunasan')
+                : $data->whereIn('kind', ['dp', 'lunas_langsung']); // closing (dp masuk)
+        }
+
+        if ($request->filled('keyword')) {
+            $kw = $request->keyword;
+            $data = $data->filter(function ($r) use ($kw) {
+                return mb_stripos($r->invoice_number, $kw) !== false
+                    || mb_stripos((string) $r->contact_name, $kw) !== false;
+            });
+        }
+
+        $data = $data->values();
+        $page = max((int) $request->page, 1);
+        $limit = max((int) $request->limit, 1);
+
+        $paginator = new LengthAwarePaginator(
+            $data->forPage($page, $limit)->values(),
+            $data->count(),
+            $limit,
+            $page
+        );
+
+        return $this->autoResponse($paginator);
+    }
+
+    /** Ringkasan 3 kartu (tidak ikut filter status / keyword). */
+    public function getCoaTransSummary(Request $request, $coaCode = null)
+    {
+        $validator = Validator::make($request->all(), [
+            'coa_code' => 'nullable|in:' . implode(',', $this->ticketCoaCodes),
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'include_overdue' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $coa = $this->resolveTicketCoa($request, $coaCode);
+        if (!$coa) {
+            return $this->error('COA tidak ditemukan', 404);
+        }
+
+        list($dateFrom, $dateTo) = $this->ticketDateRange($request);
+
+        $rows = $this->buildPaymentRows((int) $coa->id, $dateFrom, $dateTo);
+
+        // uang masuk = tanpa pembayaran via overpay (apply credit), karena uangnya sudah dicatat saat diterima
+        $cash = function ($items) {
+            return $items->where('via_overpay', false)->sum('amount_base');
+        };
+        $closing = $rows->whereIn('kind', ['dp', 'lunas_langsung']);
+        $pelunas = $rows->where('kind', 'pelunasan');
+
+        $due = collect($this->repo_invoice->getDueUnpaidByCoa(
+            (int) $coa->id,
+            $dateFrom,
+            $dateTo,
+            $request->boolean('include_overdue')
+        ));
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'closing_count' => $closing->count(),
+                'closing_cash' => $cash($closing),
+                'pelunasan_count' => $pelunas->count(),
+                'pelunasan_cash' => $cash($pelunas),
+                'segera_count' => $due->count(),
+                'segera_sisa' => $due->sum('sisa_base'),
+            ],
+        ]);
+    }
+
+    private function resolveTicketCoa(Request $request, $coaCode = null)
+    {
+        $coaCode = (string) ($request->input('coa_code') ?: ($coaCode ?: '4100'));
+
+        return $this->repo->getByCodes($this->ticketCoaCodes)->first(function ($c) use ($coaCode) {
+            return (string) $c->code === $coaCode;
+        });
+    }
+
+    private function ticketDateRange(Request $request)
+    {
+        $today = Carbon::today()->toDateString();
+        $from = $request->filled('date_from') ? Carbon::parse($request->date_from)->toDateString() : $today;
+        $to = $request->filled('date_to') ? Carbon::parse($request->date_to)->toDateString() : $from;
+
+        return [$from, $to];
+    }
+
+    private function buildPaymentRows(int $coaId, string $dateFrom, string $dateTo)
+    {
+        return collect($this->repo_trans_bank->getTicketPaymentReport($coaId, $dateFrom, $dateTo))
+            ->map(function ($r) {
+                return $this->classifyTicketPayment($r);
+            });
+    }
+
+    /**
+     * Jenis pembayaran:
+     *  dp             : pembayaran pertama invoice, belum lunas        (closing / dp masuk)
+     *  lunas_langsung : pembayaran pertama langsung melunasi            (closing / dp masuk, label "closing-lunas")
+     *  pelunasan      : pembayaran ke-2 dst yang membuat invoice lunas  (baru pelunasan)
+     *  cicilan        : pembayaran ke-2 dst yang belum melunasi         (tidak tampil di 3 filter)
+     * Lunas = total pembayaran berjalan (urut date_transaction, id) >= invoice_total.
+     */
+    private function classifyTicketPayment($r)
+    {
+        $eps = 0.01;
+        $total = (float) $r->invoice_total;
+        $paidAfter = (float) $r->paid_after;
+        $paidBefore = $paidAfter - (float) $r->amount;
+
+        $lunasNow = $total > 0 && $paidAfter >= $total - $eps && $paidBefore < $total - $eps;
+        $isFirst = (int) $r->pay_no === 1;
+
+        if ($isFirst && $lunasNow) {
+            $kind = 'lunas_langsung';
+        } elseif ($isFirst) {
+            $kind = 'dp';
+        } elseif ($lunasNow) {
+            $kind = 'pelunasan';
+        } else {
+            $kind = 'cicilan';
+        }
+
+        $r->kind = $kind;
+        $r->sisa = max($total - $paidAfter, 0);
+        $r->via_overpay = !is_null($r->overpay_id);
+        $r->mixed = (int) $r->other_lines > 0;
+        $r->wa_number = $this->normalizeWaNumber($r->phone_number);
+        unset($r->phone_number);
+        return $r;
+    }
+
+    /** Nomor untuk wa.me: hanya digit, kode negara 62. Null kalau kosong / tidak valid (tombol tidak tampil). */
+    private function normalizeWaNumber($phone)
+    {
+        $first = preg_split('/[,;\/]/', (string) $phone)[0]; // kalau ada beberapa nomor, ambil yang pertama
+        $n = preg_replace('/\D+/', '', $first);
+        if ($n === '') {
+            return null;
+        }
+        if (strpos($n, '00') === 0) {          // 0062812... -> 62812...
+            $n = substr($n, 2);
+        } elseif (strpos($n, '620') === 0) {   // 620812... -> 62812...
+            $n = '62' . substr($n, 3);
+        } elseif (strpos($n, '0') === 0) {     // 0812... -> 62812...
+            $n = '62' . substr($n, 1);
+        } elseif (strpos($n, '8') === 0) {     // 812... -> 62812...
+            $n = '62' . $n;
+        }
+        $len = strlen($n);
+
+        return ($len >= 10 && $len <= 15) ? $n : null;
+    }
 
     public function delete(Request $request)
     {

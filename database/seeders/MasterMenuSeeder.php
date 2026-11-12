@@ -192,11 +192,13 @@ class MasterMenuSeeder extends Seeder
                     'rep-coa',
                     'rep-log-history',
                     'profit-and-loss',
+                    'rep-payment-coa'
                 ];
                 $slug_report = [
                     'travel/admin/report/rep-coa',
                     'travel/admin/report/rep-log-history',
-                    'travel/admin/report/profit-and-loss'
+                    'travel/admin/report/profit-and-loss',
+                    'travel/admin/report/rep-payment-coa'
                 ];
 
                 $rprt = 0;

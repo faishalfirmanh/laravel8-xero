@@ -388,6 +388,10 @@ Route::prefix("admin-web")->group(function () {
             Route::prefix('rep-log-history')->group(function () {
                 Route::get('list', [LogHistoryController::class, 'getData'])->name('rep-log-history');
             });
+            Route::prefix('rep-payment-coa')->group(function () {
+                Route::get('coa-trans', [CoaController::class, 'getCoaTrans'])->name('get-coa-trans');
+                Route::get('coa-trans-summary', [CoaController::class, 'getCoaTransSummary'])->name('get-coa-trans-summary');
+            });
             Route::prefix('rep-coa')->group(function () {
                 Route::get('list', [CoaController::class, 'getAllPaginate'])->name('rep-coa');
                 Route::get('getByIdCoa', [CoaController::class, 'getListTransByCoaId'])->name('rep-detail-coa');
