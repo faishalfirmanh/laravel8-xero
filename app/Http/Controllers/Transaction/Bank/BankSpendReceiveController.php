@@ -429,6 +429,13 @@ class BankSpendReceiveController extends Controller
             return $this->error($validator->errors());
         }
 
+        $bank_from = $this->repo->whereData(['id' => $request->bank_id_from])->first();
+        $bank_to = $this->repo->whereData(['id' => $request->bank_id_to])->first();
+
+        if ($bank_from->currency_code != $bank_to->currency_code) {
+            return $this->error('transfer gagal, beda mata uang', 500);
+        }
+
         DB::beginTransaction();
         try {
             $from = $request->bank_id_from;

@@ -4,6 +4,7 @@ namespace App\Models\Transaction;
 
 use App\Models\Expenses\Purchase\Bill\PBill;
 use App\Models\InvoicesAllFromXero;
+use App\Models\ItemsPaketAllFromXero;
 use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,11 +37,13 @@ class TransactionNominalBankAccount extends Model
         'nominal_currency',//nominal currency ke rupiah
         'total_base_spend',//hasil final conversi nominal_speend 
         'total_base_receive',//hasil final conversi nominal_receive 
-        // 'id_bank_transfer' //relasi dengan id_bank_transfer jika ada bank trasnfer
+        // 'id_bank_transfer' //relasi dengan id_bank_transfer jika ada bank trasnfer,
+        'item_id_for_payment',//untuk pembayaran untuk item paket apa , jika pemayarna paket wajib diisi
     ];
 
     protected $appends = [
-        'name_bank'
+        'name_bank',
+        'nama_paket_payment'
     ];
 
     public function getNameBankAttribute()
@@ -48,9 +51,24 @@ class TransactionNominalBankAccount extends Model
         return optional($this->getBank)->name ?? '-';
     }
 
+    public function getNamaPaketPaymentAttribute()
+    {
+        return optional($this->getItemPaket)->nama_paket ?? '-';
+    }
+
     public function getBankTransfer()
     {
         return $this->belongsTo(TransactionTransferBank::class, 'id', 'trans_transfer_bank_id');
+    }
+
+    public function getItemPaket()
+    {
+        return $this->belongsTo(ItemsPaketAllFromXero::class, 'item_id_for_payment');
+    }
+
+    public function getPaketName()
+    {
+        return $this->hasOne(ItemsPaketAllFromXero::class, 'id', 'item_id_for_payment');
     }
 
     public function getBank()

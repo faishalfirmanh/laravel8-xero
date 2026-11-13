@@ -4,12 +4,14 @@ namespace App\Http\Repository\Transaction;
 use App\Http\Repository\BaseRepository;
 
 
+use App\Http\Repository\Support\PaketLineFilterSql;
 use App\Models\MasterData\Coa;
 use App\Models\Transaction\TransactionNominalBankAccount;
 use DB;
 
 class TransBankRepo extends BaseRepository
 {
+    use PaketLineFilterSql;
     public function __construct(TransactionNominalBankAccount $model)
     {
         $this->model = $model;
@@ -36,6 +38,86 @@ class TransBankRepo extends BaseRepository
             ->get(['id', 'code', 'name']);
     }
 
+
+    public function getPaketPaymentReport(int $coaId, array $itemIds, array $trackingUuids, string $dateFrom, string $dateTo): array
+    {
+        list($f2, $b2) = $this->paketLineFilter('l2', $itemIds, $trackingUuids);
+        list($f, $b) = $this->paketLineFilter('l', $itemIds, $trackingUuids);
+
+        $sql = "
+        SELECT x.*
+        FROM (
+            SELECT
+                t.id                 AS payment_id,
+                t.id_parent_invoice  AS invoice_id,
+                t.date_transaction,
+                t.reference_detail,
+                t.uuid_bank,
+                t.overpay_id,
+                t.item_id_for_payment,
+                it.nama_paket        AS payment_item_name,
+                (t.item_id_for_payment IS NULL OR EXISTS (
+                    SELECT 1 FROM item_detail_invoices l2
+                    WHERE l2.parent_inv_id = t.id_parent_invoice
+                      AND l2.coa_id = ?
+                      AND l2.item_id = t.item_id_for_payment
+                      AND {$f2}
+                )) AS in_scope,
+                IF(t.overpay_id IS NULL, t.nominal_receive, t.nominal_spend) AS amount,
+                IF(t.overpay_id IS NULL,
+                    COALESCE(t.total_base_receive, t.nominal_receive),
+                    COALESCE(t.total_base_spend, t.nominal_spend)) AS amount_base,
+                ROW_NUMBER() OVER (
+                    PARTITION BY t.id_parent_invoice
+                    ORDER BY t.date_transaction, t.id
+                ) AS pay_no,
+                SUM(IF(t.overpay_id IS NULL, t.nominal_receive, t.nominal_spend)) OVER (
+                    PARTITION BY t.id_parent_invoice
+                    ORDER BY t.date_transaction, t.id
+                ) AS paid_after,
+                i.invoice_number,
+                i.invoice_total,
+                i.contact_name,
+                i.code_curr,
+                i.status AS invoice_status,
+                i.issue_date,
+                d.item_amount,
+                d.other_lines,
+                j.phone_number
+            FROM transaction_nominal_bank_accounts t
+            JOIN invoices_all_from_xeros i ON i.id = t.id_parent_invoice
+            LEFT JOIN data_jamaah_xeros j ON j.id = i.contact_id
+            LEFT JOIN items_paket_all_from_xeros it ON it.id = t.item_id_for_payment
+            JOIN (
+                SELECT
+                    l.parent_inv_id,
+                    SUM(IF(l.coa_id = ? AND {$f}, l.total_amount_each_row, 0)) AS item_amount,
+                    SUM(IF(l.coa_id = ? AND {$f}, 0, 1))                       AS other_lines
+                FROM item_detail_invoices l
+                GROUP BY l.parent_inv_id
+                HAVING SUM(l.coa_id = ? AND {$f}) > 0
+            ) d ON d.parent_inv_id = t.id_parent_invoice
+            WHERE t.id_fee_overpay IS NULL
+        ) x
+        WHERE x.in_scope = 1
+          AND DATE(x.date_transaction) BETWEEN ? AND ?
+        ORDER BY x.date_transaction, x.payment_id
+    ";
+
+        $bindings = array_merge(
+            [$coaId],
+            $b2,          // in_scope
+            [$coaId],
+            $b,           // item_amount
+            [$coaId],
+            $b,           // other_lines
+            [$coaId],
+            $b,           // HAVING
+            [$dateFrom, $dateTo]
+        );
+
+        return DB::select($sql, $bindings);
+    }
 
     // =====================================================================
 // B. Tempel di TransBankRepo

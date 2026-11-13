@@ -2007,7 +2007,10 @@ class InvXeroController extends Controller
             'nominal_receive' => 'required|integer|min:1',
             'reference_detail' => 'required|string',
             'date_transaction' => 'required|date',
-            'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id'
+            'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id',
+            //'item_id_for_payment' => 'nullable|integer|exists:items_paket_all_from_xeros,id',
+            // 'item_id_for_payment' => 'nullable|array',
+            // 'item_id_for_payment.*' => 'integer|exists:items_paket_all_from_xeros,id',
         ]);
 
         if ($validator->fails()) {
@@ -2133,6 +2136,9 @@ class InvXeroController extends Controller
             'date_transaction' => 'required|date',
             'parent_inv_id' => 'required|integer|exists:invoices_all_from_xeros,id',
             'overpay_id' => 'nullable|integer|exists:overpays,id',
+            'item_id_for_payment' => 'nullable|integer|exists:items_paket_all_from_xeros,id',
+            // 'item_id_for_payment' => 'nullable|array',
+            // 'item_id_for_payment.*' => 'integer|exists:items_paket_all_from_xeros,id',
         ]);
         if ($validator->fails())
             return $this->error($validator->errors(), 422);

@@ -8,6 +8,7 @@ use App\Http\Controllers\MasterData\JamaahAlhidController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
 use App\Http\Controllers\MasterData\ProducAndServiceXeroLocalController;
 use App\Http\Controllers\MekariWaTestController;
+use App\Http\Controllers\Report\CoaPaketPaymentController;
 use App\Http\Controllers\Report\ProfitLossController;
 use App\Http\Controllers\Toko\MasterData\UnitController;
 use App\Http\Controllers\Toko\MasterData\ProductUomController;
@@ -405,6 +406,10 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('detail-profit-and-lossv2/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailDataV2'])
                     ->name('api-profit-loss-detailv2');
                 Route::get('detailprofitloss/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailDataCombine'])->name('detail-combine');
+            });
+            Route::prefix('rep-paket')->group(function () {
+                Route::get('coa-paket-payment', [CoaPaketPaymentController::class, 'getCoaPaketPayment'])->name('get-coa-paket-payment');
+                Route::get('coa-paket-payment-summary', [CoaPaketPaymentController::class, 'getCoaPaketPaymentSummary'])->name('get-coa-paket-payment-summary');
             });
         });
 

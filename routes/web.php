@@ -3,6 +3,7 @@
 use App\Http\Controllers\GoHalal\PaketUmrohController;
 use App\Http\Controllers\MasterData\CoaController;
 use App\Http\Controllers\MasterData\HotelApiController;
+use App\Http\Controllers\Report\CoaPaketPaymentController;
 use App\Http\Controllers\Report\ProfitLossController;
 use App\Http\Controllers\Transaction\Revenue\InvoiceXeroLocalController;
 use App\Http\Controllers\Web\MasterData\HotelController;
@@ -109,6 +110,7 @@ Route::prefix('travel')->group(function () {
             Route::get('profit-and-loss', [DashboardController::class, 'profitAndLoss'])->name('view-report-profit-loss');
             Route::get('rep-payment-coa', [CoaController::class, 'viewCoaTrans'])->name('view-report-coa-trans');
             Route::get('detail-profit-and-loss/{account}/{date_start}/{date_end}/', [DashboardController::class, 'profitAndLossDetail'])->name('view-report-profit-loss-detail');
+            Route::get('rep-paket', [CoaPaketPaymentController::class, 'viewCoaPaketPayment'])->name('view-report-coa-paket-payment');
         });
     });
 });

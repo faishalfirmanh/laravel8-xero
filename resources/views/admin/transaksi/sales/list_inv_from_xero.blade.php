@@ -545,11 +545,10 @@
    PAYMENT MODAL — WIDTH & LAYOUT
    ══════════════════════════════════════════════ */
 #paymentModal .modal-dialog {
-    max-width: 860px !important;
+    max-width: 1200px !important;
     width: calc(100vw - 40px) !important;
     margin: 20px auto !important;
 }
-
 /* ══════════════════════════════════════════════
    SELECT2 FIX — di dalam #newPaymentRowsTable
    ══════════════════════════════════════════════ */
@@ -893,6 +892,13 @@
 }
 
 .swal2-container { z-index: 20000 !important; }
+
+#wrapItemForPayment .select2-container { display: block !important; width: 100% !important; }
+#wrapItemForPayment .select2-container--bootstrap4 .select2-selection--multiple {
+    border: 1px solid #ced4da !important;
+    min-height: 31px;
+    font-size: 12px;
+}
 </style>
 
 
@@ -1701,6 +1707,7 @@
                         <th>Tanggal</th>
                         <th>Nama Bank</th>
                         <th>Keterangan / Ref</th>
+                        <th>Info paket</th>
                         <th>Nominal</th>
                         <th width="12%" class="text-center">Aksi</th>
                     </tr>
@@ -1750,11 +1757,12 @@
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered mb-1"
                             id="newPaymentRowsTable" style="font-size:12px;">
-                            <thead class="thead-dark">
+                          <thead class="thead-dark">
                                 <tr>
                                     <th style="min-width:130px; width:150px;">Tanggal Bayar</th>
-                                    <th style="min-width:240px;">Bank</th>
+                                    <th style="min-width:220px;">Bank</th>
                                     <th style="min-width:130px; width:150px;">Nominal (IDR)</th>
+                                    <th style="min-width:240px;">Paket (opsional)</th>
                                     <th style="min-width:120px;">Catatan / Ref</th>
                                     <th style="width:36px;"></th>
                                 </tr>
@@ -2375,29 +2383,24 @@ function simpanJamaah(){
 
 $('#paymentModal').on('shown.bs.modal', function () {
     $(document).off('focusin.bs.modal');
- 
-  
+
     $('#newPaymentRowsBody tr').each(function () {
         var $row = $(this);
-        var $sel = $row.find('.pay-bank-select');
-        if ($sel.length && !$sel.hasClass('select2-hidden-accessible')) {
+        if (!$row.find('.pay-bank-select').hasClass('select2-hidden-accessible')) {
             initBankSelectOnRow($row);
+        }
+        if (!$row.find('.pay-item-select').hasClass('select2-hidden-accessible')) {
+            initItemSelectOnRow($row);
         }
     });
 });
 
 $('#paymentModal').on('hidden.bs.modal', function () {
-    $('#newPaymentRowsBody .pay-bank-select').each(function () {
-        if ($(this).hasClass('select2-hidden-accessible')) {
-            $(this).select2('destroy');
-        }
-    });
-    // Select2 lainnya di dalam modal
+    destroyPaymentRowSelects();
+
     ['#overpay_id_modal2', '#bank_overpay_id'].forEach(function (sel) {
         var $el = $(sel);
-        if ($el.hasClass('select2-hidden-accessible')) {
-            $el.select2('destroy');
-        }
+        if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
     });
 });
 //agar modal payment tidak close
@@ -2423,6 +2426,14 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 <td>
                     <input type="number" class="form-control form-control-sm pay-nominal"
                         min="1" placeholder="0" value="${data.nominal || ''}">
+                </td>
+                <td>
+                    <select class="form-control form-control-sm pay-item-select" style="width:100%;">
+                        <option></option>
+                        ${data.itemId
+                            ? `<option value="${data.itemId}" selected>${data.itemName || ''}</option>`
+                            : ''}
+                    </select>
                 </td>
                 <td>
                     <input type="text" class="form-control form-control-sm pay-ref"
@@ -2536,6 +2547,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
         const $row = $(buildPaymentRow(data));
         $('#newPaymentRowsBody').append($row);
         initBankSelectOnRow($row, data.bankId || null, data.bankName || null);
+        initItemSelectOnRow($row);
         updateRemovePayRowBtns();
     }
 
@@ -2550,12 +2562,9 @@ let payFormMode = 'new'; // 'new' | 'edit'
         $('#row_payment_id').val('');
         $('#pay_mode').val('new');
 
-        // Destroy select2 semua row lama
-        $('#newPaymentRowsBody .pay-bank-select').each(function() {
-            if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
-        });
+        destroyPaymentRowSelects();           // satu kali, SEBELUM empty()
         $('#newPaymentRowsBody').empty();
-        addPaymentRow(); // 1 baris kosong
+        addPaymentRow();                      // 1 baris kosong (select2 aktif)
 
         $('#payFormTitle').html('<i class="fa fa-plus-circle mr-1"></i> Tambah Pembayaran Baru');
         $('#payBtnLabel').text('Simpan Pembayaran');
@@ -2563,10 +2572,10 @@ let payFormMode = 'new'; // 'new' | 'edit'
         $('#btnCancelEditInv').hide();
         $('#wrapBankRows').show();
 
-        // Reset credit form
         $('#credit_date').val(new Date().toISOString().split('T')[0]);
         $('#credit_nominal').val('');
         $('#credit_ref').val('');
+        // tidak ada destroy / setItemForPayment di sini
     }
 
     function switchToEditPayMode(data) {
@@ -2574,21 +2583,16 @@ let payFormMode = 'new'; // 'new' | 'edit'
         $('#row_payment_id').val(data.id);
         $('#pay_mode').val('edit');
 
-        // Clear semua row, isi 1 row pre-filled
-        $('#newPaymentRowsBody .pay-bank-select').each(function() {
-            if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
-        });
+        destroyPaymentRowSelects();
         $('#newPaymentRowsBody').empty();
-        addPaymentRow(data);
+        addPaymentRow(data);                  // data.itemId / data.itemName ikut terisi
 
         $('#payFormTitle').html('<i class="fa fa-pencil mr-1"></i> Edit Pembayaran');
         $('#payBtnLabel').text('Update Pembayaran');
         $('#btnAddPayRow').hide();
         $('#btnCancelEditInv').show();
 
-        // Scroll ke form
-        document.getElementById('newPaymentRowsTable')
-            .scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        document.getElementById('newPaymentRowsTable').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } 
 
     var table;
@@ -2684,8 +2688,10 @@ let payFormMode = 'new'; // 'new' | 'edit'
     $(document).on('click', '.btn-del-pay-row', function () {
         const count = $('#newPaymentRowsBody tr').length;
         if (count <= 1 && payFormMode === 'new') return;
-        const $sel = $(this).closest('tr').find('.pay-bank-select');
-        if ($sel.hasClass('select2-hidden-accessible')) $sel.select2('destroy');
+
+        $(this).closest('tr').find('.pay-bank-select, .pay-item-select').each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+        });
         $(this).closest('tr').remove();
         updateRemovePayRowBtns();
     });
@@ -2702,12 +2708,12 @@ let payFormMode = 'new'; // 'new' | 'edit'
         const $btn        = $(this).prop('disabled', true);
 
         if (mode === 'edit') {
-            // ── Edit single payment ──────────────────────────
-            const $row = $('#newPaymentRowsBody tr:first');
+            const $row    = $('#newPaymentRowsBody tr:first');
             const bank    = $row.find('.pay-bank-select').val();
             const nominal = $row.find('.pay-nominal').val();
             const date    = $row.find('.pay-date').val();
             const ref     = $row.find('.pay-ref').val();
+            const itemId  = $row.find('.pay-item-select').val();   // <-- di sini
 
             if (!bank || !nominal || !date) {
                 Swal.fire('Peringatan', 'Lengkapi Bank, Nominal, dan Tanggal.', 'warning');
@@ -2715,16 +2721,18 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 return;
             }
 
-            try {
-                const res = await ajaxRequest(`{{ route('update-pay-sales-inv') }}`, 'POST', {
-                    id               : $('#row_payment_id').val(),
-                    uuid_bank        : bank,
-                    nominal_receive  : nominal,
-                    reference_detail : ref,
-                    date_transaction : date,
-                    parent_inv_id    : parentInvId,
-                }, localStorage.getItem('token'));
+            const payloadEdit = {
+                id               : $('#row_payment_id').val(),
+                uuid_bank        : bank,
+                nominal_receive  : nominal,
+                reference_detail : ref,
+                date_transaction : date,
+                parent_inv_id    : parentInvId,
+            };
+            if (itemId) payloadEdit.item_id_for_payment = itemId;
 
+            try {
+                const res = await ajaxRequest(`{{ route('update-pay-sales-inv') }}`, 'POST', payloadEdit, localStorage.getItem('token'));
                 if (res.status == 200) {
                     Swal.fire({ icon: 'success', title: 'Berhasil diupdate!', timer: 1500, showConfirmButton: false });
                     resetPaymentForm();
@@ -2735,10 +2743,9 @@ let payFormMode = 'new'; // 'new' | 'edit'
             finally { $btn.prop('disabled', false); }
 
         } else {
-            // ── New multi-row payments ───────────────────────
-            const rows     = $('#newPaymentRowsBody tr');
-            let payloads   = [];
-            let hasError   = false;
+            const rows   = $('#newPaymentRowsBody tr');
+            let payloads = [];
+            let hasError = false;
 
             rows.each(function () {
                 const $row    = $(this);
@@ -2748,13 +2755,16 @@ let payFormMode = 'new'; // 'new' | 'edit'
 
                 if (!bank || !nominal || !date) { hasError = true; return false; }
 
-                payloads.push({
+                const p = {
                     date_transaction : date,
                     uuid_bank        : bank,
                     nominal_receive  : nominal,
                     reference_detail : $row.find('.pay-ref').val(),
                     parent_inv_id    : parentInvId,
-                });
+                };
+                const itemId = $row.find('.pay-item-select').val();
+                if (itemId) p.item_id_for_payment = itemId;
+                payloads.push(p);
             });
 
             if (hasError) {
@@ -2813,6 +2823,8 @@ let payFormMode = 'new'; // 'new' | 'edit'
             bankName  : $(this).data('bank-name'),
             nominal   : parseFloat($(this).data('nominal')),
             reference : $(this).data('reference'),
+            itemId   : $(this).data('item-id') || null,
+            itemName : $(this).data('item-name') || '',
         });
         // pastikan mode bank aktif
         console.log($(this).data('nominal'));
@@ -4950,6 +4962,12 @@ function setRowRequiredState($row, isRequired) {
             const rawOverpay = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
             const payments = d.get_payment || [];
 
+            console.log('edit pay data', $(this).data());
+            console.table(payments.map(p => ({
+                id: p.id,
+                item_id_for_payment: p.item_id_for_payment,
+                nama_paket_payment: p.nama_paket_payment
+            })));
             // get_over_pay bisa berupa objek atau array, ambil yang pertama
             const overpay = Array.isArray(d.get_over_pay)
                 ? (d.get_over_pay[0] || null)
@@ -5021,6 +5039,7 @@ function setRowRequiredState($row, isRequired) {
                                 <td>${p.date_transaction || '-'}</td>
                                 <td>${p.name_bank}</td>
                                 <td>${p.reference_detail || '-'}</td>
+                                <td>${p.nama_paket_payment || '-'}</td>
                                 <td class="text-right">${formatCurrency(nominal, d.code_curr)}</td>
                                 <td class="text-center">
                                     <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-inv-pay" style="padding:10px;"
@@ -5030,7 +5049,9 @@ function setRowRequiredState($row, isRequired) {
                                         data-date="${p.date_transaction}"
                                         data-bank-id="${p.uuid_bank}"
                                         data-bank-name="${p.name_bank}"
-                                        data-reference="${p.reference_detail || ''}">
+                                        data-reference="${p.reference_detail || ''}"
+                                        data-item-id="${p.item_id_for_payment || ''}"
+                                        data-item-name="${escAttr(p.nama_paket_payment)}">
                                         <i class="ti ti-pencil"></i>
                                     </button>
                                     <button type="button" class="btn btn-xs btn-danger btn-delete-inv-pay"
@@ -5166,6 +5187,13 @@ function setRowRequiredState($row, isRequired) {
         }
     });
 
+    function escAttr(s) {
+        return String(s ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
 
     $('#btn_check_invoice').on('click', function () {
         const uuid     = $('#invoice_uuid_payment').val();
@@ -5884,6 +5912,130 @@ $('#modalCreateJamaah').on('hidden.bs.modal', function () {
         $('body').addClass('modal-open');
     }
 });
+
+
+function initItemSelectOnRow($row) {
+    const $sel = $row.find('.pay-item-select');
+    if ($sel.hasClass('select2-hidden-accessible')) $sel.select2('destroy');
+
+    const limit = 10;
+
+    $sel.select2({
+        theme          : 'bootstrap4',
+        width          : '100%',
+        dropdownParent : $('#paymentModal'),
+        placeholder    : 'Pilih paket (opsional)',
+        allowClear     : true,
+        language: {
+            searching  : () => 'Mencari...',
+            noResults  : () => 'Paket tidak ditemukan',
+            loadingMore: () => 'Memuat lainnya...'
+        },
+        ajax: {
+            url     : '{{ route("list-paket-select2") }}',
+            dataType: 'json',
+            delay   : 300,
+            data    : (p) => ({ page: p.page || 1, keyword: p.term || '', limit: limit }),
+            processResults: function (response, params) {
+                params.page = params.page || 1;
+                if (response.status != 'success') return { results: [] };
+
+                const items = (response.data && response.data.results) || [];
+                return {
+                    results: $.map(items, (item) => ({ id: item.id, text: item.nama_paket })),
+                    pagination: { more: items.length >= limit }
+                };
+            },
+            cache: false   // jangan di-share antar baris
+        }
+    });
+}
+
+// Hancurkan semua select2 (bank + paket) di tabel pembayaran
+function destroyPaymentRowSelects() {
+    $('#newPaymentRowsBody .pay-bank-select, #newPaymentRowsBody .pay-item-select').each(function () {
+        if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+    });
+}
+
+function getItemIdForPayment() {
+    return $('#item_id_for_payment').val() || null;   // string id atau null
+}
+
+function setItemForPayment(item) {   // item = {id, text} atau null
+    var $el = $('#item_id_for_payment');
+    $el.empty().append('<option></option>');
+    if (item && item.id) {
+        $el.append(new Option(item.text, item.id, true, true));
+    }
+    $el.trigger('change');
+}
+
+function initItemForPaymentSelect2() {
+    var $el = $('#item_id_for_payment');
+
+    if ($el.hasClass('select2-hidden-accessible')) {
+        $el.select2('destroy');
+    }
+
+    var limit = 10;
+
+    $el.select2({
+        theme: 'bootstrap4',
+        placeholder: 'Pilih paket (opsional)',
+        allowClear: true,
+        width: '100%',
+        dropdownParent: $('#paymentModal'),   // WAJIB: dropdown ada di dalam modal
+        language: {
+            searching  : function () { return 'Mencari...'; },
+            noResults  : function () { return 'Paket tidak ditemukan'; },
+            loadingMore: function () { return 'Memuat lainnya...'; }
+        },
+        ajax: {
+            url: '{{ route("list-paket-select2") }}',
+            dataType: 'json',
+            delay: 300,
+            data: function (params) {
+                return {
+                    page   : params.page || 1,
+                    keyword: params.term || '',
+                    limit  : limit
+                };
+            },
+            processResults: function (response, params) {
+                params.page = params.page || 1;
+
+                if (response.status != 'success') {
+                    return { results: [] };
+                }
+
+                var items = (response.data && response.data.results) || [];
+                return {
+                    results: $.map(items, function (item) {
+                        return { id: item.id, text: item.nama_paket };
+                    }),
+                    pagination: { more: items.length >= limit }
+                };
+            },
+            cache: true
+        }
+    });
+}
+
+// Ambil nilai select2 -> array id (selalu array, tidak pernah null)
+function getItemIdsForPayment() {
+    return $('#item_id_for_payment').val() || [];
+}
+
+// Isi / kosongkan select2 ini. items = [{id, text}, ...]
+function setItemForPayment(items) {
+    var $el = $('#item_id_for_payment');
+    $el.empty();
+    (items || []).forEach(function (it) {
+        $el.append(new Option(it.text, it.id, true, true));
+    });
+    $el.trigger('change');
+}
 
 </script>
 @endpush

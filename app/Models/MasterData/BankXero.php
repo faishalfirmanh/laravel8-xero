@@ -31,6 +31,14 @@ class BankXero extends Model
         'final_nominal_currency'
     ];
 
+    //Transaksi banak hubungnnya
+    //summary_nominal_banks : bank_id
+    //transaction_nominal_bank_accounts ->uuid_bank (1 bank_xeros banyak -> transaction_nominal_bank_accounts) ->bank_xeros->id
+    //invoices_all_from_xeros : id_parent_invoice 
+    //p_bills : id_parent_bill 
+    //fee_overpays : id_fee_overpay 
+    //transaction_bank_trans_p_s :id_parent_bank ,
+    //transaction_transfer_banks :trans_transfer_bank_id
 
     public function getSumCurrSpendAttribute()
     {
