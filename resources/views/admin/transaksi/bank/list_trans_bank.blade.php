@@ -168,6 +168,8 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 #modalTransfer .select2-selection--single .select2-selection__arrow { height: 34px; }
+#modalTransfer .tf-amount-wrap .tf-prefix { width: 48px; }
+#modalTransfer .tf-amount-wrap .form-control { padding-left: 58px; }
 </style>
 
 <div class="card shadow mb-5">
@@ -304,9 +306,9 @@
                             <div class="form-group col-md-8 mb-3">
                                 <label for="amount_tranfser">Amount <span class="text-danger">*</span></label>
                                 <div class="tf-amount-wrap">
-                                    <span class="tf-prefix">Rp</span>
-                                    <input type="number" step="0.01" min="0" class="form-control"
-                                           name="amount" id="amount_tranfser" value="0.00">
+                                    <span class="tf-prefix" id="tf_prefix">Rp</span>
+                                    <input type="number" step="0" min="1" class="form-control"
+                                           name="amount" id="amount_tranfser" value="0">
                                 </div>
                             </div>
                         </div>
@@ -529,13 +531,46 @@ $(document).ready(function() {
    // const segments = full_url.split('/').filter(Boolean);
     const segments = window.location.pathname.split('/');
     const lastSegment = segments.filter(Boolean).pop();//segments.pop();
-    let currentBank = { id: lastSegment, text: null };
+    let currentBank = { id: lastSegment, text: null, currency: null }; 
+    const tfCur = { from: 'IDR', to: 'IDR' };
+
     // --- HELPER FUNCTIONS ---
     function formatCurrency(amount) {
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(amount);
+    }
+
+    function transferPrefix() {
+         const c = tfCur.from;
+         return (!c || c === '-' || c === 'IDR') ? 'Rp' : c;
+    }
+
+    function renderTransferPrefix() {
+        $('#tf_prefix').text(transferPrefix());
+    }
+
+
+    function resetTransferForm() {
+        $('#formTransfer')[0].reset();
+        ['#from_account', '#to_account'].forEach(function (sel) {
+            const $el = $(sel);
+            if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+            $el.empty();
+        });
+
+        const d = new Date();
+        $('#date_trans_transfer').val(
+            d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+        );
+
+        tfCur.from = 'IDR';
+        tfCur.to   = 'IDR';
+        renderTransferPrefix();
+        $('#tfSummary').removeClass('show').empty();
+        $('#btnSubmitTransfer').prop('disabled', false)
+            .html('<i class="ti ti-send mr-1"></i> Transfer');
     }
 
     //untuk auto open dari report
@@ -662,6 +697,7 @@ $(document).ready(function() {
                 $("#final_nom").text('Saldo akhir ' + formatCurrency(row.get_bank.final_nominal_currency));
                
                 currentBank.text = row.get_bank.name + ' (' + (row.get_bank.currency_code || '-') + ')';
+                currentBank.currency = row.get_bank.currency_code || 'IDR';  
                 let url = '';
                 let id = '';
                 if (row.get_pbill && row.get_pbill.id) {
@@ -790,7 +826,7 @@ $('#btnResetFilterDate').on('click', function () {
 
 
 
-     $('#formTransfer').on('submit', function(e) {
+    $('#formTransfer').on('submit', function(e) {
         e.preventDefault();
         const $btn = $(this).find('button[type="submit"]');
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
@@ -825,6 +861,10 @@ $('#btnResetFilterDate').on('click', function () {
             .catch((err)=>{
                 cathError(err)
             })
+            .finally(() => {                                  
+                $btn.prop('disabled', false)
+                    .html('<i class="ti ti-send mr-1"></i> Transfer');
+            });
     });
    
 
@@ -906,6 +946,7 @@ $('#btnResetFilterDate').on('click', function () {
     // });
 
     $("#button_trans_money").on("click", function () {
+        resetTransferForm(); 
         initSelect2ModalTransfer();
         setDefaultFromBank();
         $("#modalTransfer").modal('show');
@@ -919,6 +960,9 @@ $('#btnResetFilterDate').on('click', function () {
 
         const apply = function (text) {
             $from.append(new Option(text, currentBank.id, true, true)).trigger('change');
+             tfCur.from = currentBank.currency || 'IDR';     // <-- TAMBAH
+            tfCur.to   = 'IDR';                             // <-- TAMBAH
+            renderTransferPrefix(); 
         };
 
         if (currentBank.text) {
@@ -957,6 +1001,24 @@ $('#btnResetFilterDate').on('click', function () {
 
         $("#modalCreateHotel").modal('show');   // ← terakhir
     });
+
+    $(document).on('select2:select', '#from_account', function (e) {
+        tfCur.from = e.params.data.currency_code || 'IDR';
+        renderTransferPrefix();
+        updateTransferSummary();
+    });
+
+    $(document).on('select2:clear', '#from_account', function () {
+        tfCur.from = 'IDR';
+        renderTransferPrefix();
+        updateTransferSummary();
+    });
+
+    $(document).on('select2:select', '#to_account', function (e) {
+        tfCur.to = e.params.data.currency_code || 'IDR';
+    });
+
+    $(document).on('select2:clear', '#to_account', function () { tfCur.to = 'IDR'; });
 
 
     function initSelect2ModalTransfer() {
@@ -1612,7 +1674,7 @@ function updateTransferSummary() {
     if (from && to && amount > 0) {
         $box.html(
             `<i class="ti ti-info-circle mr-1"></i>` +
-            `Transfer <b>Rp ${amount.toLocaleString('id-ID')}</b> ` +
+            `Transfer <b>${transferPrefix()} ${amount.toLocaleString('id-ID')}</b> ` +
             `dari <b>${$('<div>').text(from).html()}</b> ` +
             `ke <b>${$('<div>').text(to).html()}</b>`
         ).addClass('show');
@@ -1634,6 +1696,9 @@ $('#btnSwapTransfer').on('click', function () {
     if (t && t.id) $('#from_account').append(new Option(t.text, t.id, true, true));
     if (f && f.id) $('#to_account').append(new Option(f.text, f.id, true, true));
 
+    [tfCur.from, tfCur.to] = [tfCur.to, tfCur.from];
+    renderTransferPrefix();
+
     $('#from_account, #to_account').trigger('change');
 });
 
@@ -1646,13 +1711,14 @@ $('#btnSwapTransfer').on('click', function () {
 // }
 
 // ── Reset saat modal ditutup ──
-$('#modalTransfer').on('hidden.bs.modal', function () {
-    $('#formTransfer')[0].reset();
-    $('#from_account, #to_account').empty().trigger('change');
-    $('#tfSummary').removeClass('show').empty();
-    $('#btnSubmitTransfer').prop('disabled', false)
-        .html('<i class="ti ti-send mr-1"></i> Transfer');
-});
+    $('#modalTransfer').on('hidden.bs.modal', function () {
+          resetTransferForm();
+        // $('#formTransfer')[0].reset();
+        // $('#from_account, #to_account').empty().trigger('change');
+        // $('#tfSummary').removeClass('show').empty();
+        // $('#btnSubmitTransfer').prop('disabled', false)
+        //     .html('<i class="ti ti-send mr-1"></i> Transfer');
+    });
 });
 </script>
 @endpush
