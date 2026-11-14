@@ -263,6 +263,22 @@ class InvXeroController extends Controller
                 ->where('lockable_id', $request->id)
                 ->delete();
 
+            $logMessage = $request->user_login->name
+                . ' menghapus invoice ' . $invParent->invoice_number
+                . ' (ID ' . $invParent->id . ')'
+                . ', total ' . number_format((float) $invParent->invoice_total, 2, ',', '.')
+                . ', beserta ' . count($detailUuids) . ' detail item'
+                . ', ' . $fees->count() . ' fee overpay'
+                . ' dan ' . count($affectedBanks) . ' bank terdampak';
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $invParent->id
+            );
 
 
             DB::commit();

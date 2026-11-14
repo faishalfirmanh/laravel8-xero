@@ -35,7 +35,7 @@ use Cache;
 class FeeOverpayController extends Controller
 {
     //
-    protected $repo, $repo_overpay, $repo_coa, $repo_trans_bank, $repo_trans_coa, $repo_invoice, $repo_master_item, $globa_service, $repo_summary_bank;
+    protected $repo, $repo_overpay, $service_global, $repo_coa, $repo_trans_bank, $repo_trans_coa, $repo_invoice, $repo_master_item, $globa_service, $repo_summary_bank;
     use ConfigRefreshXero;
     use ApiResponse;
     public function __construct(
@@ -47,7 +47,8 @@ class FeeOverpayController extends Controller
         InvoiceAllXeroRepo $repo_invoice,
         ItemPaketAllXeroRepo $repo_master_item,
         GlobalService $globa_service,
-        SummaryBankRepo $repo_summary_bank
+        SummaryBankRepo $repo_summary_bank,
+        GlobalService $service_global
     ) {
         $this->repo = $repo;
         $this->repo_overpay = $repo_overpay;
@@ -58,6 +59,7 @@ class FeeOverpayController extends Controller
         $this->repo_master_item = $repo_master_item;
         $this->globa_service = $globa_service;
         $this->repo_summary_bank = $repo_summary_bank;
+        $this->service_global = $service_global;
     }
 
 
@@ -423,6 +425,22 @@ class FeeOverpayController extends Controller
                 $this->repo_overpay->syncBalance($oldOverpayId);
             }
 
+            $logMessage = Auth::user()->name
+                . ($oldFee ? ' mengubah' : ' membuat')
+                . ' pengembalian dana (fee overpay) invoice ' . $inv->invoice_number
+                . ', nominal ' . number_format($nominalAsli, 2, ',', '.') . ' ' . $inv->code_curr
+                . ' dari bank ID ' . $newBankId
+                . ' ke rekening jamaah ' . $request->bank_tujuan_jamaah_rek;
+
+            $this->service_global->saveLogHistory(
+                Auth::id(),
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $saveFee->id
+            );
+
             DB::commit();
             return $this->autoResponse($saveFee);
 
@@ -478,6 +496,21 @@ class FeeOverpayController extends Controller
             // 3. Saldo overpayment dihitung ulang dari sumber (fee sudah terhapus)
             $this->repo_overpay->syncBalance((int) $fee->overpay_id);
 
+            $logMessage = Auth::user()->name
+                . ' menghapus pengembalian dana (fee overpay) ID ' . $fee->id
+                . ', reference ' . ($fee->reference ?? '-')
+                . ', nominal ' . number_format((float) $fee->nominal, 2, ',', '.')
+                . ' dari bank ID ' . $fee->bank_id_origin
+                . ' ke rekening jamaah ' . ($fee->bank_tujuan_jamaah_rek ?? '-');
+
+            $this->globa_service->saveLogHistory(
+                Auth::id(),
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $fee->id
+            );
             DB::commit();
             return $this->success(null, 'Fee overpay berhasil dihapus');
 

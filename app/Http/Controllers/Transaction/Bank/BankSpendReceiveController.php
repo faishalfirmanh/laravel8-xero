@@ -215,6 +215,7 @@ class BankSpendReceiveController extends Controller
             'created_by' => $request->user_login->id,
         ]);
 
+        $isUpdate = !empty($request->id);
         DB::beginTransaction();
         try {
             // 1. Save Parent
@@ -385,6 +386,23 @@ class BankSpendReceiveController extends Controller
             // Cari summary berdasarkan bank_id
             $this->repo_bank_summary->updateCreate($save_nom_bank);
 
+            $logMessage = $request->user_login->name
+                . ($isUpdate ? ' mengubah' : ' membuat')
+                . ' transaksi bank ' . ($request->is_spend == 1 ? '(Spend Money)' : '(Receive Money)')
+                . ' ' . $saveP->name_contact
+                . ', reference ' . $saveP->reference
+                . ', total ' . number_format($sumD, 2, ',', '.')
+                . ', ' . count($request->account_id) . ' baris detail';
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $saveP->id
+            );
+
             DB::commit();
             return $this->autoResponse($saveP);
 
@@ -510,11 +528,19 @@ class BankSpendReceiveController extends Controller
                 ]);
             }
 
+            $logMessage = $request->user_login->name
+                . ($request->id ? ' mengubah' : ' membuat')
+                . ' transfer bank dari bank ID ' . $from . ' → bank ID ' . $to
+                . ', nominal ' . number_format($amount, 2, ',', '.') . ' ' . $bank_from->currency_code
+                . ($ref ? ', reference ' . $ref : '');
+
             $this->service_global->saveLogHistory(
                 $uid,
-                $request->user_login->name . ' transfer bank ' . $from . ' → ' . $to,
+                $logMessage,
                 $request->userAgent(),
-                $request->ip()
+                $request->ip(),
+                null,
+                $data->id
             );
 
             DB::commit();

@@ -950,6 +950,19 @@ class BillXeroController extends Controller
                 ->where('lockable_id', $bill->id)
                 ->delete();
 
+
+            $logMessage = 'Menghapus Bill ID ' . $bill->id
+                . ' beserta ' . count($detailUuids) . ' detail jurnal dan '
+                . $payments->count() . ' transaksi pembayaran bank';
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                null,
+                $bill->id
+            );
             DB::commit();
 
             return $this->success(null, 'Bill berhasil dihapus');
