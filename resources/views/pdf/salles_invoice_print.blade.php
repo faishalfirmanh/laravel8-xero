@@ -430,37 +430,20 @@
 
 
             <td width="35%" class="text-right">
-
-                @php
-                    $img_path = $invoice->getTravel
-                        ? $invoice->getTravel->location_path_image
-                        : 'assets/img/nam_min.webp';
-                @endphp
-
-                <img
-                    style="height: 100px; width: auto; object-fit: contain;"
-                    src="{{ public_path($img_path) }}"
-                    class="company-logo"
-                />
-
+                @if (!empty($brand['logo']))
+                    <img src="{{ $brand['logo'] }}" class="company-logo" />
+                @endif
                 <div class="company-info">
-
-                    {{ $invoice->getTravel
-                        ? $invoice->getTravel->full_name
-                        : '-'
-                    }}
-
+                    {{ $brand['company_name'] }}
                     <br>
-
-                    {{ $invoice->getTravel
-                        ? ($invoice->getTravel->address
-                            ? $invoice->getTravel->address
-                            : '-')
-                        : '-'
-                    }}
-
+                    {{ $brand['address'] }}
+                    @if (!empty($brand['phone']))
+                        <br>Telp: {{ $brand['phone'] }}
+                    @endif
+                    @if (!empty($brand['email']))
+                        <br>{{ $brand['email'] }}
+                    @endif
                 </div>
-
             </td>
 
         </tr>
@@ -862,26 +845,21 @@
 
         {{-- BANK ACCOUNT --}}
 
-        {{-- <div class="bank-list">
+        <div class="bank-list">
+            @if (!empty($brand['bank_accounts']))
+                @foreach ($brand['bank_accounts'] as $bankAccount)
+                    {{ $bankAccount }}<br>
+                @endforeach
+            @else
+                BCA 614-077-750-0 an. PT AN NAMIROH TRAVELINDO<br>
+                MANDIRI 142-001-628-348-2 an. PT AN NAMIROH TRAVELINDO<br>
+                MUAMALAT 704-001-354-1 an. AN NAMIROH TRAVELINDO PT<br>
+                BNI 70-888-00-889 an. AN NAMIROH TRAVELINDO PT<br>
+                BSI 706-901-888-7 an. AN NAMIROH TRAVELINDO PT<br>
+                BRI 0586-0100-0710-308 an. PT AN NAMRIOH TRAVELINDO
+            @endif
 
-            BCA 614-077-750-0 an. PT AN NAMIROH TRAVELINDO
-            <br>
-
-            MANDIRI 142-001-628-348-2 an. PT AN NAMIROH TRAVELINDO
-            <br>
-
-            MUAMALAT 704-001-354-1 an. AN NAMIROH TRAVELINDO PT
-            <br>
-
-            BNI 70-888-00-889 an. AN NAMIROH TRAVELINDO PT
-            <br>
-
-            BSI 706-901-888-7 an. AN NAMIROH TRAVELINDO PT
-            <br>
-
-            BRI 0586-0100-0710-308 an. PT AN NAMRIOH TRAVELINDO
-
-        </div> --}}
+        </div>
 
 
         {{-- TERMS --}}
@@ -890,29 +868,31 @@
 
             <ol>
 
-                <li>
-                    Harga dapat berubah mengikuti kurs USD/SAR,
-                    biaya akomodasi, tiket, serta kebijakan pemerintah
-                    Indonesia dan Arab Saudi.
-                </li>
+                @php
+                    $terms = collect($brand['terms'] ?? [])
+                        ->map(function ($t) { return trim((string) $t); })
+                        ->filter()      // buang baris kosong
+                        ->values();
+                @endphp
 
-                <li>
-                    Pemesanan wajib memenuhi kuota kursi (full seat);
-                    jika tidak terpenuhi, harga akan disesuaikan
-                    dan dapat dikenakan penalti.
-                </li>
-
-                <li>
-                    DP blok seat sebesar Rp3.000.000 per jamaah.
-                </li>
-
-                <li>
-                    Deposit 50% dibayarkan H-45 sebelum keberangkatan.
-                </li>
-
-                <li>
-                    Pelunasan paling lambat H-30 sebelum keberangkatan.
-                </li>
+                @if ($terms->isNotEmpty())
+                    {{-- teks dari database sudah membawa nomor sendiri, jadi tanpa <ol> --}}
+                    @foreach ($terms as $term)
+                        @php
+                            $isHeading  = preg_match('/^note\s*:?$/i', $term);
+                            $isNumbered = preg_match('/^\d+[\.\)]\s/', $term);
+                        @endphp
+                        <div class="term-line {{ $isNumbered ? 'term-numbered' : '' }}"
+                            @if ($isHeading) style="font-weight:bold;" @endif>{{ $term }}</div>
+                    @endforeach
+                @else
+                    <li>Harga dapat berubah mengikuti kurs USD/SAR, biaya akomodasi, tiket, serta kebijakan pemerintah Indonesia dan Arab Saudi.</li>
+                    <li>Pemesanan wajib memenuhi kuota kursi (full seat); jika tidak terpenuhi, harga akan disesuaikan dan dapat dikenakan penalti.</li>
+                    <li>DP blok seat sebesar Rp3.000.000 per jamaah.</li>
+                    <li>Deposit 50% dibayarkan H-45 sebelum keberangkatan.</li>
+                    <li>Pelunasan paling lambat H-30 sebelum keberangkatan.</li>
+                @endif
+            </ol>
 
             </ol>
 

@@ -490,7 +490,8 @@ class InvoiceXeroLocalController extends Controller
             'getTravel',
             'getFeeOverpay',
             'getInvHotel',
-            'getInvHotel.details'
+            'getInvHotel.details',
+            'brandingTheme.travel',
         ])
             ->where('invoice_uuid', $id)
             ->first();
@@ -612,11 +613,15 @@ class InvoiceXeroLocalController extends Controller
         | Data PDF
         |--------------------------------------------------------------------------
         */
+        $path = $invoice->getTravel
+            ? ($invoice->getTravel->location_path_image ?: 'assets/img/nam_min.webp')
+            : 'assets/img/nam_min.webp';
         $data = [
             'invoice' => $invoice,
             'title' => 'Invoice #' . $invoice->invoice_number,
             'date' => date('d-m-Y'),
             'qrCode' => $qrCodeBase64,
+            'brand' => $this->resolveBranding($invoice, $path),
             'sum_fee_overpay' => FeeOverpay::where('invoice_id', $invoice->id)->sum('nominal')
         ];
 
