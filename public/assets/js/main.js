@@ -83,6 +83,14 @@ function convertStringDate(dateStr) {
   return formattedDate
 }
 
+
+const escapeHtml = (str) => {
+  if (str === null || str === undefined) return '-';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+
 function forCur(amount) {
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,

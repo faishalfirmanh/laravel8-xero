@@ -641,6 +641,44 @@
     </div>
 </div>
 
+
+<div class="modal fade" id="modalInvByItem" tabindex="-1" role="dialog" aria-labelledby="modalInvByItemLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalInvByItemLabel">Daftar Invoice by Item</h5>
+                <button type="button" class="close" data-dismiss="modal" data-bs-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm table-hover mb-0" id="tableInvByItem">
+                        <thead class="thead-light">
+                            <tr>
+                                <th style="width:50px" class="text-center">No</th>
+                                <th>Invoice Number</th>
+                                <th>Contact</th>
+                                <th class="text-right">Invoice Dibayarkan</th>
+                                <th class="text-right">Total Tagihan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyInvByItem">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">Belum ada data</td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="tfootInvByItem" class="font-weight-bold"></tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -770,10 +808,15 @@ $('#desc_salles').on('input', function () {
         },
         {
             data: "id", orderable: false, searchable: false, className: "td-c",
-            render: (data, type, row) =>
-                `<a href="javascript:;" data-id="${data}" class="action-edit edit-hotel">
-                    <i class="ti ti-pencil" aria-hidden="true"></i> Edit
-                 </a>`
+            render: function(data, type, row) {
+                let btn_edit = `<a href="javascript:;" data-id="${data}" class="action-edit edit-hotel">
+                                    <i class="ti ti-pencil" aria-hidden="true"></i> Edit
+                                </a> &nbsp`;
+                    let btn_view_inv = `<a href="javascript:;" data-id="${data}" class="text-danger action-view view-item">
+                                            <i class="ti ti-eye" aria-hidden="true"></i> Invoice
+                                        </a> &nbsp`;
+                return  btn_edit + btn_view_inv;
+            }
         }
     ];
 
@@ -843,6 +886,71 @@ $('#btnResetFilter').on('click', function () {
     // =========================================================
     // KLIK EDIT (dari icon pensil atau nama item)
     // =========================================================
+     function renderInvByItem(rows) {
+        const $tbody = $('#tbodyInvByItem');
+        const $tfoot = $('#tfootInvByItem');
+        $tbody.empty();
+        $tfoot.empty();
+
+        // 1 baris per invoice (get_parent), hindari duplikat bila 1 invoice punya >1 line item
+        const seen = new Set();
+        const invoices = [];
+        (rows || []).forEach(row => {
+            const p = row.get_parent;
+            if (!p || seen.has(p.id)) return;
+            seen.add(p.id);
+            invoices.push(p);
+        });
+
+        if (invoices.length === 0) {
+            $tbody.html('<tr><td colspan="5" class="text-center text-muted">Tidak ada invoice untuk item ini</td></tr>');
+            return;
+        }
+
+        let sumAmount = 0, sumTotal = 0;
+
+        invoices.forEach((p, i) => {
+            sumAmount += parseFloat(p.invoice_amount) || 0;
+            sumTotal  += parseFloat(p.invoice_total) || 0;
+
+            $tbody.append(`
+                <tr>
+                    <td class="text-center">${i + 1}</td>
+                    <td>${escapeHtml(p.invoice_number)}</td>
+                    <td>${escapeHtml(p.contact_name)}</td>
+                    <td class="text-right">${formatCurrency(p.invoice_amount)}</td>
+                    <td class="text-right">${formatCurrency(p.invoice_total)}</td>
+                </tr>
+            `);
+        });
+
+        $tfoot.html(`
+            <tr>
+                <td colspan="3" class="text-right">Total</td>
+                <td class="text-right">${formatCurrency(sumAmount)}</td>
+                <td class="text-right">${formatCurrency(sumTotal)}</td>
+            </tr>
+        `);
+    }
+
+    function loadInvItem(id_item, namaItem = '') {
+        $('#modalInvByItemLabel').text(namaItem ? `Daftar Invoice - ${namaItem}` : 'Daftar Invoice by Item');
+        $('#tbodyInvByItem').html('<tr><td colspan="5" class="text-center text-muted">Memuat data...</td></tr>');
+        $('#tfootInvByItem').empty();
+        $('#modalInvByItem').modal('show');
+
+        ajaxRequest(`{{ route('inv-by-item') }}`, 'get', { id: id_item }, localStorage.getItem("token"))
+            .then(response => {
+                 let rows = response?.data?.data ?? response?.data ?? [];
+                 if (!Array.isArray(rows)) rows = Object.values(rows);
+                renderInvByItem(rows);
+            })
+            .catch(err => {
+                $('#tbodyInvByItem').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data</td></tr>');
+                cathError(err);
+            });
+    }
+
     
     function loadItem(idDetail) {
        
@@ -910,6 +1018,12 @@ $('#btnResetFilter').on('click', function () {
 
         $('#modalItemTitle').text('Edit item — ' + (rowData.nama_paket || ''));
         $('#modalCreateHotel').modal('show');
+    });
+
+    $('#tableHotel').on('click', '.view-item, .edit-hotel-name', function () {
+        const id      = $(this).data('id');
+        const rowData = table.row($(this).closest('tr')).data();
+       loadInvItem(id)
     });
 
     // =========================================================

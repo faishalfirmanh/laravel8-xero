@@ -421,6 +421,7 @@ Route::prefix("admin-web")->group(function () {
             Route::get('list-item', [ProducAndServiceXeroLocalController::class, 'getAllPaginate'])->name('item-list');
             Route::post('save-item', [ProducAndServiceXeroLocalController::class, 'store'])->name('save-item-product');
             Route::get('detail-item', [ProducAndServiceXeroLocalController::class, 'detail'])->name('item-detail-xero');
+            Route::get('invoice-by-item', [ProducAndServiceXeroLocalController::class, 'invoiceByItem'])->name('inv-by-item');
         });
 
         Route::prefix('paket-umroh')->group(function () {

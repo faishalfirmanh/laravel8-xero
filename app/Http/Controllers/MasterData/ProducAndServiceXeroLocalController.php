@@ -4,8 +4,10 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Http\Repository\Expenses\PODBillRepository;
+use App\Http\Repository\MasterData\Finance\InvoiceAllXeroRepo;
 use App\Http\Repository\MasterData\Finance\ItemPaketAllXeroRepo;
 use App\Http\Repository\MasterData\TrackingRepo;
+use App\Http\Repository\Revenue\InvoiceDXeroLocalRepo;
 use App\Http\Repository\Transaction\TransCoaRepo;
 use App\Models\Expenses\Purchase\Bill\DBill;
 use App\Models\ItemsPaketAllFromXero;
@@ -25,7 +27,7 @@ class ProducAndServiceXeroLocalController extends Controller
 {
 
     use ApiResponse;
-    protected $repo, $repo_trans_all, $repo_d_bill, $repo_tracking, $global, $repo_coa;
+    protected $repo, $repo_trans_all, $repo_d_bill, $repo_tracking, $global, $repo_coa, $repo_invoice, $repo_d_inv;
 
     public function __construct(
         ItemPaketAllXeroRepo $repo,
@@ -33,7 +35,9 @@ class ProducAndServiceXeroLocalController extends Controller
         PODBillRepository $repo_d_bill,
         TrackingRepo $repo_tracking,
         GlobalService $globalService,
-        CoaRepo $repo_coa
+        CoaRepo $repo_coa,
+        InvoiceAllXeroRepo $repo_invoice,
+        InvoiceDXeroLocalRepo $repo_d_inv
 
     ) {
         $this->repo = $repo;
@@ -42,6 +46,8 @@ class ProducAndServiceXeroLocalController extends Controller
         $this->repo_tracking = $repo_tracking;
         $this->global = $globalService;
         $this->repo_coa = $repo_coa;
+        $this->repo_invoice = $repo_invoice;
+        $this->repo_d_inv = $repo_d_inv;
     }
 
     function generateRandom4Digit()
@@ -261,6 +267,19 @@ class ProducAndServiceXeroLocalController extends Controller
 
         return $this->autoResponse($data);
 
+    }
+
+    public function invoiceByItem(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer|exists:items_paket_all_from_xeros,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 400);
+        }
+        $data = $this->repo_d_inv->WhereDataWith(['getParent'], ['item_id' => $request->id])->get();
+        return $this->autoResponse($data);
     }
 
 
