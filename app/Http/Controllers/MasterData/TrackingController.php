@@ -279,6 +279,24 @@ class TrackingController extends Controller
         return $this->autoResponse($data);
     }
 
+    public function searchItem(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'q' => 'nullable|string|max:100',
+            'id_parent' => 'nullable|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors()->first(), 422);
+        }
+
+        $data = $this->repo->searchLinesByName(
+            $request->q,
+            $request->filled('id_parent') ? (int) $request->id_parent : null
+        );
+
+        return $this->success($data, 'Data retrieved successfully');
+    }
     public function detailItem(Request $request)
     {
         $validator = Validator::make($request->all(), [

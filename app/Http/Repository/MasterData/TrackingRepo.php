@@ -20,6 +20,39 @@ class TrackingRepo extends BaseRepository
     }
 
     /**
+     * Cari baris di lines_category berdasarkan item_name_category (LIKE), maksimal 5.
+     * $idParent opsional: 5 = nama paket, 6 = Divisi.
+     */
+    public function searchLinesByName(?string $keyword, ?int $idParent = null): array
+    {
+        // escape wildcard LIKE supaya "%" dan "_" yang diketik user dianggap teks biasa
+        $keyword = addcslashes((string) $keyword, '\\%_');
+
+        $sql = "SELECT jt.id_parent, jt.item_name_category, jt.item_uuid_category
+                FROM tracking_categories tc,
+                JSON_TABLE(
+                    tc.lines_category,
+                    '$[*]' COLUMNS (
+                        id_parent INT PATH '$.id_parent',
+                        item_name_category VARCHAR(255) PATH '$.item_name_category',
+                        item_uuid_category VARCHAR(100) PATH '$.item_uuid_category'
+                    )
+                ) AS jt
+                WHERE LOWER(jt.item_name_category) LIKE LOWER(?)";
+
+        $bindings = ['%' . $keyword . '%'];
+
+        if (!empty($idParent)) {
+            $sql .= ' AND tc.id = ?';
+            $bindings[] = $idParent;
+        }
+
+        $sql .= ' ORDER BY jt.item_name_category ASC LIMIT 5';
+
+        return DB::select($sql, $bindings);
+    }
+
+    /**
      * Merge option tracking dari Xero ke lines_category tanpa replace data lama.
      * Return null jika parent tidak ada di DB (baris static, tidak dibuat otomatis).
      */

@@ -504,6 +504,7 @@ Route::prefix("admin-web")->group(function () {
             Route::get('list', [TrackingLocalController::class, 'getAllPaginate'])->name('get-all-track');
             Route::post('save', [TrackingLocalController::class, 'store'])->name('save-track');
             Route::get('detail', [TrackingLocalController::class, 'detail'])->name('find-track');
+            Route::get('tracking-category/search', [TrackingLocalController::class, 'searchItem'])->name('search-item-tracking');
             Route::post('delete', [TrackingLocalController::class, 'delete'])->name('delete-track');
         });
 

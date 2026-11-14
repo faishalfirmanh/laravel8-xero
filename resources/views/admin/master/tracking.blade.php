@@ -1,5 +1,27 @@
 @extends('layouts.app')
 
+
+<style>
+    /* Area atas modal tetap terlihat saat daftar line di-scroll */
+    #modalTracking .sticky-top-form {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #fff;
+        margin: 0 -1rem .5rem;
+        padding: .75rem 1rem .25rem;
+        border-bottom: 1px solid #dee2e6;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, .06);
+    }
+    #modalTracking .search-result-box {
+        position: absolute;
+        left: 0; right: 0; top: 100%;
+        z-index: 20;
+        max-height: 260px;
+        overflow-y: auto;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, .15);
+    }
+</style>
 @section('content')
 <div class="card shadow mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -38,7 +60,7 @@
 
 {{-- MODAL (Detail + Edit Lines Category) sync_tracking--}}
 <div class="modal fade" id="modalTracking" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalTitle">Detail Tracking Category</h5>
@@ -46,17 +68,38 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="modal-body">
-                <form id="formTracking">
+
+            <div class="modal-body pt-0">
+                <form id="formTracking" onsubmit="return false;">
                     <input type="hidden" id="id_tracking" value="0">
 
-                    <div class="form-group">
-                        <label>Nama Parent Category <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="name_parent_category" required>
+                    <div id="stickyTop" class="sticky-top-form">
+                        {{-- Search: hanya tampil saat klik Detail --}}
+                        <div class="form-group mb-2 position-relative" id="wrapSearchLine" style="display:none;">
+                            <label class="mb-1">🔍 Cari Item Category</label>
+                            <input type="text" id="searchLine" class="form-control"
+                                   placeholder="Ketik nama item category..." autocomplete="off">
+                            <div id="searchResult" class="list-group search-result-box" style="display:none;"></div>
+                        </div>
+
+                        <div class="form-row align-items-end">
+                            <div class="form-group col-md-7 mb-2">
+                                <label class="mb-1">Nama Parent Category <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name_parent_category" required>
+                            </div>
+                            <div class="form-group col-md-5 mb-2 text-right">
+                                <button type="button" id="btnAddLine" class="btn btn-success">
+                                    <i class="fas fa-plus"></i> Tambah Item
+                                </button>
+                                <button type="button" id="btnSaveTracking" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Simpan
+                                </button>
+                            </div>
+                        </div>
+
+                        <h6 class="mb-2">📋 Detail Lines Category <small class="text-muted" id="lineCount"></small></h6>
                     </div>
 
-                    <hr>
-                    <h6 class="mb-3">📋 Detail Lines Category</h6>
                     <div class="table-responsive">
                         <table class="table table-bordered table-sm" id="table-lines">
                             <thead class="table-light">
@@ -70,14 +113,11 @@
                             <tbody id="lines-body"></tbody>
                         </table>
                     </div>
-                    <button type="button" id="btnAddLine" class="btn btn-success btn-sm mt-2">
-                        <i class="fas fa-plus"></i> Tambah Item Baru
-                    </button>
                 </form>
             </div>
+
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                <button type="button" id="btnSaveTracking" class="btn btn-primary">Simpan Perubahan</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
@@ -88,37 +128,182 @@
 <script>
 $(document).ready(function() {
     let table;
-    let currentLines = [];
+    let searchTimer = null;
+    let searchSeq = 0;
 
-    // Render tabel Lines di modal
-    function renderLinesTable() {
+    // ====================== HELPER ======================
+    const esc = (v) => (v === null || v === undefined ? '' : String(v))
+        .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    function lineRowHtml(line) {
+        return `
+            <tr>
+                <td><input type="text" class="form-control form-control-sm line-idparent" disabled value="${esc(line.id_parent)}"></td>
+                <td><input type="text" class="form-control form-control-sm line-name" value="${esc(line.item_name_category)}"></td>
+                <td><input type="text" class="form-control form-control-sm line-uuid" disabled value="${esc(line.item_uuid_category)}"></td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger delete-line">
+                        <i class="ti ti-trash"></i>
+                    </button>
+                </td>
+            </tr>`;
+    }
+
+    function updateLineCount() {
+        const n = $('#lines-body tr').length;
+        $('#lineCount').text(n ? `(${n} item)` : '');
+    }
+
+    function renderLinesTable(lines) {
         const tbody = $('#lines-body');
         tbody.empty();
+        (lines || []).forEach(line => tbody.append(lineRowHtml(line)));
+        updateLineCount();
+    }
 
-        currentLines.forEach((line, index) => {
-            const rowHtml = `
-                <tr data-index="${index}">
-                    <td><input type="text" class="form-control form-control-sm line-idparent" disabled value="${line.id_parent || ''}"></td>
-                    <td><input type="text" class="form-control form-control-sm line-name" value="${line.item_name_category || ''}"></td>
-                    <td><input type="text" class="form-control form-control-sm line-uuid" disabled value="${line.item_uuid_category || ''}"></td>
-                    <td class="text-center">
-                        <button class="btn btn-sm btn-danger delete-line" data-index="${index}">
-                            <i class="ti ti-trash"></i>
-                        </button>
-                    </td>
-                </tr>`;
-            tbody.append(rowHtml);
+    // Ambil isi tabel langsung dari input (supaya ketikan yang belum disimpan tidak hilang)
+    function collectLines() {
+        const lines = [];
+        $('#lines-body tr').each(function () {
+            const idparent = $(this).find('.line-idparent').val().trim();
+            const name     = $(this).find('.line-name').val().trim();
+            const uuid     = $(this).find('.line-uuid').val().trim();
+            if (name || uuid) {
+                lines.push({ id_parent: idparent, item_name_category: name, item_uuid_category: uuid });
+            }
         });
+        return lines;
+    }
+
+    function scrollToRow($row) {
+        const $body   = $('#modalTracking .modal-body');
+        const stickyH = $('#stickyTop').outerHeight() || 0;
+        const top = $row.offset().top - $body.offset().top + $body.scrollTop() - stickyH - 8;
+        $body.animate({ scrollTop: Math.max(top, 0) }, 250);
+    }
+
+    function highlightRow($row) {
+        $row.addClass('table-warning');
+        setTimeout(() => $row.removeClass('table-warning'), 2500);
+        const input = $row.find('.line-name')[0];
+        if (input) input.focus({ preventScroll: true });
+    }
+
+    function resetSearch() {
+        clearTimeout(searchTimer);
+        searchSeq++;
+        $('#searchLine').val('');
+        $('#searchResult').hide().empty();
     }
 
     function resetModal() {
         $('#id_tracking').val(0);
         $('#name_parent_category').val('');
-        currentLines = [];
-        renderLinesTable();
+        renderLinesTable([]);
+        resetSearch();
+        $('#wrapSearchLine').hide();          // search hanya untuk Detail
         $('#modalTitle').text('Tambah Tracking Category Baru');
     }
 
+    // ====================== SEARCH (API search-item-tracking) ======================
+    function showSearchMessage(text) {
+        $('#searchResult').empty().append(
+            $('<div class="list-group-item py-2 text-muted small">').text(text)
+        ).show();
+    }
+
+    function renderSearchResult(rows) {
+        const box = $('#searchResult').empty();
+        if (!rows.length) {
+            showSearchMessage('Tidak ditemukan');
+            return;
+        }
+        rows.forEach(r => {
+            $('<button type="button" class="list-group-item list-group-item-action py-2 search-item">')
+                .attr('data-uuid', r.item_uuid_category)
+                .append($('<div class="font-weight-bold">').text(r.item_name_category))
+                .append($('<small class="text-muted">').text(r.item_uuid_category))
+                .appendTo(box);
+        });
+        box.show();
+    }
+
+    function doSearch(keyword) {
+        const seq = ++searchSeq;
+        showSearchMessage('Mencari...');
+
+        ajaxRequest(`{{ route('search-item-tracking') }}`, 'GET',
+            { q: keyword, id_parent: $('#id_tracking').val() },
+            localStorage.getItem("token"))
+            .then(response => {
+                if (seq !== searchSeq) return;            // abaikan response lama
+                let rows = response?.data?.data ?? [];
+                if (!Array.isArray(rows)) rows = Object.values(rows);
+                renderSearchResult(rows);
+            })
+            .catch(err => {
+                if (seq !== searchSeq) return;
+                $('#searchResult').hide().empty();
+                cathError(err);
+            });
+    }
+
+    $('#searchLine').on('input', function () {
+        const keyword = $(this).val().trim();
+        clearTimeout(searchTimer);
+        if (keyword.length < 1) {
+            searchSeq++;
+            $('#searchResult').hide().empty();
+            return;
+        }
+        searchTimer = setTimeout(() => doSearch(keyword), 300);
+    });
+
+    $('#searchLine').on('keydown', function (e) {
+        if (e.key === 'Escape') {
+            $('#searchResult').hide();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            $('#searchResult .search-item').first().trigger('click');
+        }
+    });
+
+    // Pilih hasil search -> scroll ke baris & sorot
+    $(document).on('click', '#searchResult .search-item', function () {
+        const uuid = $(this).data('uuid');
+        const $row = $('#lines-body tr').filter(function () {
+            return $(this).find('.line-uuid').val() === String(uuid);
+        }).first();
+
+        $('#searchResult').hide();
+
+        if (!$row.length) {
+            Swal.fire({ icon: 'info', text: 'Item tidak ada di daftar (mungkin sudah dihapus dan belum disimpan).', timer: 2200, showConfirmButton: false });
+            return;
+        }
+        scrollToRow($row);
+        highlightRow($row);
+    });
+
+    // Klik di luar area search -> tutup dropdown
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('#wrapSearchLine').length) {
+            $('#searchResult').hide();
+        }
+    });
+
+    $('#modalTracking').on('shown.bs.modal', function () {
+        if ($('#wrapSearchLine').is(':visible')) {
+            $('#searchLine').trigger('focus');
+        } else {
+            $('#name_parent_category').trigger('focus');
+        }
+    });
+
+    $('#modalTracking').on('hidden.bs.modal', resetSearch);
+
+    // ====================== DATATABLE ======================
     const columnTracking = [
         { data: null, className: "text-center", render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1 },
         { data: 'name_parent_category', name: 'name_parent_category' },
@@ -134,7 +319,7 @@ $(document).ready(function() {
         {
             data: 'lines_category',
             name: 'lines_category',
-            render: (data) => {                                 // ← KOLOM BARU
+            render: (data) => {
                 if (!data) return '-';
                 const lines = typeof data === 'string' ? JSON.parse(data) : data;
                 if (!Array.isArray(lines) || lines.length === 0) return '-';
@@ -158,7 +343,6 @@ $(document).ready(function() {
         }
     ];
 
-    // Inisialisasi DataTable
     table = initGlobalDataTableToken(
         '#table_tracking',
         `{{ route('get-all-track') }}`,
@@ -180,16 +364,17 @@ $(document).ready(function() {
             .then(response => {
                 if (response.data.status === true) {
                     const data = response.data.data;
-                   // console.log('ss',data)
                     $('#id_tracking').val(data.id);
                     $('#name_parent_category').val(data.name_parent_category);
 
-                    currentLines = data.lines_category || [];
-                    if (typeof currentLines === 'string') {
-                        currentLines = JSON.parse(currentLines);
+                    let lines = data.lines_category || [];
+                    if (typeof lines === 'string') {
+                        lines = JSON.parse(lines);
                     }
 
-                    renderLinesTable();
+                    renderLinesTable(lines);
+                    resetSearch();
+                    $('#wrapSearchLine').show();      // search tampil hanya saat Detail
                     $('#modalTitle').text('Detail & Edit Tracking Category');
                     $('#modalTracking').modal('show');
                 }
@@ -200,42 +385,31 @@ $(document).ready(function() {
     });
 
     // ====================== TAMBAH / HAPUS LINE ITEM ======================
+    // Baris baru ditaruh paling atas, lalu langsung di-scroll & difokuskan
     $('#btnAddLine').on('click', function () {
-        currentLines.push({ id_parent: '', item_name_category: '', item_uuid_category: '' });
-        renderLinesTable();
+        const $row = $(lineRowHtml({ id_parent: '', item_name_category: '', item_uuid_category: '' }));
+        $('#lines-body').prepend($row);
+        updateLineCount();
+        scrollToRow($row);
+        const input = $row.find('.line-name')[0];
+        if (input) input.focus({ preventScroll: true });
     });
 
     $(document).on('click', '.delete-line', function () {
-        const index = $(this).data('index');
-        currentLines.splice(index, 1);
-        renderLinesTable();
+        $(this).closest('tr').remove();
+        updateLineCount();
     });
 
     // ====================== SIMPAN ======================
     $('#btnSaveTracking').on('click', function () {
-        currentLines = [];
-        $('#lines-body tr').each(function () {
-            const idparent = $(this).find('.line-idparent').val().trim();
-            const name     = $(this).find('.line-name').val().trim();
-            const uuid     = $(this).find('.line-uuid').val().trim();
-            if (name || uuid) {
-                currentLines.push({
-                    id_parent: idparent,
-                    item_name_category: name,
-                    item_uuid_category: uuid
-                });
-            }
-        });
-
         const payload = {
             id: $('#id_tracking').val(),
             name_parent_category: $('#name_parent_category').val().trim(),
-            lines_category: currentLines
+            lines_category: collectLines()
         };
 
         ajaxRequest(`{{ route('save-track') }}`, 'POST', payload, localStorage.getItem("token"))
             .then(response => {
-
                 if (response.data.status === true) {
                     Swal.fire('Berhasil!', 'Data berhasil disimpan', 'success');
                     $('#modalTracking').modal('hide');
@@ -244,7 +418,6 @@ $(document).ready(function() {
             })
             .catch(err => {
                 cathError(err)
-                //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan', 'error');
             });
     });
 
@@ -277,51 +450,5 @@ $(document).ready(function() {
         });
     });
 });
-  function syncTracking(){
-         Swal.fire({
-            title: 'Sinkronisasi Tracking category dari Xero?',
-            html: 'Apakah Anda yakin ingin mengambil <strong>semua Tracking Kategory</strong> dari Xero?<br>',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#198754',   // hijau
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Ya, Sync Sekarang',
-            cancelButtonText: 'Batal',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-
-                Swal.fire({
-                    title: 'Sedang Sinkronisasi...',
-                    text: 'Mohon tunggu sebentar',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                ajaxRequest( `{{ route('sync_tracking') }}`,'GET',{ is_sync: 1, type :'Divisi' }, localStorage.getItem("token"))
-                .then(response =>{
-                    Swal.close();
-                        if (response.status === 200) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Berhasil!',
-                                text: `Berhasil sinkronisasi ${response.synced} data tracking`,
-                                timer: 2000
-                            });
-                            // Refresh table
-                            $('#table_tracking').DataTable().ajax.reload();
-                        } else {
-                            Swal.fire('Gagal', response.data.data.message, 'error');
-                        }
-                })
-                .catch((err)=>{
-                    cathError(err)
-                })
-            }
-        })
-    }
-
 </script>
 @endpush
