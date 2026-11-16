@@ -363,6 +363,10 @@
     border-left: 1px solid rgba(255,255,255,0.3);
 }
 .btn-save-caret:hover { background: #005fa3; }
+/* select2 di dalam .modal-dialog harus bisa diklik / diketik */
+#modalCreateHotel .select2-container {
+    pointer-events: auto;
+}
 </style>
 
 {{-- ── PAGE HEADER ── --}}
@@ -659,6 +663,7 @@
                                 <th style="width:50px" class="text-center">No</th>
                                 <th>Invoice Number</th>
                                 <th>Contact</th>
+                                <th>Qty</th>
                                 <th class="text-right">Invoice Dibayarkan</th>
                                 <th class="text-right">Total Tagihan</th>
                             </tr>
@@ -918,6 +923,7 @@ $('#btnResetFilter').on('click', function () {
                     <td class="text-center">${i + 1}</td>
                     <td>${escapeHtml(p.invoice_number)}</td>
                     <td>${escapeHtml(p.contact_name)}</td>
+                    <td>${rows[i].qty}</td>
                     <td class="text-right">${formatCurrency(p.invoice_amount)}</td>
                     <td class="text-right">${formatCurrency(p.invoice_total)}</td>
                 </tr>
@@ -1007,7 +1013,7 @@ $('#btnResetFilter').on('click', function () {
             .finally(() => $('#btnSave').prop('disabled', false).text('Save'));
     }
 
-    $('#tableHotel').on('click', '.edit-hotel, .edit-hotel-name', function () {
+    $('#tableHotel').on('click', '.edit-hotel', function () {
         const id      = $(this).data('id');
         const rowData = table.row($(this).closest('tr')).data();
 
@@ -1020,7 +1026,7 @@ $('#btnResetFilter').on('click', function () {
         $('#modalCreateHotel').modal('show');
     });
 
-    $('#tableHotel').on('click', '.view-item, .edit-hotel-name', function () {
+    $('#tableHotel').on('click', '.view-item', function () {
         const id      = $(this).data('id');
         const rowData = table.row($(this).closest('tr')).data();
        loadInvItem(id)
@@ -1094,7 +1100,7 @@ $('#btnResetFilter').on('click', function () {
         $('.select2-account-purchase').select2({
             placeholder: "Cari nama account purchase...",
             allowClear: true,
-            dropdownParent: $('#modalCreateHotel'),
+            dropdownParent: $('#modalCreateHotel .modal-dialog'),
              ajax: {
                 url: "{{ route('get-all-coa-select2') }}",
                 type: "GET",
@@ -1127,7 +1133,7 @@ $('#btnResetFilter').on('click', function () {
         $('.select2-account-salles').select2({
             placeholder: "Cari nama account salles...",
             allowClear: true,
-            dropdownParent: $('#modalCreateHotel'),
+            dropdownParent: $('#modalCreateHotel .modal-dialog'),
             ajax: {
                 url: "{{ route('get-all-coa-select2') }}",
                 type: "GET",
