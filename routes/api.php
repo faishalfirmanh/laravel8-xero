@@ -85,7 +85,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GoHalal\HalalGoCallbackController;
 use App\Http\Middleware\VerifyHalalGoCallback;
 
-
+use App\Http\Controllers\Auth\TwoFactorAuthController;
+use App\Http\Controllers\Report\ExecutiveFinancePivotApiController;
+use App\Http\Middleware\TwoFactorApiMiddleware;
 //https://<domain-anda>/api/mitra/halalgo/callback-booking
 Route::post('mitra/halalgo/callback-booking', [HalalGoCallbackController::class, 'booking'])
     ->middleware(VerifyHalalGoCallback::class);
@@ -121,9 +123,7 @@ Route::post('deleteInv', [InvXeroController::class, 'deletedInvoice'])->name('de
 Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
 
 
-use App\Http\Controllers\Auth\TwoFactorAuthController;
-use App\Http\Controllers\Report\ExecutiveFinancePivotApiController;
-use App\Http\Middleware\TwoFactorApiMiddleware;
+
 
 // =========================================================================
 // EXECUTIVE MACHINE-READABLE FINANCE PIVOT & DATE RANGE API (WITH 2FA)
@@ -146,6 +146,14 @@ Route::prefix('v1/finance')->middleware(TwoFactorApiMiddleware::class)->group(fu
 
 Route::prefix('public')->middleware(PublicKey::class)->group(function () {
     Route::get('getV3', [ProfitLossController::class, 'getProfitAndLostV2Combine'])->name('profit-and-loss-v3');
+    Route::prefix('rep-paket')->group(function () {
+        Route::get('coa-paket-payment', [CoaPaketPaymentController::class, 'getCoaPaketPayment']);
+        Route::get('coa-paket-payment-summary', [CoaPaketPaymentController::class, 'getCoaPaketPaymentSummary']);
+    });
+    Route::prefix('rep-payment-coa')->group(function () {
+        Route::get('coa-trans', [CoaController::class, 'getCoaTrans']);
+        Route::get('coa-trans-summary', [CoaController::class, 'getCoaTransSummary']);
+    });
 });
 
 Route::get('get_curr_local', [InvXeroController::class, 'getCurr'])->name('get_curr_local');

@@ -4,15 +4,27 @@ namespace App\Http\Controllers\Report;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Xero\InvoicesController;
+use App\Http\Repository\MasterData\TrackingRepo;
+use App\Http\Repository\Transaction\TransCoaRepo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Carbon;
 class ExecutiveFinancePivotApiController extends Controller
 {
     /**
      * Helper to retrieve all active invoices from cache
      */
+
+    private const TRACKING_FIRST_ITEMS = ['FEE AGEN'];
+    protected $repo_all_coa;
+    protected $repo_tracking;
+
+    public function __construct(TransCoaRepo $repo_all_coa, TrackingRepo $repo_tracking)
+    {
+        $this->repo_all_coa = $repo_all_coa;
+        $this->repo_tracking = $repo_tracking;
+    }
     private function getXeroInvoices()
     {
         return Cache::remember("namiroh_exec_invoices_cache_v3", 300, function () {
@@ -33,44 +45,44 @@ class ExecutiveFinancePivotApiController extends Controller
     private function getSaudiExpenses($startDate = null, $endDate = null)
     {
         $saudiCategories = [
-            "BIAYA BAKSIS"              => "Biaya Baksis",
-            "BIAYA BAKSIS HOTEL"        => "Biaya Baksis Hotel",
-            "BIAYA BUS TAMBAHAN"        => "Biaya Bus Tambahan",
-            "BIAYA COKLAT & AIR ZAM ZAM"=> "Biaya Coklat & Air Zam Zam",
-            "BIAYA GUIDE"               => "Biaya Guide (Muthawwif)",
-            "BIAYA KERETA CEPAT"        => "Biaya Kereta Cepat",
-            "BIAYA NASI BOX SAUDI"      => "Biaya Nasi Box Saudi",
-            "BIAYA BUS SAUDI"           => "Biaya Bus Saudi",
-            "BIAYA VISA"                => "Biaya Visa",
-            "HANDLING SAUDI"            => "Handling Saudi",
-            "BIAYA HOTEL"               => "Biaya Hotel Saudi"
+            "BIAYA BAKSIS" => "Biaya Baksis",
+            "BIAYA BAKSIS HOTEL" => "Biaya Baksis Hotel",
+            "BIAYA BUS TAMBAHAN" => "Biaya Bus Tambahan",
+            "BIAYA COKLAT & AIR ZAM ZAM" => "Biaya Coklat & Air Zam Zam",
+            "BIAYA GUIDE" => "Biaya Guide (Muthawwif)",
+            "BIAYA KERETA CEPAT" => "Biaya Kereta Cepat",
+            "BIAYA NASI BOX SAUDI" => "Biaya Nasi Box Saudi",
+            "BIAYA BUS SAUDI" => "Biaya Bus Saudi",
+            "BIAYA VISA" => "Biaya Visa",
+            "HANDLING SAUDI" => "Handling Saudi",
+            "BIAYA HOTEL" => "Biaya Hotel Saudi"
         ];
 
         $results = [];
         foreach ($saudiCategories as $key => $label) {
             $results[$key] = [
-                "name"             => $key,
-                "label"            => $label,
-                "currency"         => "SR",
-                "amount_sr"        => 0.0,
+                "name" => $key,
+                "label" => $label,
+                "currency" => "SR",
+                "amount_sr" => 0.0,
                 "amount_formatted" => "0 SR",
-                "count"            => 0,
-                "items"            => []
+                "count" => 0,
+                "items" => []
             ];
         }
 
         $matchers = [
-            "BIAYA BAKSIS HOTEL"        => "/baksis.*hotel|tips.*hotel/i",
-            "BIAYA BAKSIS"              => "/baksis|tips/i",
-            "BIAYA BUS TAMBAHAN"        => "/bus.*tambahan|bis.*tambahan/i",
-            "BIAYA COKLAT & AIR ZAM ZAM"=> "/coklat|zam.*zam|zamzam/i",
-            "BIAYA GUIDE"               => "/guide|muthawwif|mutowif/i",
-            "BIAYA KERETA CEPAT"        => "/kereta.*cepat|kereta.*haramain|kereta/i",
-            "BIAYA NASI BOX SAUDI"      => "/nasi.*box|catering|konsumsi.*saudi/i",
-            "BIAYA BUS SAUDI"           => "/bus.*saudi|bis.*saudi|bus.*makkah|bus.*madinah|transport.*saudi/i",
-            "BIAYA VISA"                => "/visa/i",
-            "HANDLING SAUDI"            => "/handling.*saudi|handling/i",
-            "BIAYA HOTEL"               => "/hotel.*saudi|hotel.*makkah|hotel.*madinah|hotel/i"
+            "BIAYA BAKSIS HOTEL" => "/baksis.*hotel|tips.*hotel/i",
+            "BIAYA BAKSIS" => "/baksis|tips/i",
+            "BIAYA BUS TAMBAHAN" => "/bus.*tambahan|bis.*tambahan/i",
+            "BIAYA COKLAT & AIR ZAM ZAM" => "/coklat|zam.*zam|zamzam/i",
+            "BIAYA GUIDE" => "/guide|muthawwif|mutowif/i",
+            "BIAYA KERETA CEPAT" => "/kereta.*cepat|kereta.*haramain|kereta/i",
+            "BIAYA NASI BOX SAUDI" => "/nasi.*box|catering|konsumsi.*saudi/i",
+            "BIAYA BUS SAUDI" => "/bus.*saudi|bis.*saudi|bus.*makkah|bus.*madinah|transport.*saudi/i",
+            "BIAYA VISA" => "/visa/i",
+            "HANDLING SAUDI" => "/handling.*saudi|handling/i",
+            "BIAYA HOTEL" => "/hotel.*saudi|hotel.*makkah|hotel.*madinah|hotel/i"
         ];
 
         try {
@@ -85,14 +97,14 @@ class ExecutiveFinancePivotApiController extends Controller
                     $pName = trim($pr->nama_pengeluaran ?? "");
                     foreach ($matchers as $mKey => $pattern) {
                         if (preg_match($pattern, $pName)) {
-                            $sar = (float)($pr->nominal_sar ?? 0);
+                            $sar = (float) ($pr->nominal_sar ?? 0);
                             $results[$mKey]["amount_sr"] += $sar;
                             $results[$mKey]["count"] += 1;
                             $results[$mKey]["items"][] = [
-                                "desc"       => $pName,
-                                "date"       => substr($pr->created_at ?? date("Y-m-d"), 0, 10),
+                                "desc" => $pName,
+                                "date" => substr($pr->created_at ?? date("Y-m-d"), 0, 10),
                                 "nominal_sr" => $sar,
-                                "formatted"  => number_format($sar, 0, ",", ".") . " SR"
+                                "formatted" => number_format($sar, 0, ",", ".") . " SR"
                             ];
                             break;
                         }
@@ -115,21 +127,22 @@ class ExecutiveFinancePivotApiController extends Controller
                     $descStr = trim($r->desc ?? "");
                     foreach ($matchers as $mKey => $pattern) {
                         if (preg_match($pattern, $descStr)) {
-                            $nominalSr = (float)($r->unit_price ?? $r->total ?? 0);
+                            $nominalSr = (float) ($r->unit_price ?? $r->total ?? 0);
                             $results[$mKey]["amount_sr"] += $nominalSr;
                             $results[$mKey]["count"] += 1;
                             $results[$mKey]["items"][] = [
-                                "desc"       => $r->desc,
-                                "date"       => $r->date_req ?? date("Y-m-d"),
+                                "desc" => $r->desc,
+                                "date" => $r->date_req ?? date("Y-m-d"),
                                 "nominal_sr" => $nominalSr,
-                                "formatted"  => number_format($nominalSr, 0, ",", ".") . " SR"
+                                "formatted" => number_format($nominalSr, 0, ",", ".") . " SR"
                             ];
                             break;
                         }
                     }
                 }
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+        }
 
         // Format all amounts strictly in SR
         foreach ($results as $k => &$item) {
@@ -170,9 +183,9 @@ class ExecutiveFinancePivotApiController extends Controller
                 }
 
                 $type = strtoupper($inv["Type"] ?? "");
-                $paid = (float)($inv["AmountPaid"] ?? 0);
-                $due = (float)($inv["AmountDue"] ?? 0);
-                $total = (float)($inv["Total"] ?? 0);
+                $paid = (float) ($inv["AmountPaid"] ?? 0);
+                $due = (float) ($inv["AmountDue"] ?? 0);
+                $total = (float) ($inv["Total"] ?? 0);
                 $invDate = substr($inv["DateString"] ?? "", 0, 10);
 
                 if ($useDate) {
@@ -202,12 +215,12 @@ class ExecutiveFinancePivotApiController extends Controller
                     // Package grouping
                     if (!isset($packagesMap[$pkgName])) {
                         $packagesMap[$pkgName] = [
-                            "package_name"   => $pkgName,
-                            "income"         => 0.0,
-                            "due"            => 0.0,
-                            "total"          => 0.0,
-                            "jamaah_count"   => 0,
-                            "invoices"       => []
+                            "package_name" => $pkgName,
+                            "income" => 0.0,
+                            "due" => 0.0,
+                            "total" => 0.0,
+                            "jamaah_count" => 0,
+                            "invoices" => []
                         ];
                     }
                     $packagesMap[$pkgName]["income"] += $paid;
@@ -215,57 +228,57 @@ class ExecutiveFinancePivotApiController extends Controller
                     $packagesMap[$pkgName]["total"] += $total;
                     $packagesMap[$pkgName]["jamaah_count"] += 1;
                     $packagesMap[$pkgName]["invoices"][] = [
-                        "no_invoice"   => $noInv,
-                        "nama_jamaah"  => $contactName,
-                        "tanggal"      => $dateDmy,
-                        "nominal"      => $total,
-                        "amount_paid"  => $paid,
-                        "amount_due"   => $due,
-                        "status"       => $status
+                        "no_invoice" => $noInv,
+                        "nama_jamaah" => $contactName,
+                        "tanggal" => $dateDmy,
+                        "nominal" => $total,
+                        "amount_paid" => $paid,
+                        "amount_due" => $due,
+                        "status" => $status
                     ];
 
                     // Agent / Contact grouping
                     if (!isset($agentsMap[$contactName])) {
                         $agentsMap[$contactName] = [
-                            "agent_name"   => $contactName,
-                            "income"       => 0.0,
-                            "due"          => 0.0,
+                            "agent_name" => $contactName,
+                            "income" => 0.0,
+                            "due" => 0.0,
                             "jamaah_count" => 0,
-                            "invoices"     => []
+                            "invoices" => []
                         ];
                     }
                     $agentsMap[$contactName]["income"] += $paid;
                     $agentsMap[$contactName]["due"] += $due;
                     $agentsMap[$contactName]["jamaah_count"] += 1;
                     $agentsMap[$contactName]["invoices"][] = [
-                        "no_invoice"   => $noInv,
-                        "paket"        => $pkgName,
-                        "tanggal"      => $dateDmy,
-                        "amount_paid"  => $paid,
-                        "amount_due"   => $due,
-                        "status"       => $status
+                        "no_invoice" => $noInv,
+                        "paket" => $pkgName,
+                        "tanggal" => $dateDmy,
+                        "amount_paid" => $paid,
+                        "amount_due" => $due,
+                        "status" => $status
                     ];
                 } elseif ($type === "ACCPAY") {
                     $totalDebit += $paid;
                 }
 
                 $items[] = [
-                    "id"          => $inv["InvoiceID"] ?? "",
-                    "no_invoice"  => $noInv,
-                    "keterangan"  => $contactName . ($pkgName ? " ({$pkgName})" : ""),
+                    "id" => $inv["InvoiceID"] ?? "",
+                    "no_invoice" => $noInv,
+                    "keterangan" => $contactName . ($pkgName ? " ({$pkgName})" : ""),
                     "nama_jamaah" => $contactName,
-                    "agent_name"  => $contactName,
-                    "created_at"  => $dateDmy,
-                    "nominal"     => $total,
+                    "agent_name" => $contactName,
+                    "created_at" => $dateDmy,
+                    "nominal" => $total,
                     "amount_paid" => $paid,
-                    "amount_due"  => $due,
-                    "tanda"       => ($type === "ACCREC") ? "+" : "-",
-                    "kredit"      => ($type === "ACCREC") ? $paid : 0,
-                    "debit"       => ($type === "ACCPAY") ? $paid : 0,
-                    "metode"      => !empty($inv["Reference"]) ? $inv["Reference"] : "Transfer Bank",
-                    "status"      => $status,
-                    "package_name"=> $pkgName,
-                    "segment"     => "namiroh"
+                    "amount_due" => $due,
+                    "tanda" => ($type === "ACCREC") ? "+" : "-",
+                    "kredit" => ($type === "ACCREC") ? $paid : 0,
+                    "debit" => ($type === "ACCPAY") ? $paid : 0,
+                    "metode" => !empty($inv["Reference"]) ? $inv["Reference"] : "Transfer Bank",
+                    "status" => $status,
+                    "package_name" => $pkgName,
+                    "segment" => "namiroh"
                 ];
             }
         } catch (\Exception $e) {
@@ -292,38 +305,38 @@ class ExecutiveFinancePivotApiController extends Controller
 
         foreach ($packagesList as &$pkg) {
             $pkg["income_formatted"] = "Rp " . number_format($pkg["income"], 0, ",", ".");
-            $pkg["due_formatted"]    = "Rp " . number_format($pkg["due"], 0, ",", ".");
-            $pkg["total_formatted"]  = "Rp " . number_format($pkg["total"], 0, ",", ".");
+            $pkg["due_formatted"] = "Rp " . number_format($pkg["due"], 0, ",", ".");
+            $pkg["total_formatted"] = "Rp " . number_format($pkg["total"], 0, ",", ".");
         }
 
         // Get 11 Saudi Cost Components strictly in SR
         $saudiExpenses = $this->getSaudiExpenses($startDate, $endDate);
 
         return response()->json([
-            "status"     => "success",
-            "code"       => 200,
+            "status" => "success",
+            "code" => 200,
             "start_date" => $startDate,
-            "end_date"   => $endDate,
-            "segment"    => $segment,
-            "report_type"=> $reportType,
-            "summary"    => [
-                "total_kredit"          => $totalKredit,
-                "total_debit"           => $totalDebit,
-                "total_due"             => $totalDue,
-                "net_balance"           => $netBalance,
-                "total_jamaah"          => $totalJamaah,
-                "total_packages"        => count($packagesList),
-                "total_agents"          => count($agentsMap),
-                "total_kredit_formatted"=> "Rp " . number_format($totalKredit, 0, ",", "."),
+            "end_date" => $endDate,
+            "segment" => $segment,
+            "report_type" => $reportType,
+            "summary" => [
+                "total_kredit" => $totalKredit,
+                "total_debit" => $totalDebit,
+                "total_due" => $totalDue,
+                "net_balance" => $netBalance,
+                "total_jamaah" => $totalJamaah,
+                "total_packages" => count($packagesList),
+                "total_agents" => count($agentsMap),
+                "total_kredit_formatted" => "Rp " . number_format($totalKredit, 0, ",", "."),
                 "total_debit_formatted" => "Rp " . number_format($totalDebit, 0, ",", "."),
-                "total_due_formatted"   => "Rp " . number_format($totalDue, 0, ",", "."),
+                "total_due_formatted" => "Rp " . number_format($totalDue, 0, ",", "."),
                 "net_balance_formatted" => "Rp " . number_format($netBalance, 0, ",", "."),
-                "transaction_count"     => $totalFound
+                "transaction_count" => $totalFound
             ],
-            "packages"       => $packagesList,
-            "agents"         => array_values($agentsMap),
+            "packages" => $packagesList,
+            "agents" => array_values($agentsMap),
             "saudi_expenses" => array_values($saudiExpenses),
-            "data"           => $items
+            "data" => $items
         ]);
     }
 
@@ -349,13 +362,15 @@ class ExecutiveFinancePivotApiController extends Controller
 
             foreach ($invoices as $inv) {
                 $status = strtoupper($inv["Status"] ?? "");
-                if (in_array($status, ["DELETED", "VOIDED"])) continue;
+                if (in_array($status, ["DELETED", "VOIDED"]))
+                    continue;
 
                 $invDate = substr($inv["DateString"] ?? "", 0, 10);
-                if ($useDate && ($invDate < $startDate || $invDate > $endDate)) continue;
+                if ($useDate && ($invDate < $startDate || $invDate > $endDate))
+                    continue;
 
                 $type = strtoupper($inv["Type"] ?? "");
-                $paid = (float)($inv["AmountPaid"] ?? 0);
+                $paid = (float) ($inv["AmountPaid"] ?? 0);
                 $val = ($type === "ACCREC") ? $paid : -$paid;
 
                 $key = "Lainnya";
@@ -367,7 +382,8 @@ class ExecutiveFinancePivotApiController extends Controller
                     $key = $type;
                 }
 
-                if (!isset($grouped[$key])) $grouped[$key] = 0.0;
+                if (!isset($grouped[$key]))
+                    $grouped[$key] = 0.0;
                 $grouped[$key] += $val;
                 $grandTotal += $val;
             }
@@ -375,7 +391,7 @@ class ExecutiveFinancePivotApiController extends Controller
             foreach ($grouped as $dim => $v) {
                 $matrix[] = [
                     "dimension" => $dim,
-                    "value"     => (float) $v,
+                    "value" => (float) $v,
                     "formatted" => "Rp " . number_format((float) $v, 0, ",", ".")
                 ];
             }
@@ -384,14 +400,14 @@ class ExecutiveFinancePivotApiController extends Controller
         }
 
         return response()->json([
-            "status"       => "success",
-            "code"         => 200,
-            "dimension_1"  => $dimension1,
-            "dimension_2"  => $dimension2,
-            "measure"      => $measure,
-            "grand_total"  => $grandTotal,
+            "status" => "success",
+            "code" => 200,
+            "dimension_1" => $dimension1,
+            "dimension_2" => $dimension2,
+            "measure" => $measure,
+            "grand_total" => $grandTotal,
             "grand_total_formatted" => "Rp " . number_format($grandTotal, 0, ",", "."),
-            "matrix"       => $matrix
+            "matrix" => $matrix
         ]);
     }
 
@@ -404,11 +420,11 @@ class ExecutiveFinancePivotApiController extends Controller
         $repData = $this->rangeReport($repReq)->getData(true);
 
         return response()->json([
-            "status"     => "success",
-            "code"       => 200,
-            "server_time"=> date("Y-m-d H:i:s"),
+            "status" => "success",
+            "code" => 200,
+            "server_time" => date("Y-m-d H:i:s"),
             "segmen_1_kolektif" => $repData["summary"] ?? [],
-            "segmen_2_kantor"   => $repData["summary"] ?? []
+            "segmen_2_kantor" => $repData["summary"] ?? []
         ]);
     }
     /**
@@ -427,10 +443,10 @@ class ExecutiveFinancePivotApiController extends Controller
                 // 1. Ambil dari transaction_all_coas
                 if (DB::getSchemaBuilder()->hasTable("transaction_all_coas")) {
                     $q = DB::table("transaction_all_coas as t")
-                        ->join("coas as c", function($j) {
+                        ->join("coas as c", function ($j) {
                             $j->on("c.id", "=", "t.uuid_coa")
-                              ->orOn("c.code", "=", "t.uuid_coa")
-                              ->orOn("c.account_uuid", "=", "t.uuid_coa");
+                                ->orOn("c.code", "=", "t.uuid_coa")
+                                ->orOn("c.account_uuid", "=", "t.uuid_coa");
                         })
                         ->select("c.code", "c.name", DB::raw("SUM(t.nominal) as total_nominal"))
                         ->groupBy("c.code", "c.name");
@@ -445,16 +461,16 @@ class ExecutiveFinancePivotApiController extends Controller
                         if (!isset($transSummary[$code])) {
                             $transSummary[$code] = ["code" => $code, "name" => $r->name, "total_nominal" => 0.0];
                         }
-                        $transSummary[$code]["total_nominal"] += (float)($r->total_nominal ?? 0);
+                        $transSummary[$code]["total_nominal"] += (float) ($r->total_nominal ?? 0);
                     }
                 }
 
                 // 2. Ambil dari d_bills (account_id_coa)
                 if (DB::getSchemaBuilder()->hasTable("d_bills")) {
                     $qBills = DB::table("d_bills as d")
-                        ->join("coas as c", function($j) {
+                        ->join("coas as c", function ($j) {
                             $j->on("c.id", "=", "d.account_id_coa")
-                              ->orOn("c.code", "=", "d.account_id_coa");
+                                ->orOn("c.code", "=", "d.account_id_coa");
                         })
                         ->select("c.code", "c.name", DB::raw("SUM(d.unit_price * IFNULL(d.qty, 1)) as total_nominal"))
                         ->groupBy("c.code", "c.name")
@@ -465,7 +481,7 @@ class ExecutiveFinancePivotApiController extends Controller
                         if (!isset($transSummary[$code])) {
                             $transSummary[$code] = ["code" => $code, "name" => $qb->name, "total_nominal" => 0.0];
                         }
-                        $transSummary[$code]["total_nominal"] += (float)($qb->total_nominal ?? 0);
+                        $transSummary[$code]["total_nominal"] += (float) ($qb->total_nominal ?? 0);
                     }
                 }
             }
@@ -475,23 +491,221 @@ class ExecutiveFinancePivotApiController extends Controller
 
         return response()->json([
             "status" => "success",
-            "code"   => 200,
+            "code" => 200,
             "trans_coa_summary" => array_values($transSummary)
         ]);
     }
 
+    //new
+    public function packageProfitLossMatrix(Request $request)
+    {
+        try {
+            $startDate = $request->input('date_start', $request->input('start_date', '2026-09-01'));
+            $endDate = $request->input('date_end', $request->input('end_date', '2026-09-30'));
+            $packageName = trim((string) ($request->input('package_name', '') ?: $request->input('package_date', '')));
+            $accountFilter = trim((string) ($request->input('account_name', '') ?: $request->input('cost_element', '')));
+
+            $dateStart = Carbon::parse($startDate)->startOfDay();
+            $dateEndExclusive = Carbon::parse($endDate)->addDay()->startOfDay();
+
+            $noPackage = 'Tanpa Paket';
+
+            // 1. Data per COA per paket (logic sama dengan getProfitAndLostV2Combine)
+            $rows = $this->repo_all_coa->getPackagePnlRows(
+                $dateStart->toDateTimeString(),
+                $dateEndExclusive->toDateTimeString()
+            );
+            $trackingNames = $this->repo_tracking->getPaketNameMap();
+
+            // 2. Agregasi matriks
+            $activePackages = [];
+            $allAccounts = [];
+            $matrix = [
+                'JUMLAH PAX' => ['Total' => 0.0],
+                'Total Trading Income' => ['Total' => 0.0],
+                'Total Cost of Sales' => ['Total' => 0.0],
+                'Gross Profit' => ['Total' => 0.0],
+                'Total Other Income' => ['Total' => 0.0],
+                'Total Operating Expenses' => ['Total' => 0.0],
+                'Net Profit' => ['Total' => 0.0],
+                'LABA PER PAX' => ['Total' => 0.0]
+            ];
+
+            $addMatrix = function ($acct, $pkg, $amount) use (&$matrix, &$allAccounts, &$activePackages) {
+                if (!isset($matrix[$acct])) {
+                    $matrix[$acct] = ['Total' => 0.0];
+                }
+                if (!isset($matrix[$acct][$pkg])) {
+                    $matrix[$acct][$pkg] = 0.0;
+                }
+                $matrix[$acct][$pkg] += (float) $amount;
+                $matrix[$acct]['Total'] += (float) $amount;
+
+                if (!in_array($acct, $allAccounts)) {
+                    $allAccounts[] = $acct;
+                }
+                if (!in_array($pkg, $activePackages) && $pkg !== 'Total') {
+                    $activePackages[] = $pkg;
+                }
+            };
+
+            $sectionRow = [
+                'REVENUE' => 'Total Trading Income',
+                'DIRECTCOSTS' => 'Total Cost of Sales',
+                'OTHERINCOME' => 'Total Other Income',
+                'EXPENSE' => 'Total Operating Expenses',
+            ];
+
+            foreach ($rows as $row) {
+                // Kolom paket: ITEM dulu; kalau tidak ada pakai tracking "Nama Paket"; selain itu "Tanpa Paket"
+                $itemName = trim((string) $row->item_paket_name);
+                $trackName = !empty($row->tracking_uuid)
+                    ? trim((string) ($trackingNames[$row->tracking_uuid] ?? ''))
+                    : '';
+
+                $trackingFirst = in_array(strtoupper($itemName), self::TRACKING_FIRST_ITEMS, true);
+
+                if ($trackingFirst && $trackName !== '') {
+                    $pkg = $trackName;
+                } else {
+                    $pkg = $itemName !== '' ? $itemName : $trackName;
+                }
+                if ($pkg === '') {
+                    $pkg = $noPackage;
+                }
+
+                // Filter package_name (LIKE): sama seperti V2Combine, jurnal tanpa paket tidak ikut
+                if ($packageName !== '') {
+                    if ($pkg === $noPackage || mb_stripos($pkg, $packageName) === false) {
+                        continue;
+                    }
+                }
+
+                $acct = strtoupper(trim($row->coa_name));
+                $amount = (float) $row->total;
+
+                $addMatrix($acct, $pkg, $amount);
+                $addMatrix($sectionRow[$row->account_type], $pkg, $amount);
+
+                $pax = (float) $row->pax;
+                if ($pax > 0) {
+                    $addMatrix('JUMLAH PAX', $pkg, $pax);
+                }
+            }
+
+            // Urutan kolom: paket A-Z, "Tanpa Paket" terakhir, lalu Total
+            $hasNoPackage = in_array($noPackage, $activePackages, true);
+            $activePackages = array_values(array_diff($activePackages, [$noPackage]));
+            sort($activePackages);
+            if ($hasNoPackage) {
+                $activePackages[] = $noPackage;
+            }
+
+            // Gross Profit, Net Profit, Laba per Pax (rumus sama dengan V2Combine)
+            $allActive = array_merge($activePackages, ['Total']);
+            foreach ($allActive as $pkg) {
+                $inc = (float) ($matrix['Total Trading Income'][$pkg] ?? 0);
+                $cos = (float) ($matrix['Total Cost of Sales'][$pkg] ?? 0);
+                $oth = (float) ($matrix['Total Other Income'][$pkg] ?? 0);
+                $opex = (float) ($matrix['Total Operating Expenses'][$pkg] ?? 0);
+
+                $gp = $inc - $cos;
+                $np = $gp + $oth - $opex;
+                $matrix['Gross Profit'][$pkg] = $gp;
+                $matrix['Net Profit'][$pkg] = $np;
+
+                $pax = (float) ($matrix['JUMLAH PAX'][$pkg] ?? 0);
+                $matrix['LABA PER PAX'][$pkg] = ($pax > 0) ? ($np / $pax) : 0.0;
+            }
+
+            $finalPackages = array_merge($activePackages, ['Total']);
+
+            // 3. Laporan data yang tidak tersedia di database Xero (TIDAK DIUBAH)
+            $unavailableInXero = [
+                [
+                    'name' => 'BELUM MASUK XERO (ACC Penyesuaian)',
+                    'status' => 'Tidak tersedia di Xero',
+                    'nominal' => 3900000,
+                    'notes' => 'Catatan penyesuaian manual tim akuntansi, belum diinput ke jurnal Xero.'
+                ],
+                [
+                    'name' => 'Pembayaran paket tambahan - thaif dll',
+                    'status' => 'Belum ada akun COA',
+                    'nominal' => 0,
+                    'notes' => 'Akun COA tersendiri belum dibuat di sistem akuntansi Xero.'
+                ],
+                [
+                    'name' => 'Pembelian barang selain perlengkapan',
+                    'status' => 'Belum ada akun COA',
+                    'nominal' => 0,
+                    'notes' => 'Akun COA tersendiri belum dibuat di sistem akuntansi Xero.'
+                ],
+                [
+                    'name' => 'Pembayaran air dan coklat',
+                    'status' => 'Belum ada akun COA',
+                    'nominal' => 0,
+                    'notes' => 'Akun COA tersendiri belum dibuat di sistem akuntansi Xero.'
+                ],
+                [
+                    'name' => 'Pembayaran biaya marketing',
+                    'status' => 'Belum ada akun COA',
+                    'nominal' => 0,
+                    'notes' => 'Akun COA tersendiri belum dibuat di sistem akuntansi Xero.'
+                ]
+            ];
+
+            // 4. Filter 2 arah account_name / cost_element (TIDAK DIUBAH)
+            if (!empty($accountFilter)) {
+                $filteredAccounts = [];
+                $filteredMatrix = [];
+                foreach ($matrix as $acct => $cols) {
+                    if (stripos($acct, $accountFilter) !== false || $acct === 'Total Trading Income' || $acct === 'Total Cost of Sales' || $acct === 'Net Profit' || $acct === 'JUMLAH PAX') {
+                        $filteredAccounts[] = $acct;
+                        $filteredMatrix[$acct] = $cols;
+                    }
+                }
+                if (!empty($filteredAccounts)) {
+                    $matrix = $filteredMatrix;
+                    $allAccounts = $filteredAccounts;
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'code' => 200,
+                'source' => 'Live MySQL Database Xero (u2314635_laravel8_xero)',
+                'title' => "Profit and Loss PT An Namiroh Travelindo ({$startDate} s/d {$endDate})",
+                'period' => "{$startDate} s/d {$endDate}",
+                'filter_applied' => [
+                    'package_filter' => $packageName ?: 'Semua Paket',
+                    'account_filter' => $accountFilter ?: 'Semua Pos Biaya'
+                ],
+                'packages' => $finalPackages,
+                'accounts' => $allAccounts,
+                'matrix' => $matrix,
+                'unavailable_in_xero' => $unavailableInXero
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 500,
+                'message' => 'Gagal mengagregasi data Xero: ' . $e->getMessage()
+            ], 500);
+        }
+    }
     /**
      * Endpoint API Matriks Profit & Loss Per Paket Umroh (100% Pure Live Database Xero)
      * Mendukung query 2 arah: baris difilter kolom, kolom difilter baris, atau kombinasi keduanya,
      * serta laporan pos data yang belum tersedia di database Xero.
      */
-    public function packageProfitLossMatrix(\Illuminate\Http\Request $request)
+    //v. p yasin
+    public function packageProfitLossMatrixOLD(\Illuminate\Http\Request $request)
     {
         try {
             $startDate = $request->input('date_start', $request->input('start_date', '2026-09-01'));
             $endDate = $request->input('date_end', $request->input('end_date', '2026-09-30'));
-            $packageName = trim((string)($request->input('package_name', '') ?: $request->input('package_date', '')));
-            $accountFilter = trim((string)($request->input('account_name', '') ?: $request->input('cost_element', '')));
+            $packageName = trim((string) ($request->input('package_name', '') ?: $request->input('package_date', '')));
+            $accountFilter = trim((string) ($request->input('account_name', '') ?: $request->input('cost_element', '')));
 
             $dateStart = \Illuminate\Support\Carbon::parse($startDate)->startOfDay();
             $dateEndExclusive = \Illuminate\Support\Carbon::parse($endDate)->addDay()->startOfDay();
@@ -528,9 +742,9 @@ class ExecutiveFinancePivotApiController extends Controller
             $billQuery = DB::table('transaction_all_coas as t')
                 ->join('coas as c', 'c.id', '=', 't.uuid_coa')
                 ->join('d_bills as d', 'd.uuid_detail', '=', 't.uuid_detail')
-                ->join('items_paket_all_from_xeros as ip', function($j) {
+                ->join('items_paket_all_from_xeros as ip', function ($j) {
                     $j->on('ip.code', '=', 'd.item_code')
-                      ->orOn('ip.id', '=', 'd.item_id_prod_serv');
+                        ->orOn('ip.id', '=', 'd.item_id_prod_serv');
                 })
                 ->where('t.date_transaction', '>=', $dateStart)
                 ->where('t.date_transaction', '<', $dateEndExclusive)
@@ -580,15 +794,15 @@ class ExecutiveFinancePivotApiController extends Controller
                 'LABA PER PAX' => ['Total' => 0.0]
             ];
 
-            $addMatrix = function($acct, $pkg, $amount) use (&$matrix, &$allAccounts, &$activePackages) {
+            $addMatrix = function ($acct, $pkg, $amount) use (&$matrix, &$allAccounts, &$activePackages) {
                 if (!isset($matrix[$acct])) {
                     $matrix[$acct] = ['Total' => 0.0];
                 }
                 if (!isset($matrix[$acct][$pkg])) {
                     $matrix[$acct][$pkg] = 0.0;
                 }
-                $matrix[$acct][$pkg] += (float)$amount;
-                $matrix[$acct]['Total'] += (float)$amount;
+                $matrix[$acct][$pkg] += (float) $amount;
+                $matrix[$acct]['Total'] += (float) $amount;
 
                 if (!in_array($acct, $allAccounts)) {
                     $allAccounts[] = $acct;
@@ -602,8 +816,8 @@ class ExecutiveFinancePivotApiController extends Controller
             foreach ($invData as $row) {
                 $pkg = $row->nama_paket;
                 $acct = strtoupper(trim($row->coa_name));
-                $nom = (float)$row->base_nominal;
-                $qty = (float)($row->qty ?? 0);
+                $nom = (float) $row->base_nominal;
+                $qty = (float) ($row->qty ?? 0);
 
                 if ($qty > 0) {
                     $addMatrix('JUMLAH PAX', $pkg, $qty);
@@ -618,7 +832,7 @@ class ExecutiveFinancePivotApiController extends Controller
             foreach ($billData as $row) {
                 $pkg = $row->nama_paket;
                 $acct = strtoupper(trim($row->coa_name));
-                $nom = (float)$row->base_nominal;
+                $nom = (float) $row->base_nominal;
                 $amount = ($row->is_speend == 1) ? $nom : -$nom;
 
                 $addMatrix($acct, $pkg, $amount);
@@ -629,7 +843,7 @@ class ExecutiveFinancePivotApiController extends Controller
             foreach ($bankData as $row) {
                 $pkg = $row->nama_paket;
                 $acct = strtoupper(trim($row->coa_name));
-                $nom = (float)$row->base_nominal;
+                $nom = (float) $row->base_nominal;
 
                 if ($row->account_type === 'DIRECTCOSTS') {
                     $amount = ($row->is_speend == 1) ? $nom : -$nom;
@@ -645,16 +859,16 @@ class ExecutiveFinancePivotApiController extends Controller
             // Hitung Gross Profit, Net Profit, Laba per Pax
             $allActive = array_merge($activePackages, ['Total']);
             foreach ($allActive as $pkg) {
-                $inc = (float)($matrix['Total Trading Income'][$pkg] ?? 0);
-                $cos = (float)($matrix['Total Cost of Sales'][$pkg] ?? 0);
+                $inc = (float) ($matrix['Total Trading Income'][$pkg] ?? 0);
+                $cos = (float) ($matrix['Total Cost of Sales'][$pkg] ?? 0);
                 $gp = $inc - $cos;
                 $matrix['Gross Profit'][$pkg] = $gp;
 
-                $opex = (float)($matrix['Total Operating Expenses'][$pkg] ?? 0);
+                $opex = (float) ($matrix['Total Operating Expenses'][$pkg] ?? 0);
                 $np = $gp - $opex;
                 $matrix['Net Profit'][$pkg] = $np;
 
-                $pax = (float)($matrix['JUMLAH PAX'][$pkg] ?? 0);
+                $pax = (float) ($matrix['JUMLAH PAX'][$pkg] ?? 0);
                 $matrix['LABA PER PAX'][$pkg] = ($pax > 0) ? ($np / $pax) : 0.0;
             }
 
@@ -712,24 +926,24 @@ class ExecutiveFinancePivotApiController extends Controller
             }
 
             return response()->json([
-                'status'              => 'success',
-                'code'                => 200,
-                'source'              => 'Live MySQL Database Xero (u2314635_laravel8_xero)',
-                'title'               => "Profit and Loss PT An Namiroh Travelindo ({$startDate} s/d {$endDate})",
-                'period'              => "{$startDate} s/d {$endDate}",
-                'filter_applied'      => [
+                'status' => 'success',
+                'code' => 200,
+                'source' => 'Live MySQL Database Xero (u2314635_laravel8_xero)',
+                'title' => "Profit and Loss PT An Namiroh Travelindo ({$startDate} s/d {$endDate})",
+                'period' => "{$startDate} s/d {$endDate}",
+                'filter_applied' => [
                     'package_filter' => $packageName ?: 'Semua Paket',
                     'account_filter' => $accountFilter ?: 'Semua Pos Biaya'
                 ],
-                'packages'            => $finalPackages,
-                'accounts'            => $allAccounts,
-                'matrix'              => $matrix,
+                'packages' => $finalPackages,
+                'accounts' => $allAccounts,
+                'matrix' => $matrix,
                 'unavailable_in_xero' => $unavailableInXero
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'status'  => 'error',
-                'code'    => 500,
+                'status' => 'error',
+                'code' => 500,
                 'message' => 'Gagal mengagregasi data Xero: ' . $e->getMessage()
             ], 500);
         }

@@ -270,4 +270,67 @@ class TransCoaRepo extends BaseRepository
 
         return $invoice->union($bill)->union($bank);
     }
+
+    //UNTUK P. YASIN MATRIX
+    /**
+     * Total per COA per paket, mengikuti logic getProfitAndLostV2Combine():
+     * hanya akun P&L, tanda sama (pendapatan is_speend=0 -> +, biaya is_speend=1 -> +).
+     * Atribusi paket: item_paket_name (item) dulu; tracking_uuid dipetakan ke nama di controller.
+     */
+    public function getPackagePnlRows(string $dateStart, string $dateEndExclusive)
+    {
+        // Invoice: item_id
+        $inv = DB::table('item_detail_invoices as d')->selectRaw("
+            d.uuid_detail_inv as uuid_detail,
+            (SELECT ip.nama_paket FROM items_paket_all_from_xeros ip WHERE ip.id = d.item_id LIMIT 1) as item_paket_name,
+            d.paket_tracking_uuid as tracking_uuid,
+            d.qty as qty
+        ");
+
+        // Bill: item_id_prod_serv dulu, lalu item_code = code paket
+        $bill = DB::table('d_bills as d')->selectRaw("
+            d.uuid_detail as uuid_detail,
+            COALESCE(
+                (SELECT ip.nama_paket FROM items_paket_all_from_xeros ip WHERE ip.id = d.item_id_prod_serv LIMIT 1),
+                (SELECT ip.nama_paket FROM items_paket_all_from_xeros ip
+                  WHERE d.item_code IS NOT NULL AND d.item_code <> '' AND ip.code = d.item_code LIMIT 1)
+            ) as item_paket_name,
+            d.paket_tracking_uuid as tracking_uuid,
+            0 as qty
+        ");
+
+        // Bank: item_code berisi id paket
+        $bank = DB::table('transaction_bank_trans_d_s as d')->selectRaw("
+            d.uuid_detail_trans_bank as uuid_detail,
+            (SELECT ip.nama_paket FROM items_paket_all_from_xeros ip WHERE ip.id = d.item_code LIMIT 1) as item_paket_name,
+            d.paket_tracking_uuid as tracking_uuid,
+            0 as qty
+        ");
+
+        $attribution = $inv->unionAll($bill)->unionAll($bank);
+
+        return DB::table('transaction_all_coas as t')
+            ->join('coas as c', 'c.id', '=', 't.uuid_coa')
+            ->leftJoinSub($attribution, 'f', 'f.uuid_detail', '=', 't.uuid_detail')
+            ->where('t.date_transaction', '>=', $dateStart)
+            ->where('t.date_transaction', '<', $dateEndExclusive)
+            ->whereIn('c.account_type', ['REVENUE', 'DIRECTCOSTS', 'OTHERINCOME', 'EXPENSE'])
+            ->selectRaw("
+                c.id           as coa_id,
+                c.name         as coa_name,
+                c.account_type as account_type,
+                f.item_paket_name as item_paket_name,
+                f.tracking_uuid   as tracking_uuid,
+                SUM(
+                    CASE
+                        WHEN c.account_type IN ('REVENUE', 'OTHERINCOME')
+                            THEN CASE WHEN t.is_speend = 0 THEN t.base_nominal ELSE -t.base_nominal END
+                        ELSE CASE WHEN t.is_speend = 1 THEN t.base_nominal ELSE -t.base_nominal END
+                    END
+                ) as total,
+                SUM(CASE WHEN c.account_type = 'REVENUE' AND f.qty > 0 THEN f.qty ELSE 0 END) as pax
+            ")
+            ->groupBy('c.id', 'c.name', 'c.account_type', 'f.item_paket_name', 'f.tracking_uuid')
+            ->get();
+    }
 }

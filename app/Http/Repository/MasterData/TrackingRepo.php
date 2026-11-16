@@ -168,4 +168,23 @@ class TrackingRepo extends BaseRepository
             DB::select($sql, $bindings)
         );
     }
+
+    public function getPaketNameMap(): array
+    {
+        $map = [];
+        $rows = DB::table('tracking_categories')
+            ->where('name_parent_category', 'Nama Paket')
+            ->pluck('lines_category');
+
+        foreach ($rows as $json) {
+            $lines = is_string($json) ? json_decode($json, true) : $json;
+            foreach ((array) $lines as $l) {
+                if (!empty($l['item_uuid_category'])) {
+                    $map[$l['item_uuid_category']] = $l['item_name_category'] ?? '';
+                }
+            }
+        }
+
+        return $map;
+    }
 }

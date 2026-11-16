@@ -183,7 +183,7 @@ class PaketUmrohController extends Controller
 
         DB::beginTransaction();
         try {
-            $data = $this->payload($request);
+            $data = array_map('strtoupper', $this->payload($request));//$this->payload($request);
             $data['created_by'] = $request->user_login->id;
             $data['maskapai'] = strtoupper($request->maskapai);
             $data['keberangkatan'] = strtoupper($request->keberangkatan);
@@ -301,7 +301,7 @@ class PaketUmrohController extends Controller
 
         DB::beginTransaction();
         try {
-            $data = $this->payload($request);
+            $data = array_map('strtoupper', $this->payload($request));//$this->payload($request);
             $data['created_by'] = $request->user_login->id;
             $data['maskapai'] = strtoupper($request->maskapai);
             $data['keberangkatan'] = strtoupper($request->keberangkatan);
@@ -537,6 +537,7 @@ class PaketUmrohController extends Controller
         return ItemsPaketAllFromXero::firstOrCreate(
             [
                 'uuid_proudct_and_service' => $data['random_uuid_paket'],
+                'nama_paket' => $data['nama_paket'],
             ],
             [
                 'code' => Str::random(5),

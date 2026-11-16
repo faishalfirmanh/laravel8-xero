@@ -80,7 +80,15 @@ class ProducAndServiceXeroLocalController extends Controller
                         fn($rule) => $rule->ignore($id)
                     )
             ],
-            'nama_paket' => 'required|string',
+            'nama_paket' => [
+                'required',
+                'string',
+                Rule::unique('items_paket_all_from_xeros', 'nama_paket')
+                    ->when(
+                        $id && (int) $id > 0,
+                        fn($rule) => $rule->ignore($id)
+                    )
+            ],
             'departure_date' => 'nullable|date',
             'desc' => 'nullable|string',
             'desc_salles' => 'nullable|string',

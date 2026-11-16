@@ -886,6 +886,7 @@ $('#btnResetFilter').on('click', function () {
         table.search($(this).val()).draw();
     });
 
+    console.log('toke',localStorage.getItem('token'))
     // console.log('bearer token',localStorage.getItem('token'))
 
     // =========================================================

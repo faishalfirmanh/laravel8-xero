@@ -163,14 +163,14 @@
     box-shadow: 0 0 0 2px rgba(0, 112, 196, .12) !important;
 }
 
-/* Daftar tag: flex wrap, scroll jika terlalu banyak */
+/* Daftar tag: flex wrap, scroll jika terlalu banyak (saat mode diperluas) */
 .xero-filter-bar .select2-selection--multiple .select2-selection__rendered {
     display: flex !important;
     flex-wrap: wrap !important;
     align-items: center;
     gap: 4px;
     width: 100%;
-    max-height: 96px;
+    max-height: 150px;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     margin: 0 !important;
@@ -251,16 +251,70 @@
 }
 .xero-filter-bar .select2-selection__clear:hover { color: #c0392b; }
 
-/* Dropdown (dirender di <body>, jadi style-nya global) */
+/* ── Ringkasan tag "+N" (dipakai trimOverflowTags di JS) ──
+   Tertutup  : tampil MAX_VISIBLE tag pertama + badge "+N"
+   Fokus/open: semua tag tampil lagi supaya mudah dihapus satu per satu */
+.xero-filter-bar .select2-selection__choice.s2-hidden { display: none !important; }
+
+.xero-filter-bar .s2-overflow-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    margin: 0;
+    padding: 0 9px;
+    border-radius: 12px;
+    background: #0070c4;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    list-style: none;
+}
+.xero-filter-bar .select2-container--focus .select2-selection__choice.s2-hidden,
+.xero-filter-bar .select2-container--open  .select2-selection__choice.s2-hidden {
+    display: inline-flex !important;
+}
+.xero-filter-bar .select2-container--focus .s2-overflow-badge,
+.xero-filter-bar .select2-container--open  .s2-overflow-badge {
+    display: none;
+}
+
+/* ── Dropdown hasil (dirender di <body>, jadi style-nya global) ── */
 .select2-container--open { z-index: 9999; }
-.select2-dropdown { max-width: calc(100vw - 16px); }
+
+.select2-dropdown {
+    max-width: calc(100vw - 16px);
+    overflow: hidden;                    /* item tidak boleh bocor keluar border dropdown */
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+}
+
+/* Daftar opsi: tinggi dibatasi + scroll DI DALAM box.
+   Sebelumnya hanya max-height yang diatur tanpa overflow, sehingga item yang
+   melebihi tinggi tetap tergambar di luar dropdown (menimpa isi halaman). */
+.select2-container--bootstrap4 .select2-results > .select2-results__options,
+.select2-container--default   .select2-results > .select2-results__options {
+    max-height: 260px !important;
+    max-height: min(260px, 40vh) !important;    /* fallback otomatis jika min() tidak didukung */
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;               /* scroll list tidak ikut menggeser halaman */
+}
+/* List bersarang (group) tidak perlu scroll sendiri */
+.select2-results__options .select2-results__options {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
 .select2-results__option {
     padding: 8px 10px;
     font-size: 12px;
+    line-height: 1.35;
     white-space: normal;
     word-break: break-word;
+    -webkit-tap-highlight-color: transparent;
 }
-.select2-container--bootstrap4 .select2-results__options { max-height: 260px; }
 
 /* ══════════════════════════════════════════════════════════
    REPORT CARD
@@ -424,6 +478,7 @@
         font-size: 18px;
     }
     .xero-filter-bar .select2-selection__clear { top: 9px; font-size: 20px; }
+    .xero-filter-bar .s2-overflow-badge { height: 28px; font-size: 12px; padding: 0 11px; border-radius: 14px; }
 
     /* font 16px mencegah iOS zoom otomatis saat input difokuskan */
     .xero-filter-bar .select2-search--inline .select2-search__field,
@@ -431,7 +486,14 @@
         height: 30px;
         font-size: 16px;
     }
-    .select2-results__option { padding: 11px 12px; font-size: 14px; }
+
+    /* Dropdown: lebih pendek (keyboard layar memakan separuh layar) + item mudah disentuh */
+    .select2-container--bootstrap4 .select2-results > .select2-results__options,
+    .select2-container--default   .select2-results > .select2-results__options {
+        max-height: 240px !important;
+        max-height: min(240px, 36vh) !important;
+    }
+    .select2-results__option { padding: 12px 12px; font-size: 14px; }
 
     /* Kartu laporan lebih lega di layar kecil */
     .xero-report-card { padding: 16px 12px; }
@@ -471,7 +533,7 @@
                 </div>
             </div>
 
-            {{-- Divisi (tracking) --}}
+            {{-- Nama Paket (tracking) --}}
             <div>
                 <span class="filter-label">Nama Paket <span class="text-success font-weight-bold">(tracking)</span></span>
                 <div class="tracking-select-wrap">
@@ -480,6 +542,7 @@
                 </div>
             </div>
 
+            {{-- Divisi (tracking) --}}
             <div>
                 <span class="filter-label">Divisi <span class="text-success font-weight-bold">(tracking)</span></span>
                 <div class="tracking-select-wrap">
@@ -487,9 +550,6 @@
                             id="tracking_divisi" multiple="multiple" style="width:100%;"></select>
                 </div>
             </div>
-
-            {{-- Nama Paket (tracking) --}}
-           
 
         </div>{{-- /.filter-row --}}
 
@@ -634,6 +694,47 @@ $(function () {
     }
 
     // =========================================================
+    // SELECT2 HELPER — ringkas tag jadi "+N" saat tidak difokus
+    // (murni visual; value tetap dikirim semua saat submit).
+    // Styling ada di CSS: .s2-hidden, .s2-overflow-badge
+    // =========================================================
+    var MAX_VISIBLE = 2;
+
+    function trimOverflowTags($el) {
+        var $container = $el.next('.select2-container');
+        if (!$container.length) return;
+
+        $container.find('.s2-overflow-badge').remove();
+        $container.find('.select2-selection__choice.s2-hidden').removeClass('s2-hidden');
+
+        var $choices = $container.find('.select2-selection__choice');
+        var total    = $choices.length;
+
+        if (total <= MAX_VISIBLE) return;
+
+        $choices.each(function (i) {
+            if (i >= MAX_VISIBLE) $(this).addClass('s2-hidden');
+        });
+
+        // Badge disisipkan SEBELUM kolom pencarian supaya tampil sejajar dengan tag
+        var $badge  = $('<li class="s2-overflow-badge">+' + (total - MAX_VISIBLE) + '</li>');
+        var $search = $container.find('.select2-search--inline');
+        if ($search.length) {
+            $search.before($badge);
+        } else {
+            $container.find('.select2-selection__rendered').append($badge);
+        }
+    }
+
+    function bindOverflowTrim($el) {
+        // Namespace + off() supaya tidak dobel jika init dipanggil ulang
+        $el.off('change.s2trim').on('change.s2trim', function () {
+            // setTimeout: tunggu Select2 selesai me-render ulang daftar tag
+            setTimeout(function () { trimOverflowTags($el); }, 0);
+        });
+    }
+
+    // =========================================================
     // SELECT2 — Nama Paket (item), id = items_paket_all_from_xeros.id
     // =========================================================
     function initNamaPaketSelect2() {
@@ -687,6 +788,8 @@ $(function () {
                 cache: true
             }
         });
+
+        bindOverflowTrim($el);
     }
 
     // =========================================================
@@ -759,10 +862,10 @@ $(function () {
     // =========================================================
     // SELECT2 MULTIPLE — tracking filter (Divisi & Nama Paket tracking)
     // =========================================================
-    function initTrackingSelect($el, parentCategory) {
+    function initTrackingSelect($el, parentCategory, placeholderText) {
         $el.select2({
             theme          : 'bootstrap4',
-            placeholder    : 'None',
+            placeholder    : placeholderText || 'None',
             allowClear     : true,
             width          : '100%',
             dropdownParent : $('body'),
@@ -788,41 +891,11 @@ $(function () {
             }
         });
 
-        // Overflow handler: tampilkan "+N" badge jika tag > MAX_VISIBLE
-        $el.on('change', function () {
-            setTimeout(function () { trimOverflowTags($el); }, 0);
-        });
+        bindOverflowTrim($el);
     }
 
-    /**
-     * Batasi tampilan tag di select2 multiple (murni visual,
-     * value tetap dikirim semua saat submit).
-     */
-    var MAX_VISIBLE = 2;
-
-    function trimOverflowTags($el) {
-        var $container = $el.next('.select2-container');
-        if (!$container.length) return;
-
-        $container.find('.s2-overflow-badge').remove();
-        $container.find('.select2-selection__choice.s2-hidden').removeClass('s2-hidden');
-
-        var $choices = $container.find('.select2-selection__choice');
-        var total    = $choices.length;
-
-        if (total <= MAX_VISIBLE) return;
-
-        $choices.each(function (i) {
-            if (i >= MAX_VISIBLE) $(this).addClass('s2-hidden');
-        });
-
-        var overflow = total - MAX_VISIBLE;
-        var $badge   = $('<span class="s2-overflow-badge">+' + overflow + '</span>');
-        $container.find('.select2-selection__rendered').append($badge);
-    }
-
-   initTrackingSelect($('#tracking_paket_name'), 'nama paket', 'Semua paket');
-   initTrackingSelect($('#tracking_divisi'),     'divisi',     'Semua divisi');
+    initTrackingSelect($('#tracking_paket_name'), 'nama paket', 'Semua paket');
+    initTrackingSelect($('#tracking_divisi'),     'divisi',     'Semua divisi');
 
     // =========================================================
     // PRELOAD nilai tersimpan (edit mode / old())
