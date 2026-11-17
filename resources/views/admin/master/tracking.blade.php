@@ -85,7 +85,7 @@
                         <div class="form-row align-items-end">
                             <div class="form-group col-md-7 mb-2">
                                 <label class="mb-1">Nama Parent Category <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="name_parent_category" required>
+                                <input type="text" class="form-control" disabled id="name_parent_category" required>
                             </div>
                             <div class="form-group col-md-5 mb-2 text-right">
                                 <button type="button" id="btnAddLine" class="btn btn-success">
