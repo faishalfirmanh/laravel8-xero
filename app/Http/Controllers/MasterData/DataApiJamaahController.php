@@ -171,8 +171,24 @@ class DataApiJamaahController extends Controller//from xero when create transact
             'phone_number' => [
                 'nullable',
                 'string',
-                'max:20',
-                Rule::unique('data_jamaah_xeros', 'phone_number')->ignore($request->id),
+                'max:100',
+                function ($attribute, $value, $fail) {
+                    $value = trim((string) $value);
+                    if ($value === '') {
+                        return;
+                    }
+
+                    if (!preg_match('/^(62\d+)\s*(\/.*)?$/', $value, $m)) {
+                        $fail('Nomor telepon harus diawali 62 dan hanya berisi angka. Catatan boleh ditambahkan setelah tanda "/" (contoh: 621738981239 /agen dita).');
+                        return;
+                    }
+                    $jumlahDigit = strlen($m[1]);
+                    $adaSlash = isset($m[2]) && $m[2] !== '';
+                    // Lebih dari 14 digit wajib memakai "/" setelah nomor
+                    if ($jumlahDigit > 14 && !$adaSlash) {
+                        $fail('Nomor telepon lebih dari 14 digit harus diakhiri tanda "/" setelah nomor (contoh: 621738981239 /agen dita).');
+                    }
+                }
             ],
             'nik' => [
                 'required',

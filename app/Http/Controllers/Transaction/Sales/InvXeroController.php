@@ -1605,6 +1605,28 @@ class InvXeroController extends Controller
         if (file_exists($pdfPath))
             $deleted = unlink($pdfPath) || $deleted;
 
+        if ($deleted) {
+            // Format nama file dari uploadMultiple: {invoice_number}_{sha1}_{invoiceId}.{webp|pdf}
+            $invoiceNumber = null;
+            $invoiceId = null;
+            if (preg_match('/^(.+)_[a-f0-9]{40}_(\d+)\.(webp|pdf)$/i', $fileName, $m)) {
+                $invoiceNumber = $m[1];
+                $invoiceId = (int) $m[2];
+            }
+
+            $logMessage = $request->user_login->name
+                . ' menghapus file ' . $fileName
+                . ($invoiceNumber ? ' dari invoice ' . $invoiceNumber : '');
+
+            $this->service_global->saveLogHistory(
+                $request->user_login->id,
+                $logMessage,
+                $request->userAgent(),
+                $request->ip(),
+                $invoiceId,
+                null
+            );
+        }
         return response()->json([
             'success' => (bool) $deleted,
             'message' => $deleted ? 'File dihapus.' : 'File tidak ditemukan.',
@@ -1767,6 +1789,27 @@ class InvXeroController extends Controller
                     'final_size' => $finalSizeKb . ' KB',
                     'type' => 'image',
                 ];
+            }
+            if (count($uploadedFilesData) > 0) {
+                $jmlPdf = collect($uploadedFilesData)->where('type', 'pdf')->count();
+                $jmlImage = collect($uploadedFilesData)->where('type', 'image')->count();
+
+                $logMessage = $request->user_login->name
+                    . ' mengupload ' . count($uploadedFilesData) . ' file'
+                    . ' (' . $jmlImage . ' gambar, ' . $jmlPdf . ' PDF)'
+                    . ' untuk invoice ' . $invNumber->invoice_number
+                    . (count($duplicateFilesData) > 0
+                        ? ', ' . count($duplicateFilesData) . ' file duplikat dilewati'
+                        : '');
+
+                $this->service_global->saveLogHistory(
+                    $request->user_login->id,
+                    $logMessage,
+                    $request->userAgent(),
+                    $request->ip(),
+                    $invNumber->id,
+                    null
+                );
             }
 
             return response()->json([

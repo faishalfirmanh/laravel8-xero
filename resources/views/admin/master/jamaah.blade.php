@@ -86,7 +86,7 @@
 
                 <div class="form-group mb-3">
                     <label for="phone_number">No. Telepon</label>
-                    <input type="text" class="form-control" id="phone_number" placeholder="Contoh: 081234567890">
+                    <input type="text" class="form-control" id="phone_number" placeholder="Contoh: 6281234567890">
                 </div>
 
                 <div class="form-group mb-3">
