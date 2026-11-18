@@ -127,6 +127,7 @@
                     <th class="text-right">Harga Triple</th>
                     <th class="text-right">Harga Double</th>
                     <th class="text-right">Fasilitas Tambahan</th>
+                    <th class="text-right">Disimpan Oleh</th>
                     <th class="text-center no-capture" width="12%">Aksi</th>
                 </tr>
             </thead>
@@ -815,6 +816,7 @@ function renderRows(rows) {
 
     let html = '';
     rows.forEach((p, i) => {
+        console.log('[p]',p)
         let cek_status_paket = p.is_internal ? 'agen' : 'umum'
         let cek_status_posting = p.is_posting ? 'posting' : 'draf';
         html += `
@@ -832,7 +834,8 @@ function renderRows(rows) {
                 <td class="text-right">${Number(p.hrgquad || 0).toLocaleString('id-ID')}</td>
                 <td class="text-right">${Number(p.hrgtriple || 0).toLocaleString('id-ID')}</td>
                 <td class="text-right">${Number(p.hrgdouble || 0).toLocaleString('id-ID')}</td>
-                <td class="text-right">${p.fasilitas_tambahan}</td>
+                <td class="text-right">${p.fasilitas_tambahan ?? '-'}</td>
+                 <td class="text-right">${p.name_created_user ?? '-'}</td>
                 <td class="text-center no-capture">
                     <button type="button" class="btn btn-xs btn-info btn-add-jamaah"
                             data-id="${p.id}"

@@ -3,6 +3,7 @@
 namespace App\Models\GoHalal;
 
 use App\Models\MasterData\TravelName;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -38,6 +39,9 @@ class PaketUmroh extends Model
         'is_posting',//
     ];
 
+    protected $appends = [
+        'name_created_user'
+    ];
     protected $casts = [
         'tgl_berangkat' => 'date:Y-m-d',
         'jumlah_hari' => 'integer',
@@ -50,6 +54,17 @@ class PaketUmroh extends Model
         'available_slot' => 'integer',
         'filled_slot' => 'integer',
     ];
+
+    public function getNameCreatedUserAttribute()
+    {
+        return $this->getUserCreated->name ?? '';
+    }
+
+    public function getUserCreated()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
 
     public function travel()
     {
