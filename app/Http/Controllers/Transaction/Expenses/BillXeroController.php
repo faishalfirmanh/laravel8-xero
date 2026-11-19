@@ -1164,36 +1164,42 @@ class BillXeroController extends Controller
                 // 4. Manajemen Transaksi (Jika approve / action_save != 0)
                 if ($request->action_save != 0) {
 
-                    $cek_create_trans = $this->repo_all_trans->whereData([
-                        'reference' => $request->reference, // Sudah di-strtolower via merge
-                        'uuid_coa' => $accountId,
-                        'uuid_detail' => $save_d->uuid_detail
-                    ])->first();
+                    // Cari berdasarkan uuid_detail saja (BUKAN uuid_coa),
+                    // supaya kalau akun berubah, record lama ikut ter-update
+                    $transRows = $this->repo_all_trans->whereData([
+                        'uuid_detail' => $save_d->uuid_detail,
+                    ])->get();
 
-                    if ($cek_create_trans) {
-                        // FIX: Jika transaksi sudah ada, update nominal menggunakan data terbaru dari $save_d
-                        $cek_create_trans->is_speend = true;
-                        $cek_create_trans->date_transaction = $request->date_req;
-                        $cek_create_trans->nominal = $save_d->amount; //$save_d->total_base;// $save_d->amount;
-                        $cek_create_trans->code_curr = $request->currency;
-                        $cek_create_trans->nominal_currency = $cek_nominal_currency;
-                        $cek_create_trans->base_nominal = $save_d->total_base;
-                        $cek_create_trans->save();
+                    if ($transRows->isNotEmpty()) {
+                        $trans = $transRows->shift(); // record utama
+
+                        if ($transRows->isNotEmpty()) {
+                            $this->repo_all_trans->wherenDataIn('id', $transRows->pluck('id')->toArray())->delete();
+                        }
+
+                        $trans->uuid_coa = $accountId;   // <-- akun baru ikut berubah
+                        $trans->reference = $request->reference;
+                        $trans->is_speend = true;
+                        $trans->date_transaction = $request->date_req;
+                        $trans->nominal = $save_d->amount;
+                        $trans->code_curr = $request->currency;
+                        $trans->nominal_currency = $cek_nominal_currency;
+                        $trans->base_nominal = $save_d->total_base;
+                        $trans->save();
+
                     } else {
-                        // FIX: uuid_detail harus disamakan dengan punya tabel detail ($save_d->uuid_detail), bukan di-generate ulang
-                        $data_trans_create = [
+                        $this->repo_all_trans->CreateOrUpdate([
                             'date_transaction' => $request->date_req,
                             'uuid_coa' => $accountId,
                             'reference' => $request->reference,
                             'is_speend' => true,
-                            'nominal' => $save_d->amount,//amount,//abs((int) $save_d->amount),//auto positif
-                            'created_by' => $request->user_login->id, // Pastikan user_login dilampirkan via middleware
+                            'nominal' => $save_d->amount,
+                            'created_by' => $request->user_login->id,
                             'uuid_detail' => $save_d->uuid_detail,
                             'code_curr' => $request->currency,
                             'nominal_currency' => $cek_nominal_currency,
                             'base_nominal' => $save_d->total_base
-                        ];
-                        $this->repo_all_trans->CreateOrUpdate($data_trans_create, null);
+                        ], null);
                     }
                 }
             }
