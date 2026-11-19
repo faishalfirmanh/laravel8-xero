@@ -132,6 +132,12 @@ class ProfitLossController extends Controller
             ->leftJoinSub($jamaahSub, 'jamaah_bank', 'jamaah_bank.uuid_contact', '=', 'ptbi.uuid_to')
             ->leftJoinSub($jamaahSub, 'jamaah_invoice', 'jamaah_invoice.uuid_contact', '=', 'inv.uuid_contact')
             ->leftJoinSub($jamaahSub, 'jamaah_fee', 'jamaah_fee.uuid_contact', '=', 'fi.uuid_contact')
+
+            ->leftJoin('users as u_inv', 'u_inv.id', '=', 'inv.created_by')
+            ->leftJoin('users as u_bill', 'u_bill.id', '=', 'pb.created_by')
+            ->leftJoin('users as u_bank', 'u_bank.id', '=', 'ptbi.created_by')
+            ->leftJoin('users as u_fee', 'u_fee.id', '=', 'fi.created_by')
+
             ->where('t.uuid_coa', $account)
             ->where('t.date_transaction', '>=', $start->toDateTimeString())
             ->where('t.date_transaction', '<', $endExclusive->toDateTimeString());
@@ -153,6 +159,10 @@ class ProfitLossController extends Controller
             fi.invoice_number as fee_invoice_number,
             fo.reference as fee_reference,
             fo.bank_tujuan_jamaah_rek as fee_rek,
+            u_inv.name  as invoice_creator,
+            u_bill.name as bill_creator,
+            u_bank.name as bank_creator,
+            u_fee.name  as fee_creator,
             CASE
                 WHEN di.id IS NOT NULL THEN jamaah_invoice.full_name
                 WHEN db.id IS NOT NULL THEN jb.full_name
@@ -196,26 +206,31 @@ class ProfitLossController extends Controller
                 case 'invoice':
                     $reference = $t->invoice_number ?? $t->invoice_reference;
                     $desc = $t->invoice_desc;
+                    $createdBy = $t->invoice_creator;
                     break;
 
                 case 'bill':
                     $reference = $t->bill_reference;
                     $desc = $t->bill_desc;
+                    $createdBy = $t->bill_creator;
                     break;
 
                 case 'bank':
                     $reference = $t->bank_reference;
                     $desc = $t->bank_desc;
+                    $createdBy = $t->fee_creator;
                     break;
 
                 case 'fee':
                     $reference = $t->fee_invoice_number ?? $t->fee_reference;
                     $desc = 'Fee overpay' . ($t->fee_rek ? ' ke ' . $t->fee_rek : '');
+                    $createdBy = $t->fee_creator;
                     break;
 
                 default:
                     $reference = null;
                     $desc = null;
+                    $createdBy = null;
             }
 
             $parts = array_filter([$t->jamaah_name, $desc], function ($v) {
@@ -228,6 +243,7 @@ class ProfitLossController extends Controller
                 'reference' => $reference,
                 'description' => count($parts) ? implode(' - ', $parts) : null,
                 'source' => $t->source,
+                'created_by' => $createdBy,
             ];
         })->values();
 

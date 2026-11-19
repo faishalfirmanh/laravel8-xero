@@ -45,13 +45,14 @@
                 <th>Referensi</th>
                 <th>Sumber</th>
                 <th>Keterangan</th>
+                <th>Dibuat oleh</th>
                 <th style="text-align:right;">Nominal</th>
             </tr>
         </thead>
         <tbody id="detailBody"></tbody>
         <tfoot>
             <tr class="detail-total">
-                <td colspan="4">Total</td>
+                <td colspan="5">Total</td>
                 <td class="amt" id="detailTotal"></td>
             </tr>
         </tfoot>
@@ -140,7 +141,7 @@ $(function () {
         $body.empty();
 
         if (!data.transactions.length) {
-            $body.append('<tr><td colspan="5" style="text-align:center; padding:15px;">Tidak ada transaksi pada periode ini.</td></tr>');
+            $body.append('<tr><td colspan="6" style="text-align:center; padding:15px;">Tidak ada transaksi pada periode ini.</td></tr>');
         }
 
         $.each(data.transactions, function (i, t) {
@@ -150,6 +151,7 @@ $(function () {
                 '<td>' + escHtml(t.reference) + '</td>' +
                 '<td>' + escHtml(t.source) + '</td>' +
                 '<td>' + escHtml(t.description) + '</td>' +
+                '<td>' + escHtml(t.created_by ?? '-') + '</td>' +
                 '<td class="' + amtClass(t.nominal) + '">' + formatAmt(t.nominal) + '</td>' +
                 '</tr>'
             );
@@ -161,6 +163,7 @@ $(function () {
 
     ajaxRequest(apiUrl, 'GET', getFilterParams(), localStorage.getItem('token'))
         .then(function (response) {
+        console.log('res',response.data)
             if (!response.status || !response.data) {
                 throw new Error(response.message || 'Gagal memuat data');
             }
