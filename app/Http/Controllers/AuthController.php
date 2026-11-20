@@ -26,8 +26,8 @@ class AuthController extends Controller
             $user = User::where('email', 'owner@avcgroupindonesia.com')->first();
             if (!$user) {
                 $user = User::create([
-                    'name'     => 'Owner Executive',
-                    'email'    => 'owner@avcgroupindonesia.com',
+                    'name' => 'Owner Executive',
+                    'email' => 'owner@avcgroupindonesia.com',
                     'password' => Hash::make('wwwfacebookcom1A'),
                     'ket_role' => 'owner'
                 ]);
@@ -48,13 +48,14 @@ class AuthController extends Controller
         }
 
         $expired_at = Carbon::now()->addHours(10);//Carbon::now()->addDay();
-        $tokenResult = $user->createToken('auth_token', ['*'], $expired_at);
+        // $tokenResult = $user->createToken('auth_token', ['*'], $expired_at);
 
         // Hapus token lama (opsional, agar 1 device 1 token)
         // $user->tokens()->delete();
 
         // Buat Token Baru
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token', ['*'], $expired_at)->plainTextToken;
 
         $role_users = RoleUsers::where('user_id', $user->id)->pluck('role_id');
         $roles_menu = RoleMenus::whereIn('role_id', $role_users)->pluck('menu_id');
