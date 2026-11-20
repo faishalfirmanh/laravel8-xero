@@ -3,6 +3,7 @@
 use App\Http\Controllers\GoHalal\PaketUmrohController;
 use App\Http\Controllers\GoHalal\PaketUmrohJamaahController;
 use App\Http\Controllers\MasterData\BrandingThemeController;
+use App\Http\Controllers\MasterData\DataJamaahController;
 use App\Http\Controllers\MasterData\HotelApiController;
 use App\Http\Controllers\MasterData\JamaahAlhidController;
 use App\Http\Controllers\MasterData\JamaahApiXeroController;
@@ -122,6 +123,9 @@ Route::get('ubah-account-code-bank-xero', [XeroBillController::class, 'fixEmptyB
 Route::post('deleteInv', [InvXeroController::class, 'deletedInvoice'])->name('delete-trans');
 Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
 
+
+Route::get('duplicates-jamaah', [DataJamaahController::class, 'index']);
+Route::post('duplicates/delete', [DataJamaahController::class, 'destroy']);
 
 
 
@@ -406,7 +410,7 @@ Route::prefix("admin-web")->group(function () {
                 Route::get('getByIdCoa', [CoaController::class, 'getListTransByCoaId'])->name('rep-detail-coa');
             });
             Route::prefix('profit-and-loss')->group(function () {
-                Route::get('getV3', [ProfitLossController::class, 'getProfitAndLostV2Combine'])->name('profit-and-loss-v3');//comvine item & tracking
+                Route::get('getV3', [ProfitLossController::class, 'getProfitAndLostV3Combine'])->name('profit-and-loss-v3');//comvine item & tracking,//getProfitAndLostV2Combine
                 Route::get('getV2', [ProfitLossController::class, 'getProfitAndLostV2'])->name('profit-and-loss-v2');
                 Route::get('index', [ProfitLossController::class, 'getHome'])->name('profit-and-loss');//yang invoice statusnya tidak draft(yg tampil authorized dan paid)
                 Route::get('detail-profit-and-loss/{account}/{date_start}/{date_end}', [ProfitLossController::class, 'profitAndLossDetailData'])

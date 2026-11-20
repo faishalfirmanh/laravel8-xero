@@ -41,7 +41,8 @@ class DashboardController extends Controller
 
     public function profitAndLoss()
     {
-        return view('admin.report.profit_loss');
+        // return view('admin.report.profit_loss');//jadi 1 total
+        return view('admin.report.profit_loss_masing2');//masing-masing
     }
 
     public function viewCoaTrans()

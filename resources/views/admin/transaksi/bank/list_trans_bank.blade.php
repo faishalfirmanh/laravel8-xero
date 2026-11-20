@@ -1535,7 +1535,12 @@ $('#btnResetFilterDate').on('click', function () {
                 type: "GET",
                 dataType: 'json',
                 delay: 250,
-                data: function() { return { name_parent_category: 'nama paket' }; },
+                data: function(params) {
+                    return {
+                        name_parent_category: 'nama paket',
+                        keyword: params.term || ''          // ✅ kirim kata kunci
+                    };
+                },
                 processResults: function(response) {
                     if (!response.status || !response.data?.lines_category) return { results: [] };
                     return {
@@ -1543,8 +1548,7 @@ $('#btnResetFilterDate').on('click', function () {
                             return { id: item.item_uuid_category || item.id, text: item.item_name_category };
                         })
                     };
-                },
-                cache: true
+                }
             }
         });
 

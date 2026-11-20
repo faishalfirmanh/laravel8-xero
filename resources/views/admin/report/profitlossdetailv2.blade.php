@@ -19,6 +19,8 @@
 .detail-table td.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .detail-table td.amt.negative { color: #c0392b; }
 .detail-table td.amt.positive { color: #1a6abf; }
+.detail-table td.amt a { color: inherit; text-decoration: none; }
+.detail-table td.amt a:hover { text-decoration: underline; }
 .detail-total td { font-weight: 600; border-top: 2px solid #333; background: #fafafa; }
 .detail-table tbody tr:hover { background-color: #eef6fc; transition: background-color .2s ease; }
 #detailLoading { padding: 30px; text-align: center; color: #888; font-size: 13px; }
@@ -78,7 +80,7 @@ $(function () {
         return (parseFloat(val) || 0) < 0 ? 'amt negative' : 'amt positive';
     }
     function escHtml(str) {
-        return $('<div>').text(str || '').html();
+        return $('<div>').text(str || '').html().replace(/"/g, '&quot;');
     }
     function showError(err) {
         if (typeof cathError === 'function') cathError(err);
@@ -128,6 +130,27 @@ $(function () {
         );
     }
 
+    // URL dokumen sumber (invoice / bill / bank / fee overpay) dari data `link` API
+    function buildSourceUrl(link) {
+        if (!link || !link.id) return '';
+
+        var base = window.location.origin + '/travel/admin/transaksi';
+        var id   = encodeURIComponent(link.id);
+
+        switch (link.type) {
+            case 'invoice':
+                return base + '/sales-invoice/?open=' + id;
+            case 'bill':
+                return base + '/purchase-bills/?open=' + id;
+            case 'bank':
+                if (!link.bank_id_xero) return '';
+                return base + '/bank-trans/' + encodeURIComponent(link.bank_id_xero) + '?open=' + id;
+            case 'fee':
+                return base + '/sales-invoice/?openPayId=' + id;
+        }
+        return '';
+    }
+
     function renderDetail(data) {
         $('#detailCoaName').text(data.coa.name);
         $('#detailPeriod').text(
@@ -145,6 +168,12 @@ $(function () {
         }
 
         $.each(data.transactions, function (i, t) {
+            var url     = buildSourceUrl(t.link);
+            var nominal = formatAmt(t.nominal);
+            var nominalHtml = url
+                ? '<a href="' + escHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Buka dokumen sumber">' + nominal + '</a>'
+                : nominal;
+
             $body.append(
                 '<tr>' +
                 '<td>' + moment(t.date).format('D MMM YYYY') + '</td>' +
@@ -152,7 +181,7 @@ $(function () {
                 '<td>' + escHtml(t.source) + '</td>' +
                 '<td>' + escHtml(t.description) + '</td>' +
                 '<td>' + escHtml(t.created_by ?? '-') + '</td>' +
-                '<td class="' + amtClass(t.nominal) + '">' + formatAmt(t.nominal) + '</td>' +
+                '<td class="' + amtClass(t.nominal) + '">' + nominalHtml + '</td>' +
                 '</tr>'
             );
         });
