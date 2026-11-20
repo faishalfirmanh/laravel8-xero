@@ -604,7 +604,7 @@ class InvXeroController extends Controller
             */
 
             $oldParent = $isUpdate
-                ? $this->repo->whereData(['id' => $request->id])->first()
+                ? $this->repo->whereData(['id' => $request->id])->lockForUpdate()->first()
                 : null;
 
             if ($isUpdate && !$oldParent) {
