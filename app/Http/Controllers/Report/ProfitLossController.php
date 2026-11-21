@@ -1208,12 +1208,12 @@ class ProfitLossController extends Controller
         }
 
         // Batas aman supaya laporan tidak meledak (mis. 5 item x 5 tracking = 25)
-        if (count($columns) > 24) {
-            return $this->error(
-                ['filter' => ['Terlalu banyak kolom (' . count($columns) . '). Kurangi pilihan paket (maksimal 24 kolom).']],
-                422
-            );
-        }
+        // if (count($columns) > 24) {
+        //     return $this->error(
+        //         ['filter' => ['Terlalu banyak kolom (' . count($columns) . '). Kurangi pilihan paket (maksimal 24 kolom).']],
+        //         422
+        //     );
+        // }
 
         /*
          * Jalankan 1 query agregasi per kolom, lalu gabungkan per akun (COA).
