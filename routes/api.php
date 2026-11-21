@@ -89,6 +89,7 @@ use App\Http\Middleware\VerifyHalalGoCallback;
 use App\Http\Controllers\Auth\TwoFactorAuthController;
 use App\Http\Controllers\Report\ExecutiveFinancePivotApiController;
 use App\Http\Middleware\TwoFactorApiMiddleware;
+use App\Http\Controllers\DuplicateUUIDController;
 //https://<domain-anda>/api/mitra/halalgo/callback-booking
 Route::post('mitra/halalgo/callback-booking', [HalalGoCallbackController::class, 'booking'])
     ->middleware(VerifyHalalGoCallback::class);
@@ -124,9 +125,12 @@ Route::post('deleteInv', [InvXeroController::class, 'deletedInvoice'])->name('de
 Route::post('unlock', [InvoiceXeroLocalController::class, 'hapusLock'])->middleware('xss')->name('unlock-sales-inv');
 
 
-Route::get('duplicates-jamaah', [DataJamaahController::class, 'index']);
-Route::post('duplicates/delete', [DataJamaahController::class, 'destroy']);
+// Route::get('duplicates-jamaah', [DataJamaahController::class, 'index']);
+// Route::post('duplicates/delete', [DataJamaahController::class, 'destroy']);
 
+Route::prefix('public')->middleware(PublicKey::class)->group(function () {
+    Route::get('duplicate-uuid-detail/join-rows', [DuplicateUUIDController::class, 'duplicateJoinRows']);
+});
 
 
 // =========================================================================
