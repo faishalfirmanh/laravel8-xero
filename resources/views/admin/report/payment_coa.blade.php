@@ -246,7 +246,7 @@ $(document).ready(function() {
             render: function(d, t, row) {
                 console.log('due',row)
                 let out = '';
-                if (parseInt(d) > 0) out += `<span class="badge bg-danger me-1">Lewat ${parseInt(d)} hari</span>`;
+                if (parseInt(d) > 0) out += `<span class="badge bg-danger me-1" style="color:white !important;">Lewat ${parseInt(d)} hari</span>`;
                 if (row.mixed)       out += '<span class="badge bg-light text-dark border me-1">Ada COA lain</span>';
                 return out;
             }

@@ -899,6 +899,43 @@
     min-height: 31px;
     font-size: 12px;
 }
+
+/* ── Aksi riwayat pembayaran (paymentModal) ── */
+#tablePaymentList td.pay-act-cell { white-space: nowrap; vertical-align: middle; }
+.pay-act-btns {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.pay-act-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    font-size: 15px;
+    line-height: 1;
+    border-radius: 6px;
+}
+
+/* Mobile: tabel scroll horizontal (tidak dipepatkan), kolom Aksi menempel di kanan */
+@media (max-width: 768px) {
+    #tablePaymentList { min-width: 760px; font-size: 12px; }
+    #tablePaymentList th:last-child,
+    #tablePaymentList td.pay-act-cell {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        box-shadow: -3px 0 5px rgba(0, 0, 0, .12);
+    }
+    #tablePaymentList td.pay-act-cell { background: #fff; }
+    .pay-act-btn { width: 38px; height: 38px; }   /* target sentuh lebih besar */
+}
+
 </style>
 
 
@@ -2081,7 +2118,7 @@
 // ========================================================
 let myDropzonePay = null;
 let isClearingDropzonePay = false;
-
+const RECEIPT_ASSET_BASE = "{{ rtrim(asset(''), '/') }}/";
 // Hapus file dari server (sama seperti dropzone invoice)
 function deleteBuktiPayFromServer(file) {
     $.ajax({
@@ -4962,6 +4999,9 @@ function setRowRequiredState($row, isRequired) {
             const rawOverpay = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
             const payments = d.get_payment || [];
 
+            paymentReceiptCache = { inv: d, pays: {} };
+            $('#payment_list_body [data-toggle="tooltip"]').tooltip('dispose');
+
             console.log('edit pay data', $(this).data());
             console.table(payments.map(p => ({
                 id: p.id,
@@ -5028,6 +5068,7 @@ function setRowRequiredState($row, isRequired) {
                             ? parseFloat(p.nominal_receive)
                             : parseFloat(p.nominal_spend);
 
+                        paymentReceiptCache.pays[p.id] = p;
                         totalPaid += nominal;
                         const cek_style = p.nominal_receive > 0
                             ? ''
@@ -5041,31 +5082,42 @@ function setRowRequiredState($row, isRequired) {
                                 <td>${p.reference_detail || '-'}</td>
                                 <td>${p.nama_paket_payment || '-'}</td>
                                 <td class="text-right">${formatCurrency(nominal, d.code_curr)}</td>
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-xs btn-warning mr-1 btn-edit-inv-pay" style="padding:10px;"
-                                        title="Edit"
-                                        data-id="${p.id}"
-                                        data-nominal="${p.nominal_receive > 0 ? p.nominal_receive : p.nominal_spend}"
-                                        data-date="${p.date_transaction}"
-                                        data-bank-id="${p.uuid_bank}"
-                                        data-bank-name="${p.name_bank}"
-                                        data-reference="${p.reference_detail || ''}"
-                                        data-item-id="${p.item_id_for_payment || ''}"
-                                        data-item-name="${escAttr(p.nama_paket_payment)}">
-                                        <i class="ti ti-pencil"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-xs btn-danger btn-delete-inv-pay"
-                                        title="Hapus"
-                                        data-id="${p.id}"
-                                        data-nominal="${formatCurrency(nominal, d.code_curr)}">
-                                        <i class="ti ti-trash"></i>
-                                    </button>
+                                <td class="text-center pay-act-cell">
+                                    <div class="pay-act-btns">
+                                        ${p.nominal_receive > 0 ? `
+                                        <button type="button" class="btn btn-info pay-act-btn btn-receipt-pay"
+                                            data-toggle="tooltip" data-placement="top" title="Download kuitansi"
+                                            data-id="${p.id}">
+                                            <i class="ti ti-photo"></i>
+                                        </button>` : ''}
+
+                                        <button type="button" class="btn btn-warning pay-act-btn btn-edit-inv-pay"
+                                            title="Edit"
+                                            data-id="${p.id}"
+                                            data-nominal="${p.nominal_receive > 0 ? p.nominal_receive : p.nominal_spend}"
+                                            data-date="${p.date_transaction}"
+                                            data-bank-id="${p.uuid_bank}"
+                                            data-bank-name="${p.name_bank}"
+                                            data-reference="${p.reference_detail || ''}"
+                                            data-item-id="${p.item_id_for_payment || ''}"
+                                            data-item-name="${escAttr(p.nama_paket_payment)}">
+                                            <i class="ti ti-pencil"></i>
+                                        </button>
+
+                                        <button type="button" class="btn btn-danger pay-act-btn btn-delete-inv-pay"
+                                            title="Hapus"
+                                            data-id="${p.id}"
+                                            data-nominal="${formatCurrency(nominal, d.code_curr)}">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>`;
                     });
             }
 
             $('#payment_list_body').html(tbody);
+            $('#payment_list_body [data-toggle="tooltip"]').tooltip({ container: '#paymentModal' });
 
             // ── Summary cards ──
             $('#summary_paid').text(formatCurrency(totalPaid, d.code_curr));
@@ -5222,6 +5274,187 @@ function setRowRequiredState($row, isRequired) {
         $('#paymentModal').modal('hide');
     });
 
+    // ========================================================
+    // KUITANSI (Tanda Terima Pembayaran) - download PNG
+    // ========================================================
+    const RECEIPT_LOGO = @json(data_get($brand ?? [], 'logo', ''));
+    const RECEIPT_CITY = 'Mojokerto';
+    const RECEIPT_CUR_WORD = { IDR: 'Rupiah', USD: 'Dolar', SAR: 'Riyal' };
+
+    let paymentReceiptCache = { inv: null, pays: {} };
+
+    function terbilangID(n) {
+        n = Math.floor(Math.abs(n));
+        const s = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+        if (n < 12)   return s[n];
+        if (n < 20)   return terbilangID(n - 10) + ' belas';
+        if (n < 100)  return terbilangID(Math.floor(n / 10)) + ' puluh' + (n % 10 ? ' ' + terbilangID(n % 10) : '');
+        if (n < 200)  return 'seratus' + (n - 100 ? ' ' + terbilangID(n - 100) : '');
+        if (n < 1e3)  return terbilangID(Math.floor(n / 100)) + ' ratus' + (n % 100 ? ' ' + terbilangID(n % 100) : '');
+        if (n < 2e3)  return 'seribu' + (n - 1000 ? ' ' + terbilangID(n - 1000) : '');
+        if (n < 1e6)  return terbilangID(Math.floor(n / 1e3)) + ' ribu'   + (n % 1e3 ? ' ' + terbilangID(n % 1e3) : '');
+        if (n < 1e9)  return terbilangID(Math.floor(n / 1e6)) + ' juta'   + (n % 1e6 ? ' ' + terbilangID(n % 1e6) : '');
+        if (n < 1e12) return terbilangID(Math.floor(n / 1e9)) + ' miliar' + (n % 1e9 ? ' ' + terbilangID(n % 1e9) : '');
+        return terbilangID(Math.floor(n / 1e12)) + ' triliun' + (n % 1e12 ? ' ' + terbilangID(n % 1e12) : '');
+    }
+
+    function terbilangMoney(amount, cur) {
+        const [i, f] = Math.abs(parseFloat(amount) || 0).toFixed(2).split('.');
+        const intPart = parseInt(i, 10);
+        const frac = f.replace(/0+$/, '');
+
+        let txt = intPart === 0 ? 'nol' : terbilangID(intPart);
+        if (frac) {
+            txt += ' koma ' + frac.split('').map(c => c === '0' ? 'nol' : terbilangID(+c)).join(' ');
+        }
+        txt += ' ' + (RECEIPT_CUR_WORD[cur] || cur);
+        return txt.replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function formatTanggalID(ymd) {
+        if (!ymd) return '-';
+        const dt = new Date(String(ymd).substring(0, 10) + 'T00:00:00');
+        return isNaN(dt) ? ymd : dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function buildReceiptHtml(r) {
+       const logoUrl = receiptLogoUrl(r.gambar);
+        const logo = logoUrl
+            ? `<img src="${escAttr(logoUrl)}" crossorigin="anonymous" style="max-width:150px;max-height:150px;display:block;">`
+            : '';
+        const stamp = logoUrl
+            ? `<img src="${escAttr(logoUrl)}" crossorigin="anonymous" style="height:70px;display:block;margin:6px 0;">`
+            : '<div style="height:70px;"></div>';
+
+        return `
+        <div id="receiptRoot" style="width:900px;padding:30px 36px 26px;background:#fff;color:#000;
+            font-family:'Times New Roman',Times,serif;box-sizing:border-box;">
+
+            <div style="display:flex;align-items:center;margin-bottom:20px;">
+                <div style="width:180px;">${logo}</div>
+                <div style="font-size:26px;font-weight:bold;">TANDA TERIMA PEMBAYARAN</div>
+            </div>
+
+            <table style="width:100%;border-collapse:collapse;font-size:24px;">
+                <tr>
+                    <td style="width:235px;padding:12px 0;">Nomor</td>
+                    <td style="padding:12px 0;font-weight:bold;border-bottom:1px solid #000;">${esc(r.id_pembayaran)}</td>
+                </tr>
+                <tr>
+                    <td style="padding:12px 0;">Telah terima dari</td>
+                    <td style="padding:12px 0;font-weight:bold;border-bottom:1px solid #000;text-transform:uppercase;">${esc(r.dari)}</td>
+                </tr>
+                <tr>
+                    <td style="padding:14px 0;">Uang sejumlah</td>
+                    <td style="padding:14px 10px;background:#d9d9d9;font-size:20px;"># ${esc(r.terbilang)} #</td>
+                </tr>
+                <tr>
+                    <td style="padding:20px 0 6px;font-size:21px;">Untuk Pembayaran</td>
+                    <td style="padding:20px 0 6px;font-size:21px;font-style:italic;text-transform:uppercase;">${esc(r.untuk)}</td>
+                </tr>
+            </table>
+
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:26px;">
+                <div style="width:470px;">
+                    <div style="display:flex;align-items:center;">
+                        <div style="display:flex;width:440px;border-top:2px solid #000;border-bottom:2px solid #000;">
+                            <div style="font-weight:bold;font-size:24px;padding:8px 8px;">${esc(r.cur)}</div>
+                            <div style="flex:1;background:#d9d9d9;text-align:right;font-size:28px;padding:8px 20px;
+                                        font-family:'Courier New',monospace;letter-spacing:2px;">${esc(r.amountText)}</div>
+                        </div>
+                        <div style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;margin-left:10px;">${esc(r.metode)}</div>
+                    </div>
+                    <div style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;margin-top:26px;line-height:1.4;">
+                        ${esc(r.footer)}
+                    </div>
+                </div>
+
+                <div style="font-size:22px;">
+                    <div>${esc(RECEIPT_CITY)}, ${esc(r.tanggal)}</div>
+                    ${stamp}
+                    <div style="text-decoration:underline;text-transform:uppercase;">${esc(r.ttd)}</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function waitReceiptImages($c) {
+        return Promise.all($c.find('img').map(function () {
+            if (this.complete) return Promise.resolve();
+            return new Promise(res => { this.onload = this.onerror = res; });
+        }).get());
+    }
+
+    function receiptLogoUrl(path) {
+        if (!path) return RECEIPT_LOGO || '';                              // fallback ke $brand['logo'] jika ada
+        if (/^(https?:)?\/\//i.test(path) || String(path).startsWith('data:')) return path;
+        return RECEIPT_ASSET_BASE + String(path).replace(/^\/+/, '');      // assets/img/nam_min.webp -> URL penuh
+    }
+
+    $(document).on('click', '.btn-receipt-pay', async function () {
+        const $btn = $(this).tooltip('hide').prop('disabled', true);
+        const d = paymentReceiptCache.inv;
+        const p = paymentReceiptCache.pays[$(this).data('id')];
+
+        if (!d || !p) {
+            Swal.fire('Peringatan', 'Data pembayaran tidak ditemukan.', 'warning');
+            $btn.prop('disabled', false);
+            return;
+        }
+
+        // ⚠️ mata uang kuitansi: sementara ikut mata uang invoice
+        const cur     = d.code_curr || 'IDR';
+        const nominal = parseFloat(p.nominal_receive) || 0;
+
+        const r = {
+            id_pembayaran : p.id,
+            nomor      : d.invoice_number || '-',
+            dari       : d.contact_name || '-',
+            terbilang  : terbilangMoney(nominal, cur),
+            untuk      : p.nama_paket_payment || d.reference || '-',
+            cur        : cur,
+            amountText : nominal.toLocaleString(cur === 'IDR' ? 'id-ID' : 'en-US', { maximumFractionDigits: 2 }),
+            metode     : 'TF',
+            footer     : [p.name_bank, p.reference_detail].filter(Boolean).join(' - '),
+            tanggal    : formatTanggalID(p.date_transaction),
+            ttd        :`${d.get_user_created.name}-${d.get_user_created.ket_role}` || d.created_by_name || '',
+            gambar : d.branding_theme.travel.location_path_image
+        };
+
+        const $wrap = $('<div id="receiptWrap">')
+            .css({ position: 'fixed', left: '-10000px', top: '0' })
+            .html(buildReceiptHtml(r))
+            .appendTo('body');
+
+        console.log('p',p)
+        try {
+            await waitReceiptImages($wrap);
+
+            const canvas = await html2canvas($wrap.find('#receiptRoot')[0], {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                windowWidth: 1000,
+                // elemen asli disembunyikan di luar layar; di salinan untuk render dipindah ke 0,0
+                onclone: function (doc) {
+                    doc.getElementById('receiptWrap').style.left = '0';
+                }
+            });
+
+            const fname = ('Kuitansi-' + (d.invoice_number || 'inv') + '-' + (p.date_transaction || ''))
+                            .replace(/[^A-Za-z0-9\-_#]+/g, '_');
+
+            const a = document.createElement('a');
+            a.download = fname + '.png';
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+        } catch (err) {
+            cathError(err);
+        } finally {
+            $wrap.remove();
+            $btn.prop('disabled', false);
+        }
+    });
     // 4. Aksi Delete Payment History
 
     // Matikan auto discover Dropzone agar kita bisa inisiasi manual

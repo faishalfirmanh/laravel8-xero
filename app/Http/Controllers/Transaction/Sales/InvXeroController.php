@@ -1845,6 +1845,7 @@ class InvXeroController extends Controller
             'getHistoryInvoice',
             'getOverPay',
             'getJamaah.listAllOverpay',
+            'brandingTheme.travel',
             'getFeeOverpay',//history pengembalian
             // 'getDetailById.trackingCategoryPaket'
         ], ['id' => $request->id])->first();
