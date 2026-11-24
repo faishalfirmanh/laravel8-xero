@@ -154,6 +154,7 @@ Route::prefix('v1/finance')->middleware(TwoFactorApiMiddleware::class)->group(fu
 
 Route::prefix('public')->middleware(PublicKey::class)->group(function () {
     Route::get('getV3', [ProfitLossController::class, 'getProfitAndLostV2Combine'])->name('profit-and-loss-v3');
+    Route::get('get-paket-local', [XeroSyncInvoicePaidController::class, 'getAllPaketLocal'])->name('list-paket-item');
     Route::prefix('rep-paket')->group(function () {
         Route::get('coa-paket-payment', [CoaPaketPaymentController::class, 'getCoaPaketPayment']);
         Route::get('coa-paket-payment-summary', [CoaPaketPaymentController::class, 'getCoaPaketPaymentSummary']);
