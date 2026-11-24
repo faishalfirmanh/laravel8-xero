@@ -46,6 +46,7 @@
                     <th width="5%">No</th>
                     <th>Name</th>
                     <th>Phone number</th>
+                    <th>Nik</th>
                     {{-- <th width="15%">Action</th> --}}
                 </tr>
             </thead>
@@ -128,6 +129,10 @@ $(document).ready(function() {
         {
             data: 'phone_number',
             name: 'phone_number'
+        },
+        {
+            data: 'nik',
+            name: 'nik'
         },
         {
             data: "id",

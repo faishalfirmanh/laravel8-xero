@@ -36,9 +36,19 @@ class DataApiJamaahController extends Controller//from xero when create transact
         if ($validator->fails()) {
             return $this->error($validator->errors(), 404);
         }
+
         $where = [];
-        if ($request->keyword != null) {
-            $data = $this->repo->searchData($where, $request->limit, $request->page, 'full_name', strtoupper($request->keyword));
+
+        if ($request->filled('keyword')) {
+            $searchColumns = ['full_name', 'phone_number', 'nik', 'detail_address'];
+
+            $data = $this->repo->searchMultiColumn(
+                $where,
+                (int) $request->limit,
+                (int) $request->page,
+                (string) $request->keyword,
+                $searchColumns
+            );
         } else {
             $data = $this->repo->getAllDataWithDefault($where, $request->limit, $request->page, 'updated_at', 'DESC');//getDataPaginate("name",10,$request->keyword);
         }
@@ -178,14 +188,27 @@ class DataApiJamaahController extends Controller//from xero when create transact
                         return;
                     }
 
-                    if (!preg_match('/^(62\d+)\s*(\/.*)?$/', $value, $m)) {
-                        $fail('Nomor telepon harus diawali 62 dan hanya berisi angka. Catatan boleh ditambahkan setelah tanda "/" (contoh: 621738981239 /agen dita).');
+                    // pisahkan nomor dan catatan (setelah tanda "/")
+                    $parts = explode('/', $value, 2);
+                    $nomor = trim($parts[0]);
+                    $adaSlash = count($parts) > 1;
+
+                    // nomor hanya boleh angka, boleh dipisah spasi (contoh: 96656578 9505)
+                    if (!preg_match('/^\d+(?:\s+\d+)*$/', $nomor)) {
+                        $fail('Nomor telepon hanya boleh berisi angka (boleh dipisah spasi). Catatan boleh ditambahkan setelah tanda "/" (contoh: 621738981239 /agen dita).');
                         return;
                     }
-                    $jumlahDigit = strlen($m[1]);
-                    $adaSlash = isset($m[2]) && $m[2] !== '';
+
+                    $digits = preg_replace('/\s+/', '', $nomor);
+
+                    // harus diawali 62 (Indonesia) atau 966 (Arab Saudi)
+                    if (!preg_match('/^(62|966)/', $digits)) {
+                        $fail('Nomor telepon harus diawali 62 atau 966.');
+                        return;
+                    }
+
                     // Lebih dari 14 digit wajib memakai "/" setelah nomor
-                    if ($jumlahDigit > 14 && !$adaSlash) {
+                    if (strlen($digits) > 14 && !$adaSlash) {
                         $fail('Nomor telepon lebih dari 14 digit harus diakhiri tanda "/" setelah nomor (contoh: 621738981239 /agen dita).');
                     }
                 }
