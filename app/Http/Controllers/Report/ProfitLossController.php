@@ -1025,45 +1025,45 @@ class ProfitLossController extends Controller
 
         // ── Kelompok ITEM ────────────────────────────────────────
         if ($hasItem) {
-            // Invoice: d.item_id
             $sources[] = DB::table('item_detail_invoices')
                 ->select('uuid_detail_inv as uuid_detail')
+                ->distinct()
                 ->whereIn('item_id', $paketIds);
 
-            // Bill: d.item_id_prod_serv
             $sources[] = DB::table('d_bills')
                 ->select('uuid_detail')
+                ->distinct()
                 ->whereIn('item_id_prod_serv', $paketIds);
 
-            // Bill: d.item_code = code paket (dipecah, tanpa OR di join)
             if (!empty($paketCodes)) {
                 $sources[] = DB::table('d_bills')
                     ->select('uuid_detail')
+                    ->distinct()
                     ->whereIn('item_code', $paketCodes);
             }
 
-            // Bank: d.item_code berisi id paket
             $sources[] = DB::table('transaction_bank_trans_d_s')
                 ->select('uuid_detail_trans_bank as uuid_detail')
+                ->distinct()
                 ->whereIn('item_code', $paketIds);
         }
 
         // ── Kelompok TRACKING ────────────────────────────────────
         if ($hasTracking) {
             $sources[] = $tracking(
-                DB::table('item_detail_invoices')->select('uuid_detail_inv as uuid_detail')
+                DB::table('item_detail_invoices')->select('uuid_detail_inv as uuid_detail')->distinct()
             );
             $sources[] = $tracking(
-                DB::table('d_bills')->select('uuid_detail')
+                DB::table('d_bills')->select('uuid_detail')->distinct()
             );
             $sources[] = $tracking(
-                DB::table('transaction_bank_trans_d_s')->select('uuid_detail_trans_bank as uuid_detail')
+                DB::table('transaction_bank_trans_d_s')->select('uuid_detail_trans_bank as uuid_detail')->distinct()
             );
         }
 
         $union = array_shift($sources);
         foreach ($sources as $s) {
-            $union->union($s);
+            $union->union($s); // union() di Laravel sudah DISTINCT by default
         }
 
         return $union;
@@ -1090,8 +1090,8 @@ class ProfitLossController extends Controller
     public function getProfitAndLostV3Combine(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'date_start' => 'required|date',
-            'date_end' => 'required|date|after_or_equal:date_start',
+            'date_start' => 'nullable|date',
+            'date_end' => 'nullable|date|after_or_equal:date_start',
             'nama_paket' => 'nullable',
             'nama_paket.*' => 'nullable|max:255',
             'tracking_divisi' => 'nullable',
@@ -1104,8 +1104,28 @@ class ProfitLossController extends Controller
             return $this->error($validator->errors(), 422);
         }
 
-        $dateStart = Carbon::parse($request->date_start)->startOfDay();
-        $dateEndExclusive = Carbon::parse($request->date_end)->addDay()->startOfDay();
+
+        if ($request->filled('date_start') && !$request->filled('date_end')) {
+            return $this->error('date_end wajib diisi jika date_start diisi.', 422);
+        }
+
+        if ($request->filled('date_end') && !$request->filled('date_start')) {
+            return $this->error('date_start wajib diisi jika date_end diisi.', 422);
+        }
+
+        $rawPaketCheck = $request->input('nama_paket');
+        $rawTrackCheck = $request->input('tracking_paket_name');
+        $paketCheck = is_array($rawPaketCheck) ? array_filter($rawPaketCheck) : ($rawPaketCheck ? [$rawPaketCheck] : []);
+        $trackCheck = is_array($rawTrackCheck) ? array_filter($rawTrackCheck) : ($rawTrackCheck ? [$rawTrackCheck] : []);
+
+        if (empty($paketCheck) && empty($trackCheck)) {
+            return $this->error('Minimal isi nama_paket (min 1) atau tracking_paket_name (min 1) ', 422);
+        }
+
+
+        $hasDateFilter = $request->filled('date_start') && $request->filled('date_end');
+        $dateStart = $hasDateFilter ? Carbon::parse($request->input('date_start'))->startOfDay() : null;
+        $dateEndExclusive = $hasDateFilter ? Carbon::parse($request->input('date_end'))->addDay()->startOfDay() : null;
 
         // Normalisasi filter -> array bersih
         $rawPaket = $request->input('nama_paket');
@@ -1281,8 +1301,8 @@ class ProfitLossController extends Controller
 
         $data = [
             'period' => [
-                'date_start' => $dateStart->toDateString(),
-                'date_end' => $dateEndExclusive->copy()->subDay()->toDateString(),
+                'date_start' => $dateStart !== null ? $dateStart->toDateString() : null,
+                'date_end' => $dateEndExclusive !== null ? $dateEndExclusive->copy()->subDay()->toDateString() : null,
             ],
 
             'has_split' => $hasSplit,
@@ -1323,13 +1343,17 @@ class ProfitLossController extends Controller
      * Pendapatan : is_speend = 0 -> +, selain itu -
      * Biaya      : is_speend = 1 -> +, selain itu -
      */
-    private function queryPlRows(Carbon $dateStart, Carbon $dateEndExclusive, $detailFilter)
+    private function queryPlRows(?Carbon $dateStart, ?Carbon $dateEndExclusive, $detailFilter)
     {
         $query = DB::table('transaction_all_coas as t')
             ->join('coas as c', 'c.id', '=', 't.uuid_coa')
-            ->where('t.date_transaction', '>=', $dateStart->toDateTimeString())
-            ->where('t.date_transaction', '<', $dateEndExclusive->toDateTimeString())
             ->whereIn('c.account_type', ['REVENUE', 'DIRECTCOSTS', 'OTHERINCOME', 'EXPENSE']);
+
+        // Filter tanggal hanya jika keduanya tersedia
+        if ($dateStart !== null && $dateEndExclusive !== null) {
+            $query->where('t.date_transaction', '>=', $dateStart->toDateTimeString())
+                ->where('t.date_transaction', '<', $dateEndExclusive->toDateTimeString());
+        }
 
         if ($detailFilter !== null) {
             $query->joinSub($detailFilter, 'f', 'f.uuid_detail', '=', 't.uuid_detail');

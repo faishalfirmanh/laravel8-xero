@@ -35,13 +35,32 @@
     outline: none;
 }
 
-.filter-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 12px 16px;
+/* ── Seksi filter (judul kecil + grid rapi) ── */
+.filter-section + .filter-section {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed #e6e6e6;
 }
-.filter-row > div { flex: 0 0 auto; }
+.filter-section-title {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #8a94a6;
+}
+.filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    align-items: start;
+    gap: 14px 18px;
+}
+.filter-row > div { min-width: 0; }
+
+.filter-note {
+    margin: 12px 0 0;
+    font-size: 12px;
+}
 
 .date-range-group {
     display: flex;
@@ -51,6 +70,8 @@
 .date-range-group input {
     border-radius: 4px 0 0 4px !important;
     border-right: none !important;
+    flex: 1 1 0;
+    min-width: 0;
     width: 130px;
     height: 34px;
     font-size: 12px;
@@ -73,6 +94,105 @@
     white-space: nowrap;
 }
 .date-range-group .btn-dropdown:hover { background: #ebebeb; }
+
+/* ── Tanggal keberangkatan (awal s/d akhir) ── */
+.date-pair {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.date-pair .form-control {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.date-pair .sep {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: #888;
+}
+
+/* ── Radio tipe (segmented control) ── */
+.type-switch {
+    display: flex;
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    overflow: hidden;
+}
+.type-option {
+    position: relative;
+    flex: 1 1 0;
+    margin: 0;
+    cursor: pointer;
+}
+.type-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.type-option span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    color: #555;
+    white-space: nowrap;
+    transition: background .15s, color .15s;
+}
+.type-option + .type-option span { border-left: 1px solid #ccc; }
+.type-option:hover span { background: #f5f5f5; }
+.type-option input:focus-visible + span {
+    outline: 2px solid #0070c4;
+    outline-offset: -2px;
+}
+.type-option.is-item input:checked + span {
+    background: #e8f1fb;
+    color: #0070c4;
+    font-weight: 600;
+}
+.type-option.is-tracking input:checked + span {
+    background: #e6f6ec;
+    color: #1e8e4e;
+    font-weight: 600;
+}
+
+.autofill-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 6px;
+    min-height: 16px;
+}
+.autofill-status {
+    font-size: 11px;
+    line-height: 1.4;
+    color: #777;
+}
+.autofill-status.is-loading { color: #0070c4; }
+.autofill-status.is-ok      { color: #1e8e4e; }
+.autofill-status.is-empty   { color: #b7791f; }
+.autofill-status.is-error   { color: #c0392b; }
+.autofill-status .spinner-border {
+    width: .85rem;
+    height: .85rem;
+    border-width: .14em;
+    vertical-align: -2px;
+}
+.btn-link-reset {
+    flex: 0 0 auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 11px;
+    color: #0070c4;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.btn-link-reset:hover { color: #005fa3; }
 
 .filter-row-2 {
     display: flex;
@@ -122,18 +242,22 @@
     font-weight: 500;
 }
 .btn-xero-update:hover { background: #005fa3; }
+.btn-xero-update:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
 
 /* ══════════════════════════════════════════════════════════
    SELECT2 MULTIPLE
    ══════════════════════════════════════════════════════════ */
 .s2-field,
+.s2-field--lg,
 .tracking-select-wrap,
 .paket-select-wrap {
-    width: 260px;
-    min-width: 200px;
+    width: 100%;
+    min-width: 0;
     max-width: 100%;
 }
-.s2-field--lg { width: 320px; }
 
 .xero-filter-bar .select2-container { width: 100% !important; }
 
@@ -444,16 +568,24 @@
 @media (max-width: 767.98px) {
     .xero-filter-bar { padding: 14px 12px 10px; }
 
-    .filter-row { flex-direction: column; align-items: stretch; gap: 12px; }
-    .filter-row > div { flex: 1 1 100%; width: 100%; }
+    .filter-row { grid-template-columns: 1fr; gap: 14px; }
+
+    /* 16px mencegah iOS zoom otomatis saat input difokus */
+    .xero-filter-bar .form-control { height: 40px; font-size: 16px; }
 
     .date-range-group { width: 100%; }
     .date-range-group input { flex: 1 1 0; width: auto; min-width: 0; }
+    .date-range-group .btn-dropdown { height: 40px; }
 
-    .s2-field,
-    .s2-field--lg,
-    .tracking-select-wrap,
-    .paket-select-wrap { width: 100%; min-width: 0; }
+    .date-pair { gap: 6px; }
+
+    .type-option span { height: 38px; font-size: 13px; }
+    .autofill-status,
+    .btn-link-reset { font-size: 12px; }
+
+    .filter-row-2 > .d-flex { width: 100%; }
+    .filter-row-2 .btn-xero-more { height: 40px; }
+    .filter-row-2 .btn-xero-update { flex: 1 1 auto; height: 40px; }
 
     .xero-filter-bar .select2-selection--multiple {
         min-height: 42px;
@@ -496,54 +628,101 @@
 {{-- ── FILTER BAR ── --}}
 <div class="xero-filter-bar">
     <form id="formFilter" autocomplete="off">
-        <div class="filter-row">
+        {{-- ═════ Grup 1: Keberangkatan ═════ --}}
+        <div class="filter-section">
+            <p class="filter-section-title">Keberangkatan</p>
 
-            {{-- Date range --}}
-            <div>
-                <span class="filter-label">
-                    Date range:&nbsp;<span style="font-weight:400;color:#0070c4;" id="labelDateRange">This month</span>
-                </span>
-                <div class="date-range-group">
-                    <input type="date" class="form-control" id="date_from" name="date_start"
-                           value="{{ now()->startOfMonth()->format('Y-m-d') }}">
-                    <input type="date" class="form-control" id="date_to" name="date_end"
-                           value="{{ now()->endOfMonth()->format('Y-m-d') }}">
-                    <button type="button" class="btn-dropdown" id="btnDatePreset"
-                            title="Pilih preset tanggal">
-                        <i class="ti ti-chevron-down" style="font-size:13px;" aria-hidden="true"></i>
-                    </button>
+            <div class="filter-row">
+
+                {{-- Tanggal keberangkatan (awal s/d akhir) --}}
+                <div>
+                    <span class="filter-label">Tanggal Keberangkatan</span>
+                    <div class="date-pair">
+                        <input type="date" class="form-control" id="tanggal_keberangkatan_awal"
+                               name="tanggal_keberangkatan_awal" aria-label="Tanggal keberangkatan awal">
+                        <span class="sep">s/d</span>
+                        <input type="date" class="form-control" id="tanggal_keberangkatan_akhir"
+                               name="tanggal_keberangkatan_akhir" aria-label="Tanggal keberangkatan akhir">
+                    </div>
                 </div>
-            </div>
 
-            {{-- Nama Paket (item) --}}
-           
-            <div>
-                <span class="filter-label">Nama Paket <span class="text-info font-weight-bold">(item)</span></span>
-                <div class="paket-select-wrap">
-                    <select id="nama_paket" name="nama_paket[]" class="form-control" multiple></select>
+                {{-- Radio tipe: isi otomatis ke Select2 item / tracking paket --}}
+                <div>
+                    <span class="filter-label" id="lblTipeFilter">Isi otomatis ke filter</span>
+                    <div class="type-switch" role="radiogroup" aria-labelledby="lblTipeFilter">
+                        <label class="type-option is-item">
+                            <input type="radio" name="tipe_filter" id="tipe_item" value="item">
+                            <span>Item</span>
+                        </label>
+                        <label class="type-option is-tracking">
+                            <input type="radio" name="tipe_filter" id="tipe_tracking_paket" value="tracking_paket">
+                            <span>Tracking Paket</span>
+                        </label>
+                    </div>
+                    <div class="autofill-row">
+                        <div class="autofill-status" id="autofillStatus" role="status" aria-live="polite"></div>
+                        <button type="button" class="btn-link-reset" id="btnResetAuto">Reset</button>
+                    </div>
                 </div>
-            </div>
 
-            {{-- Nama Paket (tracking) --}}
-            <div>
-                <span class="filter-label">Nama Paket <span class="text-success font-weight-bold">(tracking)</span></span>
-                <div class="tracking-select-wrap">
-                    <select class="select2-paket" name="tracking_paket_name[]"
-                            id="tracking_paket_name" multiple="multiple" style="width:100%;"></select>
+            </div>{{-- /.filter-row --}}
+        </div>
+
+        {{-- ═════ Grup 2: Periode & filter paket ═════ --}}
+        <div class="filter-section">
+            <p class="filter-section-title">Periode &amp; filter paket</p>
+
+            <div class="filter-row">
+
+                {{-- Date range laporan --}}
+                <div>
+                    <span class="filter-label">
+                        Date range:&nbsp;<span style="font-weight:400;color:#0070c4;" id="labelDateRange">This month</span>
+                    </span>
+                    <div class="date-range-group">
+                        <input type="date" class="form-control" id="date_from" name="date_start"
+                            value="{{ now()->subYear()->format('Y-m-d') }}">
+                        <input type="date" class="form-control" id="date_to" name="date_end"
+                            value="{{ now()->endOfMonth()->format('Y-m-d') }}">
+                        <button type="button" class="btn-dropdown" id="btnDatePreset"
+                                title="Pilih preset tanggal">
+                            <i class="ti ti-chevron-down" style="font-size:13px;" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            {{-- Divisi (tracking) --}}
-            <div>
-                <span class="filter-label">Divisi <span class="text-success font-weight-bold">(tracking)</span></span>
-                <div class="tracking-select-wrap">
-                    <select class="select2-divisi" name="tracking_divisi[]"
-                            id="tracking_divisi" multiple="multiple" style="width:100%;"></select>
+                {{-- Nama Paket (item) --}}
+                <div>
+                    <span class="filter-label">Nama Paket <span class="text-info font-weight-bold">(item)</span></span>
+                    <div class="paket-select-wrap">
+                        <select id="nama_paket" name="nama_paket[]" class="form-control" multiple></select>
+                    </div>
                 </div>
-            </div>
 
-        </div>{{-- /.filter-row --}}
+                {{-- Nama Paket (tracking) --}}
+                <div>
+                    <span class="filter-label">Nama Paket <span class="text-success font-weight-bold">(tracking)</span></span>
+                    <div class="tracking-select-wrap">
+                        <select class="select2-paket" name="tracking_paket_name[]"
+                                id="tracking_paket_name" multiple="multiple" style="width:100%;"></select>
+                    </div>
+                </div>
 
+                {{-- Divisi (tracking) --}}
+                <div>
+                    <span class="filter-label">Divisi <span class="text-success font-weight-bold">(tracking)</span></span>
+                    <div class="tracking-select-wrap">
+                        <select class="select2-divisi" name="tracking_divisi[]"
+                                id="tracking_divisi" multiple="multiple" style="width:100%;"></select>
+                    </div>
+                </div>
+
+            </div>{{-- /.filter-row --}}
+
+            <p class="filter-note text-danger">pilih salah 1 filter Nama Paket (item) atau Nama Paket(tracking) jangan gunakan 2 sekaligus</p>
+        </div>
+
+        {{-- ═════ Aksi ═════ --}}
         <div class="filter-row-2">
             <div class="d-flex align-items-center" style="gap:8px;">
                 <div class="dropdown">
@@ -562,7 +741,6 @@
                 </button>
             </div>
         </div>
-         <span class="text-danger">pilih salah 1 filter Nama Paket (item) atau Nama Paket(tracking) jangan gunakan 2 sekaligus</span>
 
     </form>
 </div>
@@ -916,6 +1094,214 @@ $(function () {
             }
         }).catch(function (err) { cathError(err); });
     }
+
+    // =========================================================
+    // AUTO-ISI FILTER dari TANGGAL KEBERANGKATAN
+    // ---------------------------------------------------------
+    // Radio "Item"           -> isi Select2 Nama Paket (item)
+    // Radio "Tracking Paket" -> isi Select2 Nama Paket (tracking)
+    // Data diambil dari route "item-list" (semua halaman).
+    // =========================================================
+    var AUTOFILL = {
+        limit   : 100,   // jumlah data per request (turunkan jika API membatasi)
+        maxPages: 50,    // batas pengaman jumlah halaman yang diambil
+        // urutan kolom yang dicoba untuk teks tampilan di Select2
+        textKeys: ['nama_paket', 'name', 'product_name', 'title', 'code'],
+        types   : {
+            item: {
+                label    : 'Nama Paket (item)',
+                target   : '#nama_paket',
+                other    : '#tracking_paket_name',
+                kolomName: 'id',                          // param kolom_name ke API
+                valueKey : 'id'                           // kolom respons yang jadi value Select2
+            },
+            tracking_paket: {
+                label    : 'Nama Paket (tracking)',
+                target   : '#tracking_paket_name',
+                other    : '#nama_paket',
+                kolomName: 'uuid_proudct_and_service',
+                valueKey : 'uuid_proudct_and_service'
+            }
+        }
+    };
+
+    var _autofillSeq   = 0;      // penanda request terbaru (abaikan respons usang)
+    var _autofillTimer = null;
+
+    function currentType() {
+        return $('input[name="tipe_filter"]:checked').val() || '';
+    }
+
+    // Respons gaya axios ({data: body}) atau body langsung
+    function unwrapBody(response) {
+        if (response && response.data && typeof response.data === 'object' && 'status' in response.data) {
+            return response.data;
+        }
+        return response;
+    }
+
+    function setAutofillStatus(kind, msg) {
+        var $s = $('#autofillStatus');
+        $s.removeClass('is-loading is-ok is-empty is-error').empty();
+        if (kind) $s.addClass('is-' + kind);
+        if (kind === 'loading') {
+            $s.append('<span class="spinner-border spinner-border-sm mr-1" role="status" aria-hidden="true"></span>');
+        }
+        $s.append($('<span>').text(msg || ''));
+    }
+
+    // Tombol Update dimatikan selama paket sedang dimuat
+    function setAutofillBusy(on) {
+        $('#btnUpdate').prop('disabled', !!on);
+    }
+
+    function clearSelect($el) {
+        $el.val(null).empty().trigger('change');
+    }
+
+    function pickText(row) {
+        for (var i = 0; i < AUTOFILL.textKeys.length; i++) {
+            var v = row[AUTOFILL.textKeys[i]];
+            if (v !== undefined && v !== null && String(v).trim() !== '') return String(v);
+        }
+        return String(row.code || row.id);
+    }
+
+    // Isi Select2 dengan semua baris (tanpa duplikat). Return jumlah opsi terisi.
+    function fillSelect2($el, rows, valueKey) {
+        $el.empty();
+        var seen = {};
+        var n    = 0;
+        $.each(rows, function (i, row) {
+            var val = row[valueKey];
+            if (val === undefined || val === null || val === '' || seen[val]) return;
+            seen[val] = true;
+            $el.append(new Option(pickText(row), val, true, true));
+            n++;
+        });
+        $el.trigger('change');
+        return n;
+    }
+
+    // Ambil semua halaman dari route item-list
+    function fetchAllListItems(kolomName, dateStart, dateEnd, seq) {
+        var all = [];
+
+        function fetchPage(page) {
+            return ajaxRequest(
+                '{{ route("item-list") }}',
+                'GET',
+                {
+                    limit     : AUTOFILL.limit,
+                    page      : page,
+                    keyword   : '',
+                    kolom_name: kolomName,
+                    date_start: dateStart,
+                    date_end  : dateEnd
+                },
+                localStorage.getItem('token')
+            ).then(function (response) {
+                if (seq !== _autofillSeq) return null;     // digantikan request yang lebih baru
+
+                var body = unwrapBody(response);
+                if (!body || !body.status) {
+                    throw new Error((body && body.message) || 'Gagal memuat daftar paket');
+                }
+
+                var pg = body.data || {};
+                all = all.concat(pg.data || []);
+
+                var last = parseInt(pg.last_page, 10) || 1;
+                if (page < last) {
+                    if (page >= AUTOFILL.maxPages) return { rows: all, truncated: true };
+                    return fetchPage(page + 1);
+                }
+                return { rows: all, truncated: false };
+            });
+        }
+
+        return fetchPage(1);
+    }
+
+    function autofillFromApi() {
+        var seq = ++_autofillSeq;          // batalkan request sebelumnya
+        setAutofillBusy(false);
+
+        var ds   = $('#tanggal_keberangkatan_awal').val();
+        var de   = $('#tanggal_keberangkatan_akhir').val();
+        var type = currentType();
+
+        if (!ds || !de) {
+            setAutofillStatus(type ? 'empty' : '', type ? 'Isi tanggal keberangkatan awal dan akhir untuk memuat paket.' : '');
+            return;
+        }
+        if (ds > de) {
+            setAutofillStatus('error', 'Tanggal awal tidak boleh lebih besar dari tanggal akhir.');
+            return;
+        }
+        if (!type) {
+            setAutofillStatus('empty', 'Pilih Item atau Tracking Paket untuk mengisi filter otomatis.');
+            return;
+        }
+
+        var cfg       = AUTOFILL.types[type];
+        var rangeText = moment(ds).format('D MMM YYYY') + ' – ' + moment(de).format('D MMM YYYY');
+
+        setAutofillStatus('loading', 'Memuat paket...');
+        setAutofillBusy(true);
+
+        fetchAllListItems(cfg.kolomName, ds, de, seq)
+            .then(function (res) {
+                if (!res || seq !== _autofillSeq) return;
+
+                var $target = $(cfg.target);
+                clearSelect($(cfg.other));     // hanya 1 filter paket yang boleh aktif
+
+                if (!res.rows.length) {
+                    clearSelect($target);
+                    setAutofillStatus('empty', 'Tidak ada paket dengan keberangkatan ' + rangeText + '.');
+                    return;
+                }
+
+                var n = fillSelect2($target, res.rows, cfg.valueKey);
+                if (!n) {
+                    clearSelect($target);
+                    setAutofillStatus('error', 'Data ada, tetapi kolom "' + cfg.valueKey + '" tidak ditemukan di respons.');
+                    return;
+                }
+
+                setAutofillStatus('ok',
+                    n + ' paket dimuat ke ' + cfg.label +
+                    (res.truncated ? ' (dibatasi ' + AUTOFILL.maxPages + ' halaman pertama)' : '') + '.');
+            })
+            .catch(function (err) {
+                if (seq !== _autofillSeq) return;
+                setAutofillStatus('error', 'Gagal memuat paket. Coba lagi.');
+                cathError(err);
+            })
+            .finally(function () {
+                if (seq === _autofillSeq) setAutofillBusy(false);
+            });
+    }
+
+    $('input[name="tipe_filter"]').on('change', autofillFromApi);
+
+    $('#tanggal_keberangkatan_awal, #tanggal_keberangkatan_akhir').on('change', function () {
+        clearTimeout(_autofillTimer);
+        _autofillTimer = setTimeout(autofillFromApi, 350);
+    });
+
+    $('#btnResetAuto').on('click', function () {
+        clearTimeout(_autofillTimer);
+        _autofillSeq++;                    // batalkan request yang sedang berjalan
+        setAutofillBusy(false);
+
+        $('input[name="tipe_filter"]').prop('checked', false);
+        $('#tanggal_keberangkatan_awal, #tanggal_keberangkatan_akhir').val('');
+        clearSelect($('#nama_paket'));
+        clearSelect($('#tracking_paket_name'));
+        setAutofillStatus('', '');
+    });
 
     // =========================================================
     // ADAPTER — ubah response API → format sections (multi kolom)
