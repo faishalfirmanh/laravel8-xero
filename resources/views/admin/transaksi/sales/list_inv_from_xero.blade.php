@@ -3241,7 +3241,7 @@ let payFormMode = 'new'; // 'new' | 'edit'
                 let delete_inv = `<a style="margin-left:5px;" href="javascript:;" 
                                     data-id="${uuid_nya}" 
                                     onclick="hapusInvoice('${data}')"
-                                    class="d-none text-danger show-invoice-modal" 
+                                    class="text-danger show-invoice-modal" 
                                     title="hapus invoice">
                                     <i class="ti ti-trash"></i>
                                 </a>`
