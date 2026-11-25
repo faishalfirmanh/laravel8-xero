@@ -936,6 +936,41 @@
     .pay-act-btn { width: 38px; height: 38px; }   /* target sentuh lebih besar */
 }
 
+/* ── Aksi & select2 di form pembayaran modal invoice ── */
+#tablePaymentListAdd td.pay-act-cell { white-space: nowrap; vertical-align: middle; }
+
+#addPaymentRowsTable td { vertical-align: middle; }
+#addPaymentRowsTable td .select2-container { width: 100% !important; min-width: 0 !important; }
+#addPaymentRowsTable .select2-container--bootstrap4 .select2-selection--single {
+    height: 31px !important; position: relative !important;
+    display: flex !important; align-items: center !important;
+    border: 1px solid #ced4da !important; border-radius: 4px !important;
+}
+#addPaymentRowsTable .select2-selection__rendered {
+    display: block !important; padding-left: 8px !important; padding-right: 42px !important;
+    line-height: 29px !important; font-size: 12px !important; color: #333 !important;
+    overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;
+}
+#addPaymentRowsTable .select2-selection__clear {
+    position: absolute !important; right: 22px !important; top: 50% !important;
+    transform: translateY(-50%) !important; font-size: 14px !important; line-height: 1 !important;
+    color: #888 !important; z-index: 1;
+}
+#addPaymentRowsTable .select2-selection__arrow {
+    position: absolute !important; right: 2px !important; top: 0 !important;
+    height: 29px !important; width: 20px !important;
+}
+#addPaymentRowsTable .select2-selection__placeholder { color: #aaa !important; font-size: 12px !important; }
+
+@media (max-width: 768px) {
+    #tablePaymentListAdd { min-width: 760px; }
+    #tablePaymentListAdd th:last-child,
+    #tablePaymentListAdd td.pay-act-cell {
+        position: sticky; right: 0; z-index: 2; box-shadow: -3px 0 5px rgba(0,0,0,.12);
+    }
+    #tablePaymentListAdd td.pay-act-cell { background: #fff; }
+}
+
 </style>
 
 
@@ -1287,102 +1322,125 @@
                         </ul>
                     </div>
 
-                    <div class="payment-form-section" id="paymentFormSection">
-                        <div class="payment-form-inner">
+                   <div class="payment-form-section" id="paymentFormSection">
+                    <div class="payment-form-inner">
+                        {{-- Title bar --}}
+                        <div class="payment-form-title">
+                            <i class="ti ti-credit-card" style="font-size:15px; color:#1ab394;"></i>
+                            <span id="payAddFormTitle">Add Payment</span>
+                            <button type="button" class="btn-close-payment" id="btnClosePayment" title="Tutup">&times;</button>
+                        </div>
+                        {{-- Riwayat pembayaran invoice ini --}}
+                        <div class="table-responsive mb-3">
+                            <table class="table table-bordered table-sm text-center bg-white mb-0"
+                                id="tablePaymentListAdd" style="font-size:12px;">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th width="5%">No</th>
+                                        <th>Tanggal</th>
+                                        <th>Nama Bank</th>
+                                        <th>Keterangan / Ref</th>
+                                        <th>Info paket</th>
+                                        <th>Nominal</th>
+                                        <th class="text-center" style="width:130px; min-width:130px;">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="payment_list_body_add">
+                                    <tr><td colspan="7" class="text-muted">Belum ada data pembayaran</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
 
-                            {{-- Title bar --}}
-                            <div class="payment-form-title">
-                                <i class="ti ti-credit-card" style="font-size:15px; color:#1ab394;"></i>
-                                <span>Add Payment</span>
-                                <button type="button" class="btn-close-payment" id="btnClosePayment"
-                                        title="Tutup">&times;</button>
+                        <input type="hidden" id="row_payment_id_add" value="">
+
+                        {{-- ── APPLY CREDIT: pilihan metode (tidak berubah) ── --}}
+                        <div class="form-group" id="paymentMethodWrapAdd" style="display:none; padding:0 4px;">
+                            <label class="small font-weight-bold d-block">Metode Pembayaran</label>
+                            <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                                <label class="btn btn-outline-primary btn-sm active">
+                                    <input type="radio" name="payment_method_add" id="method_bank_add" value="bank" checked> Bank Transfer
+                                </label>
+                                <label class="btn btn-outline-success btn-sm">
+                                    <input type="radio" name="payment_method_add" id="method_credit_add" value="credit"> Apply Credit (Overpayment)
+                                </label>
                             </div>
+                        </div>
 
-                            {{-- ── APPLY CREDIT: pilihan metode pembayaran, hanya tampil kalau ada overpayment ── --}}
-                            <div class="form-group" id="paymentMethodWrapAdd" style="display:none; padding:0 4px;">
-                                <label class="small font-weight-bold d-block">Metode Pembayaran</label>
-                                <div class="btn-group btn-group-toggle" data-toggle="buttons">
-                                    <label class="btn btn-outline-primary btn-sm active">
-                                        <input type="radio" name="payment_method_add" id="method_bank_add" value="bank" checked> Bank Transfer
-                                    </label>
-                                    <label class="btn btn-outline-success btn-sm">
-                                        <input type="radio" name="payment_method_add" id="method_credit_add" value="credit"> Apply Credit (Overpayment)
-                                    </label>
-                                </div>
+                        {{-- ── BANK TRANSFER: multi row ── --}}
+                        <div id="wrap_bank_select_add">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-1 bg-white" id="addPaymentRowsTable" style="font-size:12px;">
+                                    <thead class="thead-dark">
+                                        <tr>
+                                            <th style="min-width:130px; width:150px;">Tanggal Bayar</th>
+                                            <th style="min-width:220px;">Bank</th>
+                                            <th style="min-width:130px; width:150px;">Nominal</th>
+                                            <th style="min-width:240px;">Paket (opsional)</th>
+                                            <th style="min-width:120px;">Catatan / Ref</th>
+                                            <th style="width:36px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="addPaymentRowsBody"></tbody>
+                                </table>
                             </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="btnAddPayRowAdd">
+                                <i class="ti ti-plus" style="font-size:12px;"></i> Add Row
+                            </button>
+                        </div>
 
-                            {{-- Fields sejajar --}}
+                        {{-- ── APPLY CREDIT: satu baris ── --}}
+                        <div id="wrap_overpay_select_add" style="display:none;">
                             <div class="payment-fields-grid" id="form_input_multi_payment">
 
-                                {{-- Date Paid --}}
                                 <div class="xero-field">
                                     <label>Date Paid <span class="text-danger">*</span></label>
                                     <div class="input-icon-wrap">
                                         <i class="ti ti-calendar"></i>
-                                        <input type="date" class="form-control"
-                                            name="date_transaction" id="date_paid">
+                                        <input type="date" class="form-control" name="date_transaction" id="date_paid">
                                     </div>
                                 </div>
 
-                                {{-- Account Bank — dipakai untuk metode "bank" --}}
-                                <div class="xero-field" id="wrap_bank_select_add">
-                                    <label>Account Bank <span class="text-danger">*</span></label>
-                                    <select class="form-control select2-account-bank"
-                                            name="uuid_bank" id="account_bank"
-                                            style="width:100%;">
-                                        <option value="">-- Pilih Akun --</option>
-                                        {{-- populate via JS / AJAX --}}
-                                    </select>
-                                </div>
-
-                                {{-- Pilih Overpayment — dipakai untuk metode "credit", default hidden --}}
-                                <div class="xero-field" id="wrap_overpay_select_add" style="display:none;">
+                                <div class="xero-field">
                                     <label>Pilih Overpayment <span class="text-danger">*</span></label>
                                     <select class="form-control select2-overpay-credit-add"
-                                            name="overpay_id" id="overpay_id_add"
-                                            style="width:100%;">
+                                            name="overpay_id" id="overpay_id_add" style="width:100%;">
                                         <option value="">-- Pilih Overpayment --</option>
-                                        {{-- populate via JS dari get_jamaah.list_all_overpay --}}
                                     </select>
                                 </div>
 
-                                {{-- Amount Paid --}}
                                 <div class="xero-field">
                                     <label>Amount Paid <span class="text-danger">*</span></label>
                                     <div class="input-icon-wrap">
                                         <i class="ti ti-cash"></i>
-                                        <input type="number" class="form-control"
-                                            name="nominal_receive" id="amount_paid"
-                                            min="0" step="0.01" placeholder="0.00">
+                                        <input type="number" class="form-control" name="nominal_receive"
+                                            id="amount_paid" min="0" step="0.01" placeholder="0.00">
                                     </div>
                                 </div>
 
-                                {{-- Reference --}}
                                 <div class="xero-field">
-                                    <label>Reference <span class="text-danger">*</span></label>
+                                    <label>Reference</label>
                                     <div class="input-icon-wrap">
                                         <i class="ti ti-bookmark"></i>
-                                        <input type="text" class="form-control"
-                                            name="reference_detail" id="payment_reference"
-                                            placeholder="Optional">
+                                        <input type="text" class="form-control" name="reference_detail"
+                                            id="payment_reference" placeholder="Optional">
                                     </div>
                                 </div>
 
-                            </div>{{-- /.payment-fields-grid --}}
-
-                            {{-- Actions --}}
-                            <div class="payment-form-footer">
-                                <button type="button" class="btn-payment-cancel" id="btnCancelPayment">
-                                    Tutup
-                                </button>
-                                <button type="button" class="btn-payment-save" id="btnSavePayment">
-                                    <i class="ti ti-check" style="font-size:12px;"></i>
-                                    Save Payment
-                                </button>
                             </div>
+                        </div>
 
-                        </div>{{-- /.payment-form-inner --}}
+                        {{-- Actions --}}
+                        <div class="payment-form-footer">
+                            <button type="button" class="btn-payment-cancel" id="btnCancelEditAdd" style="display:none;">
+                                Batal Edit
+                            </button>
+                            <button type="button" class="btn-payment-cancel" id="btnCancelPayment">Tutup</button>
+                            <button type="button" class="btn-payment-save" id="btnSavePayment">
+                                <i class="ti ti-check" style="font-size:12px;"></i> Save Payment
+                            </button>
+                        </div>
                     </div>
+                </div>
 
                 </div>{{-- /.modal-body --}}
 
@@ -2095,6 +2153,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 @push('scripts')
 <script>
     //  function printInvoice() {
@@ -2109,6 +2168,9 @@
     // }
 
     let lineSortable = null;
+    let payFormModeAdd        = 'new';   // 'new' | 'edit'
+    let defaultPaymentItemAdd = null; 
+     let paymentReceiptCache = { inv: null, pays: {} };
     // ========================================================
 // BUKTI PEMBAYARAN (Dropzone di paymentModal, pakai endpoint yang sama)
 // ========================================================
@@ -3516,7 +3578,7 @@ function setRowSelect2Value($row, selector, id, text) {
 
     function loadInvoice(id) {
         showModalLoading(true);
-        resetApplyCreditAdd();
+        resetPaymentAddState();
         ajaxRequest(
             `{{ route('detail-sales-inv') }}`,
             'GET',
@@ -3531,19 +3593,9 @@ function setRowSelect2Value($row, selector, id, text) {
 
             const d = response.data.data;
           
-            console.log('edit invoice',d)
-            renderPaymentHistory(d.get_payment,d.less_nominal)
-            renderHistoryLog(d.get_history_invoice)
-
-            // ── APPLY CREDIT: cek apakah invoice ini punya overpayment yang bisa dipakai ──
-            const usableOverpay = getUsableOverpays(d.get_jamaah && d.get_jamaah.list_all_overpay, d);
-            const isUnpaid = d.status !== 'PAID' && (parseFloat(d.less_nominal) || 0) > 0;
-
-            if (usableOverpay.length > 0 && isUnpaid) {
-                listAllOverpayCurrentAdd = usableOverpay;
-                populateOverpaySelectAdd(d.code_curr);
-                $('#paymentMethodWrapAdd').show();
-            }
+            renderPaymentHistoryAdd(d);   // isi tabel history + defaultPaymentItemAdd + receipt cache
+            refreshApplyCreditAdd(d);     // radio Apply Credit bila ada overpay yang bisa dipakai
+            renderHistoryLog(d.get_history_invoice);
             // ── 1. Header fields ─────────────────────────────
             $('#invoice_number_display').val(d.invoice_number || '');
             $('#issue_date').val(d.issue_date || '');         // name="issue_date" id="issue_date"
@@ -3677,13 +3729,11 @@ function setRowSelect2Value($row, selector, id, text) {
         $('#account_bank').val(null).trigger('change');
 
         // ── APPLY CREDIT: reset radio & select overpay inline ──
-        $('#method_bank_add').prop('checked', true);
+      
         $('#wrap_overpay_select_add').hide();
         $('#wrap_bank_select_add').show();
         $('#paymentMethodWrapAdd').hide();
-        if ($('.select2-overpay-credit-add').hasClass('select2-hidden-accessible')) {
-            $('#overpay_id_add').val(null).trigger('change');
-        }
+      
 
         // ── Plain <select> dikembalikan ke opsi default ──
        // $('#currency_selected').val('IDR');
@@ -3726,12 +3776,8 @@ function setRowSelect2Value($row, selector, id, text) {
         // ── Kosongkan log history ──
         $('#history_log_list').empty();
 
-        // ── Reset form payment & sembunyikan section-nya lagi ──
-        $('#date_paid').val('');
-        $('#amount_paid').val('');
-        $('#payment_reference').val('');
-        $('#paymentFormSection').hide();
-
+      resetPaymentAddState();
+     
         // ── Reset Dropzone (hapus semua file yang sempat di-upload) ──
         try {
             const dz = Dropzone.forElement('#buktiDropzone');
@@ -3763,20 +3809,10 @@ function setRowSelect2Value($row, selector, id, text) {
 
 
     $("#btn_add_payment_inv").on("click",function(){
-        $('#account_bank').val(null).trigger('change')
-        $("#amount_paid").val(0)
-
-        // ── APPLY CREDIT: reset ke mode default "bank" tiap kali form dibuka ──
-        $('#method_bank_add').prop('checked', true);
-        $('#wrap_overpay_select_add').hide();
-        $('#wrap_bank_select_add').show();
-        $('#overpay_id_add').val(null).trigger('change');
-
-        $('#paymentFormSection').slideDown(200);
-        // Set default date hari ini
-        if (!$('#date_paid').val()) {
-            $('#date_paid').val(new Date().toISOString().split('T')[0]);
-        }
+        const $sec      = $('#paymentFormSection');
+        const wasHidden = !$sec.is(':visible');
+        $sec.slideDown(200);
+         if (wasHidden) resetPayFormAdd();
     })
 
 
@@ -3850,66 +3886,441 @@ function setRowSelect2Value($row, selector, id, text) {
     }
     initAllSelectBank();
 
+   
 
-    $("#btnSavePayment").on('click', function (e) {
+    function todayLocalYmd() {           // tanggal lokal (toISOString memakai UTC → jam 00–07 WIB mundur sehari)
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 
-       e.preventDefault();
+// ── Baris form ──
+function buildPayRowAdd(data = {}) {
+    return `
+    <tr>
+        <td><input type="date" class="form-control form-control-sm payadd-date"
+                   value="${escAttr(data.date || todayLocalYmd())}"></td>
+        <td>
+            <select class="form-control form-control-sm payadd-bank" style="width:100%;">
+                ${data.bankId ? `<option value="${escAttr(data.bankId)}" selected>${esc(data.bankName || '')}</option>` : ''}
+            </select>
+        </td>
+        <td><input type="number" class="form-control form-control-sm payadd-nominal"
+                   min="0" step="0.01" placeholder="0" value="${escAttr(data.nominal || '')}"></td>
+        <td>
+            <select class="form-control form-control-sm payadd-item" style="width:100%;">
+                <option></option>
+                ${data.itemId ? `<option value="${escAttr(data.itemId)}" selected>${esc(data.itemName || '')}</option>` : ''}
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm payadd-ref"
+                   placeholder="catatan / ref" value="${escAttr(data.reference || '')}"></td>
+        <td class="text-center">
+            <button type="button" class="btn-del-payadd-row"
+                    style="background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:3px;
+                           padding:2px 6px;cursor:pointer;font-size:11px;" title="Hapus baris">
+                <i class="ti ti-trash"></i>
+            </button>
+        </td>
+    </tr>`;
+}
 
-       const method = $('input[name="payment_method_add"]:checked').val() || 'bank';
-       const $btn = $(this);
+function initBankSelectAdd($row) {
+    const $sel = $row.find('.payadd-bank');
+    if ($sel.hasClass('select2-hidden-accessible')) $sel.select2('destroy');
 
-       if (method === 'credit') {
-            // ── APPLY CREDIT (OVERPAYMENT) ──
-            const overpayId = $('#overpay_id_add').val();
-            if (!overpayId) {
-                Swal.fire('Peringatan', 'Silakan pilih overpayment terlebih dahulu.', 'warning');
-                return;
+    $sel.select2({
+        theme: 'bootstrap4', width: '100%', dropdownParent: $('#modalCreateHotel'),
+        placeholder: 'Ketik nama bank...', allowClear: true, minimumInputLength: 1,
+        language: {
+            inputTooShort: () => 'Ketik minimal 1 huruf untuk mencari bank...',
+            searching    : () => 'Mencari...',
+            noResults    : () => 'Bank tidak ditemukan',
+        },
+        ajax: {
+            url: "{{ route('getbankselect2') }}", type: 'GET', dataType: 'json', delay: 350,
+            data: (p) => ({ page: p.page || 1, keyword: p.term || '', limit: 10, kolom_name: 'name' }),
+            processResults: (response) => ({
+                results: $.map(response.data.data || [], (item) => ({
+                    id: item.id, text: item.name + ' (' + (item.currency_code || '-') + ')'
+                })),
+                pagination: { more: !!response.data.next_page_url }
+            }),
+            cache: false
+        }
+    });
+}
+
+function initItemSelectAdd($row) {
+    const $sel  = $row.find('.payadd-item');
+    const limit = 10;
+    if ($sel.hasClass('select2-hidden-accessible')) $sel.select2('destroy');
+
+    $sel.select2({
+        theme: 'bootstrap4', width: '100%', dropdownParent: $('#modalCreateHotel'),
+        placeholder: 'Pilih paket (opsional)', allowClear: true,
+        language: {
+            searching  : () => 'Mencari...',
+            noResults  : () => 'Paket tidak ditemukan',
+            loadingMore: () => 'Memuat lainnya...'
+        },
+        ajax: {
+            url: '{{ route("list-paket-select2") }}', dataType: 'json', delay: 300,
+            data: (p) => ({ page: p.page || 1, keyword: p.term || '', limit: limit }),
+            processResults: function (response, params) {
+                params.page = params.page || 1;
+                if (response.status != 'success') return { results: [] };
+                const items = (response.data && response.data.results) || [];
+                return {
+                    results: $.map(items, (item) => ({ id: item.id, text: item.nama_paket })),
+                    pagination: { more: items.length >= limit }
+                };
+            },
+            cache: false
+        }
+    });
+
+    setDefaultItemAdd($sel);
+}
+
+function setDefaultItemAdd($sel) {
+    if (payFormModeAdd !== 'new' || !defaultPaymentItemAdd) return;
+    if ($sel.val()) return;
+    $sel.append(new Option(defaultPaymentItemAdd.text, defaultPaymentItemAdd.id, true, true)).trigger('change');
+}
+
+function addPayRowAdd(data = {}) {
+    const $row = $(buildPayRowAdd(data));
+    $('#addPaymentRowsBody').append($row);
+    initBankSelectAdd($row);
+    initItemSelectAdd($row);
+    updateDelBtnsAdd();
+}
+
+function updateDelBtnsAdd() {
+    const n = $('#addPaymentRowsBody tr').length;
+    $('#addPaymentRowsBody .btn-del-payadd-row').prop('disabled', n <= 1 && payFormModeAdd === 'new');
+}
+
+function destroyPayRowSelectsAdd() {
+    $('#addPaymentRowsBody .payadd-bank, #addPaymentRowsBody .payadd-item').each(function () {
+        if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+    });
+}
+
+function setPayAddEditUI(isEdit) {
+    $('#payAddFormTitle').text(isEdit ? 'Edit Payment' : 'Add Payment');
+    $('#btnSavePayment').html('<i class="ti ti-check" style="font-size:12px;"></i> ' + (isEdit ? 'Update Payment' : 'Save Payment'));
+    $('#btnAddPayRowAdd').toggle(!isEdit);
+    $('#btnCancelEditAdd').toggle(isEdit);
+    $('#paymentMethodWrapAdd').toggleClass('d-none', isEdit);   // saat edit, metode dikunci ke bank
+}
+
+function forceBankModeAdd() {
+    $('#method_bank_add').prop('checked', true);
+    $('#paymentMethodWrapAdd label').removeClass('active').first().addClass('active');
+    $('#wrap_overpay_select_add').hide();
+    $('#wrap_bank_select_add').show();
+}
+
+// Kosongkan baris + keluar dari mode edit (tanpa membuat baris baru)
+function clearPayAdd() {
+    destroyPayRowSelectsAdd();
+    $('#addPaymentRowsBody').empty();
+    payFormModeAdd = 'new';
+    $('#row_payment_id_add').val('');
+    setPayAddEditUI(false);
+}
+
+    function resetPayFormAdd() {
+        clearPayAdd();
+        addPayRowAdd();
+        $('#date_paid').val(todayLocalYmd());
+        $('#amount_paid').val('');
+        $('#payment_reference').val('');
+    }
+
+    // Bersihkan SEMUA state payment inline (dipanggil saat buka invoice baru / edit)
+    function resetPaymentAddState() {
+        defaultPaymentItemAdd = null;
+        paymentReceiptCache   = { inv: null, pays: {} };
+
+        $('#payment_list_body_add [data-toggle="tooltip"]').tooltip('dispose');
+        $('#payment_list_body_add').html(
+            '<tr><td colspan="7" class="text-muted">Belum ada data pembayaran</td></tr>'
+        );
+
+        resetApplyCreditAdd();   // radio kembali ke bank, overpay dikosongkan
+        clearPayAdd();           // destroy select2, kosongkan baris, keluar mode edit
+
+        $('#date_paid').val('');
+        $('#amount_paid').val('');
+        $('#payment_reference').val('');
+        $('#paymentFormSection').hide();
+    }
+
+    function switchToEditPayAdd(data) {
+        payFormModeAdd = 'edit';                       // set dulu agar default paket tidak menimpa
+        $('#row_payment_id_add').val(data.id);
+        forceBankModeAdd();
+        destroyPayRowSelectsAdd();
+        $('#addPaymentRowsBody').empty();
+        addPayRowAdd(data);
+        setPayAddEditUI(true);
+        document.getElementById('addPaymentRowsTable').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+// ── Riwayat pembayaran ──
+    function renderPaymentHistoryAdd(d) {
+        const payments = (d.get_payment || []).slice()
+            .sort((a, b) => new Date(b.date_transaction) - new Date(a.date_transaction));
+
+        paymentReceiptCache   = { inv: d, pays: {} };        // dipakai tombol kuitansi
+        defaultPaymentItemAdd = pickDefaultPaymentItem(d);   // paket default (departure_date)
+
+        $('#payment_list_body_add [data-toggle="tooltip"]').tooltip('dispose');
+
+        if (payments.length === 0) {
+            $('#payment_list_body_add').html('<tr><td colspan="7" class="text-muted">Belum ada data pembayaran</td></tr>');
+        } else {
+            let html = '';
+            payments.forEach((p, i) => {
+                const isRecv  = parseFloat(p.nominal_receive) > 0;
+                const nominal = isRecv ? parseFloat(p.nominal_receive) : parseFloat(p.nominal_spend);
+                paymentReceiptCache.pays[p.id] = p;
+
+                html += `
+                <tr ${isRecv ? '' : 'style="background-color:#FFC6BA;"'}>
+                    <td>${i + 1}</td>
+                    <td>${esc(p.date_transaction || '-')}</td>
+                    <td>${esc(p.name_bank || '-')}</td>
+                    <td>${esc(p.reference_detail || '-')}</td>
+                    <td>${esc(p.nama_paket_payment || '-')}</td>
+                    <td class="text-right">${formatCurrency(nominal, d.code_curr)}</td>
+                    <td class="text-center pay-act-cell">
+                        <div class="pay-act-btns">
+                            ${isRecv ? `
+                            <button type="button" class="btn btn-info pay-act-btn btn-receipt-pay"
+                                data-toggle="tooltip" data-placement="top" title="Download kuitansi"
+                                data-id="${p.id}"><i class="ti ti-photo"></i></button>
+
+                            <button type="button" class="btn btn-warning pay-act-btn btn-edit-payadd"
+                                title="Edit"
+                                data-id="${p.id}"
+                                data-nominal="${p.nominal_receive}"
+                                data-date="${escAttr(p.date_transaction)}"
+                                data-bank-id="${escAttr(p.uuid_bank)}"
+                                data-bank-name="${escAttr(p.name_bank)}"
+                                data-reference="${escAttr(p.reference_detail || '')}"
+                                data-item-id="${escAttr(p.item_id_for_payment || '')}"
+                                data-item-name="${escAttr(p.nama_paket_payment)}"><i class="ti ti-pencil"></i></button>` : ''}
+
+                            <button type="button" class="btn btn-danger pay-act-btn btn-del-payadd"
+                                title="Hapus"
+                                data-id="${p.id}"
+                                data-nominal="${escAttr(formatCurrency(nominal, d.code_curr))}"><i class="ti ti-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            $('#payment_list_body_add').html(html);
+            $('#payment_list_body_add [data-toggle="tooltip"]').tooltip({ container: '#modalCreateHotel', trigger: 'hover' });
+        }
+
+        // baris form yang sudah terlanjur dibuat sebelum data datang
+        $('#addPaymentRowsBody .payadd-item').each(function () { setDefaultItemAdd($(this)); });
+    }
+
+    function refreshApplyCreditAdd(d) {
+        resetApplyCreditAdd();
+        const usable   = getUsableOverpays(d.get_jamaah && d.get_jamaah.list_all_overpay, d);
+        const isUnpaid = d.status !== 'PAID' && (parseFloat(d.less_nominal) || 0) > 0;
+        if (usable.length > 0 && isUnpaid) {
+            listAllOverpayCurrentAdd = usable;
+            populateOverpaySelectAdd(d.code_curr);
+            $('#paymentMethodWrapAdd').show();
+        }
+    }
+
+    // Refresh ringan (tanpa menimpa isian invoice yang belum disimpan)
+    function loadPaymentsAdd(invoiceId) {
+        return ajaxRequest(`{{ route('detail-sales-inv') }}`, 'GET', { id: invoiceId }, localStorage.getItem('token'))
+            .then(function (response) {
+                const d = response.data.data;
+                renderPaymentHistoryAdd(d);
+                refreshApplyCreditAdd(d);
+                $('#invoiceStatusBadge').text(d.status);
+                $('#summaryTotalPayment').text(d.code_curr == 'IDR' ? formatNumber(d.invoice_amount) : '–');
+                $('#summaryRemainder').text(d.code_curr == 'IDR' ? formatNumber(d.less_nominal) : '–');
+            })
+            .catch(err => cathError(err));
+    }
+
+    // ── Events ──
+    $('#btnAddPayRowAdd').on('click', function () {
+        if (payFormModeAdd === 'new') addPayRowAdd();
+    });
+
+    $(document).on('click', '.btn-del-payadd-row', function () {
+        const n = $('#addPaymentRowsBody tr').length;
+        if (n <= 1 && payFormModeAdd === 'new') return;
+        const $tr = $(this).closest('tr');
+        $tr.find('.payadd-bank, .payadd-item').each(function () {
+            if ($(this).hasClass('select2-hidden-accessible')) $(this).select2('destroy');
+        });
+        $tr.remove();
+        updateDelBtnsAdd();
+    });
+
+    $('#btnCancelEditAdd').on('click', resetPayFormAdd);
+
+    // Enter di input pembayaran jangan men-submit form invoice
+    $('#paymentFormSection').on('keydown', 'input', function (e) {
+        if (e.key === 'Enter') e.preventDefault();
+    });
+
+    $(document).on('click', '.btn-edit-payadd', function () {
+        switchToEditPayAdd({
+            id       : $(this).data('id'),
+            date     : $(this).data('date'),
+            bankId   : $(this).data('bank-id'),
+            bankName : $(this).data('bank-name'),
+            nominal  : parseFloat($(this).data('nominal')),
+            reference: $(this).data('reference'),
+            itemId   : $(this).data('item-id') || null,
+            itemName : $(this).data('item-name') || '',
+        });
+    });
+
+    $(document).on('click', '.btn-del-payadd', function () {
+        const payId      = $(this).data('id');
+        const nominalStr = $(this).data('nominal');
+        const invoiceId  = $('#idHotelInput').val();
+
+        Swal.fire({
+            title: 'Hapus Pembayaran?',
+            html : `Nominal <b>${nominalStr}</b> akan dihapus.<br>Sisa tagihan akan dikembalikan.`,
+            icon : 'warning', showCancelButton: true,
+            confirmButtonColor: '#d33', cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true
+        }).then(result => {
+            if (!result.isConfirmed) return;
+
+            ajaxRequest(`{{ route('delete-pay-sales-inv') }}`, 'POST',
+                { id: payId, parent_inv_id: invoiceId }, localStorage.getItem('token'))
+            .then(async res => {
+                if (res.status == 200) {
+                    Swal.fire({ icon: 'success', title: 'Dihapus!', timer: 1200, showConfirmButton: false });
+                    await loadPaymentsAdd(invoiceId);
+                    if (payFormModeAdd === 'edit' && String($('#row_payment_id_add').val()) === String(payId)) {
+                        resetPayFormAdd();
+                    }
+                    table.ajax.reload(null, false);
+                }
+            })
+            .catch(err => cathError(err));
+        });
+    });
+
+// ── Simpan (GANTI handler $("#btnSavePayment").on('click') yang lama) ──
+    $('#btnSavePayment').on('click', async function (e) {
+        e.preventDefault();
+
+        const invoiceId = $('#idHotelInput').val();
+        if (!invoiceId) {
+            Swal.fire('Peringatan', 'Simpan invoice terlebih dahulu sebelum menambah pembayaran.', 'warning');
+            return;
+        }
+
+        const $btn   = $(this).prop('disabled', true);
+        const isEdit = payFormModeAdd === 'edit';
+        const method = $('input[name="payment_method_add"]:checked').val() || 'bank';
+
+        try {
+            if (!isEdit && method === 'credit') {
+                // ── APPLY CREDIT (OVERPAYMENT) ──
+                const overpayId = $('#overpay_id_add').val();
+                if (!overpayId) {
+                    Swal.fire('Peringatan', 'Silakan pilih overpayment terlebih dahulu.', 'warning');
+                    return;
+                }
+                await ajaxRequest(`{{ route('save-payover-sales-inv') }}`, 'POST', {
+                    nominal_spend    : $('#amount_paid').val(),
+                    reference_detail : $('#payment_reference').val(),
+                    date_transaction : $('#date_paid').val(),
+                    parent_inv_id    : invoiceId,
+                    overpay_id       : overpayId,
+                }, localStorage.getItem('token'));
+
+                Swal.fire({ icon: 'success', title: 'Berhasil!', text: 'Apply credit tersimpan.', timer: 1500, showConfirmButton: false });
+
+            } else if (isEdit) {
+                // ── EDIT satu pembayaran bank ──
+                const $r      = $('#addPaymentRowsBody tr:first');
+                const bank    = $r.find('.payadd-bank').val();
+                const nominal = $r.find('.payadd-nominal').val();
+                const date    = $r.find('.payadd-date').val();
+                if (!bank || !nominal || !date) {
+                    Swal.fire('Peringatan', 'Lengkapi Bank, Nominal, dan Tanggal.', 'warning');
+                    return;
+                }
+                const payload = {
+                    id               : $('#row_payment_id_add').val(),
+                    uuid_bank        : bank,
+                    nominal_receive  : nominal,
+                    reference_detail : $r.find('.payadd-ref').val(),
+                    date_transaction : date,
+                    parent_inv_id    : invoiceId,
+                };
+                const itemId = $r.find('.payadd-item').val();
+                if (itemId) payload.item_id_for_payment = itemId;
+
+                await ajaxRequest(`{{ route('update-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem('token'));
+                Swal.fire({ icon: 'success', title: 'Berhasil diupdate!', timer: 1500, showConfirmButton: false });
+
+            } else {
+                // ── BANK TRANSFER: banyak baris ──
+                const payloads = [];
+                let hasError   = false;
+
+                $('#addPaymentRowsBody tr').each(function () {
+                    const $r      = $(this);
+                    const bank    = $r.find('.payadd-bank').val();
+                    const nominal = $r.find('.payadd-nominal').val();
+                    const date    = $r.find('.payadd-date').val();
+                    if (!bank || !nominal || !date) { hasError = true; return false; }
+
+                    const p = {
+                        date_transaction : date,
+                        uuid_bank        : bank,
+                        nominal_receive  : nominal,
+                        reference_detail : $r.find('.payadd-ref').val(),
+                        parent_inv_id    : invoiceId,
+                    };
+                    const itemId = $r.find('.payadd-item').val();
+                    if (itemId) p.item_id_for_payment = itemId;
+                    payloads.push(p);
+                });
+
+                if (hasError) {
+                    Swal.fire('Peringatan', 'Lengkapi Tanggal, Bank, dan Nominal pada setiap baris.', 'warning');
+                    return;
+                }
+
+                for (const payload of payloads) {
+                    await ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem('token'));
+                }
+                Swal.fire({ icon: 'success', title: 'Berhasil!', text: `${payloads.length} pembayaran tersimpan.`, timer: 1500, showConfirmButton: false });
             }
 
-            const payload = {
-                nominal_spend    : $('#amount_paid').val(),
-                reference_detail : $('#payment_reference').val(),
-                date_transaction : $('#date_paid').val(),
-                parent_inv_id    : $('#idHotelInput').val(),
-                overpay_id       : overpayId,
-            };
+            await loadPaymentsAdd(invoiceId);   // daftar + ringkasan + status
+            resetPayFormAdd();                  // form kembali ke 1 baris kosong (+ paket default)
+            table.ajax.reload(null, false);
 
-            ajaxRequest(`{{ route('save-payover-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
-                .then(response => {
-                    if (response.status == 200) {
-                        Swal.fire('Sukses!', 'Data (apply credit) berhasil disimpan.', 'success');
-                        $('#modalCreateHotel').modal('hide');
-                        table.ajax.reload(null, false);
-                    }
-                })
-                .catch((err) => {
-                    cathError(err)
-                });
-
-       } else {
-            // ── Payment normal (bank transfer) ──
-            const payload = {
-                date_transaction         : $('#date_paid').val(),
-                uuid_bank      : $('#account_bank').val(),
-                nominal_receive       : $('#amount_paid').val(),
-                reference_detail : $('#payment_reference').val(),
-                parent_inv_id : $('#idHotelInput').val()
-
-            };
-
-            ajaxRequest(`{{ route('save-pay-sales-inv') }}`, 'POST', payload, localStorage.getItem("token"))
-                .then(response => {
-                    if(response.status == 200){
-                        Swal.fire('Sukses!', 'Data berhasil disimpan.', 'success');
-                        $('#modalCreateHotel').modal('hide');
-                        table.ajax.reload(null, false);
-                    }
-                })
-                .catch((err) => {
-                    cathError(err)
-                    //Swal.fire('Gagal!', err.message || 'Terjadi kesalahan.', 'error');
-                });
-       }
+        } catch (err) {
+            cathError(err);
+        } finally {
+            $btn.prop('disabled', false);
+        }
     });
 
 
@@ -4867,6 +5278,8 @@ function setRowRequiredState($row, isRequired) {
                             myDropzone.processQueue();
                         }
                         $('#invoices_id_parent').val(response.data.data.id)
+                        $('#invoices_id_parent').val(response.data.data.id);
+                        loadPaymentsAdd(savedInvoiceId);   // refresh history + default paket dari detail yang baru disimpan
                     }
                 })
                 .catch((err) => {
@@ -4961,6 +5374,7 @@ function setRowRequiredState($row, isRequired) {
 
     $('#tableHotel').on('click', '.show-payment-modal', function() {
         const id = $(this).data('id');
+        defaultPaymentItem = null;
            const rowData = table.row($(this).parents('tr')).data();
         $('#invoices_id_parent').val(id); // Set hidden ID untuk form tambah bayar
         $("#idHotelInput").val(id)
@@ -4998,11 +5412,16 @@ function setRowRequiredState($row, isRequired) {
             const d        = response.data.data;
             const rawOverpay = (d.get_jamaah && d.get_jamaah.list_all_overpay) ? d.get_jamaah.list_all_overpay : [];
             const payments = d.get_payment || [];
+            defaultPaymentItem = pickDefaultPaymentItem(d);
+            $('#newPaymentRowsBody .pay-item-select').each(function () {
+                setDefaultItemOnSelect($(this));
+            });
 
             paymentReceiptCache = { inv: d, pays: {} };
             $('#payment_list_body [data-toggle="tooltip"]').tooltip('dispose');
 
             console.log('edit pay data', $(this).data());
+            console.log('data',d)
             console.table(payments.map(p => ({
                 id: p.id,
                 item_id_for_payment: p.item_id_for_payment,
@@ -5281,7 +5700,13 @@ function setRowRequiredState($row, isRequired) {
     const RECEIPT_CITY = 'Mojokerto';
     const RECEIPT_CUR_WORD = { IDR: 'Rupiah', USD: 'Dolar', SAR: 'Riyal' };
 
-    let paymentReceiptCache = { inv: null, pays: {} };
+    const RECEIPT_FORMAT      = 'pdf';   // 'pdf' = ukuran fisik tepat (untuk cetak) | 'png' = gambar biasa
+    const RECEIPT_PAGE        = 'letter';// samakan dengan Page Setup Excel: 'letter' | 'a4' | 'a5'
+    const RECEIPT_PRINT_W_MM  = 130;     // lebar kuitansi di atas kertas (mm)
+    const RECEIPT_MARGIN_X_MM = 10;      // jarak dari tepi kiri kertas
+    const RECEIPT_MARGIN_Y_MM = 5;      // jarak dari tepi atas kertas
+
+   
 
     function terbilangID(n) {
         n = Math.floor(Math.abs(n));
@@ -5441,13 +5866,32 @@ function setRowRequiredState($row, isRequired) {
                 }
             });
 
-            const fname = ('Kuitansi-' + (d.invoice_number || 'inv') + '-' + (p.date_transaction || ''))
-                            .replace(/[^A-Za-z0-9\-_#]+/g, '_');
+          const fname = ('Kuitansi-' + (d.invoice_number || 'inv') + '-' + (p.date_transaction || ''))
+                .replace(/[^A-Za-z0-9\-_#]+/g, '_');
+        if (RECEIPT_FORMAT === 'pdf') {
+            // PDF: kuitansi ditaruh di pojok kiri atas halaman dengan ukuran mm yang pasti
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: RECEIPT_PAGE });
 
-            const a = document.createElement('a');
-            a.download = fname + '.png';
-            a.href = canvas.toDataURL('image/png');
-            a.click();
+            const w = RECEIPT_PRINT_W_MM;
+            const h = w * canvas.height / canvas.width;
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG',
+                        RECEIPT_MARGIN_X_MM, RECEIPT_MARGIN_Y_MM, w, h);
+            pdf.save(fname + '.pdf');
+        } else {
+            // PNG biasa (versi blob, aman untuk Safari iOS)
+            canvas.toBlob(function (blob) {
+                if (!blob) { Swal.fire('Gagal', 'Gambar kuitansi gagal dibuat.', 'error'); return; }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fname + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 4000);
+            }, 'image/png');
+        }
         } catch (err) {
             cathError(err);
         } finally {
@@ -6146,6 +6590,22 @@ $('#modalCreateJamaah').on('hidden.bs.modal', function () {
     }
 });
 
+let defaultPaymentItem = null; 
+
+// Ambil get_item pertama (urutan index) yang punya departure_date
+function pickDefaultPaymentItem(d) {
+    const it = (d.get_detail_by_id || [])
+        .map(row => row.get_item)
+        .find(item => item && item.departure_date);
+    return it ? { id: it.id, text: it.nama_paket } : null;
+}
+
+function setDefaultItemOnSelect($sel) {
+    if (payFormMode !== 'new' || !defaultPaymentItem) return;   // hanya mode tambah baru
+    if ($sel.val()) return;                                     // sudah terisi (mode edit) → jangan ditimpa
+    $sel.append(new Option(defaultPaymentItem.text, defaultPaymentItem.id, true, true))
+        .trigger('change');
+}
 
 function initItemSelectOnRow($row) {
     const $sel = $row.find('.pay-item-select');
