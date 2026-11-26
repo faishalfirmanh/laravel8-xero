@@ -163,6 +163,13 @@ Route::prefix('public')->middleware(PublicKey::class)->group(function () {
         Route::get('coa-trans', [CoaController::class, 'getCoaTrans']);
         Route::get('coa-trans-summary', [CoaController::class, 'getCoaTransSummary']);
     });
+    Route::prefix('payment')->group(function () {
+        Route::get('list-bank', [BankXeroController::class, 'getAllPaginate']);
+        Route::post('bank-kasir', [BankSpendReceiveController::class, 'getAllPaginateDetailSumariPyasin']);
+        Route::post('online', [BankSpendReceiveController::class, 'getAllPaginateDetailSumariOnline']);
+        //getAllPaginateDetailSumariPyasin
+    });
+    Route::get('jamaah', [DataApiJamaahController::class, 'getAllPaginate']);
 });
 
 Route::get('get_curr_local', [InvXeroController::class, 'getCurr'])->name('get_curr_local');

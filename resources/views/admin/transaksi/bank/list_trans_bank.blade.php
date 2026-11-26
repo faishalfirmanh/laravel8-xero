@@ -242,6 +242,7 @@
                     <th>Spend</th>
                     <th>Received</th>
                     <th>Transfer</th>
+                    <th>Saved By</th>
                     <th width="15%">Action</th>
                 </tr>
             </thead>
@@ -683,7 +684,15 @@ $(document).ready(function() {
 
             }
         },
-       {
+        { 
+            data: 'nama_pembuat', 
+            name: 'nama_pembuat',
+            render: function(data,type,row){
+                console.log('data',row)
+                return data;
+            }
+        },
+        {
             data: "id",
             orderable: false,
             searchable: false,

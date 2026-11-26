@@ -3701,7 +3701,8 @@ function setRowSelect2Value($row, selector, id, text) {
     // ── Reset native form fields (text, date, number, hidden inputs) ──
         $('#formCreateHotel')[0].reset();
          const today = new Date();
-
+        $("#summaryRemainder").text(0);
+        $("#summaryTotalPayment").text(0);
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');

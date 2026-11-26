@@ -7,6 +7,7 @@ use App\Models\InvoicesAllFromXero;
 use App\Models\ItemsPaketAllFromXero;
 use App\Models\MasterData\BankXero;
 use App\Models\MasterData\Coa;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -43,12 +44,23 @@ class TransactionNominalBankAccount extends Model
 
     protected $appends = [
         'name_bank',
-        'nama_paket_payment'
+        'nama_paket_payment',
+        'nama_pembuat'
     ];
 
     public function getNameBankAttribute()
     {
         return optional($this->getBank)->name ?? '-';
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function getNamaPembuatAttribute()
+    {
+        return optional($this->creator)->name ?? 'no name';
     }
 
     public function getNamaPaketPaymentAttribute()

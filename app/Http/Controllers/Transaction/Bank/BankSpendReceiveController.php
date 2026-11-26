@@ -86,6 +86,322 @@ class BankSpendReceiveController extends Controller
         return $this->autoResponse($data);
     }
 
+    public function getAllPaginateDetailSumariOnline(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'page' => 'required|integer',
+            'keyword' => 'nullable|string',
+            'kolom_name' => 'required|string',
+            'limit' => 'required|integer',
+            'bank_id_xero' => 'required|array|min:1',
+            'bank_id_xero.*' => 'required|integer|exists:bank_xeros,id',
+            'date_start' => 'nullable|date',
+            'date_end' => 'nullable|date|after_or_equal:date_start',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $bankIds = $request->input('bank_id_xero');
+
+        $where = function ($q) use ($request, $bankIds) {
+            $q->whereIn('uuid_bank', $bankIds)
+                ->when($request->date_start, function ($q, $v) {
+                    $q->whereDate('date_transaction', '>=', $v);
+                })
+                ->when($request->date_end, function ($q, $v) {
+                    $q->whereDate('date_transaction', '<=', $v);
+                });
+        };
+
+        $with = ['getPbill', 'getPBank', 'getInv', 'getFeeOver', 'getBank'];
+        $whereNull = [];
+
+        if ($request->keyword != null) {
+            $paginator = $this->repo_trans_all_bank->searchData(
+                $where,
+                $request->limit,
+                $request->page,
+                'reference_detail',
+                $request->keyword,
+                $with,
+                $whereNull
+            );
+        } else {
+            $paginator = $this->repo_trans_all_bank->getAllDataWithDefault(
+                $where,
+                $request->limit,
+                $request->page,
+                'date_transaction',
+                'DESC',
+                $with,
+                $whereNull
+            );
+        }
+
+        // Hitung total sesuai filter (semua bank)
+        $totals = DB::table('transaction_nominal_bank_accounts')
+            ->whereIn('uuid_bank', $bankIds)
+            ->when($request->date_start, function ($q, $v) {
+                $q->whereDate('date_transaction', '>=', $v);
+            })
+            ->when($request->date_end, function ($q, $v) {
+                $q->whereDate('date_transaction', '<=', $v);
+            })
+            ->when($request->keyword, function ($q, $v) {
+                $q->where('reference_detail', 'like', '%' . $v . '%');
+            })
+            ->selectRaw('SUM(total_base_receive) as total_penerimaan, SUM(total_base_spend) as total_pengeluaran')
+            ->first();
+
+        // Total per bank
+        $totalsPerBank = DB::table('transaction_nominal_bank_accounts as t')
+            ->join('bank_xeros as b', 'b.id', '=', 't.uuid_bank')
+            ->whereIn('t.uuid_bank', $bankIds)
+            ->when($request->date_start, function ($q, $v) {
+                $q->whereDate('t.date_transaction', '>=', $v);
+            })
+            ->when($request->date_end, function ($q, $v) {
+                $q->whereDate('t.date_transaction', '<=', $v);
+            })
+            ->when($request->keyword, function ($q, $v) {
+                $q->where('t.reference_detail', 'like', '%' . $v . '%');
+            })
+            ->selectRaw('
+        t.uuid_bank,
+        b.name as nama_bank,
+        SUM(t.total_base_receive) as total_penerimaan,
+        SUM(t.total_base_spend)   as total_pengeluaran
+    ')
+            ->groupBy('t.uuid_bank', 'b.name')
+            ->get()
+            ->keyBy('uuid_bank');
+
+        // Map manual — ambil field yang dibutuhkan saja
+        $rows = $paginator->getCollection()->map(function ($item) use ($totalsPerBank) {
+            $pb = $item->getPbill;
+            $ppb = $item->getPBank;
+            $inv = $item->getInv;
+            $fee = $item->getFeeOver;
+            $bk = $item->get_bank;
+
+            $bankTotal = $totalsPerBank->get((string) $item->uuid_bank);
+
+            return [
+                'id' => $item->id,
+                'uuid_bank' => $item->uuid_bank,
+                'date_transaction' => $item->date_transaction,
+                'reference_detail' => $item->reference_detail,
+                'nominal_spend' => $item->nominal_spend,
+                'nominal_receive' => $item->nominal_receive,
+                'nominal_currency' => $item->nominal_currency,
+                'name_bank' => $item->name_bank,
+                'nama_paket_payment' => $item->nama_paket_payment,
+                'nama_pembuat' => $item->nama_pembuat,
+
+                'get_pbill' => $pb ? [
+                    'id' => $pb->id,
+                    'reference' => $pb->reference,
+                    'total' => $pb->total,
+                    'nominal_paid' => $pb->nominal_paid,
+                    'nominal_due' => $pb->nominal_due,
+                    'name_contact_bill' => $pb->name_contact_bill,
+                ] : null,
+
+                'get_p_bank' => $ppb ? [
+                    'id' => $ppb->id,
+                    'reference' => $ppb->reference,
+                    'total' => $ppb->total,
+                    'is_spend' => $ppb->is_spend,
+                    'name_contact_trans_bank' => $ppb->name_contact_trans_bank,
+                ] : null,
+
+                'get_inv' => $inv ? [
+                    'id' => $inv->id,
+                    'invoice_number' => $inv->invoice_number,
+                    'invoice_total' => $inv->invoice_total,
+                    'issue_date' => $inv->issue_date,
+                    'contact_name' => $inv->contact_name,
+                    'reference' => $inv->reference,
+                ] : null,
+
+                'get_fee_over' => $fee ? [
+                    'id' => $fee->id,
+                    'invoice_number' => $fee->invoice_number,
+                    'reference' => $fee->reference,
+                ] : null,
+
+                'get_bank' => $bk ? [
+                    'id' => $bk->id,
+                    'name' => $bk->name,
+                    'currency_code' => $bk->currency_code,
+                    'sum_curr_spend' => $bk->sum_curr_spend,
+                    'sum_curr_receive' => $bk->sum_curr_receive,
+                    'final_nominal_currency' => $bk->final_nominal_currency,
+                    // Total per bank sesuai filter tanggal/keyword
+                    'filtered_penerimaan' => (float) ($bankTotal->total_penerimaan ?? 0),
+                    'filtered_pengeluaran' => (float) ($bankTotal->total_pengeluaran ?? 0),
+                ] : null,
+            ];
+        });
+
+        $paginator->appends($request->query());
+        $data = $paginator->toArray();
+        $data['data'] = $rows->values()->all();
+        $data['summary_per_bank'] = $totalsPerBank->values()->map(function ($row) {
+            return [
+                'uuid_bank' => $row->uuid_bank,
+                'nama_bank' => $row->nama_bank,
+                'total_penerimaan' => (float) ($row->total_penerimaan ?? 0),
+                'total_pengeluaran' => (float) ($row->total_pengeluaran ?? 0),
+            ];
+        })->values()->all();
+
+        // Grand total semua bank
+        $data['total_penerimaan'] = (float) $totalsPerBank->sum('total_penerimaan');
+        $data['total_pengeluaran'] = (float) $totalsPerBank->sum('total_pengeluaran');
+
+        return $this->autoResponse($data);
+    }
+
+    public function getAllPaginateDetailSumariPyasin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'page' => 'required|integer',
+            'keyword' => 'nullable|string',
+            'kolom_name' => 'required|string',
+            'limit' => 'required|integer',
+            'bank_id_xero' => 'required|integer|exists:bank_xeros,id',
+            'date_start' => 'nullable|date',
+            'date_end' => 'nullable|date|after_or_equal:date_start',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 404);
+        }
+
+        $where = function ($q) use ($request) {
+            $q->where('uuid_bank', $request->bank_id_xero)
+                ->when($request->date_start, function ($q, $v) {
+                    $q->whereDate('date_transaction', '>=', $v);
+                })
+                ->when($request->date_end, function ($q, $v) {
+                    $q->whereDate('date_transaction', '<=', $v);
+                });
+        };
+
+        $with = ['getPbill', 'getPBank', 'getInv', 'getFeeOver', 'getBank'];
+        $whereNull = [];
+
+        if ($request->keyword != null) {
+            $paginator = $this->repo_trans_all_bank->searchData(
+                $where,
+                $request->limit,
+                $request->page,
+                'reference_detail',
+                $request->keyword,
+                $with,
+                $whereNull
+            );
+        } else {
+            $paginator = $this->repo_trans_all_bank->getAllDataWithDefault(
+                $where,
+                $request->limit,
+                $request->page,
+                'date_transaction',
+                'DESC',
+                $with,
+                $whereNull
+            );
+        }
+
+        // Hitung total sesuai filter
+        $totals = DB::table('transaction_nominal_bank_accounts')
+            ->where('uuid_bank', $request->bank_id_xero)
+            ->when($request->date_start, function ($q, $v) {
+                $q->whereDate('date_transaction', '>=', $v);
+            })
+            ->when($request->date_end, function ($q, $v) {
+                $q->whereDate('date_transaction', '<=', $v);
+            })
+            ->when($request->keyword, function ($q, $v) {
+                $q->where('reference_detail', 'like', '%' . $v . '%');
+            })
+            ->selectRaw('SUM(total_base_receive) as total_penerimaan, SUM(total_base_spend) as total_pengeluaran')
+            ->first();
+
+        // Map manual — ambil field yang dibutuhkan saja
+        $rows = $paginator->getCollection()->map(function ($item) {
+            $pb = $item->getPbill;
+            $ppb = $item->getPBank;
+            $inv = $item->getInv;
+            $fee = $item->get_fee_over;
+            $bk = $item->get_bank;
+
+            return [
+                'id' => $item->id,
+                'uuid_bank' => $item->uuid_bank,
+                'date_transaction' => $item->date_transaction,
+                'reference_detail' => $item->reference_detail,
+                'nominal_spend' => $item->nominal_spend,
+                'nominal_receive' => $item->nominal_receive,
+                'nominal_currency' => $item->nominal_currency,
+                'name_bank' => $item->name_bank,
+                'nama_paket_payment' => $item->nama_paket_payment,
+                'nama_pembuat' => $item->nama_pembuat,
+
+                'get_pbill' => $pb ? [
+                    'id' => $pb->id,
+                    'reference' => $pb->reference,
+                    'total' => $pb->total,
+                    'nominal_paid' => $pb->nominal_paid,
+                    'nominal_due' => $pb->nominal_due,
+                    'name_contact_bill' => $pb->name_contact_bill,
+                ] : null,
+
+                'get_p_bank' => $ppb ? [
+                    'id' => $ppb->id,
+                    'reference' => $ppb->reference,
+                    'total' => $ppb->total,
+                    'is_spend' => $ppb->is_spend,
+                    'name_contact_trans_bank' => $ppb->name_contact_trans_bank,
+                ] : null,
+
+                'get_inv' => $inv ? [
+                    'id' => $inv->id,
+                    'invoice_number' => $inv->invoice_number,
+                    'invoice_total' => $inv->invoice_total,
+                    'issue_date' => $inv->issue_date,
+                    'contact_name' => $inv->contact_name,
+                    'reference' => $inv->reference,
+                ] : null,
+
+                'get_fee_over' => $fee ? [
+                    'id' => $fee->id,
+                    'invoice_number' => $fee->invoice_number,
+                    'reference' => $fee->reference,
+                ] : null,
+
+                'get_bank' => $bk ? [
+                    'id' => $bk->id,
+                    'name' => $bk->name,
+                    'currency_code' => $bk->currency_code,
+                    'sum_curr_spend' => $bk->sum_curr_spend,
+                    'sum_curr_receive' => $bk->sum_curr_receive,
+                    'final_nominal_currency' => $bk->final_nominal_currency,
+                ] : null,
+            ];
+        });
+
+        $paginator->appends($request->query());
+        $data = $paginator->toArray();
+        $data['data'] = $rows->values()->all();
+        $data['total_penerimaan'] = (float) ($totals->total_penerimaan ?? 0);
+        $data['total_pengeluaran'] = (float) ($totals->total_pengeluaran ?? 0);
+
+        return $this->autoResponse($data);
+    }
 
     public function getAllPaginateDetail(Request $request)
     {
@@ -117,6 +433,29 @@ class BankSpendReceiveController extends Controller
         } else {
             $data = $this->repo_trans_all_bank->getAllDataWithDefault($where, $request->limit, $request->page, 'date_transaction', 'DESC', ['getPbill', 'getPBank', 'getInv', 'getFeeOver'], $whereNull);
         }
+        $totals = DB::table('transaction_nominal_bank_accounts')
+            ->where('uuid_bank', $request->bank_id_xero)
+            ->when($request->date_start, function ($q, $v) {
+                $q->whereDate('date_transaction', '>=', $v);
+            })
+            ->when($request->date_end, function ($q, $v) {
+                $q->whereDate('date_transaction', '<=', $v);
+            })
+            ->when($request->keyword, function ($q, $v) {
+                $q->where('reference_detail', 'like', '%' . $v . '%');
+            })
+            ->selectRaw('
+        SUM(total_base_receive) as total_penerimaan,
+        SUM(total_base_spend)   as total_pengeluaran
+    ')
+            ->first();
+
+        $data->appends($request->query());
+        $data = $data->toArray();
+        $data['total_penerimaan'] = (float) ($totals->total_penerimaan ?? 0);
+        $data['total_pengeluaran'] = (float) ($totals->total_pengeluaran ?? 0);
+
+
         return $this->autoResponse($data);
     }
 
