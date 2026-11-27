@@ -336,7 +336,7 @@ $(document).ready(function() {
                     <i class="ti ti-pencil"></i>
                      Detail
                 </button>
-                <button class="btn btn-sm btn-danger delete-tracking" data-id="${row.id}" title="Hapus">
+                <button class="btn btn-sm btn-danger delete-tracking d-none" data-id="${row.id}" title="Hapus">
                     <i class="ti ti-trash"></i>
                 </button>
             `

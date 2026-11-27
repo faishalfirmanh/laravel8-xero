@@ -1118,9 +1118,9 @@ class ProfitLossController extends Controller
         $paketCheck = is_array($rawPaketCheck) ? array_filter($rawPaketCheck) : ($rawPaketCheck ? [$rawPaketCheck] : []);
         $trackCheck = is_array($rawTrackCheck) ? array_filter($rawTrackCheck) : ($rawTrackCheck ? [$rawTrackCheck] : []);
 
-        if (empty($paketCheck) && empty($trackCheck)) {
-            return $this->error('Minimal isi nama_paket (min 1) atau tracking_paket_name (min 1) ', 422);
-        }
+        // if (empty($paketCheck) && empty($trackCheck)) {
+        //     return $this->error('Minimal isi nama_paket (min 1) atau tracking_paket_name (min 1) ', 422);
+        // }
 
 
         $hasDateFilter = $request->filled('date_start') && $request->filled('date_end');
